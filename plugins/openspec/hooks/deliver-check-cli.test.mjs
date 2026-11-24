@@ -130,7 +130,7 @@ test('--watch outside wait-merge never polls (enable-auto-merge, and no --watch 
 test('walkthrough (merge): enable at 8/8, wait, a product commit disables first, the loop re-runs, enable again, then the retro', () => {
   const t = shipRepo({ ship: 'merge' });
   const taken = driveToReady(t);
-  assert.deepEqual(taken, ['implement', 'gate', 'implement', 'gate', 'commit', 'verify', 'review', 'open-pr', 'enable-auto-merge']);
+  assert.deepEqual(taken, ['implement', 'gate', 'implement', 'gate', 'commit', 'verify', 'commit', 'review', 'open-pr', 'enable-auto-merge']);
 
   const pr = (extra = {}, sha = head(t.root)) => t.gh.set('pr-view', { stdout: prJson({ headRefOid: sha, body: PR_BODY, ...extra }) });
   const step = () => nextStep(collectState(t.root, 'feat', { env: t.env }));
@@ -150,6 +150,8 @@ test('walkthrough (merge): enable at 8/8, wait, a product commit disables first,
   n = step();
   seen.push(n.step);
   fullEvidence(t.root, t.env);
+  seen.push(step().step); // the change folder is committed before the review round
+  commitAll(t.root, 'evidence');
   n = step();
   seen.push(n.step);
   assert.deepEqual(n.reviewers, ['code-quality-reviewer', 'test-coverage-reviewer']);
@@ -168,7 +170,7 @@ test('walkthrough (merge): enable at 8/8, wait, a product commit disables first,
   presetArchiveReads(t);
   seen.push(step().step);
 
-  assert.deepEqual(seen, ['enable-auto-merge', 'wait-merge', 'disable-auto-merge', 'verify', 'review', 'push', 'enable-auto-merge', 'wait-merge', 'retro']);
+  assert.deepEqual(seen, ['enable-auto-merge', 'wait-merge', 'disable-auto-merge', 'verify', 'commit', 'review', 'push', 'enable-auto-merge', 'wait-merge', 'retro']);
   assert.deepEqual(noMergeCall(t), [], 'deliver-check never merges; the skill runs gh pr merge');
 });
 
@@ -683,6 +685,29 @@ test('format: ship-change names every next.step the checker can return', () => {
   const emitted = [...new Set([...src.matchAll(/\bstep\('([a-z-]+)'/g)].map((m) => m[1]))];
   assert.ok(emitted.length >= steps.length - 1, 'found the steps in nextStep');
   for (const s of emitted) assert.match(md, new RegExp(`^\\|[^|]*\`${s}\`[^|]*\\|`, 'm'), `a table row for ${s}`);
+});
+
+// Invariant: the texts that tell the conducting session what to do say what the checker does: the loop hands
+// `commit` before a review round while the change folder is uncommitted. Owner: the ship-change skill and the
+// flow doc (text pins). Suite: deliver-check.test.mjs.
+test('loop-evidence 16: the ship-change review row leaves the commit to the loop and the commit row allows empty paths', () => {
+  const md = readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
+  const row = (step) => md.split('\n').find((l) => l.startsWith(`| \`${step}\``)) ?? '';
+  const review = row('review');
+  assert.ok(review.length > 0, 'the review row exists');
+  assert.ok(!review.includes('Commit every modified or untracked file under the change folder first'), 'the review row no longer commits by prose');
+  assert.ok(review.includes('The loop hands the `commit` step first while anything under the change folder is uncommitted'), 'the review row names the loop\'s commit step');
+  const commit = row('commit');
+  assert.ok(commit.includes('`next.paths` may be empty: before a review round the loop hands `commit` with no paths while only the change folder is uncommitted'), 'the commit row allows empty paths');
+  assert.ok(commit.includes('are still staged from `git status`'), 'the commit row still stages the folder from git status');
+});
+
+test('loop-evidence 17: the flow doc\'s order of the delivery steps names the commit before the review round', () => {
+  const doc = readFileSync(join(repoRoot, 'docs', 'openspec-flow.md'), 'utf8');
+  const para = doc.split('\n').find((l) => l.startsWith('**Order of the delivery steps.**')) ?? '';
+  assert.ok(para.length > 0, 'the paragraph exists');
+  assert.ok(para.includes('`commit` (a reviewer missing or stale while a path under `openspec/changes/<id>/` is uncommitted'), 'the order names the commit step');
+  assert.ok(para.includes('A review round never starts on an uncommitted change folder'), 'the order states the rule');
 });
 
 test('format: ship-change enables auto-merge with one exact command, only at enable-auto-merge, and disables it at disable-auto-merge (AC-2, AC-3, AC-8)', () => {

@@ -1,0 +1,194 @@
+✖ slice-claim AC-1 open: the claim on origin holds the slice's metadata with this machine, in the open commit, and the worktree stays (1163.128926ms)
+✖ slice-claim AC-2 open: the machine line comes before the pin, which ends the file (1045.233038ms)
+✔ slice-claim AC-3 open: a slice claimed on origin is refused naming its machine, and creates nothing (341.306293ms)
+✔ slice-claim AC-3 open: a slice branch with no machine says another machine, and one with no folder is a taken name (421.272879ms)
+✖ slice-claim AC-4 open: the clone that pushes second is refused and leaves nothing (1145.237612ms)
+✖ slice-claim AC-4 open: two clones opening one slice at once, exactly one wins (1301.131629ms)
+✖ slice-claim AC-1 open: a push the remote refuses fails the open with the unreadable reply and leaves nothing (1123.570445ms)
+✔ slice-claim AC-5 open: with no origin nothing is committed or pushed and no claim key is written (1020.340027ms)
+✖ slice-claim AC-6 status: the readout names the machine of the claim after its title, in both languages (1800.645017ms)
+✔ slice-claim AC-6 status: a slice with no machine key, or one that is not a name, has no machine line (3805.45753ms)
+✔ slice-claim AC-7 board: a slice claimed on origin, here or on another clone, is on no row of the status board or its JSON (2169.265665ms)
+✖ slice-claim AC-8 delivery: the claimed slice reaches its pull request by a fast-forward push and passes the slice contract (2721.161714ms)
+✖ slice-claim AC-9 code: project-loop.mjs takes the claim from openCheckout and holds no claim step of its own (5.650054ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 5
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 32906.023563
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/project-loop.test.mjs:1968:1
+✖ slice-claim AC-1 open: the claim on origin holds the slice's metadata with this machine, in the open commit, and the worktree stays (1163.128926ms)
+  AssertionError [ERR_ASSERTION]: origin has the branch
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.test.mjs:1972:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /^[0-9a-f]{40}$/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/project-loop.test.mjs:1982:1
+✖ slice-claim AC-2 open: the machine line comes before the pin, which ends the file (1045.233038ms)
+  AssertionError [ERR_ASSERTION]: a machine line: "schema: devkit-project\ncreated: 2026-11-24\nskip_specs: true\nx-devkit-version: 0.33.0\nx-devkit-flow: 1\n"
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.test.mjs:1989:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/project-loop.test.mjs:2026:1
+✖ slice-claim AC-4 open: the clone that pushes second is refused and leaves nothing (1145.237612ms)
+  AssertionError [ERR_ASSERTION]: the other clone opened between the check and the push
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.test.mjs:2032:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/project-loop.test.mjs:2040:1
+✖ slice-claim AC-4 open: two clones opening one slice at once, exactly one wins (1301.131629ms)
+  AssertionError [ERR_ASSERTION]: {
+    "version": 1,
+    "slice": "billing",
+    "worktree": "/var/tmp/devkit-project-slice-claim/devkit-loop-XM2Nmp/.claude/worktrees/billing",
+    "branch": "billing",
+    "base": "origin/main",
+    "reply": "I opened the slice billing in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval."
+  }
+  
+  {
+    "version": 1,
+    "slice": "billing",
+    "worktree": "/var/tmp/devkit-project-slice-claim/devkit-loop-clone-puCy7q/clone/.claude/worktrees/billing",
+    "branch": "billing",
+    "base": "origin/main",
+    "reply": "I opened the slice billing in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval."
+  }
+  
+  + actual - expected
+  
+    [
+      0,
+  +   0
+  -   3
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.test.mjs:2044:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 0, 0 ],
+    expected: [ 0, 3 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/project-loop.test.mjs:2054:1
+✖ slice-claim AC-1 open: a push the remote refuses fails the open with the unreadable reply and leaves nothing (1123.570445ms)
+  AssertionError [ERR_ASSERTION]: {
+    "version": 1,
+    "slice": "billing",
+    "worktree": "/var/tmp/devkit-project-slice-claim/devkit-loop-00yUkw/.claude/worktrees/billing",
+    "branch": "billing",
+    "base": "origin/main",
+    "reply": "I opened the slice billing in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval."
+  }
+  
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.test.mjs:2060:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/project-loop.test.mjs:2077:1
+✖ slice-claim AC-6 status: the readout names the machine of the claim after its title, in both languages (1800.645017ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'Slice billing',
+  +   'Business: ready (business.md does not exist yet)'
+  -   'Machine: avell'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.test.mjs:2081:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'Slice billing', 'Business: ready (business.md does not exist yet)' ],
+    expected: [ 'Slice billing', 'Machine: avell' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/project-loop.test.mjs:2118:1
+✖ slice-claim AC-8 delivery: the claimed slice reaches its pull request by a fast-forward push and passes the slice contract (2721.161714ms)
+  AssertionError [ERR_ASSERTION]: the open commit is on origin
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.test.mjs:2122:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /^[0-9a-f]{40}$/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/project-loop.test.mjs:2131:1
+✖ slice-claim AC-9 code: project-loop.mjs takes the claim from openCheckout and holds no claim step of its own (5.650054ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(source.includes('claim: { machine: thisMachine(), places: null }'))
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.test.mjs:2133:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

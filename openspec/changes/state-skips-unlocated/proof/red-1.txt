@@ -1,0 +1,308 @@
+✖ unlocated 1: locate from a worktree on another branch that holds the active folder reads it there (433.069792ms)
+✔ unlocated 1: locate: the archive worktree wins over the caller's (409.686833ms)
+✔ unlocated 1: locate: the worktree on branch x wins over the caller's (420.109ms)
+✔ unlocated 1: locate from the main checkout is unchanged (438.510833ms)
+✔ unlocated 1: locate from the change's own worktree is unchanged (340.449291ms)
+✔ unlocated 1: locate: a caller holding only an archived folder reads the main checkout (390.3965ms)
+▶ unlocated 1: locate: a main checkout holding a folder of x keeps it
+  ✔ the main checkout holds x active (402.032125ms)
+  ✔ the main checkout holds x archived (406.929708ms)
+✔ unlocated 1: locate: a main checkout holding a folder of x keeps it (809.4375ms)
+✔ unlocated 1: locate: a caller with no folder of x reads the main checkout (413.40275ms)
+▶ unlocated 1: unplacedAction gives null for a change the loop can place
+  ✖ the main checkout holds the folder (285.146791ms)
+  ✖ a worktree on branch x holds the folder (294.926209ms)
+  ✖ a worktree on chore/archive-x whose folder is not moved yet, with the folder in another checkout (456.911541ms)
+✖ unlocated 1: unplacedAction gives null for a change the loop can place (1037.3905ms)
+✖ unlocated 1: unplacedAction gives null for an id no checkout holds (310.401375ms)
+✖ unlocated 1: unplacedAction gives the blocked stand-in with the holder's root and branch (327.798208ms)
+✖ unlocated 1: state lists an unplaced change blocked and every other change as before (3914.402208ms)
+✖ unlocated 1: state in Brazilian Portuguese gives the same code and the pt-BR phrase (2320.990417ms)
+✖ unlocated 1: state --change x prints the list's entry (2148.369916ms)
+✔ unlocated 1: state --change nope in the unplaced setup still exits 3 (543.988583ms)
+✖ unlocated 1: next --change x from the worktree on another branch gives x's action (404.156625ms)
+✖ unlocated 1: the change run's stop lock in that worktree refuses for x's ready stage (420.927625ms)
+▶ unlocated 1: state follows the run file first for an unplaced change
+  ✖ a declared end of x wins over the stand-in (1827.502208ms)
+  ✖ a stage of x in flight reads as running (1876.828ms)
+✖ unlocated 1: state follows the run file first for an unplaced change (4010.120083ms)
+▶ unlocated 1: state --change of a change archived on origin with a stale copy in a worktree on another branch reads archived
+  ✖ the stale copy records no creation day (312.942958ms)
+  ✖ a new change that reuses the id, created after the archive, is blocked (297.0755ms)
+✖ unlocated 1: state --change of a change archived on origin with a stale copy in a worktree on another branch reads archived (1104.697ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 10
+ℹ fail 18
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20279.428041
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5976:1
+✖ unlocated 1: locate from a worktree on another branch that holds the active folder reads it there (433.069792ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   branch: 'main',
+  +   root: '/private/tmp/devkit-state-skips-unlocated/devkit-deliver-CgQFix'
+  -   branch: 'side',
+  -   root: '/private/tmp/devkit-state-skips-unlocated/devkit-deliver-CgQFix/.claude/worktrees/side'
+    }
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:5979:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { root: '/private/tmp/devkit-state-skips-unlocated/devkit-deliver-CgQFix', branch: 'main' },
+    expected: { root: '/private/tmp/devkit-state-skips-unlocated/devkit-deliver-CgQFix/.claude/worktrees/side', branch: 'side' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6039:11
+✖ the main checkout holds the folder (285.146791ms)
+  TypeError [Error]: changeLoopModule.unplacedAction is not a function
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6042:35)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6039:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6044:11
+✖ a worktree on branch x holds the folder (294.926209ms)
+  TypeError [Error]: changeLoopModule.unplacedAction is not a function
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6048:35)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6044:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6050:11
+✖ a worktree on chore/archive-x whose folder is not moved yet, with the folder in another checkout (456.911541ms)
+  TypeError [Error]: changeLoopModule.unplacedAction is not a function
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6054:35)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6050:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6058:1
+✖ unlocated 1: unplacedAction gives null for an id no checkout holds (310.401375ms)
+  TypeError [Error]: changeLoopModule.unplacedAction is not a function
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6061:33)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6064:1
+✖ unlocated 1: unplacedAction gives the blocked stand-in with the holder's root and branch (327.798208ms)
+  TypeError [Error]: changeLoopModule.unplacedAction is not a function
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6067:37)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6073:1
+✖ unlocated 1: state lists an unplaced change blocked and every other change as before (3914.402208ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"no change named x, active or archived","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: no change named x, active or archived
+  
+  
+  3 !== 0
+  
+      at entriesOfRun (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:5727:38)
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6078:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6087:1
+✖ unlocated 1: state in Brazilian Portuguese gives the same code and the pt-BR phrase (2320.990417ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"no change named x, active or archived","reply":"Não consegui ler esse pedido. Digite /devkit change e o que você quer fazer, ou só /devkit change para continuar."}
+  change-loop: no change named x, active or archived
+  
+  
+  3 !== 0
+  
+      at entriesOfRun (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:5727:38)
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6090:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6097:1
+✖ unlocated 1: state --change x prints the list's entry (2148.369916ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"no change named x, active or archived","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: no change named x, active or archived
+  
+  
+  3 !== 0
+  
+      at entriesOfRun (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:5727:38)
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6100:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6117:1
+✖ unlocated 1: next --change x from the worktree on another branch gives x's action (404.156625ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"no change named x, active or archived","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: no change named x, active or archived
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6121:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6126:1
+✖ unlocated 1: the change run's stop lock in that worktree refuses for x's ready stage (420.927625ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6130:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6137:11
+✖ a declared end of x wins over the stand-in (1827.502208ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"no change named x, active or archived","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: no change named x, active or archived
+  
+  
+  3 !== 0
+  
+      at entriesOfRun (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:5727:38)
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6139:15)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6137:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6144:11
+✖ a stage of x in flight reads as running (1876.828ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"no change named x, active or archived","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: no change named x, active or archived
+  
+  
+  3 !== 0
+  
+      at entriesOfRun (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:5727:38)
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6146:15)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6144:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6156:11
+✖ the stale copy records no creation day (312.942958ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"no change named foo, active or archived","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: no change named foo, active or archived
+  
+  
+  3 !== 0
+  
+      at entriesOfRun (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:5727:38)
+      at entryOf (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:5728:39)
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6157:15)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6156:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6160:11
+✖ a new change that reuses the id, created after the archive, is blocked (297.0755ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"no change named foo, active or archived","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: no change named foo, active or archived
+  
+  
+  3 !== 0
+  
+      at entriesOfRun (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:5727:38)
+      at entryOf (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:5728:39)
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6162:15)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6160:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+exit 1

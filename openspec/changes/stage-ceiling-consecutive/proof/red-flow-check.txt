@@ -1,0 +1,344 @@
+✖ stage-ceiling-consecutive AC-1: a failure after two passed takes is offered its fix (421.213098ms)
+✖ stage-ceiling-consecutive AC-2: failures in a row still end blocked (652.658907ms)
+✖ stage-ceiling-consecutive AC-3: a pass between failures resets the count (734.50386ms)
+▶ stage-ceiling-consecutive AC-4: history that cannot be read keeps the attempt
+  ✖ stage-ceiling-consecutive AC-4 F-1: a folder that is not a repository reads as no history (1.238783ms)
+  ✖ stage-ceiling-consecutive AC-4 F-2: no git on PATH reads as no history (413.135444ms)
+  ✖ stage-ceiling-consecutive AC-4 F-3: a depth-1 clone gives today's rule (764.080702ms)
+  ✖ stage-ceiling-consecutive AC-4 F-4: a stage file never committed gives today's rule (457.691279ms)
+  ✖ stage-ceiling-consecutive AC-4 no history fact: the walk blocks exactly when attempt reaches the ceiling (6.033467ms)
+✖ stage-ceiling-consecutive AC-4: history that cannot be read keeps the attempt (1650.399346ms)
+▶ stage-ceiling-consecutive AC-4: what the history shows is counted
+  ✖ stage-ceiling-consecutive AC-4 H-3: a depth-2 clone shows the last pass (866.573704ms)
+  ✖ stage-ceiling-consecutive AC-4 H-4: a pass whose commit is not in the history still counts as a pass (665.019319ms)
+  ✖ stage-ceiling-consecutive AC-4 H-5: a take overwritten without a commit is not counted (576.026765ms)
+✖ stage-ceiling-consecutive AC-4: what the history shows is counted (2116.590834ms)
+✖ stage-ceiling-consecutive AC-7: takes retaken after merges of main do not count (1018.11739ms)
+✖ stage-ceiling-consecutive: failuresInARow counts the distinct failed headers since the last pass (3.758139ms)
+✖ stage-ceiling-consecutive: the history is read only for a failed stage with a numeric ceiling (3.355315ms)
+✖ stage-ceiling-consecutive AC-6: the readout says the failures in a row in both languages (826.017653ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 0
+ℹ fail 17
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 28210.359091
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2048:1
+✖ stage-ceiling-consecutive AC-1: a failure after two passed takes is offered its fix (421.213098ms)
+  TypeError [Error]: FC.stageHistory is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2050:23)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2059:1
+✖ stage-ceiling-consecutive AC-2: failures in a row still end blocked (652.658907ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      attempt: 3,
+      ceiling: 3,
+  -   failures: 3,
+      stage: 'evidence'
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2064:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { stage: 'evidence', attempt: 3, ceiling: 3 },
+    expected: { stage: 'evidence', attempt: 3, failures: 3, ceiling: 3 },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2074:1
+✖ stage-ceiling-consecutive AC-3: a pass between failures resets the count (734.50386ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + {
+  +   params: {
+  +     attempt: 3,
+  +     ceiling: 3,
+  +     stage: 'evidence'
+  +   },
+  +   reason: 'the demonstration failed at attempt 3 and its ceiling is 3',
+  +   reasonCode: 'ceiling-reached',
+  +   stage: 'evidence',
+  +   state: 'blocked'
+  + }
+  - null
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2076:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { state: 'blocked', stage: 'evidence', reasonCode: 'ceiling-reached', params: { stage: 'evidence', attempt: 3, ceiling: 3 }, reason: 'the demonstration failed at attempt 3 and its ceiling is 3' },
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2089:11
+✖ stage-ceiling-consecutive AC-4 F-1: a folder that is not a repository reads as no history (1.238783ms)
+  TypeError [Error]: FC.stageHistory is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2090:25)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2089:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2092:11
+✖ stage-ceiling-consecutive AC-4 F-2: no git on PATH reads as no history (413.135444ms)
+  TypeError [Error]: FC.stageHistory is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2094:21)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2092:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2097:11
+✖ stage-ceiling-consecutive AC-4 F-3: a depth-1 clone gives today's rule (764.080702ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  undefined !== 3
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2100:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2097:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2102:11
+✖ stage-ceiling-consecutive AC-4 F-4: a stage file never committed gives today's rule (457.691279ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  undefined !== 3
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2105:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2102:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2107:11
+✖ stage-ceiling-consecutive AC-4 no history fact: the walk blocks exactly when attempt reaches the ceiling (6.033467ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  undefined !== 1
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2115:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2107:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2122:11
+✖ stage-ceiling-consecutive AC-4 H-3: a depth-2 clone shows the last pass (866.573704ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + {
+  +   params: {
+  +     attempt: 3,
+  +     ceiling: 3,
+  +     stage: 'evidence'
+  +   },
+  +   reason: 'the demonstration failed at attempt 3 and its ceiling is 3',
+  +   reasonCode: 'ceiling-reached',
+  +   stage: 'evidence',
+  +   state: 'blocked'
+  + }
+  - null
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2124:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2122:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { state: 'blocked', stage: 'evidence', reasonCode: 'ceiling-reached', params: { stage: 'evidence', attempt: 3, ceiling: 3 }, reason: 'the demonstration failed at attempt 3 and its ceiling is 3' },
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2127:11
+✖ stage-ceiling-consecutive AC-4 H-4: a pass whose commit is not in the history still counts as a pass (665.019319ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + {
+  +   params: {
+  +     attempt: 3,
+  +     ceiling: 3,
+  +     stage: 'evidence'
+  +   },
+  +   reason: 'the demonstration failed at attempt 3 and its ceiling is 3',
+  +   reasonCode: 'ceiling-reached',
+  +   stage: 'evidence',
+  +   state: 'blocked'
+  + }
+  - null
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2129:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2127:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { state: 'blocked', stage: 'evidence', reasonCode: 'ceiling-reached', params: { stage: 'evidence', attempt: 3, ceiling: 3 }, reason: 'the demonstration failed at attempt 3 and its ceiling is 3' },
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2132:11
+✖ stage-ceiling-consecutive AC-4 H-5: a take overwritten without a commit is not counted (576.026765ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + {
+  +   params: {
+  +     attempt: 3,
+  +     ceiling: 3,
+  +     stage: 'evidence'
+  +   },
+  +   reason: 'the demonstration failed at attempt 3 and its ceiling is 3',
+  +   reasonCode: 'ceiling-reached',
+  +   stage: 'evidence',
+  +   state: 'blocked'
+  + }
+  - null
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2134:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2132:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { state: 'blocked', stage: 'evidence', reasonCode: 'ceiling-reached', params: { stage: 'evidence', attempt: 3, ceiling: 3 }, reason: 'the demonstration failed at attempt 3 and its ceiling is 3' },
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2139:1
+✖ stage-ceiling-consecutive AC-7: takes retaken after merges of main do not count (1018.11739ms)
+  TypeError [Error]: Cannot read properties of null (reading 'params')
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2141:25)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2148:1
+✖ stage-ceiling-consecutive: failuresInARow counts the distinct failed headers since the last pass (3.758139ms)
+  TypeError [Error]: count is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2153:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2167:1
+✖ stage-ceiling-consecutive: the history is read only for a failed stage with a numeric ceiling (3.355315ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   'evidence.md'
+  - ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2177:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'evidence.md' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2180:1
+✖ stage-ceiling-consecutive AC-6: the readout says the failures in a row in both languages (826.017653ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Demonstration {2,}failed at attempt 3; failures in a row: 1 of 3\n/. Input:
+  
+  'Change feat (devkit script)\n' +
+    'Flow: this change follows version 1 of the devkit script; version 2 is installed. To move it: change-loop.mjs flow feat.\n' +
+    '\n' +
+    ' 1  Open the change         passed\n' +
+    ' 2  Requirements (grill)    passed\n' +
+    ' 3  Screen mock-up          does not apply: the change was already past the proposal when this stage arrived\n' +
+    ' 4  Decisions and ADRs      does not apply: the change was already past the proposal when this stage arrived\n' +
+    ' 5  Proposal                passed\n' +
+    ' 6  Specs                   passed\n' +
+    ' 7  Design                  passed\n' +
+    ' 8  Tasks                   passed\n' +
+    ' 9  Plan readiness          passed\n' +
+    "10  Owner's approval        passed\n" +
+    '11  Implementation          passed: 2 of 2 tasks done\n' +
+    '12  Unit tests              does not apply: the change was already past the demonstration when this stage arrived\n' +
+    '13  E2E tests               does not apply: the change was already past the demonstration when this stage arrived\n' +
+    '14  Demonstration           failed at attempt 3 of 3\n' +
+    '15  Code review             passed\n' +
+    '16  Delivery                blocked: waits for stage 14\n' +
+    '17  Retro and archive       passed\n' +
+    '\n' +
+    'End: blocked. The demonstration failed at attempt 3 and its ceiling is 3.\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/flow-check.test.mjs:2185:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: "Change feat (devkit script)\nFlow: this change follows version 1 of the devkit script; version 2 is installed. To move it: change-loop.mjs flow feat.\n\n 1  Open the change         passed\n 2  Requirements (grill)    passed\n 3  Screen mock-up          does not apply: the change was already past the proposal when this stage arrived\n 4  Decisions and ADRs      does not apply: the change was already past the proposal when this stage arrived\n 5  Proposal                passed\n 6  Specs                   passed\n 7  Design                  passed\n 8  Tasks                   passed\n 9  Plan readiness          passed\n10  Owner's approval        passed\n11  Implementation          passed: 2 of 2 tasks done\n12  Unit tests              does not apply: the change was already past the demonstration when this stage arrived\n13  E2E tests               does not apply: the change was already past the demonstration when this stage arrived\n14  Demonstration           failed at attempt 3 of 3\n15  Code review             passed\n16  Delivery                blocked: waits for stage 14\n17  Retro and archive       passed\n\nEnd: blocked. The demonstration failed at attempt 3 and its ceiling is 3.\n",
+    expected: /Demonstration {2,}failed at attempt 3; failures in a row: 1 of 3\n/,
+    operator: 'match',
+    diff: 'simple'
+  }

@@ -445,6 +445,10 @@ const PARTS = ['open', 'plan', 'build', 'after', 'delivery', 'close'];
 const STAGE_KEYS = ['id', 'source', 'file', 'role', 'skills', 'helpers', 'part', 'title', 'shipped', 'owner',
   'ceiling', 'onFail', 'staleAfter', 'codeBound', 'appliesWhen', 'notAfter'];
 const SETTING_PATH = /^[A-Za-z][\w-]*(\.[A-Za-z][\w-]*)*$/;
+// The newest flow version this reader knows for each shipped script (jira-entry-followups D-3). A flow.json above it is refused with the
+// update to make; a script outside this list (a project's own) has no ceiling. A change to a shipped flow.json raises its entry with the file.
+export const FLOW_VERSIONS = Object.freeze({ devkit: 2, 'devkit-lite': 2, 'devkit-project': 1 });
+const RELEASE_NUMBER = /^\d+\.\d+\.\d+$/;
 export const FLOW_LANGS = ['en', 'pt-BR'];
 
 // The script's declaration of its stages (design D-5): flow.json next to the schema's schema.yaml.
@@ -462,6 +466,10 @@ export function readFlowFile(f, name = f) {
   const bad = (why) => new FlowUsageError(`flow.json of ${name} is malformed: ${why}`);
   let flow;
   try { flow = JSON.parse(readFileSync(f, 'utf8')); } catch (e) { throw bad(`not JSON (${e.message})`); }
+  if (flow && typeof flow === 'object' && Number.isInteger(flow.version) && Object.hasOwn(FLOW_VERSIONS, flow.script) && flow.version > FLOW_VERSIONS[flow.script]) {
+    const needs = typeof flow.readerRelease === 'string' && RELEASE_NUMBER.test(flow.readerRelease) ? `devkit-openspec ${flow.readerRelease} or later` : 'a later devkit-openspec';
+    throw new FlowUsageError(`flow.json of ${name} is version ${flow.version} of the ${flow.script} flow, and this devkit-openspec reads that flow up to version ${FLOW_VERSIONS[flow.script]}: it needs ${needs}; update the plugin and restart the session`);
+  }
   if (!flow || typeof flow !== 'object' || !Array.isArray(flow.stages) || flow.stages.length === 0) throw bad('no stages');
   if (!Number.isInteger(flow.version) || flow.version < 1) throw bad(`version ${flow.version} is not a whole number from 1`);
   if (!Number.isInteger(flow.ceilings?.default) || flow.ceilings.default < 1) throw bad('ceilings.default is not a positive integer');
@@ -498,6 +506,9 @@ export function readFlowFile(f, name = f) {
       throw bad(`stage ${s.id} has a notAfter that is not a later artifact stage: ${JSON.stringify(s.notAfter)}`);
     }
   });
+  if (flow.readerRelease !== undefined && !(typeof flow.readerRelease === 'string' && RELEASE_NUMBER.test(flow.readerRelease))) {
+    throw bad(`readerRelease ${JSON.stringify(flow.readerRelease)} is not a release number such as 1.2.3`);
+  }
   return flow;
 }
 
