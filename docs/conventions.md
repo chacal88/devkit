@@ -63,3 +63,4 @@ description: <What it does>. Use when <concrete triggers, including phrases a us
 - Gate files have one writer: `readiness.md` ← `plan-readiness-reviewer`, `reviews/<reviewer>.md` ← that reviewer, `evidence.md` ← `pr-verifier`. Don't add an asset that writes them.
 - Cut bloat, keep method. Don't invent rules the sources didn't have.
 - Body in English.
+- A study's recommendation marks each decision that rests on an open point as `(provisional until O-n)`, and any command output pasted into it is scrubbed of personal paths and e-mails when it is pasted.

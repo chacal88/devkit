@@ -1,64 +1,17 @@
-// Tests for conduct-check.mjs (conduct-rounds design D2-D12). Imported by guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// Tests for conduct-check.mjs (conduct-rounds design D2-D12). Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/hooks/conduct-check.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, realpathSync, utimesSync, rmSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpFolder } from './test-tmp.mjs';
 import { createHash } from 'node:crypto';
-import { gitRepo, put, commitAll, git, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText } from './deliver-check.test.mjs';
+import { gitRepo, put, commitAll, git, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, CONFIG, cleanEnv, real, roundRepo, pinDoc, underOwnTmp } from './test-fixtures.mjs';
 import { makeGh } from './merge-setup.mjs';
-import { pinDoc, underOwnTmp } from './release-merge.test.mjs';
 import { parseRoadmap, readRoadmap } from './guard.mjs';
 import { conductState, planningStep, dependencyStep, deliveryStep, deliveryRow, actorOf, selectDispatch, sessionPrefixes, main as conductMain } from './conduct-check.mjs';
 
 // ---------------------------------------------------------------- fixture harness (task 2.1)
-
-const CONFIG = 'schema: devkit-lite\nship:\n  devkit-lite: pr\n  devkit: pr\n';
-const cleanEnv = { ...process.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', DEVKIT_BYPASS: '', DEVKIT_HOST: 'cli' };
-const real = (p) => realpathSync(p);
-
-// A bare origin with main, a clone (the "main checkout") and, per path, its own fake gh.
-export function roundRepo({ roadmap, config = CONFIG, files = {}, changes = {} } = {}) {
-  const clone = gitRepo({ config, changes, files: { 'openspec/roadmap.md': roadmap, ...files } });
-  const originDir = tmpFolder('devkit-origin-');
-  git(originDir, 'init', '-q', '--bare', '-b', 'main');
-  git(clone, 'remote', 'add', 'origin', originDir);
-  git(clone, 'push', '-q', 'origin', 'main');
-  git(clone, 'fetch', '-q', 'origin');
-  const main = real(clone);
-  const ghs = new Map();
-  const ghAt = (path) => {
-    const key = real(path);
-    if (!ghs.has(key)) {
-      const g = fakeGh();
-      g.set('api-GET-repos__owner___repo_', { stdout: { default_branch: 'main', allow_auto_merge: true, allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: true } });
-      g.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "x"\n' });
-      g.set('pr-list', { stdout: [] });
-      ghs.set(key, g);
-    }
-    return ghs.get(key);
-  };
-  const t = {
-    main, originDir, ghAt,
-    ghFor: (r) => makeGh(r, ghAt(r).env),
-    wtPath: (id) => join(main, '.claude', 'worktrees', id),
-    addWt(id, { path = t.wtPath(id), from = 'origin/main', branch = id } = {}) {
-      git(main, 'worktree', 'add', '-q', '-b', branch, path, from);
-      return real(path);
-    },
-    // Put files on origin/main (committed in the main checkout, then pushed).
-    commitOrigin(files, message = 'origin change') {
-      put(main, files);
-      const sha = commitAll(main, message);
-      git(main, 'push', '-q', 'origin', 'main');
-      return sha;
-    },
-    originSha: () => git(main, 'rev-parse', 'origin/main'),
-    state: (opts = {}, root = main) => conductState(root, { env: cleanEnv, ghFor: t.ghFor, ...opts }),
-  };
-  return t;
-}
 
 const roadmapOf = (...rounds) => `# Roadmap\n\n${rounds.map(([title, ...lines]) => `## ${title}\n${lines.join('\n')}\n`).join('\n')}`;
 const byId = (res, id) => res.changes.find((c) => c.id === id);
@@ -764,15 +717,16 @@ test('conduct: an archive PR in conflict only in release files is resolve-releas
 
 // The state after the release merge, not pushed yet: the branch holds origin/main merged in and the CHANGELOG
 // resolved, and the PR still has the old head and still reads CONFLICTING (release-merge-conflict D-5).
-function mergedChange({ config = CONFIG } = {}) {
+function mergedChange({ config = CONFIG, shared = false } = {}) {
+  const lines = (first, last) => Array.from({ length: 12 }, (_, i) => (i === 0 ? first : i === 11 ? last : `line ${i + 1}`)).join('\n') + '\n';
   const t = roundRepo({
     roadmap: roadmapOf(['Round 1: x', '- [ ] b']), config,
-    files: { 'CHANGELOG.md': '# c\n', ...(config === CONFIG ? {} : MERGE_FILES) },
+    files: { 'CHANGELOG.md': '# c\n', ...(shared ? { 'src/shared.ts': lines('line 1', 'line 12') } : {}), ...(config === CONFIG ? {} : MERGE_FILES) },
   });
   const b = t.addWt('b');
-  readyChange(b, 'b', { files: { 'CHANGELOG.md': '# c\nb entry\n' } });
+  readyChange(b, 'b', { files: { 'CHANGELOG.md': '# c\nb entry\n', ...(shared ? { 'src/shared.ts': lines('b 1', 'line 12') } : {}) } });
   const oldHead = headOf(b);
-  t.commitOrigin({ 'CHANGELOG.md': '# c\norigin entry\n' }, 'origin edits the changelog');
+  t.commitOrigin({ 'CHANGELOG.md': '# c\norigin entry\n', ...(shared ? { 'src/shared.ts': lines('line 1', 'origin 12') } : {}) }, 'origin edits the changelog');
   openPr(t, b, 'b', { mergeable: 'CONFLICTING' });
   try { git(b, 'merge', '-q', '--no-ff', '--no-commit', 'origin/main'); } catch { /* the conflict is the point */ }
   put(b, { 'CHANGELOG.md': '# c\nb entry\norigin entry\n' });
@@ -787,8 +741,20 @@ function reviewedAt(b) {
   commitAll(b, 'reviews and evidence');
 }
 
-test('release-merge-conflict 8: after a release merge that is not pushed, verify and review run again, then push hands a plain git push', () => {
+test('release-merge-conflict 8: after a release merge that is not pushed, the records stay current and push hands a plain git push', () => {
   const { t, b } = mergedChange();
+  const c = byId(t.state(), 'b');
+  assert.equal(c.deliver.next.step, 'blocked');
+  assert.equal(c.deliver.next.conflict, true);
+  assert.deepEqual(planStep(c), ['push', 'subagent']);
+  assert.equal(c.next.agent, CAP);
+  assert.deepEqual(c.next.command, ['git', 'push', 'origin', 'b']);
+  assert.equal(c.next.number, 12);
+  assert.doesNotMatch(JSON.stringify(c.next), /--force/);
+});
+
+test('release-merge-conflict 8b: after a release merge that also brings a file the branch changed, verify and review run again, then push hands a plain git push', () => {
+  const { t, b } = mergedChange({ shared: true });
   let c = byId(t.state(), 'b');
   assert.deepEqual(planStep(c), ['verify', 'subagent']);
   reviewedAt(b);
@@ -798,7 +764,6 @@ test('release-merge-conflict 8: after a release merge that is not pushed, verify
   assert.deepEqual(planStep(c), ['push', 'subagent']);
   assert.equal(c.next.agent, CAP);
   assert.deepEqual(c.next.command, ['git', 'push', 'origin', 'b']);
-  assert.equal(c.next.number, 12);
   assert.doesNotMatch(JSON.stringify(c.next), /--force/);
 });
 
