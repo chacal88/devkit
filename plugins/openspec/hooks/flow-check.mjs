@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader, FlowUsageError, readFlow, readFlowFile, FLOW_LANGS, changeFlow, changeSchemaAt, parseDevkitBlock, budgetValue, spendOf, spendSources, spendLines } from './guard.mjs';
-import { gitFacts, staleness, ownFiles, stalenessBase, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads, trainFacts, isDevkitScript, authorizedRounds, approvalState, planRevision } from './deliver-check.mjs';
+import { gitFacts, staleness, ownFiles, stalenessBase, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads, trainFacts, isDevkitScript, authorizedRounds, approvalState, planRevision, headInBase } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
 // The flow file reader and its error live in guard.mjs (the CI job downloads that file, not this one); one reader, re-exported.
@@ -329,7 +329,8 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   let testLookup = null;
   const twoPrs = two ? { base: config.base, testBranch: config.testBranch, testPr: () => (testLookup ??= findTestPr(gh, { id, testBranch: config.testBranch })) } : null;
   const histories = new Map(); // the earlier headers of a stage file, read once and only for a failed stage (design D-1)
-  const postMerge = config.ship !== 'plan' && offOwnBranch(root, id, branch) && delivery().delivered;
+  // Also on the change's own branch once it was advanced into the base after the merge (coordinator-loop-fixes D-21).
+  const postMerge = config.ship !== 'plan' && (offOwnBranch(root, id, branch) || headInBase(root, gf)) && delivery().delivered;
   Object.assign(facts, {
     head: gf.head, dirty: gf.dirty, fingerprint: fingerprint(root, gf.head), postMerge,
     staleness: (sha) => (postMerge ? null : sha === 'none' ? 'the header records no commit' : staleness(root, { sha, uncommitted: false }, gf, { own: ownFiles(root, id, gf) })),

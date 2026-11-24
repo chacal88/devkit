@@ -303,6 +303,13 @@ export function stalenessBase(root, env = process.env, configuredBase = null) {
   return ['main', 'master'].find((name) => baseTip(root, name)) ?? null;
 }
 
+// Whether the checkout's head is contained in origin/<facts.base> (coordinator-loop-fixes D-21); false with no
+// head, no base or no origin/<base>.
+export function headInBase(root, facts) {
+  const tip = facts.base && facts.head ? baseTip(root, facts.base) : null;
+  return Boolean(tip) && gitOk(root, ['merge-base', '--is-ancestor', facts.head, tip]);
+}
+
 // The change's own files (stale-only-on-own-files D-2): { base, tip, isOwn(path) }, or null when the rule cannot
 // tell (no base, no origin/<base>, no head, the head already in the base, no merge base). Own are the paths that
 // differ between the merge base and the head, both sides of a move included, less the release files, and
@@ -312,7 +319,7 @@ export function ownFiles(root, id, facts) {
   if (cache.has(id)) return cache.get(id);
   let own = null;
   const tip = facts.base && facts.head ? baseTip(root, facts.base) : null;
-  if (tip && !gitOk(root, ['merge-base', '--is-ancestor', facts.head, tip])) {
+  if (tip && !headInBase(root, facts)) {
     try {
       const paths = new Set(git(root, ['diff', '--name-only', '-z', '--no-renames', `${tip}...${facts.head}`]).split('\0').filter((p) => p && !RELEASE_FILE.test(p)));
       const folder = `openspec/changes/${id}/`;
@@ -1107,7 +1114,10 @@ export function prItem(root, id, fetched, facts = gitFacts(root), { merge = fals
   const pr = fetched.pr;
   const ref = { number: pr.number, url: pr.url };
   if (merge && pr.state === 'MERGED') {
-    if (pr.headRefOid === facts.head) return item(5, name, 'met', `PR #${pr.number} merged`, { pr: ref, merged: true });
+    // Met at the local head, or on a branch advanced into the base that holds the pull request's head (D-21): such a head
+    // holds no commit of its own, so a merge loses nothing.
+    const advanced = headInBase(root, facts) && gitOk(root, ['merge-base', '--is-ancestor', String(pr.headRefOid), 'HEAD']);
+    if (pr.headRefOid === facts.head || advanced) return item(5, name, 'met', `PR #${pr.number} merged`, { pr: ref, merged: true });
     return item(5, name, 'blocked', `PR #${pr.number} merged at ${String(pr.headRefOid).slice(0, 7)}; local head ${String(facts.head).slice(0, 7)} differs`, { pr: ref });
   }
   if (pr.state !== 'OPEN') return item(5, name, 'blocked', `PR #${pr.number} is ${String(pr.state).toLowerCase()}`, { pr: ref });
