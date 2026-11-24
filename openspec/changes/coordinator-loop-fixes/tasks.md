@@ -142,7 +142,7 @@ every task with `git status --short`.
   exits 1 with no import error, and each test fails on its own assertion except the negatives T27, T35, T39, T40,
   T42, T47, T105, T109, T117 and T118 and the no-record half of T132, which may already pass; the five updated tests of D-5 fail on their new
   expectation, run by name (`env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^conduct" --test-name-pattern="^change-loop compozy view" --test-name-pattern="^change-loop next" plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop.test.mjs`).
-- [ ] 2.2 The `declare` command of D-1 (`runDeclare`, `recordDeclared`, `USAGE`) and D-3 in
+- [x] 2.2 The `declare` command of D-1 (`runDeclare`, `recordDeclared`, `USAGE`) and D-3 in
   `plugins/openspec/hooks/change-loop.mjs` (`declare gate-red`, `nextAction`'s `redGate`, `decide`'s `fix-gate`),
   and D-3's skill text in `plugins/openspec/skills/devkit/SKILL.md` (the `gate` item and item 3 of `### Every change
   in this session`). Check: T10, T17 and T25 to T31 pass, and the F1 test (`change-loop-compozy.test.mjs`) still
