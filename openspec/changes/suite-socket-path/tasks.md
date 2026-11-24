@@ -74,14 +74,14 @@ suite running. Check the free disk space (`df -h /`) before each whole-suite run
 
 ## 3. Validation (phase 3)
 
-- [ ] 3.1 AC-1 and AC-3 on this Mac with the default `TMPDIR`. Run the whole suite as
+- [x] 3.1 AC-1 and AC-3 on this Mac with the default `TMPDIR`. Run the whole suite as
   `env TMPDIR="$(getconf DARWIN_USER_TEMP_DIR)" node scripts/test-suite.mjs` in a clean
   checkout of the branch. This gives the default even when the session's own `TMPDIR` points elsewhere.
   Check: exit 0; the summary line ends with `0 fail`; the output holds exactly one `run root: /private/tmp/devkit-suite-`
   line, which names `TMPDIR` and the byte reason; the three files that call `fakeCompozy(...).daemon(t)`
   (`compozy-driver.test.mjs`, `change-loop-compozy.test.mjs`, `roadmap-loop-followups.test.mjs`) are `pass`;
   `/private/tmp` holds no `devkit-suite-*` folder from this run afterwards.
-- [ ] 3.2 AC-2 and AC-5 with a `TMPDIR` that fits. First, `mkdir -p /var/tmp/devkit-socket-path`, then
+- [x] 3.2 AC-2 and AC-5 with a `TMPDIR` that fits. First, `mkdir -p /var/tmp/devkit-socket-path`, then
   `env TMPDIR=/var/tmp/devkit-socket-path node scripts/test-suite.mjs plugins/openspec/hooks/test-suite.test.mjs`.
   Check: exit 0; no `run root:` line. The other branch of `runParent` is exercised and passes there, because the file's own `TMPDIR` is
   58 bytes. Then the CI-like run of the whole suite:
@@ -89,16 +89,16 @@ suite running. Check the free disk space (`df -h /`) before each whole-suite run
   Check: exit 0, `0 fail`, no `run root:` line (the run root fits under `/tmp`'s real path, as on CI).
   Remove `/var/tmp/devkit-socket-path` after. CI's `Test suite` step on the pull request is the
   `check` required check (workflow follow-up below).
-- [ ] 3.3 AC-4's red proof on the plan base, for the evidence. Make a scratch worktree with
+- [x] 3.3 AC-4's red proof on the plan base, for the evidence. Make a scratch worktree with
   `git worktree add --detach <session scratch folder>/base d096603`. Copy this branch's
   `plugins/openspec/hooks/test-suite.test.mjs` over the copy there, and run
   `node scripts/test-suite.mjs plugins/openspec/hooks/test-suite.test.mjs` inside it. Check: the AC-4
   test fails on its `bound` assertion with `EINVAL`. Then `git worktree remove --force` that folder, and
   `git worktree list` no longer shows it.
-- [ ] 3.4 Test names. Compare the sorted test names of `node scripts/test-suite.mjs plugins/openspec/hooks/test-suite.test.mjs`
+- [x] 3.4 Test names. Compare the sorted test names of `node scripts/test-suite.mjs plugins/openspec/hooks/test-suite.test.mjs`
   with the baseline of 1.1. Check: they are equal except for the ten `suite-socket-path AC-` names that
   `design.md` D-2 adds; none is renamed or lost (AC-4).
-- [ ] 3.5 Gate: `node scripts/test-suite.mjs && python3 scripts/check.py` green (the project's test command; AC-1, whose default-`TMPDIR` run is 3.1).
+- [x] 3.5 Gate: `node scripts/test-suite.mjs && python3 scripts/check.py` green (the project's test command; AC-1, whose default-`TMPDIR` run is 3.1).
 
 ## Workflow follow-up
 
