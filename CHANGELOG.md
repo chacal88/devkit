@@ -23,6 +23,13 @@
   kit; the flow page, the coordination design, the roles and the pack README follow. The CI snippet now pins
   `v0.33.0`, the release's tag.
 
+## 0.36.1 — retro proposals of remote-worker
+
+- **devkit-core** 0.13.3: `plan-readiness-review` has a new core rule: a plan revision that follows a
+  merge of `main` re-reads the project's rules (`openspec/config.yaml`) before it is reviewed.
+- Docs: CONTRIBUTING says that a change that merges a base runs by name the tests that base added
+  since the plan's base before the evidence run.
+
 ## 0.36.0 — remote worker
 
 - **devkit-openspec** 0.32.0: a change can run on another machine. Opening a change in a repository
