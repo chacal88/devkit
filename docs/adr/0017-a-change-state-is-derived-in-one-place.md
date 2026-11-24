@@ -19,11 +19,11 @@ of a roadmap run: while it waits for a place, the load or its dependencies, its 
 id, the stage icon replaced, and its state is `running` with the reason of that wait, derived as
 decision 1 says. A wait on GitHub keeps ⏳ beside the stage icon. Decisions 1 to 3 are unchanged.
 
-Note (post-merge-validate, 2026-11-23, status: proposed; the owner's approval of the change's plan
-accepts it): decision 1 gains one input, the merge-check record
+Note (post-merge-validate, 2026-11-23, accepted with the change's plan): decision 1 gains one
+input, the merge-check record
 `<git common dir>/devkit/merge-check/<id>.json`, which the change loop's `merge-check` command writes
 after a merge of the base and from which the blocked reasons `merge-defect` and `merge-check-failed`
-come. It is a fact, not stored state: it holds what `openspec validate <id> --strict` answered for one
+come. It is a fact, not stored state: it holds what `openspec validate <id> --type change --strict` answered for one
 merge commit at one fingerprint of the worktree (green, red with its errors and the count of reds on
 that merge, or cannot-run with its cause), never the change's state or its next action. The state is
 still derived on every read by the code that decides the loop's next action; a missing, damaged or
