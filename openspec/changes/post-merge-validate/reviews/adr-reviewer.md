@@ -1,18 +1,14 @@
-Verdict: rejected
-Commit: 24725d7f44ce1297d6729258875fd5a93e126a32
+Verdict: approved
+Commit: 369bbacd2a0c0041849170b990ebc9cb22a7a2a6
 
 ## ADR review — post-merge-validate
 
 ### Findings
-- [important] plugins/openspec/hooks/change-loop.mjs:2739 and 2792-2796 — merge-check is a command-only session step but is missing from COMMAND_STEPS, so the CompozyOS view hands it to a coordinator agent with a brief naming a ship-change row that does not exist; this drifts from ADR 0024 decision 4 (deterministic command steps run by the loop with no agent). Fix: add it to COMMAND_STEPS with a compozy test, or record the kit's view as out of scope in the design.
-- [nit] docs/adr/0017-a-change-state-is-derived-in-one-place.md, third Note in Context — The Note keeps the words 'status: proposed' for good, though the ADR is accepted and nothing flips them (readiness L-6); reword the Note without a status clause.
-- [nit] plugins/openspec/hooks/change-loop.mjs:1365-1376 and redsAfter — The loop keeps its own count of reds against ceilings.default, outside the checker that ADR 0010 decision 3 says counts attempt ceilings; the intent holds, so cite decision 3 in the design in one sentence.
+- [important] plugins/openspec/hooks/change-loop.mjs:2739 and 2795 — merge-check was a command-only session step missing from COMMAND_STEPS, so the CompozyOS view handed it to a coordinator agent (ADR 0024 decision 4); now listed, with a passing compozy view test. · fixed in 86c928f864ffa621bcfec985231e19be67288d8a
+- [nit] docs/adr/0017-a-change-state-is-derived-in-one-place.md:22 (third Note in Context) — The Note keeps the words 'status: proposed' for good though the ADR is accepted and nothing flips them; reword without a status clause. Left open on purpose, the ADR is the adr-author's file.
+- [nit] plugins/openspec/hooks/change-loop.mjs:1365-1376 and redsAfter; design.md — The loop's own count of reds against ceilings.default sits outside the checker of ADR 0010 decision 3; the design now cites decision 3 and says why the count is the loop's own fact. · fixed in 86c928f864ffa621bcfec985231e19be67288d8a
 
-## ADR review — post-merge-validate
-
-ADRs reviewed: ADR 0010, 0016, 0017 (with the proposed Note), 0019, 0020, 0022, 0024, 0025, 0026 (paths under `docs/adr/`).
-
-No blocking violation. The Note on ADR 0017 is the place the owner chose for the merge-check record, and the plan approval accepts it, as `decisions.md` and `approval.md` record. The step, its record and its replies keep ADR 0010's four ends and the ADR 0011 and ADR 0016 write limits. The release files are bumped together.
+Re-review of round 1: F1 is fixed (COMMAND_STEPS lists merge-check; buildView returns kind command; the compozy test passes). F3 is fixed (the design cites ADR 0010 decision 3). F2 stays open as a nit: the ADR is the adr-author's file. Two filtered tests were run in the foreground and pass.
 
 ### Summary
-- 3 findings (0 blocking, 1 important, 2 nit)
+- 3 findings (0 blocking, 0 important, 1 nit still open, 2 resolved)

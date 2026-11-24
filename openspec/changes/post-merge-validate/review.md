@@ -26,3 +26,29 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: post-merge-validate, round 2
+
+Path: agents · range `9dff5735a04c18ec3190965d7fca32087e7f5331..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 369bbac |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 369bbac |
+| code-quality-reviewer | rejected | 0 | 1 | 1 | 0 | 369bbac |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 369bbac |
+
+Consensus: FAIL (round 2/2)
+
+## Open findings
+- code-quality-reviewer — [important] plugins/openspec/hooks/change-loop.mjs:1373 — The planner's brief (and design.md, spec.md and the header comment at line 16) still names `openspec validate <id> --strict` without --type change, so for a same-name spec the planner's own confirmation command answers ambiguous_item
+
+## Refuted by verification
+None.
+
+## Notes
+- Round 2 ran on the agents path with the four reviewers of round 1, each against its previous verdict and the range 24725d7..HEAD.
+- The one open important finding (code-quality-reviewer F4: the planner's brief and the plan texts name `openspec validate <id> --strict` without --type change) was verified by three finding-verifiers and none refuted it. No automatic third round: the disputed point goes to the owner.
+
+## Next
+Consensus deadlock after round 2: the owner decides.

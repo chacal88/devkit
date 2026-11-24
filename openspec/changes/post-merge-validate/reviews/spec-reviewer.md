@@ -1,16 +1,15 @@
-Verdict: rejected
-Commit: 24725d7f44ce1297d6729258875fd5a93e126a32
+Verdict: approved
+Commit: 369bbacd2a0c0041849170b990ebc9cb22a7a2a6
 
-## Spec review — post-merge-validate
+## Spec review — post-merge-validate (round 2)
 
 ### Findings
-- [important] openspec/changes/post-merge-validate/specs/change-coordination/spec.md, 'A merge of the base is checked before the evidence' vs openspec/specs/change-coordination/spec.md 'From the implementation on,… — The delta only ADDs a requirement whose scenarios say that, with an unchecked merge, verify, review, wait-checks and ready give merge-check instead. The canonical scenarios 'The demonstration', 'The code review', 'Waiting on GitHub' and 'Other owner gates' still say those steps give the verifier, the review session step, a wait or an owner end. After archive the two read as contradicting unless the reader knows the new requirement takes precedence, and the delta states no precedence. Either MODIFY those scenarios or state the precedence in the requirement.
-- [nit] plugins/openspec/hooks/change-loop.mjs:1371 and :1670 — Scenario 'The planner's fix is checked again' says 'the change's files have changed since', but the code compares fingerprint(), which covers HEAD, the whole worktree status and diff, and untracked files; conservative, but wider than the spec's wording.
-- [nit] openspec/changes/post-merge-validate/specs/change-coordination/spec.md, scenario 'The command with no merge' — The spec says the command 'prints result: none'; the implementation prints JSON with result none, like every other change-loop command; the wording is looser than what runs and no test pins the exact form.
+- [important] openspec/changes/post-merge-validate/specs/change-coordination/spec.md, requirement 'A merge of the base is checked before the evidence' — Precedence over the canonical step scenarios (The demonstration, The code review, Waiting on GitHub, Other owner gates) was not stated in the delta. · fixed in 86c928f864ffa621bcfec985231e19be67288d8a
+- [nit] plugins/openspec/hooks/change-loop.mjs:1371 and :1670; delta scenario 'The planner's fix is checked again' — Spec said 'the change's files have changed' but the code compares the whole-worktree fingerprint. · fixed in 86c928f864ffa621bcfec985231e19be67288d8a
+- [nit] delta scenario 'The command with no merge' — Spec said the command 'prints result: none' but the code prints a JSON answer. · fixed in 86c928f864ffa621bcfec985231e19be67288d8a
+- [nit] openspec/changes/post-merge-validate/specs/change-coordination/spec.md, first requirement; plugins/openspec/hooks/change-loop.mjs:1672 — The spec says the command runs `openspec validate <id> --strict`, but the code now runs `validate <id> --type change --strict --json`; the extra flags are compatible with the spec but the text does not name them.
 
-## Spec review — post-merge-validate
-
-All requirements of the delta are covered (6 ADDED requirements, AC-1..AC-10), no scope creep; 19 post-merge-validate tests pass.
+Re-check of F1: the delta requirement now states its precedence in its own text; both canonical names it cites exist; `openspec validate post-merge-validate --strict` passes. F2 and F3 fixed. 21 post-merge-validate tests pass.
 
 ### Summary
-- 3 findings (0 scope creep, 0 gaps), none blocking by the reviewer's own recommendation.
+- 4 findings in total: F1 to F3 fixed, one new nit (F4); 0 scope creep, 0 gaps, none blocking.

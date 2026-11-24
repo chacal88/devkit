@@ -1,15 +1,18 @@
 Verdict: rejected
-Commit: 24725d7f44ce1297d6729258875fd5a93e126a32
+Commit: 369bbacd2a0c0041849170b990ebc9cb22a7a2a6
 
-## Quality review — post-merge-validate (round 1)
+## Quality review — post-merge-validate (round 2)
 
 ### Findings
-- [blocking] plugins/openspec/hooks/change-loop.mjs:1672 — run(['validate', id, '--strict', '--json']) has no --type change. When the change id equals a canonical spec capability name, openspec answers ambiguous_item and the check is cannot-run; the loop then ends blocked as merge-check-failed on every retry and the session cannot fix it. This repo has 7 archived change ids equal to spec names. Reproduced with openspec: validate x --strict --json gives ambiguous_item (Pass --type change|spec.), and --type change gives valid:true. Fix: add --type change and a test with a spec and a change of the same name.
-- [nit] openspec/changes/post-merge-validate/evidence.md (AC-8) and proof/real-run-red.jsonl — The stream's init line reports devkit-openspec 0.32.0 for this worktree's plugin folder, while the manifest says 0.40.0; the evidence admits it did not find out why. The merge-check step in the run shows the new code ran, so it is only an unexplained label; note the cause or drop the claim.
-- [praise] plugins/openspec/hooks/change-loop.mjs:1611-1630 — The record lives in the git common directory; readMergeCheck takes only a whole record, so a damaged file can never read as green; a table-driven test covers each bad shape.
-- [praise] plugins/openspec/hooks/change-loop.test.mjs (post-merge-validate 2 end-to-end tests) — The end-to-end tests use real temporary repositories with a real merge and a real openspec, cover the red-planner-green path, stage headers unchanged, cannot-run with an empty PATH and next exiting 3.
-- [praise] plugins/openspec/hooks/change-loop.mjs:1361-1380 — Termination is bounded: reds counted per merge and kept across cannot-run; a fingerprint mismatch re-offers the check; the ceiling is the flow default.
+- [blocking] plugins/openspec/hooks/change-loop.mjs:1672 — validate ran without --type change, so a change named like a canonical spec ended cannot-run (ambiguous_item) and blocked · fixed in 86c928f864ffa621bcfec985231e19be67288d8a
+- [nit] openspec/changes/post-merge-validate/evidence.md (AC-8), proof/real-run-red.jsonl — init line shows plugin versions 0.32.0 and 0.13.3 while the manifest says 0.40.0 · refuted: the branch's creation commit 105ea3b had plugin.json at 0.32.0 and 0.40.0 arrived only with the later merge of origin/main; evidence.md AC-8 now explains the label
+- [praise] plugins/openspec/hooks/change-loop.test.mjs (same-name test) — Same-name test uses a real repository, merge and openspec and covers both the green and the red path, never cannot-run
+- [important] plugins/openspec/hooks/change-loop.mjs:1373 — The planner's brief (and design.md, spec.md and the header comment at line 16) still names `openspec validate <id> --strict` without --type change, so for a same-name spec the planner's own confirmation command answers ambiguous_item
+- [nit] openspec/changes/post-merge-validate/specs/change-coordination/spec.md:9-12 — Stray quoted fragment in the requirement sentence reads as pasted prose
+- [praise] plugins/openspec/hooks/change-loop-compozy.test.mjs:1680 — A CompozyOS view test for merge-check as a command step backs the COMMAND_STEPS fix
+- [praise] plugins/openspec/hooks/change-loop.test.mjs (ceiling test) and design.md — The fingerprint scope is documented as deliberate and the ceiling test covers a new fingerprint after the third red
+- [praise] plugins/openspec/hooks/change-loop.test.mjs (4000-character cut test) — The cut test checks the length, the ellipsis, the first line and that the record holds the cut text
 
 ### Summary
-- 5 findings (1 blocking, 0 important, 1 nit) + 3 praise
-- The decision logic holds up under reading and the phase 1 to 3 tests pass; the one defect is the missing --type change, a one-flag fix that no test or real-run case covers.
+- 8 findings (0 blocking, 1 important, 1 new nit, 1 old nit refuted) + 4 praise.
+- Round 1 findings were re-checked against the code; the filtered tests (22) pass in the foreground. The one new defect is the incomplete propagation of --type change into the planner's brief and the plan texts.
