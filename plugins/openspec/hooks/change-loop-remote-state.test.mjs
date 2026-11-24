@@ -931,7 +931,7 @@ test('change-state AC-3 state: each blocked reason decide gives is the reason, w
       assert.equal(s.stateIcon, '⛔');
     });
   }
-  assert.equal(stateOf(cases.ceiling).reason.text, 'the plan readiness failed 3 times, which is its limit');
+  assert.equal(stateOf(cases.ceiling).reason.text, 'the plan readiness reached its limit of failures in a row (3)');
   assert.equal(stateOf(cases['pr-closed']).reason.text, 'pull request #12 was closed without merging');
   assert.equal(stateOf(cases.unreadable).reason.text, 'the change cannot be read (boom)');
 });
@@ -1040,7 +1040,7 @@ test('change-state AC-4 state: S1 to S8 each give their state', async (t) => {
   await t.test('S1 a session per change and a declared end: the declared end', () => {
     const blockedEnd = { state: 'blocked', why: 'ceiling', params: { stage: 'Plan readiness', attempt: 3 } };
     const s = stateOf(plan, F({ sessionMode: true, started: true, declared: blockedEnd, inflight: { kind: 'agent', stage: 'design' } }));
-    assert.deepEqual([s.state, reasonOf(s), s.reason.text, s.stage], ['blocked', 'ceiling', 'the plan readiness failed 3 times, which is its limit', 'proposal']);
+    assert.deepEqual([s.state, reasonOf(s), s.reason.text, s.stage], ['blocked', 'ceiling', 'the plan readiness reached its limit of failures in a row (3)', 'proposal']);
     const waits = stateOf(null, F({ sessionMode: true, declared: { state: 'waiting-for-owner', why: 'waiting-pr-decision', params: {} } }), { id: 'x' });
     assert.deepEqual([waits.state, reasonOf(waits), waits.reason.text, waits.stage], ['waiting-for-owner', 'waiting-pr-decision', 'a decision only you can take', null]);
     const named = stateOf(null, F({ sessionMode: true, declared: { state: 'waiting-for-owner', why: 'waiting-pr-decision', params: { gate: 'merge' } } }), { id: 'x' });

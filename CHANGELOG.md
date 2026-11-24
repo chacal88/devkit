@@ -1,15 +1,38 @@
 # Changelog
 
-## 0.50.0 — an owner's forced merge leads the change to the archive
+## 0.51.0 — an owner's forced merge leads the change to the archive
 
-- **devkit-openspec** 0.45.0: the delivery checker recognises a change's own pull request that was merged while a
+- **devkit-openspec** 0.46.0: the delivery checker recognises a change's own pull request that was merged while a
   required check was not green and a task stayed unticked as the owner's forced merge, by the pull request number or by
   its merge commit, and names the items it left open (the unticked tasks and the checks that were not green). The loop
   no longer answers `implement` for such a change: it leads it to the retro and then to the archive. `retro.md`
   records the open items; nothing is ticked.
 - Docs: [ADR 0028](docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md) (accepted) amends ADR 0003,
   with a Note in it; `docs/openspec-flow.md` and the ADR list of `openspec/config.yaml` follow. The CI snippet now pins
-  `v0.45.0`, the release's tag.
+  `v0.46.0`, the release's tag.
+
+## 0.50.0 — the loop fetches the base before it judges
+
+- **devkit-openspec** 0.45.0: `/devkit change` and `/devkit roadmap` fetch the base branch into its
+  remote-tracking ref (`origin/<base>`, nothing else) before they judge a delivery, once per command
+  call and at each poll of a wait, so a stale local copy of the base no longer decides whether a
+  change is merged. When the fetch fails or times out, the reply says the step was decided from this
+  machine's copy. The checkers (`conduct-check`, `deliver-check`) stay offline. The skills and the
+  flow page state the rule. The CI snippet now pins `v0.45.0`, the release's tag.
+
+## 0.49.2 — post-merge-validate's roadmap test accepts the ticked line
+
+- **devkit-openspec** 0.44.2: the test `post-merge-validate 3` no longer asserts that the change's roadmap line stays unticked, so the archive, which ticks it, passes it (post-merge-validate retro, proposal 5). Test only.
+
+## 0.49.1 — a stage's ceiling counts failures in a row
+
+- **devkit-openspec** 0.42.1: `flow-check` blocks a stage with `ceiling-reached` only after its failures in a row reach
+  the stage's ceiling. They are counted from the stage file's history in git since the file last carried `passed`;
+  `attempt` is unchanged, there is no new header field and the flow version does not change. A stage that passed between
+  failures starts again from zero. The readout and the replies of `change-loop` and `project-loop` say "failures in a row"
+  (`failures` joins the reason params). It also delivers the roadmap line `evidence-attempts-by-failure` (fused).
+- **Docs**: `docs/openspec-flow.md`, `plugins/openspec/README.md` and `docs/coordination-design.md` describe the count;
+  the CI snippet pins `v0.42.1`.
 
 ## 0.49.0 — the jira-entry retro's fixes
 

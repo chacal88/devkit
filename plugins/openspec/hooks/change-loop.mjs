@@ -21,7 +21,7 @@
 // then write to Jira, jira-entry D-7). Only `open`, `script`, `accept-decisions`, `flow`, `merge-check` and `write-back` write, the last two only
 // their record in the git common directory; `start` and `next` do not. The CompozyOS driver (compozy-driver D-1, D-3, D-4) adds `compozy-start <id>`, `next --view compozy`, `confirm --view <json>`
 // and the record steps `record-approval`, `record-mockup`, `record-answer`, `run-gate`, `run-step` and `compozy-retry`, which write the run record (`<git common dir>/devkit-compozy/<id>.json`). `next` and `wait` print
-// `devkit-end: <id> <state>` after the run line when the action is an end, and `reply` does so for the keys that end a run.
+// `devkit-end: <id> <state>` after the run line when the action is an end, and `reply` does so for the keys that end a run. `next` and `wait` fetch the base of a change in delivery before they judge, and `state` and the locks never do (fresh-base-check).
 //
 // It also holds the decisions of the three locks that `guard.mjs` calls as modes (D-8): `stopDecision` (the session does not
 // end its turn while a stage is ready), `subagentStopDecision` (a stage agent does not stop before its file is delivered) and
@@ -280,6 +280,7 @@ export const MESSAGES = {
     'waiting-place': '{id} waits for a free place on {machine} ({taken} of {places} taken): it goes on when one frees, and the roadmap session tells it.',
     'waiting-budget': 'The change {id} reached its token budget: {spent} tokens spent, and the cap is {cap}. To go on, raise budget in the devkit block of {file}, then type /devkit change again.',
     'waiting-github': '{id} is waiting on GitHub ({what}). I keep waiting with no time limit and go on by myself when GitHub answers; calling /devkit change again is safe.',
+    'base-unfetched': 'The branch {base} could not be fetched from the remote, so this step was decided from this machine\'s copy of it.',
     archived: 'The change {id} is archived: merged, with its retro. Nothing is left to do.',
     blocked: 'The change {id} stopped: {why}. Nothing more runs until this is sorted out.',
     'request-unreadable': 'I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue.',
@@ -384,7 +385,7 @@ export const MESSAGES = {
     'why.ui': 'it changes a screen',
     'why.capability': 'it adds something the project cannot do today',
     'why.risk': 'it touches access, money or personal data, or is hard to undo',
-    'blocked-why.ceiling': '{stage} failed {attempt} times, which is its limit',
+    'blocked-why.ceiling': '{stage} reached its limit of failures in a row ({failures})',
     'blocked-why.no-progress': '{stage} came back with nothing changed',
     'blocked-why.no-place': 'it waits for a free place on {machine} ({taken} of {places} taken)',
     'blocked-why.not-delivered': '{stage} ended without delivering its result',
@@ -569,6 +570,7 @@ export const MESSAGES = {
     'waiting-place': '{id} espera um lugar livre em {machine} ({taken} de {places} ocupados): segue quando um liberar, e a sessão do roadmap avisa.',
     'waiting-budget': 'A change {id} atingiu o orçamento de tokens: {spent} tokens gastos, e o limite é {cap}. Para seguir, aumente budget no bloco devkit de {file} e digite /devkit change de novo.',
     'waiting-github': '{id} está esperando o GitHub ({what}). Eu continuo esperando, sem limite de tempo, e sigo sozinho quando o GitHub responder; chamar /devkit change de novo é seguro.',
+    'base-unfetched': 'Não foi possível buscar o branch {base} no remoto, então este passo foi decidido pela cópia desta máquina.',
     archived: 'A change {id} está arquivada: mesclada, com a retro. Não resta nada a fazer.',
     blocked: 'A change {id} parou: {why}. Nada mais roda até isso ser resolvido.',
     'request-unreadable': 'Não consegui ler esse pedido. Digite /devkit change e o que você quer fazer, ou só /devkit change para continuar.',
@@ -673,7 +675,7 @@ export const MESSAGES = {
     'why.ui': 'muda uma tela',
     'why.capability': 'acrescenta algo que o projeto não faz hoje',
     'why.risk': 'mexe com acesso, dinheiro ou dados pessoais, ou é difícil de desfazer',
-    'blocked-why.ceiling': '{stage} falhou {attempt} vezes, que é o limite',
+    'blocked-why.ceiling': '{stage} chegou ao limite de falhas seguidas ({failures})',
     'blocked-why.no-progress': '{stage} voltou sem nada ter mudado',
     'blocked-why.no-place': 'espera um lugar livre em {machine} ({taken} de {places} ocupados)',
     'blocked-why.not-delivered': '{stage} terminou sem entregar o resultado',
@@ -804,6 +806,7 @@ export function render(lang, key, params = {}) {
     if (name === 'stage') return stagePhrase(l, need('stage'));
     if (name === 'inStage') return inStagePhrase(l, need('stage'));
     if (name === 'Stage') return capital(stagePhrase(l, need('stage')));
+    if (name === 'failures') return String(params.failures ?? need('attempt'));
     if (name === 'why') return render(l, `${BLOCKED_WHY_KEYS.includes(key) ? 'blocked-why' : 'why'}.${need('why')}`, params);
     if (FAMILY[name]) return render(l, `${FAMILY[name]}${need(name)}`, params);
     return need(name);
@@ -1291,7 +1294,8 @@ export function decide(facts) {
       }
       if (n.reasonCode === 'fix-after-failure') {
         const { failed, attempt, ceiling } = n.params;
-        return agent(n.stage, s.role, null, `${failed} failed at attempt ${attempt} of ${ceiling}: revise the plan from its findings`);
+        const failures = n.params.failures ?? attempt;
+        return agent(n.stage, s.role, null, `${failed} failed at attempt ${attempt} (failures in a row: ${failures} of ${ceiling}): revise the plan from its findings`);
       }
       if (PLAN_REASONS.includes(n.reasonCode) && s && AGENT[s.role]) {
         const stale = ['stale-plan', 'rerun-after-fix'].includes(n.reasonCode);
@@ -1329,8 +1333,9 @@ export function decide(facts) {
     }
     if (n.stage === 'implementation' && n.reasonCode === 'fix-after-failure' && TEST_STAGES.includes(n.params?.failed)) {
       const { failed, attempt, ceiling } = n.params;
+      const failures = n.params.failures ?? attempt;
       const file = stageById(failed)?.file ?? null;
-      return agent('implementation', 'tdd-implementer', 'fix-tests', `${failed} failed at attempt ${attempt} of ${ceiling}: fix the code from ${file}, test first, within the approved tasks`, { failed, file });
+      return agent('implementation', 'tdd-implementer', 'fix-tests', `${failed} failed at attempt ${attempt} (failures in a row: ${failures} of ${ceiling}): fix the code from ${file}, test first, within the approved tasks`, { failed, file });
     }
     return null;
   }
@@ -1340,7 +1345,7 @@ export function decide(facts) {
     if (githubSilent(e)) return waiting('waiting-on-github', 'waiting-github', e.stage, { what: 'silent' }, { error: e.params?.error ?? '' });
     const why = BLOCKED_OF[e.reasonCode] ?? 'role-failed';
     const stageId = e.params?.stage ?? e.stage;
-    const params = { stage: titleOf(stageId), attempt: e.params?.attempt, error: e.params?.error ?? '', number: e.params?.number };
+    const params = { stage: titleOf(stageId), attempt: e.params?.attempt, failures: e.params?.failures, error: e.params?.error ?? '', number: e.params?.number };
     if (why === 'gh-too-old') Object.assign(params, { installed: e.params?.installed ?? render(lang, 'gh-version-unknown'), minimum: e.params?.minimum, verb: 'change' });
     return blocked(why, params, e.stage);
   }
@@ -1463,6 +1468,32 @@ export function locate(start, id) {
   return { root, branch: tryGit(root, ['symbolic-ref', '--short', '-q', 'HEAD']) };
 }
 
+// The record of the bases one call fetched (fresh-base-check D-1): one per command call, one per poll of a wait.
+export function baseFetches() { return new Map(); }
+
+// Fetches origin/<base> into refs/remotes/origin/<base> and nothing else, at most once per (git common dir, base) in `memo`.
+// Returns { ok: true, base } | { ok: false, base, error } | null (no origin remote: nothing fetched).
+export function refreshBase(root, base, { env = process.env, memo = new Map(), timeoutMs = LS_REMOTE_TIMEOUT_MS } = {}) {
+  const common = tryGit(root, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
+  const key = `${common ? realpathSync(common) : root}\u0000${base}`;
+  if (memo.has(key)) return memo.get(key);
+  let result = null;
+  if (gitPasses(root, ['remote', 'get-url', 'origin'])) {
+    try {
+      execFileSync('git', ['-C', root, 'fetch', '--no-tags', '--quiet', '--no-write-fetch-head', 'origin', `+refs/heads/${base}:refs/remotes/origin/${base}`], {
+        env: { ...env, GIT_TERMINAL_PROMPT: '0' }, timeout: timeoutMs, stdio: ['ignore', 'ignore', 'pipe'], encoding: 'utf8',
+      });
+      result = { ok: true, base };
+    } catch (e) {
+      const firstLine = (text) => String(text ?? '').split('\n').map((l) => l.trim()).find(Boolean);
+      const error = e.code === 'ETIMEDOUT' || e.signal ? `timed out after ${Math.round(timeoutMs / 1000)} s` : firstLine(e.stderr) ?? firstLine(e.message) ?? 'the fetch failed';
+      result = { ok: false, base, error };
+    }
+  }
+  memo.set(key, result);
+  return result;
+}
+
 // The stages of the plan part a change does not write before its dependencies are archived: the others are the owner's or come after.
 export const PLAN_NOT_HELD = ['requirements', 'approval'];
 
@@ -1483,8 +1514,11 @@ export function isPlanStage(start, id, action) {
 
 // The next action of change `id`, read from the files, git and GitHub of its checkout. Errors (an unknown change, an
 // unreadable setting, no openspec CLI) are thrown; a delivery checker that throws becomes the `unreadable` end.
-export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, claims, budget = false, strictModels = false, retry = false, handOffs } = {}) {
+// `fetchBase` is a `baseFetches()` record: given, the base is fetched (once per record) before the delivery checkers read it, and
+// the action carries `baseFetch`; absent (`state`, the locks), nothing is fetched.
+export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, claims, budget = false, fetchBase = false, strictModels = false, retry = false, handOffs } = {}) {
   const clean = cleanOf(env);
+  let baseFetch = null;
   const start = findRoot(cwd);
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
   const found = locate(start, id);
@@ -1518,6 +1552,8 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
   let deliveredPr = null;
   const baseBranch = defaultBase(found.root);
   if (inDelivery(report, flow, archiving)) {
+    const baseBranch = defaultBase(found.root);
+    if (fetchBase) baseFetch = refreshBase(found.root, baseBranch, { env: clean, memo: fetchBase });
     try {
       const ghRun = gh ?? makeGh(found.root, clean);
       const state = collectState(found.root, id, { env: clean, gh: ghRun });
@@ -1554,6 +1590,13 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     models,
     handOffs: handOffsFact,
   });
+  if (baseFetch) {
+    action.baseFetch = baseFetch;
+    if (!baseFetch.ok) {
+      const line = render(normalizeLang(lang), 'base-unfetched', { base: baseFetch.base });
+      action.reply = typeof action.reply === 'string' && action.reply !== '' ? `${action.reply}\n${line}` : line;
+    }
+  }
   // The icon of the action's stage, its state and the change session's title for it (change-state D-1, D-5); the title only when the state has one.
   action.icon = stageIcon(action);
   action.state = changeState(action, null, { lang });
@@ -2538,10 +2581,16 @@ export function moveFlow(cwd, id, { lang = 'pt-BR' } = {}) {
 // ---------------------------------------------------------------- wait (D-7)
 
 const isWait = (a) => a.kind === 'end' && a.end.state === 'waiting-on-github';
+// The reply without the line of a failed base-fetch, fresh-base-check D-4: that line alone is no new decision.
+const ownReply = (a) => {
+  if (a.baseFetch?.ok !== false || typeof a.reply !== 'string') return a.reply ?? null;
+  const cut = a.reply.lastIndexOf('\n');
+  return cut < 0 ? null : a.reply.slice(0, cut);
+};
 // What makes two decisions the same wait. A held decision (a change session waiting for a place, the load, a dependency or the owner) is the same
 // while its reason is: its words carry numbers (the load) that move at every poll.
 const decisionKey = (a) => JSON.stringify([a.kind, a.end?.state ?? null, a.end?.why ?? null, a.agent ?? null, a.step ?? null,
-  a.kind === 'held' ? [a.held?.why ?? null, a.held?.gate ?? null, a.held?.after ?? null] : (a.reply ?? null)]);
+  a.kind === 'held' ? [a.held?.why ?? null, a.held?.gate ?? null, a.held?.after ?? null] : ownReply(a)]);
 const isUnreadable = (a) => a.kind === 'end' && (a.end.why === 'github-unreadable' || (a.end.state === 'waiting-on-github' && a.params?.what === 'silent'));
 
 // Polls `poll()` (the decision `next` gives) every `interval` seconds while it stays the same wait on GitHub, with no
@@ -3107,7 +3156,7 @@ function runNext(args, { env, cwd, openspec, gh }) {
     if (opts.view !== 'compozy') throw new LoopUsageError(`--view needs compozy; ${USAGE}`);
     return { code: 0, stdout: json(compozyState(cwd, opts.change, { env, lang: opts.lang, openspec, gh }).view), stderr: '' };
   }
-  const action = nextAction(cwd, opts.change, { env, lang: opts.lang, after: opts.after ?? null, openspec, gh, budget: true, strictModels: true, retry: opts.after !== undefined });
+  const action = nextAction(cwd, opts.change, { env, lang: opts.lang, after: opts.after ?? null, openspec, gh, budget: true, strictModels: true, retry: opts.after !== undefined, fetchBase: baseFetches() });
   return { code: exitCodeOf(action), stdout: loopOutput(opts.change, action), stderr: '' };
 }
 
@@ -3299,7 +3348,7 @@ async function runWait(args, { env, cwd, openspec, gh, sleep = realSleep }) {
   const interval = opts.interval === undefined ? DEFAULT_INTERVAL : Number(opts.interval);
   if (!Number.isFinite(interval) || interval < MIN_INTERVAL) throw new LoopUsageError(`--interval needs a number of seconds, at least ${MIN_INTERVAL}`);
   const lang = normalizeLang(opts.lang);
-  const poll = async () => nextAction(cwd, opts.change, { env, lang, openspec, gh });
+  const poll = async () => nextAction(cwd, opts.change, { env, lang, openspec, gh, fetchBase: baseFetches() });
   const action = await waitLoop({ poll, sleep, interval, id: opts.change, lang });
   return { code: 0, stdout: loopOutput(opts.change, action), stderr: '' };
 }

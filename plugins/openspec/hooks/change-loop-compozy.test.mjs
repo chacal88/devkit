@@ -792,10 +792,10 @@ test('stage-roles loop: the E2E tests are handed to the E2E tester with the decl
 
 test('stage-roles loop: fix-tests a red test stage goes back to the implementer, naming the failed stage and its file', () => {
   for (const [failed, file] of [['unit-tests', 'unit-tests.md'], ['e2e-tests', 'e2e-tests.md']]) {
-    const a = run({ rep: { next: nextOf(FLOWS.devkit, 'implementation', 'fix-after-failure', { failed, attempt: 2, ceiling: 3 }) }, facts: { row: rowOf('commit'), tests: TESTS } });
+    const a = run({ rep: { next: nextOf(FLOWS.devkit, 'implementation', 'fix-after-failure', { failed, attempt: 2, failures: 2, ceiling: 3 }) }, facts: { row: rowOf('commit'), tests: TESTS } });
     assert.deepEqual([a.kind, a.agent, a.step, a.stage, a.role, exitCodeOf(a)], ['agent', TDD, 'fix-tests', 'implementation', 'tdd-implementer', 0], failed);
     assert.deepEqual(a.detail, { failed, file });
-    assert.match(a.brief, new RegExp(`${failed} failed at attempt 2 of 3: fix the code from ${file}, test first, within the approved tasks`));
+    assert.match(a.brief, new RegExp(`${failed} failed at attempt 2 \\(failures in a row: 2 of 3\\): fix the code from ${file}, test first, within the approved tasks`));
     assert.equal(a.progressKey, 'implementation/fix-tests@abc123');
   }
 });
@@ -2664,4 +2664,15 @@ test('upfront AC-11 delivery: renumber-adr is a hand-off of the implementer, wit
   assert.deepEqual([a.kind, a.agent, a.step, a.stage, a.role, exitCodeOf(a)], ['agent', TDD, 'renumber-adr', 'implementation', 'tdd-implementer', 0]);
   assert.deepEqual(a.detail.files, files);
   assert.equal(a.progressKey, 'implementation/renumber-adr@abc123');
+});
+
+test('stage-ceiling-consecutive AC-6 loop: the fix briefs name the failures in a row', () => {
+  const plan = run({ rep: { next: nextOf(FLOWS.devkit, 'proposal', 'fix-after-failure', { failed: 'readiness', attempt: 3, failures: 1, ceiling: 3 }) } });
+  assert.ok(plan.brief.includes('readiness failed at attempt 3 (failures in a row: 1 of 3): revise the plan from its findings'), plan.brief);
+  const tests = run({ rep: { next: nextOf(FLOWS.devkit, 'implementation', 'fix-after-failure', { failed: 'unit-tests', attempt: 3, failures: 1, ceiling: 3 }) }, facts: { row: rowOf('commit'), tests: { unit: 'npm test', e2e: null } } });
+  assert.ok(tests.brief.includes('unit-tests failed at attempt 3 (failures in a row: 1 of 3): fix the code from unit-tests.md, test first, within the approved tasks'), tests.brief);
+});
+test('stage-ceiling-consecutive AC-6 loop: a report with no failures falls back to the attempt in the fix-tests brief', () => {
+  const tests = run({ rep: { next: nextOf(FLOWS.devkit, 'implementation', 'fix-after-failure', { failed: 'unit-tests', attempt: 2, ceiling: 3 }) }, facts: { row: rowOf('commit'), tests: { unit: 'npm test', e2e: null } } });
+  assert.ok(tests.brief.includes('unit-tests failed at attempt 2 (failures in a row: 2 of 3): fix the code from unit-tests.md, test first, within the approved tasks'), tests.brief);
 });

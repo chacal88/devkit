@@ -1,6 +1,6 @@
 // deliver-check: is a change a ready PR? (ship-modes, design D2 and D4)
 //
-// Reads files and git; never writes, pushes or posts. No dependencies.
+// Reads files and git; never writes, pushes, posts or fetches. No dependencies.
 // Imports its helpers from guard.mjs, which runs a mode only when executed
 // directly, so importing it here has no side effects.
 

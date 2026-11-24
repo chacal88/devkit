@@ -197,7 +197,7 @@ test('version-pin AC-2 readout: the version-1 ceiling holds after the upgrade', 
   assert.equal(json.next.stage, 'implementation');
   assert.equal(json.next.reasonCode, 'fix-after-failure');
   assert.equal(json.next.params.ceiling, 2);
-  assert.match(readout(root, '--lang', 'en').stdout, /failed at attempt 1 of 2/);
+  assert.match(readout(root, '--lang', 'en').stdout, /failed at attempt 1; failures in a row: 1 of 2/);
 });
 
 test('version-pin AC-2 loop: next hands the readiness to its reviewer after the upgrade', () => {
