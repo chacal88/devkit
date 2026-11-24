@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.45.0 — a status line for the session of a change or a roadmap run
+## 0.48.0 — a status line for the session of a change or a roadmap run
 
-- **devkit-openspec** 0.40.0: a new command, `hooks/status-line.mjs`, draws the one line under the message
+- **devkit-openspec** 0.43.0: a new command, `hooks/status-line.mjs`, draws the one line under the message
   box of Claude Code. A session that conducts one change shows the change's name, its stage, a strip of
   marks, `<n> of <N>` and, while the change is stopped, the reason in words; the session that coordinates
   a roadmap run shows the counts (in play, working, waiting on the owner, blocked); a session that
@@ -12,8 +12,46 @@
   `git` (`state` keeps its own reads), with a bound on each; at the bound, or when Claude Code stops it,
   it ends the `state` call and everything that call started. `state` gains a `stages` field (the stages
   that apply to the change, in order) and an `--offline` option (a listing with no GitHub call), and the
-  offline stub that listing uses lives in one place. The CI snippet now pins `v0.40.0`, the release's
+  offline stub that listing uses lives in one place. The CI snippet now pins `v0.43.0`, the release's
   tag.
+
+## 0.47.0 — the change folder is committed before the review round
+
+- **devkit-openspec** 0.41.0: `deliver-check` hands the `commit` step before a review round while anything under the
+  change folder is uncommitted, the `ship-change` rows `commit` and `review` say so, and the CI snippet now pins
+  `v0.41.0`.
+
+## 0.46.0 — post-merge validate
+
+- **devkit-openspec** 0.41.0: after a merge of the base the delivery loop checks the plan before it hands the evidence. A new
+  `merge-check` session step runs `change-loop.mjs merge-check <id>`, which runs `openspec validate <id> --type change --strict` and records
+  the answer in `<git common dir>/devkit/merge-check/<id>.json`; a red check goes to `devkit-core:change-planner` as a merge
+  defect (its brief quotes validate's errors) and spends no stage attempt, a green one lets the loop go on, and three reds in
+  a row on the same merge, or a check that could not run (CLI missing, timed out, refused by the pin), end the run `blocked`
+  with the new reasons `merge-defect` and `merge-check-failed`. No merge, no check. The roadmap line `evidence-attempts-by-failure`
+  keeps the counting of attempts by real failures.
+- Docs: the `devkit` skill, `docs/openspec-flow.md` ("The loop", the merge paragraph and two Troubleshooting rows) and the
+  README of the pack describe the step; a Note on ADR 0017 (status proposed, accepted with the plan) names the merge-check record
+  as one more input of its decision 1; the CI snippet now pins `v0.41.0`, the release's tag.
+
+## 0.45.0 — the archive check lets the release pin lines pass unnamed
+
+- **devkit-openspec** 0.40.0: the archive's file check no longer asks a retro proposal to name
+  `docs/openspec-flow.md` when only its CI pin lines moved: the file passes when its text with every
+  CI pin masked equals its text at the merge base masked the same way
+  ([ADR 0027](docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md), as amended
+  by [ADR 0030](docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md)).
+  Any other edit of the file, or the file missing or unreadable on either side, still stops the
+  archive on `apply-proposals` and fails `devkit-reviews --ci`, which applies the same rule from the
+  same place (`unnamedFiles`). The file does not join the release list, so a merge conflict in it is
+  classified as before. The CI pin test (`change-loop docs: the design records the answers`) now
+  derives the pin from `plugins/openspec/.claude-plugin/plugin.json` and holds no release number, so
+  no release edits it and the delivery train can join several changes that release; a change to that
+  test in an archive needs a named proposal, as any test file does. The pin definition
+  (`PIN_MARKER`, `PIN_TOKEN`, `pinsIn`, `setPins`) now lives in `deliver-check.mjs`, and
+  `release-merge.mjs` re-exports it, so the downloaded CI files stay three.
+  The CI snippet now pins `v0.40.0`, the release's tag.
+- Docs: ADR 0027 and ADR 0030, the Notes in ADR 0003 and ADR 0027, and the flow doc's file check (P13) and Classification bullet.
 
 ## 0.44.0 — release-merge leftovers
 

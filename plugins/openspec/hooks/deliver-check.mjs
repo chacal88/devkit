@@ -1319,33 +1319,81 @@ function changedInTree(root) {
   return paths.filter((p) => !p.startsWith('.claude/'));
 }
 
-// The paths the archive branch changes against origin/<base>, committed or not:
-// { paths } | { missing: true } when origin/<base> does not resolve.
+// A file as it is at `rev`, or null when git cannot show it (absent there, or unreadable).
+function textAt(root, rev, path) {
+  try {
+    return execFileSync('git', ['-C', root, 'show', `${rev}:${path}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 });
+  } catch {
+    return null;
+  }
+}
+
+// The paths the archive branch changes against origin/<base>, committed or not, and for each pin file
+// among them its text at the merge base and in the working tree (null when unreadable):
+// { paths, texts } | { missing: true } when origin/<base> does not resolve.
 function archiveChanges(root, base) {
   const ref = `origin/${base}`;
   if (!gitOk(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`])) return { missing: true };
   let mergeBase;
   try { mergeBase = git(root, ['merge-base', ref, 'HEAD']).trim(); } catch { return { missing: true }; }
   const committed = git(root, ['diff', '--name-only', '-z', '--no-renames', `${mergeBase}..HEAD`]).split('\0').filter(Boolean);
-  return { paths: [...new Set([...committed, ...changedInTree(root)])].sort() };
+  const paths = [...new Set([...committed, ...changedInTree(root)])].sort();
+  const texts = {};
+  for (const path of PIN_LINE_FILES.filter((f) => paths.includes(f))) {
+    let after = null;
+    try { after = readFileSync(join(root, path), 'utf8'); } catch { after = null; }
+    texts[path] = { before: textAt(root, mergeBase, path), after };
+  }
+  return { paths, texts };
 }
 
 // What an archive always changes without a proposal: the change folders (the move) and the
 // roadmap tick. Everything else under openspec/ (config.yaml, schemas/) needs a named proposal.
 const isArchiveRecord = (p) => p.startsWith('openspec/changes/') || p === 'openspec/roadmap.md';
 const normalizePath = (p) => p.replace(/^(\.\/)+/, '');
+
+// ---- the CI pin lines (archive-release-pin, ADR 0027)
+// The pin definition is shared with the conflict resolution of the release tool, which re-exports it:
+// this file is downloaded by the consumer CI alone, so the definition lives here.
+// A pin line names a marker; a pin is a vX.Y.Z on such a line. A marker line may hold no pin.
+const PIN_MARKER = /pinned to the commit of v|<commit sha of v|git\/ref\/tags\/v|\(`v\d+\.\d+\.\d+` above\)/;
+const PIN_TOKEN = /(?<![A-Za-z0-9])v\d+\.\d+\.\d+(?!\d)/g;
+
+// Every pin (`v<x.y.z>`) on every pin line of `text`, in order; [] for a text with no pin line.
+export function pinsIn(text) {
+  return text.split('\n').flatMap((line) => (PIN_MARKER.test(line) ? line.match(PIN_TOKEN) ?? [] : []));
+}
+
+// Every pin on every pin line becomes v<version>; every other byte stays. Masking is setPins(text, '0.0.0').
+export function setPins(text, version) {
+  return text.split('\n').map((line) => (PIN_MARKER.test(line) ? line.replace(PIN_TOKEN, `v${version}`) : line)).join('\n');
+}
+
+// The one file whose CI pin lines an archive may change without a proposal naming it (ADR 0027 as amended by ADR 0030).
+export const PIN_LINE_FILES = ['docs/openspec-flow.md'];
+// true only when `path` is the pin file, both texts are strings, and they differ only in pins.
+// Anything else, missing or unreadable included, is false.
+export function pinLinesOnly(path, pair) {
+  if (!PIN_LINE_FILES.includes(path)) return false;
+  const { before, after } = pair ?? {};
+  if (typeof before !== 'string' || typeof after !== 'string') return false;
+  return setPins(before, '0.0.0') === setPins(after, '0.0.0');
+}
+
 // Files a version bump or a regenerated catalog changes without a proposal naming them (design D8).
+// The CI pin file is not a release file; see PIN_LINE_FILES (ADR 0027, ADR 0030).
 export const RELEASE_FILE = /^(plugins\/[^/]+\/\.claude-plugin\/plugin\.json|\.claude-plugin\/marketplace\.json|CHANGELOG\.md|docs\/catalog\.md)$/;
 // The file whose CI pins a release renumbers (delivery-train D-10). The same path as release-merge.mjs's PIN_FILE, written here
 // because release-merge.mjs imports this file and the CI job downloads neither; a test holds the two equal.
 export const TRAIN_PIN_FILE = 'docs/openspec-flow.md';
 
 // The changed paths that no approved proposal names exactly (AC-3):
-// no directory, prefix or glob matching.
-export function unnamedFiles(paths, proposals) {
+// no directory, prefix or glob matching. The one exception by content (ADR 0027, ADR 0030): the pin file passes
+// when `texts[path]` ({ before, after }) shows only its CI pin lines changed (pinLinesOnly).
+export function unnamedFiles(paths, proposals, texts = {}) {
   const named = new Set(proposals.filter((p) => p.answer === 'approved').flatMap((p) => p.targets.map(normalizePath)));
   const canonical = canonicalSpecs(paths);
-  return paths.filter((p) => !isArchiveRecord(p) && !canonical.has(p) && !RELEASE_FILE.test(p) && !named.has(p));
+  return paths.filter((p) => !isArchiveRecord(p) && !canonical.has(p) && !RELEASE_FILE.test(p) && !pinLinesOnly(p, texts[p]) && !named.has(p));
 }
 
 // openspec archive writes openspec/specs/<capability>/spec.md for each capability the archived
@@ -1656,7 +1704,7 @@ function archiveNext(state) {
   const answersStop = () => step('stop-retro-answers', `${unanswered.length} retro proposal${unanswered.length > 1 ? 's' : ''} waiting for the owner's answer`, { proposals: brief(unanswered) });
   const filesStop = () => {
     if (a.changed?.missing) return stopArchive('archive', `origin/${a.base} is not available; git fetch origin ${a.base}`);
-    const offending = unnamedFiles(a.changed?.paths ?? [], a.retro.proposals);
+    const offending = unnamedFiles(a.changed?.paths ?? [], a.retro.proposals, a.changed?.texts);
     return offending.length ? stopArchive('apply-proposals', `files no approved proposal names: ${offending.join(', ')}`) : null;
   };
 
@@ -1821,6 +1869,10 @@ export function nextStep(state) {
     ...it(3).details.undisposed.map((f) => f.reviewer),
   ]);
   if (toReview.length) {
+    // The review round runs on a clean change folder (loop-place-and-evidence D-2): its commit first, with no product path.
+    if (state.folderDirty?.length) {
+      return step('commit', `uncommitted files in the change folder before the review round: ${state.folderDirty.slice(0, 3).join(', ')}`, { paths: [] });
+    }
     const reRejected = toReview.some((n) => {
       const r = state.reviews.find((x) => x.name === n);
       return r && !approved(r.verdict);
@@ -2062,6 +2114,8 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     phases: readPhases(join(dir, 'tasks.md')),
     reviewMd: readReviewMd(join(dir, 'review.md')),
     reviews: readReviews(root, id, facts).map((r) => ({ name: r.name, verdict: r.verdict, current: !r.why })),
+    // The change folder's uncommitted paths (loop-place-and-evidence D-1): the review round waits for their commit.
+    folderDirty: changedUnder(root, `openspec/changes/${id}`),
     pr: prFacts(fetched),
     ...(two ? { twoPrs: twoPrsOf(acceptance.details.ids, items[5]) } : {}),
     ...(trainOn ? { train: boardable && delivery.trainFacts ? delivery.trainFacts : trainFacts(gh, root, id, { suite: trainSuite, prHead: boardable ? fetched.pr.headRefOid : null, kind: 'change' }) } : {}),
@@ -2470,7 +2524,7 @@ function archivePrCheck(root, base) {
     noRetro: retros.filter((r) => !r.retro.readable).map((r) => r.folder),
     missingRetro: retros.filter((r) => !r.retro.exists).map((r) => r.folder),
     unanswered: proposals.filter((p) => p.answer === null).map((p) => p.n),
-    unnamed: devkit.length ? unnamedFiles(changes.paths, proposals) : [],
+    unnamed: devkit.length ? unnamedFiles(changes.paths, proposals, changes.texts) : [],
     slices,
     notes,
   };

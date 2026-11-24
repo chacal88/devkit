@@ -2,7 +2,7 @@
 // Run by `node scripts/test-suite.mjs`, in a process of its own; alone: `node scripts/test-suite.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFileSync, rmSync as fsRm, readFileSync, renameSync } from 'node:fs';
+import { writeFileSync, rmSync as fsRm, readFileSync, renameSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { spawnSync } from 'node:child_process';
@@ -21,7 +21,7 @@ import {
 import {
   here, review, reviews, withReviews, base, head, mergeHistory, mergeMain, onlyOpenspec, s7, acRow, changeFiles, callGh, prJson, OLD_FLAG, versionsOf,
   tick, approvalMd, planRepo, fullEvidence, PR_BODY, driveToReady, readyRepo, committedChange, bothEvidenceCurrent, presetArchiveReads, repoRoot,
-  coreAgent, runCi, ciGate, ciRepo, archivePrRepo, bothEntries,
+  coreAgent, runCi, ciGate, ciRepo, archivePrRepo, bothEntries, CI_ENV, state, open, rejectedState, BOTH, ev, reviewAt, itemsOf,
 } from './deliver-check-fixtures.mjs';
 
 // ================================================================ after the merge: the archive steps (archive-after-merge phase 2)
@@ -637,6 +637,20 @@ test('plan mode with a merged PR still stops at stop-plan-mode and reads nothing
 
 const approvedBy = (targets, files) => onArchiveBranch({ proposals: [proposal(targets, { answer: 'approved', applied: true })], files });
 
+// The archive branch over a base that already holds `base` (the pin files): the base is committed on main and
+// origin/main, the branch holds the archived folder, one approved proposal naming CONTRIBUTING.md, and `files`.
+function pinArchive({ base, files, commit = true }) {
+  const t = pm({ branch: 'main' });
+  put(t.root, base);
+  commitAll(t.root, 'pin files');
+  git(t.root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  git(t.root, 'switch', '-q', '-c', 'chore/archive-feat');
+  archiveFolder(t);
+  put(t.root, { [retroPath(true)]: retroMd(proposal(['CONTRIBUTING.md'], { answer: 'approved', applied: true })), 'openspec/roadmap.md': ticked, ...files });
+  if (commit) commitAll(t.root, 'archive feat');
+  return t;
+}
+
 test('P13 passes to open-archive-pr: an exact path, ./path normalised, a regression gate with both files, the release files, and openspec/changes/** and openspec/roadmap.md (AC-3)', () => {
   const ok = [
     ['an approved proposal\'s path', ['CONTRIBUTING.md'], { 'CONTRIBUTING.md': 'n\n' }],
@@ -1033,6 +1047,256 @@ test('release list: RELEASE_FILE is unchanged and unnamedFiles still reports doc
   assert.equal(RELEASE_FILE.test('docs/openspec-flow.md'), false);
   assert.deepEqual(unnamedFiles(['docs/openspec-flow.md', 'CHANGELOG.md', 'openspec/roadmap.md'], []), ['docs/openspec-flow.md']);
   assert.deepEqual(unnamedFiles(['docs/openspec-flow.md'], [{ answer: 'approved', targets: ['docs/openspec-flow.md'] }]), []);
+  // ADR 0027: the doc passes by its content when only its CI pins moved, never as a whole file (AC-6).
+  const pinOnly = { 'docs/openspec-flow.md': { before: PIN_DOC('0.33.0'), after: PIN_DOC('0.34.0') } };
+  assert.deepEqual(unnamedFiles(['docs/openspec-flow.md'], [], pinOnly), []);
+  const beyond = { 'docs/openspec-flow.md': { before: PIN_DOC('0.33.0'), after: PIN_DOC('0.34.0').replace('A paragraph about the check.', 'Another paragraph.') } };
+  assert.deepEqual(unnamedFiles(['docs/openspec-flow.md'], [], beyond), ['docs/openspec-flow.md']);
+});
+
+// ================================================================ archive-release-pin: the CI pin lines pass the archive check unnamed (ADR 0027)
+
+const FLOW_PATH = 'docs/openspec-flow.md';
+// The file that holds the pin block (`// Invariant: the CI snippet pins the current release`): suite-speed split change-loop.test.mjs and the block moved here.
+const LOOP_PATH = 'plugins/openspec/hooks/change-loop-compozy.test.mjs';
+const textOf = (...p) => readFileSync(join(repoRoot, ...p), 'utf8');
+const fixtureText = (name) => readFileSync(join(here, 'fixtures', 'c561553', name), 'utf8');
+const dotted = (v) => v.replaceAll('.', '\\.');
+
+// A flow page with the three pin line shapes of the real doc (two snippet lines, one prose line).
+const PIN_DOC = (v) => [
+  '# Flow', '',
+  'A paragraph about the check.', '',
+  `          # pinned to the commit of v${v} (a tag can move; a commit cannot)`,
+  `          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v${v}>/plugins/openspec/hooks`,
+  '',
+  `Pin the commit sha of the release tag (\`v${v}\` above), not the tag; by hand, run \`gh api repos/chacal88/devkit/git/ref/tags/v${v}\`.`,
+  '',
+].join('\n');
+
+// The lines of a test file with the pin block of change-loop.test.mjs, one line per element (the last is the empty one after the final newline).
+const loopLines = (v, prev) => [
+  "test('change-loop docs: the design records the answers', () => {",
+  "  const flow = readRepo('docs', 'openspec-flow.md');",
+  "  assert.match(adrs, /0011/, 'the ADRs line names 0011');",
+  `  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); x moves it to ${v}, above y's ${prev}`,
+  `  assert.match(flow, /v${dotted(v)}/, 'the CI snippet pins the current release (x: ${v})');`,
+  `  assert.doesNotMatch(flow, /v${dotted(prev)}/, 'no pin left on the previous release (y)');`,
+  '});',
+  '',
+];
+const loopText = (v, prev) => loopLines(v, prev).join('\n');
+const PIN_LOOP_BEFORE = loopText('0.33.0', '0.32.0');
+const PIN_LOOP_AFTER = loopText('0.34.0', '0.33.0');
+const pinHas = (path, before, after) => DC.pinLinesOnly(path, { before, after });
+
+test('archive-release-pin 1: pinLinesOnly passes a flow page whose only change is its CI pins, and the real c561553 hunks', () => {
+  assert.equal(typeof DC.pinLinesOnly, 'function', 'deliver-check.mjs exports pinLinesOnly');
+  assert.equal(pinHas(FLOW_PATH, PIN_DOC('0.33.0'), PIN_DOC('0.34.0')), true, 'the three pin line shapes moved from v0.33.0 to v0.34.0');
+  assert.equal(pinHas(FLOW_PATH, fixtureText('openspec-flow.before.txt'), fixtureText('openspec-flow.after.txt')), true, 'the hunks of c561553');
+});
+
+test('archive-release-pin 2: pinLinesOnly names a flow page changed beyond its pins', () => {
+  assert.equal(typeof DC.pinLinesOnly, 'function', 'deliver-check.mjs exports pinLinesOnly');
+  const before = PIN_DOC('0.33.0');
+  const after = PIN_DOC('0.34.0');
+  const afterFixture = fixtureText('openspec-flow.after.txt');
+  const cases = {
+    'a changed sentence': after.replace('A paragraph about the check.', 'A different paragraph about the check.'),
+    'an added paragraph': `${after}\nA new paragraph.\n`,
+    'a marker line with other words changed': after.replace('(a tag can move; a commit cannot)', '(a tag can drift; a commit cannot)'),
+    'an added pin line': after.replace('\n\nPin the commit', '\n          # pinned to the commit of v0.34.0 again\n\nPin the commit'),
+    'a pin removed from a marker line': after.replace('pinned to the commit of v0.34.0 (a tag', 'pinned to the commit of v (a tag'),
+  };
+  for (const [label, text] of Object.entries(cases)) assert.equal(pinHas(FLOW_PATH, before, text), false, label);
+  assert.equal(pinHas(FLOW_PATH, fixtureText('openspec-flow.before.txt'), afterFixture.replace('older releases pass a slice', 'older releases wave a slice')), false, 'the fixture with one non-pin word changed');
+});
+
+test('archive-release-pin 3: pinLinesOnly names a test file whose only changed lines are the old pin forms', () => {
+  assert.equal(typeof DC.pinLinesOnly, 'function', 'deliver-check.mjs exports pinLinesOnly');
+  // ADR 0030: the pin test reads the manifest and no release edits it, so the one pin file is the flow page.
+  assert.deepEqual(DC.PIN_LINE_FILES, [FLOW_PATH], 'the flow page is the only file read by its content');
+  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, PIN_LOOP_AFTER), false, 'the pin block moved to the next release');
+  const without = (lines, i) => lines.filter((_, k) => k !== i).join('\n');
+  const lines = loopLines('0.33.0', '0.32.0');
+  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, without(lines, 5)), false, 'a removed assert.doesNotMatch line');
+  const withEscaped = [...lines.slice(0, 6), "  assert.doesNotMatch(flow, /v0\\.31\\.0/, 'no pin left on main\\'s release before it (z)');", ...lines.slice(6)].join('\n');
+  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, withEscaped), false, 'an added line whose message holds an escaped quote');
+  const comment = lines.map((l) => (l.startsWith('  // Invariant:') ? l.replace('x moves it to 0.33.0', 'z moves it to 0.35.0') : l)).join('\n');
+  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, comment), false, 'a changed Invariant comment');
+  const indented = lines.map((l) => (l.startsWith('  assert.match(flow,') ? `    ${l.trimStart()}` : l)).join('\n');
+  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, indented), false, 'a form line at another indentation');
+});
+
+test('archive-release-pin 4: pinLinesOnly names a test file with any other changed line', () => {
+  assert.equal(typeof DC.pinLinesOnly, 'function', 'deliver-check.mjs exports pinLinesOnly');
+  const lines = loopLines('0.34.0', '0.33.0');
+  const added = (line) => [...lines.slice(0, 6), line, ...lines.slice(6)].join('\n');
+  const swapped = lines.slice();
+  [swapped[1], swapped[2]] = [swapped[2], swapped[1]];
+  const cases = {
+    'an added assert.ok on flow': added("  assert.ok(flow.includes('x'), 'x');"),
+    'an added assert.match on another subject': added("  assert.match(other, /v0\\.34\\.0/, 'm');"),
+    'an added assert.match with a regular expression that is not a plain version': added("  assert.match(flow, /v0\\.34\\.\\d/, 'm');"),
+    'a changed line of another test': PIN_LOOP_AFTER.replace('/0011/', '/0012/'),
+    'an added comment': added('  // note'),
+    'an added blank line': added(''),
+    'two non-form lines swapped': swapped.join('\n'),
+  };
+  for (const [label, text] of Object.entries(cases)) assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, text), false, label);
+});
+
+test('archive-release-pin 5: a flow page missing or unreadable on either side, another path, a CRLF pin line or a changed final newline is never pin-only, and an empty base is a text', () => {
+  assert.equal(typeof DC.pinLinesOnly, 'function', 'deliver-check.mjs exports pinLinesOnly');
+  const doc = PIN_DOC('0.34.0');
+  assert.equal(DC.pinLinesOnly(FLOW_PATH, undefined), false, 'pair undefined');
+  assert.equal(pinHas(FLOW_PATH, null, doc), false, 'before null');
+  assert.equal(pinHas(FLOW_PATH, doc, null), false, 'after null');
+  assert.equal(pinHas(FLOW_PATH, null, null), false, 'both null');
+  assert.equal(pinHas(FLOW_PATH, 7, doc), false, 'before not a string');
+  assert.equal(pinHas('docs/other.md', doc, doc), false, 'equal texts under another path');
+  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, PIN_LOOP_BEFORE), false, 'equal texts under the test file, which is another path now');
+  const crlf = doc.replace('(a tag can move; a commit cannot)', '(a tag can move; a commit cannot)\r');
+  assert.equal(pinHas(FLOW_PATH, PIN_DOC('0.33.0'), crlf), false, 'a pin line ending in a carriage return');
+  assert.equal(pinHas(FLOW_PATH, 'a\nb\n', 'a\nb'), false, 'a lost final newline');
+  assert.equal(pinHas(FLOW_PATH, 'a\nb', 'a\nb\n'), false, 'a gained final newline');
+  assert.equal(pinHas(FLOW_PATH, '', 'a\n'), false, 'an empty base against a text');
+  assert.equal(pinHas(FLOW_PATH, '', ''), true, 'an empty base against an empty file is not missing');
+  assert.equal(pinHas(LOOP_PATH, '', ''), false, 'the test file is another path, empty or not');
+});
+
+test('archive-release-pin 6: unnamedFiles takes the pin rule from the texts, and c561553\'s file list names only its test file when no proposal names the flow page', () => {
+  const paths = [FLOW_PATH, LOOP_PATH];
+  const pinOnly = { [FLOW_PATH]: { before: PIN_DOC('0.33.0'), after: PIN_DOC('0.34.0') }, [LOOP_PATH]: { before: PIN_LOOP_BEFORE, after: PIN_LOOP_AFTER } };
+  assert.deepEqual(unnamedFiles(paths, [], pinOnly), [LOOP_PATH], 'pin-only texts: the flow page passes, the test file never does');
+  assert.deepEqual(unnamedFiles(paths, []), paths, 'no texts');
+  assert.deepEqual(unnamedFiles(paths, [], {}), paths, 'empty texts');
+  const beyond = { [FLOW_PATH]: { before: PIN_DOC('0.33.0'), after: PIN_DOC('0.34.0').replace('A paragraph', 'Another paragraph') }, [LOOP_PATH]: { before: PIN_LOOP_BEFORE, after: `${PIN_LOOP_AFTER}// note\n` } };
+  assert.deepEqual(unnamedFiles(paths, [], beyond), paths, 'each file whose text goes beyond');
+  const archived = 'openspec/changes/archive/2026-11-22-review-writer-prompt';
+  const c561553 = [
+    '.claude-plugin/marketplace.json', 'CHANGELOG.md', FLOW_PATH, 'openspec/config.yaml', 'openspec/roadmap.md',
+    'openspec/specs/change-delivery/spec.md', 'openspec/specs/change-stages/spec.md', 'openspec/specs/review-round/spec.md', 'openspec/specs/verdict-files/spec.md',
+    'plugins/openspec/.claude-plugin/plugin.json', LOOP_PATH, 'plugins/openspec/skills/ship-change/SKILL.md',
+    ...['change-delivery', 'change-stages', 'review-round', 'verdict-files'].map((c) => `${archived}/specs/${c}/spec.md`),
+  ];
+  const proposals = [
+    { answer: 'approved', targets: ['plugins/openspec/skills/ship-change/SKILL.md'] },
+    { answer: 'approved', targets: ['openspec/roadmap.md'] },
+    { answer: 'approved', targets: ['openspec/config.yaml'] },
+  ];
+  const texts = { [FLOW_PATH]: { before: fixtureText('openspec-flow.before.txt'), after: fixtureText('openspec-flow.after.txt') } };
+  assert.equal(c561553.length, 16);
+  assert.deepEqual(unnamedFiles(c561553, proposals, texts), [LOOP_PATH], 'the file list of c561553 with its flow page texts names only the test file');
+  assert.deepEqual(unnamedFiles(c561553.filter((p) => p !== LOOP_PATH), proposals, texts), [], 'the same list without the test file passes');
+  assert.deepEqual(unnamedFiles(c561553, proposals), [FLOW_PATH, LOOP_PATH], 'the same list without texts names both files');
+});
+
+// The flow page as at a base on `main`, then `files` on the archive branch (ADR 0030: the one file read by its content).
+const PIN_BASE = { [FLOW_PATH]: PIN_DOC('0.33.0') };
+const PIN_EDITS = { [FLOW_PATH]: PIN_DOC('0.34.0') };
+const PIN_BEYOND_DOC = PIN_DOC('0.34.0').replace('A paragraph about the check.', 'A different paragraph about the check.');
+// The test file with only its old pin assertion lines changed: it is named, as any other edit of a test file.
+const LOOP_EDIT = { base: { [LOOP_PATH]: PIN_LOOP_BEFORE }, files: { [LOOP_PATH]: PIN_LOOP_AFTER } };
+
+test('archive-release-pin 7: the local archive stop: pin-only edits open the archive PR, an edit beyond the pin stops on apply-proposals, committed or in the tree, and a deleted pin file stops', () => {
+  for (const commit of [true, false]) {
+    const label = commit ? 'committed' : 'in the tree';
+    const ok = pinArchive({ base: PIN_BASE, files: PIN_EDITS, commit }).next();
+    assert.equal(ok.step, 'open-archive-pr', `pin-only ${label}: ${ok.reason}`);
+    const bad = pinArchive({ base: PIN_BASE, files: { ...PIN_EDITS, [FLOW_PATH]: PIN_BEYOND_DOC }, commit }).next();
+    assert.deepEqual([bad.step, bad.archiveStep, bad.reason], ['stop-archive', 'apply-proposals', `files no approved proposal names: ${FLOW_PATH}`], `beyond the pin ${label}`);
+    const loop = pinArchive({ ...LOOP_EDIT, commit }).next();
+    assert.deepEqual([loop.step, loop.archiveStep, loop.reason], ['stop-archive', 'apply-proposals', `files no approved proposal names: ${LOOP_PATH}`], `the test file with only its old pin lines changed ${label}`);
+  }
+  const gone = pinArchive({ base: PIN_BASE, files: PIN_EDITS, commit: false });
+  git(gone.root, 'rm', '-q', '-f', FLOW_PATH);
+  const n = gone.next();
+  assert.deepEqual([n.step, n.archiveStep, n.reason], ['stop-archive', 'apply-proposals', `files no approved proposal names: ${FLOW_PATH}`], 'a deleted pin file');
+});
+
+test('archive-release-pin 8: --ci on an archive branch applies the same pin rule', () => {
+  const env = { GITHUB_BASE_REF: 'main' };
+  const run = (opts) => runCi(archivePrRepo(opts), ['--json'], env);
+  const ok = run({ base: PIN_BASE, files: PIN_EDITS });
+  assert.equal(ok.code, 0, ok.out + ok.err);
+  assert.deepEqual([ok.json().pass, ok.json().archive.unnamed], [true, []], 'pin-only edits');
+  const doc = run({ base: PIN_BASE, files: { ...PIN_EDITS, [FLOW_PATH]: PIN_BEYOND_DOC } });
+  assert.equal(doc.code, 1, doc.out + doc.err);
+  assert.deepEqual(doc.json().archive.unnamed, [FLOW_PATH], 'a doc changed beyond its pin');
+  const other = run(LOOP_EDIT);
+  assert.equal(other.code, 1, other.out + other.err);
+  assert.deepEqual(other.json().archive.unnamed, [LOOP_PATH], 'the test file with only its old pin lines changed');
+  const added = run({ base: {}, files: PIN_EDITS });
+  assert.equal(added.code, 1, added.out + added.err);
+  assert.deepEqual(added.json().archive.unnamed, [FLOW_PATH], 'the flow page added only on the branch');
+});
+
+test('archive-release-pin 9: --ci from only the three downloaded files passes a pin-only archive and fails one beyond the pin', () => {
+  const dir = tmpFolder('devkit-downloaded-');
+  for (const n of ['guard.mjs', 'deliver-check.mjs', 'merge-setup.mjs']) cpSync(join(here, n), join(dir, n));
+  const env = { ...process.env, ...CI_ENV, GITHUB_BASE_REF: 'main' };
+  const from = (root) => spawnSync(process.execPath, [join(dir, 'deliver-check.mjs'), '--ci', '--json'], { cwd: root, encoding: 'utf8', env });
+  const ok = from(archivePrRepo({ base: PIN_BASE, files: PIN_EDITS }));
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+  assert.deepEqual(JSON.parse(ok.stdout).archive.unnamed, [], 'pin-only');
+  const bad = from(archivePrRepo({ base: PIN_BASE, files: { ...PIN_EDITS, [FLOW_PATH]: PIN_BEYOND_DOC } }));
+  assert.equal(bad.status, 1, bad.stdout + bad.stderr);
+  assert.deepEqual(JSON.parse(bad.stdout).archive.unnamed, [FLOW_PATH], 'beyond the pin');
+  assert.doesNotMatch(bad.stderr, /ERR_MODULE_NOT_FOUND|Cannot find module/);
+});
+
+test('archive-release-pin 11: the flow page, ADR 0003 and the config state the pin-line rule', () => {
+  const ADR_0027 = 'adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md';
+  const ADR_0030 = 'adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md';
+  const flowLines = textOf('docs', 'openspec-flow.md').split('\n');
+  const startsWith = (prefix) => flowLines.find((l) => l.startsWith(prefix)) ?? '';
+  const row = startsWith('| P13 |');
+  assert.ok(row.includes(FLOW_PATH), 'the P13 row names the flow page');
+  assert.ok(!row.includes(LOOP_PATH), 'the P13 row no longer names the pin test');
+  const para = startsWith('**The file check (P13, AC-3).**');
+  for (const part of [ADR_0027, ADR_0030, 'One file passes by its content']) {
+    assert.ok(para.includes(part), `the file check paragraph holds ${part}`);
+  }
+  for (const gone of ['change-loop-compozy.test.mjs', 'assert.match(flow,', '// Invariant: the CI snippet pins the current release']) {
+    assert.ok(!para.includes(gone), `the file check paragraph no longer holds ${gone}`);
+  }
+  assert.ok(!startsWith('- **Classification.**').includes('and the ADR 0003 exemption, do not change'), 'the Classification bullet no longer says the exemption does not change');
+  const adr = textOf('docs', 'adr', '0003-auto-merge-the-archive-pr.md');
+  const head = adr.split('\n').slice(0, 9);
+  assert.ok(head.includes(`- Amended by ADR 0027 (${ADR_0027.slice(4)})`), 'ADR 0003 header names ADR 0027');
+  assert.ok(head.includes(`- Amended by ADR 0030 (${ADR_0030.slice(4)})`), 'ADR 0003 header names ADR 0030');
+  const note = adr.split('\n').find((l) => l.startsWith('Note (archive-release-pin, ')) ?? '';
+  assert.ok(note.endsWith('The Decision is otherwise unchanged.'), 'ADR 0003 holds the archive-release-pin Note');
+  assert.ok(note.includes('ADR 0030'), 'the Note names ADR 0030');
+  assert.ok(!note.includes('change-loop-compozy.test.mjs'), 'the Note no longer names the pin test');
+  const adr27 = textOf('docs', 'adr', '0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md').split('\n');
+  assert.ok(adr27.slice(0, 10).includes(`- Amended by ADR 0030 (${ADR_0030.slice(4)})`), 'ADR 0027 header names ADR 0030');
+  assert.ok(adr27.some((l) => l.startsWith('Note (archive-release-pin, ') && l.includes('ADR 0030')), 'ADR 0027 holds the Note that names ADR 0030');
+  const adrsLine = textOf('openspec', 'config.yaml').split('\n').find((l) => l.trimStart().startsWith('ADRs:')) ?? '';
+  assert.ok(adrsLine.includes('0027 the archive check lets the release pin lines pass unnamed, amends 0003, amended by 0030'), 'the config ADRs line names 0027 as amended');
+  assert.ok(adrsLine.includes('0030 the pin test reads the manifest, so only the flow page pins pass unnamed, amends 0003 and 0027'), 'the config ADRs line names 0030');
+});
+
+// Invariant (archive-release-pin, ADR 0030 decision 1): no release edits the pin test, so it holds no release version literal and no change name; it reads the manifest.
+test('archive-release-pin 12: the pin test reads the manifest and holds no release version literal and no change name outside the v0.20.0 floor', () => {
+  const lines = textOf('plugins', 'openspec', 'hooks', 'change-loop-compozy.test.mjs').split('\n');
+  const from = lines.findIndex((l) => l.startsWith("test('change-loop docs: the design records the answers'"));
+  assert.ok(from >= 0, 'the pin test is in the file');
+  const to = lines.findIndex((l, i) => i > from && l === '});');
+  assert.ok(to > from, 'the pin test ends');
+  const body = lines.slice(from, to + 1);
+  const outsideFloor = body.filter((l) => !l.includes('0\\.20\\.0') && !l.includes('0.20.0'));
+  const changeIds = ['archive-release-pin', 'change-budget', 'change-state', 'change-state-retro-fixes', 'change-version-pin', 'commit-attribution', 'compozy-driver', 'delivery-models', 'delivery-train', 'gh-version-check', 'jira-entry', 'release-merge-conflict', 'release-tags', 'remote-worker', 'review-openspec-fix', 'roadmap-sessions-upfront', 'stage-models', 'stage-roles', 'stale-only-on-own-files', 'suite-speed', 'test-fixture-cleanup'];
+  for (const line of outsideFloor) {
+    assert.doesNotMatch(line, /\d+\\?\.\d+\\?\.\d+/, `a version literal: ${line.trim()}`);
+    assert.ok(!/^\s*\/\/ Invariant: the CI snippet pins the current release/.test(line), `the release Invariant comment: ${line.trim().slice(0, 60)}`);
+    for (const id of changeIds) assert.ok(!line.includes(id), `the change name ${id}: ${line.trim().slice(0, 60)}`);
+  }
+  const text = body.join('\n');
+  for (const part of ["readRepo('plugins', 'openspec', '.claude-plugin', 'plugin.json')", 'assert.deepEqual(pinMismatches(flow, version), []', 'const staleV20 =', 'moves this pin to']) {
+    assert.ok(text.includes(part), `the pin test holds ${part}`);
+  }
 });
 
 // ================================================================ field-fixes 4: delivered is its own pull request and every task
@@ -1460,6 +1724,7 @@ test('review-writer-prompt AC-8 after a test-only commit the evidence goes stale
   commitAll(t.root, 'tests only');
   assert.equal(t.next().step, 'verify', 'the evidence is stale before any review');
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   const n = t.next();
   assert.deepEqual([n.step, n.reviewers], ['review', TEST_READERS]);
 });
@@ -1821,4 +2086,168 @@ test('commit-attribution AC-1 T36 the ship-change Attribution section holds the 
     "The caller's lines win over your own environment's, as the owner's choice: write exactly these and no other Co-Authored-By line, attribution trailer or footer.",
     'Attribution (from the caller): none', 'verbatim', "never take the agent's"]) assert.ok(s.includes(part), part);
   assert.doesNotMatch(s, /Opus|Sonnet|Haiku|noreply/);
+});
+
+// ---- loop-place-and-evidence: the change folder is committed before a review round (spec change-delivery)
+// Invariant: the review round runs on a clean change folder, so no verdict carries `(uncommitted changes)` for it.
+// Layer: deliver-check collectState (the folderDirty fact) and nextStep (the commit before review). Suite: deliver-check.
+
+const FOLDER = 'openspec/changes/feat';
+const folderState = (over = {}) => state({ folderDirty: [`${FOLDER}/evidence.md`], items: { 2: open({ missing: ['code-quality-reviewer'] }) }, ...over });
+
+test('loop-evidence 1: a dirty change folder before review answers commit with no paths', () => {
+  const n = nextStep(folderState());
+  assert.deepEqual([n.step, n.paths], ['commit', []]);
+  assert.equal(n.reason, `uncommitted files in the change folder before the review round: ${FOLDER}/evidence.md`);
+});
+
+test('loop-evidence 2: with the folder clean or the field absent the review answer is unchanged', () => {
+  const missing = folderState();
+  for (const s of [{ ...missing, folderDirty: [] }, (({ folderDirty: _f, ...rest }) => rest)(missing)]) {
+    const n = nextStep(s);
+    assert.deepEqual([n.step, n.reviewers, n.round], ['review', ['code-quality-reviewer'], 1]);
+  }
+  const failed = (over) => rejectedState({
+    reviews: [{ name: 'code-quality-reviewer', verdict: 'REJECTED', current: false }, { name: 'test-coverage-reviewer', verdict: 'APPROVED', current: true }],
+    items: { 2: open({ stale: ['code-quality-reviewer'] }), 3: open({ undisposed: [] }) },
+    ...over,
+  });
+  const base2 = failed({ folderDirty: [] });
+  const { folderDirty: _g, ...absent } = base2;
+  for (const s of [base2, absent]) {
+    const n = nextStep(s);
+    assert.deepEqual([n.step, n.reviewers, n.round], ['review', ['code-quality-reviewer'], 2]);
+  }
+});
+
+test('loop-evidence 3: product paths dirty with the folder answer the product commit once', () => {
+  const n = nextStep(folderState({ dirty: ['src/a.ts'] }));
+  assert.deepEqual([n.step, n.paths], ['commit', ['src/a.ts']]);
+  assert.match(n.reason, /^uncommitted changes outside openspec\//);
+});
+
+test('loop-evidence 4: a dirty folder never comes before verify, fix-defect, fix-review or the round-2 stop', () => {
+  const folderDirty = [`${FOLDER}/tasks.md`];
+  const missing = { 2: open({ missing: ['code-quality-reviewer'] }) };
+  assert.equal(nextStep(state({ folderDirty, items: { ...missing, 1: open({ evidence: 'stale', missingGates: [] }) } })).step, 'verify');
+  assert.equal(nextStep(state({ folderDirty, items: { ...missing, 4: open({ defects: ['AC-1'], proven: [] }) } })).step, 'fix-defect');
+  assert.equal(nextStep(rejectedState({ folderDirty })).step, 'fix-review');
+  assert.equal(nextStep(rejectedState({ folderDirty, reviewMd: { consensus: 'FAIL', round: 2 } })).step, 'stop-review-deadlock');
+});
+
+test('loop-evidence 5: a dirty folder with no reviewer to run changes nothing', () => {
+  const folderDirty = [`${FOLDER}/reviews/code-quality-reviewer.md`];
+  assert.equal(nextStep(state({ folderDirty })).step, 'ready');
+  assert.equal(nextStep(state({ folderDirty, items: { 5: open({ none: true }) } })).step, 'open-pr');
+});
+
+test('loop-evidence 6: the reason names at most three folder paths', () => {
+  const n = nextStep(folderState({ folderDirty: ['a.md', 'b.md', 'c.md', 'd.md'].map((f) => `${FOLDER}/${f}`) }));
+  assert.equal(n.step, 'commit');
+  for (const f of ['a.md', 'b.md', 'c.md']) assert.ok(n.reason.includes(`${FOLDER}/${f}`), n.reason);
+  assert.ok(!n.reason.includes('d.md'), n.reason);
+  assert.deepEqual(n.paths, []);
+});
+
+test('loop-evidence 7: evidence.md uncommitted alone answers commit, and once committed review with the same reviewers and round', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  assert.deepEqual(collectState(t.root, 'feat', { env: t.env }).folderDirty, [`${FOLDER}/evidence.md`]);
+  let n = t.next();
+  assert.deepEqual([n.step, n.paths], ['commit', []]);
+  commitAll(t.root, 'evidence');
+  n = t.next();
+  assert.deepEqual([n.step, n.reviewers, n.round], ['review', BOTH, 1]);
+});
+
+test('loop-evidence 8: a modified evidence.md alone answers commit', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
+  ev(t.root, `${readFileSync(join(t.root, FOLDER, 'evidence.md'), 'utf8')}\n`);
+  const n = t.next();
+  assert.deepEqual([n.step, n.paths], ['commit', []]);
+});
+
+test('loop-evidence 9: a ticked tasks.md uncommitted alone answers commit', () => {
+  const t = shipRepo();
+  tick(t.root, '1.1', '1.2', '2.1', '2.2');
+  commitAll(t.root, 'code');
+  tick(t.root, '2.3');
+  fullEvidence(t.root, t.env);
+  git(t.root, 'add', '--', `${FOLDER}/evidence.md`);
+  git(t.root, 'commit', '-q', '-m', 'evidence');
+  assert.deepEqual(git(t.root, 'status', '--porcelain').split('\n').map((l) => l.replace(/^\s*\S+\s+/, '')), [`${FOLDER}/tasks.md`]);
+  let n = t.next();
+  assert.deepEqual([n.step, n.paths], ['commit', []]);
+  commitAll(t.root, 'tick');
+  n = t.next();
+  assert.deepEqual([n.step, n.reviewers, n.round], ['review', BOTH, 1]);
+});
+
+test('loop-evidence 10: an untracked file, then the same file staged, answer commit and are named', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
+  put(t.root, { [`${FOLDER}/proof/red-1.txt`]: 'red\n' });
+  let n = t.next();
+  assert.equal(n.step, 'commit');
+  assert.ok(n.reason.endsWith(`${FOLDER}/proof/red-1.txt`), n.reason);
+  git(t.root, 'add', '--', `${FOLDER}/proof/red-1.txt`);
+  n = t.next();
+  assert.equal(n.step, 'commit');
+  assert.ok(n.reason.endsWith(`${FOLDER}/proof/red-1.txt`), n.reason);
+  commitAll(t.root, 'proof');
+  assert.equal(t.next().step, 'review');
+});
+
+test('loop-evidence 11: product code dirty with the folder: the product commit, verify, the folder commit, then review', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  put(t.root, { 'src/a.ts': 'changed\n' });
+  let n = t.next();
+  assert.deepEqual([n.step, n.paths], ['commit', ['src/a.ts']]);
+  commitAll(t.root, 'product');
+  assert.equal(t.next().step, 'verify');
+  fullEvidence(t.root, t.env);
+  n = t.next();
+  assert.deepEqual([n.step, n.paths], ['commit', []]);
+  commitAll(t.root, 'evidence');
+  n = t.next();
+  assert.deepEqual([n.step, n.reviewers], ['review', BOTH]);
+});
+
+test('loop-evidence 12: paths outside the change folder do not count', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
+  put(t.root, { 'openspec/changes/featx/tasks.md': 'x\n', 'openspec/config.yaml': `${readFileSync(join(t.root, 'openspec/config.yaml'), 'utf8')}# x\n` });
+  assert.deepEqual(collectState(t.root, 'feat', { env: t.env }).folderDirty, []);
+  assert.equal(t.next().step, 'review');
+});
+
+test('loop-evidence 13: a round recorded after the commit step is current; one marked uncommitted is not', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
+  reviewAt(t.root, BOTH);
+  assert.equal(itemsOf(t)[1].status, 'met');
+  assert.equal(t.next().step, 'open-pr');
+  put(t.root, withReviews(Object.fromEntries(BOTH.map((n) => [n, review('approved', head(t.root), ' (uncommitted changes)')]))));
+  const two = itemsOf(t)[1];
+  assert.equal(two.status, 'open');
+  assert.deepEqual([...two.details.stale].sort(), BOTH);
+});
+
+test('loop-evidence 14: collectState lists the folder\'s modified, staged, untracked and renamed paths', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
+  writeFileSync(join(t.root, FOLDER, 'tasks.md'), `${readFileSync(join(t.root, FOLDER, 'tasks.md'), 'utf8')}\n<!-- note -->\n`);
+  put(t.root, { [`${FOLDER}/notes.md`]: 'n\n' });
+  git(t.root, 'add', '--', `${FOLDER}/notes.md`);
+  put(t.root, { [`${FOLDER}/proof/x.txt`]: 'x\n' });
+  git(t.root, 'mv', `${FOLDER}/proposal.md`, `${FOLDER}/proposal-old.md`);
+  const dirty = [...(collectState(t.root, 'feat', { env: t.env }).folderDirty ?? [])].sort();
+  assert.deepEqual(dirty, [`${FOLDER}/notes.md`, `${FOLDER}/proof/x.txt`, `${FOLDER}/proposal-old.md`, `${FOLDER}/tasks.md`]);
 });

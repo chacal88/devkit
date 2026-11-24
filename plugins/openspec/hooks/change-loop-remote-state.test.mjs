@@ -15,7 +15,7 @@ import * as changeLoopModule from './change-loop.mjs';
 import { readDevkitSettings, MESSAGES, render, main, LoopUsageError } from './change-loop.mjs';
 import {
   LOOP, TDD, COMMIT, PLANNER, configRepo, shape, says, buildRep, build, next, parsed, deliveredChange, startRun, body, snapshot, devkitRepo, openRun,
-  freshProject, WAIT, waited, skillBodyLine, hook, PLAN_UP_TO_TASKS, approvedChange, REPO_ROOT, readRepo, skillText, LANG_FLAG, section, IDENT,
+  freshProject, WAIT, waited, skillBodyLine, hook, PLAN_UP_TO_TASKS, approvedChange, REPO_ROOT, readRepo, skillText, LANG_FLAG, section, IDENT, pmvFacts, pmvRec,
 } from './change-loop-fixtures.mjs';
 import { TASK_REQUIREMENTS, recordFile, asked, usageLine, budgetEnv } from './change-loop-remote-fixtures.mjs';
 
@@ -817,6 +817,9 @@ test('change-state AC-3 state: each blocked reason decide gives is the reason, w
     'pr-problem': build(rowOf('blocked')),
     'unknown-step': run({ rep: { next: nextOf(FLOWS.devkit, 'proposal', 'something-new') } }),
     unreadable: run({ rep: buildRep(), facts: { row: { error: 'boom' } } }),
+    // post-merge-validate T-15: the two blocked reasons the check of the plan after a merge of the base gives (T-10, T-11).
+    'merge-defect': build(rowOf('verify'), pmvFacts(pmvRec({ reds: 3 }))),
+    'merge-check-failed': build(rowOf('verify'), { ...pmvFacts(pmvRec({ result: 'cannot-run', reds: 0, errors: null, error: 'openspec validate timed out' })), after: 'evidence/merge-check@abc123' }),
   };
   for (const [why, action] of Object.entries(cases)) {
     await t.test(why, () => {
