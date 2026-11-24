@@ -583,13 +583,15 @@ its last gate runs the whole suite again. The spec delta and the `rules.requirem
   "With the machines setting set, a change session of this machine takes its place from the run's own count", scenarios "The places of each machine with the machines setting set", "An approved plan
   pushed is no place taken on this machine", "A change reaches its implementation before its plan is
   pushed", "The place frees before the claim on origin does", "A change of this machine with no
-  claimed ticket"). In `plugins/openspec/hooks/roadmap-loop.test.mjs`, over `upPushed`'s change `a` with
+  claimed ticket", "Both kinds of change at once"). In `plugins/openspec/hooks/roadmap-loop.test.mjs`, over `upPushed`'s change `a` with
   the claim `x-devkit-machine: <thisMachine()>` and `x-devkit-places: run`, another change `b` of this
-  machine with its `approval.md` on the same `origin`, and a run file with `changeSessions`, `places: 1`
-  and `a`'s ticket claimed:
+  machine with its `approval.md` on the same `origin`, and a run file with `changeSessions` and
+  `places: 1`; the tickets of `a`, `b` (and `c`, `d`) are claimed or unclaimed exactly as each test of
+  D-18 names them:
   - `upfront D-18 place: a change session of this machine on the run's ticket takes its place from occupied only, before and after its plan push`;
   - `upfront D-18 place: a place of this machine frees when its change leaves the load stages, whatever its claim on origin, and nothing of it counts once archived`;
   - `upfront D-18 place: a change of this machine whose ticket no session claimed keeps the remote-worker gate`;
+  - `upfront D-18 place: a claimed change does not wait for an unclaimed one, and the board's row then reads above the number`;
   - `upfront D-18 docs: ADR 0021 names ADR 0020 in its Amends and a Note, ADR 0020 is amended by ADR 0021, and ADR 0010's Note and the config rule qualify the triage by flow`;
   and change T-27 (invariant: the config's ADR list names what ADR 0021 amends; layer: the
   documents; suite: roadmap-loop): `upfront ADR 0021: the documents follow` asserts "amends 0004,
@@ -598,8 +600,9 @@ its last gate runs the whole suite again. The spec delta and the `rules.requirem
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront D-18" --test-name-pattern="^upfront ADR 0021: the documents follow" plugins/openspec/hooks/guard.test.mjs`
   and save the output to `openspec/changes/roadmap-sessions-upfront/proof/red-9.txt`, listing at its
   top the tests that pass there (expected: `upfront D-18 place: a change of this machine whose ticket
-  no session claimed keeps the remote-worker gate`, which pins today's gate). Check: the other three
-  tests and T-27 fail there, each on the assertion D-18 names (the `no-place` end or `take-place`
+  no session claimed keeps the remote-worker gate`, which pins today's gate, and `upfront D-18 place:
+  a claimed change does not wait for an unclaimed one ...`, which pins today's two counts). Check: the
+  other three tests and T-27 fail there, each on the assertion D-18 names (the `no-place` end or `take-place`
   before the push, the board's `taken`, the ADR text; the docs test's config-rule assertion already
   holds, since this revision wrote that sentence).
 - [ ] 9.2 One gate for a change session of this machine (D-18 item 3, change 1): in
@@ -609,27 +612,30 @@ its last gate runs the whole suite again. The spec delta and the `rules.requirem
   `places` for `run`). The header comment of `placeFacts` names the condition and that it is
   `sessionNext`'s. `placeChange`, `buildPart` and the `wake` of `decideRoadmap` do not change. Check:
   `upfront D-18 place: a change session of this machine on the run's ticket ...` (its gate half) and
-  `upfront D-18 place: a change of this machine whose ticket no session claimed ...` pass; every
+  `upfront D-18 place: a change of this machine whose ticket no session claimed ...` and `upfront
+  D-18 place: a claimed change does not wait for an unclaimed one ...` pass; every
   `remote AC-10` and `remote AC-11` test and every `upfront AC-9 session-next` test pass unchanged.
 - [ ] 9.3 The board's row of this machine (D-18 item 3, change 2): in
   `plugins/openspec/hooks/roadmap-loop.mjs#boardOf`, with `f.changeSessions` the `taken` of the row
   `machine.this` is the number of distinct ids in `f.occupied` and in this machine's claims with
   `placed: true` whose ticket no session claimed (`!f.tickets?.[id]?.claimedBy`); other rows and a run
-  without a session per change keep `takenBy`. Check: both `upfront D-18 place` tests that read the
-  board pass; `remote AC-5 status: the machines block and the machine of each row`, `remote AC-12
+  without a session per change keep `takenBy`. Check: every `upfront D-18 place` test that reads the
+  board passes; `remote AC-5 status: the machines block and the machine of each row`, `remote AC-12
   status: a silent machine and its changes read no answer` and every `upfront merge` test pass
   unchanged.
 - [ ] 9.4 The ADRs, the config and the changelog (D-18 item 1, the text it quotes): in
   `docs/adr/0021-a-roadmap-run-opens-every-change-at-its-start.md`, the ADR 0020 entry at the end of
   `- Amends:` and the second Note before `## Consequences`, the status and the decisions unchanged; in
   `docs/adr/0020-a-change-can-run-on-another-machine.md`, the `- Amended by ADR 0021 (...)` header line
-  after `- Amends:` and the one Note before `## Consequences`, its status and decisions unchanged; in
+  right after `- Status: accepted`, as ADR 0013 and ADR 0014 hold theirs (so it is within the first
+  eight lines the docs test reads), and the one Note before `## Consequences`, its status and
+  decisions unchanged; in
   `docs/adr/0010-openspec-as-the-harness.md`, the flow qualifier in the roadmap-sessions-upfront Note;
   in `openspec/config.yaml`, the `ADRs:` line's 0021 entry ends "amends 0004, 0006, 0010, 0011, 0013,
   0014, 0017 and 0020" (`rules.requirements` is already done); in `CHANGELOG.md`, the `## 0.37.0`
-  entry's **devkit-openspec** 0.33.0 bullet gains "With the machines setting set, a change session of
-  this machine on the run's ticket takes its place from the run's own count: its plan on `origin` is
-  no place taken, and the board's row of this machine counts those places." Check: `upfront D-18
+  entry's **devkit-openspec** 0.33.0 bullet gains the sentence D-18 item 1 quotes; in
+  `docs/openspec-flow.md` and `docs/coordination-design.md`, the sentence D-18 item 1 quotes, in the
+  paragraph "Opening every change at the start" of each. Check: `upfront D-18
   docs: ...` and T-27 pass; `upfront AC-5 docs: ...` and `upfront AC-5 skill: the grill rule of
   config.yaml ...` pass unchanged; `python3 scripts/check.py` passes (links, language, changelog).
 - [ ] 9.5 Gate (focused): `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront D-18" --test-name-pattern="^upfront ADR 0021: the documents follow" --test-name-pattern="^upfront AC-5 skill: the grill rule" --test-name-pattern="^upfront AC-5 docs" --test-name-pattern="^upfront AC-9 session-next" --test-name-pattern="^upfront merge" --test-name-pattern="^remote AC-10" --test-name-pattern="^remote AC-11" --test-name-pattern="^remote AC-5 status" --test-name-pattern="^remote AC-12 status" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict`

@@ -1276,8 +1276,8 @@ verified, all from combining this change with main's `remote-worker` (ADR 0020, 
 | # | Finding | Fix | Task | Spec delta |
 |---|---|---|---|---|
 | 1 | adr-reviewer F1: ADR 0021 never names ADR 0020, though both amend ADR 0013 decision 4, ADR 0014 and ADR 0017 decision 4, and they differ on three points; ADR 0020 has no `Amended by` line. Nit: ADR 0010's Note and `rules.requirements` of `openspec/config.yaml` say "every grill" without the flow-2 qualifier | item 1: a Note and an Amends entry in ADR 0021, an `Amended by` line and a one-line Note in ADR 0020, the flow qualifier in ADR 0010's Note and in the config rule | 9.1, 9.4 | none |
-| 2 | spec-reviewer F5: "A place is held only by a change that loads the machine" says "At most the run's number" with no clause for the machines setting | item 2 | none (spec only) | `roadmap-coordination`: "A place is held only by a change that loads the machine" says "this machine's changes", and the new requirement "With the machines setting set, a change session of this machine takes its place from the run's own count" says the run's number is this machine's places and every other change keeps main's "A place is taken from the implementation on"; scenario "The places of each machine with the machines setting set" |
-| 3 | code-quality F1: the plan push puts `approval.md` on `origin`, so the remote-worker place gate never fires for this machine's changes; two counters (`occupied`, the claims on `origin`) coexist and the board's row uses the claims | item 3 | 9.1 to 9.3 | the new requirement "With the machines setting set, a change session of this machine takes its place from the run's own count": scenarios "An approved plan pushed is no place taken on this machine", "A change reaches its implementation before its plan is pushed", "The place frees before the claim on origin does", "A change of this machine with no claimed ticket" |
+| 2 | spec-reviewer F5: "A place is held only by a change that loads the machine" says "At most the run's number" with no clause for the machines setting | item 2 | none (spec only) | `roadmap-coordination`: "A place is held only by a change that loads the machine" bounds "the changes on the run's ticket", and the new requirement "With the machines setting set, a change session of this machine takes its place from the run's own count" says the run's number is this machine's places and every other change keeps main's "A place is taken from the implementation on"; scenario "The places of each machine with the machines setting set" |
+| 3 | code-quality F1: the plan push puts `approval.md` on `origin`, so the remote-worker place gate never fires for this machine's changes; two counters (`occupied`, the claims on `origin`) coexist and the board's row uses the claims | item 3 | 9.1 to 9.3 | the new requirement "With the machines setting set, a change session of this machine takes its place from the run's own count": scenarios "An approved plan pushed is no place taken on this machine", "A change reaches its implementation before its plan is pushed", "The place frees before the claim on origin does", "A change of this machine with no claimed ticket", "Both kinds of change at once" |
 
 **1. The ADRs.** The code already settles the three points ADR 0020 and ADR 0021 differ on; only
 the record is missing. Read at `9e78755`:
@@ -1327,7 +1327,10 @@ as a Markdown link to it, as the Notes of these ADRs already do):
   > `⏳ <id>`, and is woken by one message as ADR 0020 decisions 5 and 8 say. ADR 0020 decision 5's
   > "nothing is scheduled" holds for that wake; for a roadmap run decision 4 keeps one session cron in
   > the coordinating session and decision 2 a background wait in each held change session of this
-  > machine. ADR 0020's other decisions hold as written.
+  > machine. The two counts stay apart: a change session on the run's ticket does not wait for a change
+  > of this machine counted from `origin`, so with both kinds at once this machine can hold more places
+  > than the run's number, and the board's row of this machine then reads above it. ADR 0020's other
+  > decisions hold as written.
 
 - `docs/adr/0020-a-change-can-run-on-another-machine.md`: the header line `- Amended by ADR 0021
   (0021-a-roadmap-run-opens-every-change-at-its-start.md)` right after `- Status: accepted`, where
@@ -1351,12 +1354,25 @@ as a Markdown link to it, as the Notes of these ADRs already do):
   rule of config.yaml ...` pins (the pinned rule is kept word for word, so that test passes as it is).
   The `ADRs:` line's entry for 0021 ends "amends 0004, 0006, 0010, 0011, 0013, 0014, 0017 and 0020"
   (task 9.4, after its test).
+- `docs/openspec-flow.md`, the paragraph "Opening every change at the start", after its sentence on
+  the `machines` setting, and `docs/coordination-design.md`, the paragraph "Opening every change at
+  the start", at its end: "With the `machines` setting set, a change session of this machine on the
+  run's ticket takes its place from the run's own count, and its plan on `origin` is no place taken;
+  a change counted from `origin` (another machine's, or one of this machine whose session claimed no
+  ticket) keeps ADR 0020's places, so with both kinds at once this machine can hold more places than
+  the run's number, and the board's row of this machine then reads above it."
+- `CHANGELOG.md`, the `## 0.37.0` entry's **devkit-openspec** 0.33.0 bullet: "With the machines
+  setting set, a change session of this machine on the run's ticket takes its place from the run's
+  own count: its plan on `origin` is no place taken, and the board's row of this machine counts those
+  places and the places of this machine's changes counted from `origin`, which a run with both kinds
+  at once can take above the run's number."
+
 
 **2. The places per machine (spec only).** The code counts places per machine: `decideRoadmap`
 opens this machine's lines with `places: 'run'` and another machine's with its entry's number
 (`roadmap-loop.mjs`, the `candidates` of the placement); `change-loop.mjs#placeFacts` reads `run` as
 the run file's number. The spec now says so: "A place is held only by a change that loads the
-machine" bounds this machine's changes, and the new requirement "With the machines setting set, a change session of this machine takes its place from the run's own count" says that with the machines
+machine" bounds the changes on the run's ticket, and the new requirement "With the machines setting set, a change session of this machine takes its place from the run's own count" says that with the machines
 setting set the run's number is this machine's places and every change other than this machine's
 change sessions on the run's ticket keeps main's "A place is taken from the implementation on"
 (another machine's places are its entry's). No code changes for this item. Its scenario "The places of each machine with the machines
@@ -1416,18 +1432,51 @@ claimed ticket can reach `no-place`, and its gate counts the claims on `origin`,
 too, so the wake reads the count of the gate it wakes for. The plan push does not change (AC-12, D-5:
 the plan is on `origin` so another machine can take it).
 
-**Never looser than either rule?** Against the code as shipped: on the path that ships working (the
-push lands first) the gate is already `occupied` alone; the fix removes the other path. Against
-ADR 0020's count: `occupied` frees a place when the change leaves the load stages (its delivery,
-`sessionDecide`'s `!loads` branch, or `pruneRecords` once the line is no longer open), while a claim
-on `origin` holds until the change is archived on the default branch. Between a change's delivery and
-its archive, this machine's place is free by `occupied` and taken by the claims. That is ADR 0021
-decision 2 and AC-9 (the owner's answer to the grill: places count only the implementation, its
-tests, the evidence and the review), and the path the shipped code takes whenever the push lands
-first; ADR 0020 decision 5 holds unchanged for every change counted from `origin`. A change of this
-machine with no claimed ticket is counted against every plan of this machine on `origin`, its own
-session's queue included: stricter than `occupied`, and accepted (it ends `no-place` and is woken as
-ADR 0020 says; the claims it counts all leave at their archive, so its wait ends).
+**Never looser than either rule? Both directions.**
+
+- *A change session on the run's ticket, against ADR 0020's count.* On the path that ships working
+  (the push lands first) the gate is already `occupied` alone; the fix removes the other path.
+  `occupied` frees a place when the change leaves the load stages (its delivery, `sessionDecide`'s
+  `!loads` branch, or `pruneRecords` once the line is no longer open), while a claim on `origin` holds
+  until the change is archived on the default branch. Between a change's delivery and its archive,
+  this machine's place is free by `occupied` and taken by the claims. That is ADR 0021 decision 2 and
+  AC-9 (the owner's answer to the grill: places count only the implementation, its tests, the evidence
+  and the review), and the path the shipped code takes whenever the push lands first.
+- *A change of this machine with no claimed ticket, against `occupied`.* Its gate (`placeFacts`,
+  unchanged) counts every plan of this machine on `origin`, the claimed changes' plans included, even
+  those queued in `occupied`: stricter than `occupied`, accepted (it ends `no-place` and is woken as
+  ADR 0020 says; the claims it counts all leave at their archive, so its wait ends).
+- *The other direction: the two populations are counted apart.* `occupied` holds only the changes
+  whose session claimed the run's ticket (`sessionDecide` runs for no other), so a claimed change's
+  gate never sees an unclaimed change that took its place by its claim on `origin`. With the number 1,
+  an unclaimed `d` placed on `origin` and `occupied` empty, a claimed `a` that reaches its
+  implementation takes the place too: this machine runs two changes in a load stage, and the board's
+  row (change 2, which counts both kinds) reads 2 of 1. This is not new: before the fix the same `a`,
+  its plan pushed, met only `occupied` as well. And the opposite order cannot exceed the number, since
+  `d`'s gate counts `a`'s plan on `origin`. So the cap is stated per count, and the spec says so:
+  at most the run's number of the changes on the run's ticket hold a place by `occupied`; a change
+  with no claimed ticket takes a place only while the plans of this machine on `origin` leave one
+  free; with both kinds at once the places held can exceed the number, and the board's row reading
+  above the number is the signal. An unclaimed change in a run with a session per change is the
+  documented fallback of R-1 (the entry refuses and the owner types `/devkit change <id>`), so this
+  will happen, rarely, and it never makes a change wait forever.
+- *Why not one count in both gates.* It is no one-line change. Putting the unclaimed changes into
+  `placeDecision`'s count needs the claims on `origin` in `sessionNext`, which reads none today: a
+  `git ls-remote` and up to a bounded set of `gh` calls (`remoteClaims`) in every `session-next` and
+  every once-a-minute poll of a held session, and in the check's locked handout of `queued`. Copying
+  them into the run file's `occupied` from the coordinating session's decisions lags between decisions,
+  so it would narrow the excess, not close it. Putting `occupied` into the unclaimed gate changes
+  `placeFacts`, `placeChange` (under its lock) and the `wake` together, three readers of one count.
+  Either is a follow-up the owner can ask for; neither is the smallest fix of the finding.
+- *A known limit (no regression).* A change whose ticket a session claimed that has since died, run
+  again by the owner's typed `/devkit change <id>`, runs `change-loop.mjs next`: the ticket is still
+  claimed, so `placeFacts` gives no place facts, and `next` never applies `sessionDecide`. Neither
+  gate covers it after the fix; before the fix it was equally ungated once its plan push had landed.
+  The owner sees it on the board; `--fresh` or a new ticket from the next `/devkit roadmap` restores
+  the gate.
+
+The owner approves item 3 on this text: the two code changes, the cap stated per count, the board's
+row that may read above the number with both kinds at once, and the known limit.
 
 **Rejected.**
 
@@ -1447,13 +1496,15 @@ ADR 0020 says; the claims it counts all leave at their archive, so its wait ends
 **The tests this asks** (phase 9, test first, in `roadmap-loop.test.mjs`, over `upPushed`'s change
 `a` with a claim `x-devkit-machine: <thisMachine()>` and `x-devkit-places: run` in its
 `.openspec.yaml`, its plan approved so its next stage is the implementation, another change `b` of
-this machine with its branch and `approval.md` on the same `origin`, and a run file with
-`changeSessions`, `places: 1` and `a`'s ticket claimed):
+this machine with the same claim, its branch and `approval.md` on the same `origin`, and a run file
+with `changeSessions` and `places: 1`; each test names the ticket of `a` and of `b`, since the gate
+of each and the board's row depend on them):
 
-- `upfront D-18 place: a change session of this machine on the run's ticket takes its place from occupied only, before and after its plan push` — before `push --what plan`: `session-next` gives `a`'s implementation hand-off with `occupied` free (never `take-place`, never the end `no-place`, though `b`'s plan on `origin` fills the run's number), and `held` with `why: place` and the title `⏳ a` when `occupied` holds another change; after the push, the same two answers; `boardOf` with `changeSessions`, `occupied: { a }` and the claims of `a` and `b` placed reads this machine's row as `machine.row` with `taken: 1, places: 1`. Invariant: one gate and one count for a change session of this machine on the run's ticket. Layer: `placeFacts` and `boardOf`. Suite: roadmap-loop.
-- `upfront D-18 place: a place of this machine frees when its change leaves the load stages, whatever its claim on origin, and nothing of it counts once archived` — `a`'s action at its delivery with `occupied: { a }` and `queued: { c }`: `sessionDecide` drops `a`'s place, the board's row reads `taken: 0` while `a`'s claim is still placed, the check's locked update gives `c` the place; `a`'s line archived: `pruneRecords` keeps nothing of `a` and its claim is not read. Invariant: a place of this machine frees with the load stages, and no record of an archived change holds one. Layer: `sessionDecide`, `boardOf`, `checkCmd`. Suite: roadmap-loop.
-- `upfront D-18 place: a change of this machine whose ticket no session claimed keeps the remote-worker gate` — the same fixture with `a`'s ticket unclaimed: `session-next` (which then returns the change loop's action) ends `a` `blocked` `no-place` with `taken: 1, places: 1`, and with no other placed claim gives `take-place`; the board's row counts `b`'s placed claim. Invariant: the fix never loosens the gate of a change that `sessionDecide` does not hold. Layer: `placeFacts`. Suite: roadmap-loop.
-- `upfront D-18 docs: ADR 0021 names ADR 0020 in its Amends and a Note, ADR 0020 is amended by ADR 0021, and ADR 0010's Note and the config rule qualify the triage by flow` (`roadmap-loop.test.mjs`, beside `upfront ADR 0021: the documents follow`): the Amends entry, the Note's sentences on the ticket, the `no-place` end, the cron; ADR 0020's header line in its first eight lines and its Note linking ADR 0021; the words "flow version 2 or later" in ADR 0010's roadmap-sessions-upfront Note and in `rules.requirements`.
+- `upfront D-18 place: a change session of this machine on the run's ticket takes its place from occupied only, before and after its plan push` — `a`'s ticket and `b`'s ticket both claimed (by two sessions). Before `push --what plan`: `session-next` gives `a`'s implementation hand-off with `occupied` free (never `take-place`, never the end `no-place`, though `b`'s plan on `origin` fills the run's number), and `held` with `why: place` and the title `⏳ a` when `occupied` holds another change; after the push, the same two answers; `boardOf` with `changeSessions`, `occupied: { a }` and the claims of `a` and `b` placed reads this machine's row as `machine.row` with `taken: 1, places: 1`. Invariant: one gate and one count for a change session of this machine on the run's ticket. Layer: `placeFacts` and `boardOf`. Suite: roadmap-loop.
+- `upfront D-18 place: a place of this machine frees when its change leaves the load stages, whatever its claim on origin, and nothing of it counts once archived` — `a`'s and `c`'s tickets claimed, no `b`. `a`'s action at its delivery with `occupied: { a }` and `queued: { c }`: `sessionDecide` drops `a`'s place, the board's row reads `taken: 0` while `a`'s claim is still placed, the check's locked update gives `c` the place; `a`'s line archived: `pruneRecords` keeps nothing of `a` and its claim is not read. Invariant: a place of this machine frees with the load stages, and no record of an archived change holds one. Layer: `sessionDecide`, `boardOf`, `checkCmd`. Suite: roadmap-loop.
+- `upfront D-18 place: a change of this machine whose ticket no session claimed keeps the remote-worker gate` — `a`'s ticket and `b`'s ticket both unclaimed (each recorded with no `claimedBy`), `occupied` empty: `session-next` (which then returns the change loop's action) ends `a` `blocked` `no-place` with `taken: 1, places: 1`, and with `b`'s branch removed from `origin` gives `take-place`; with `b` placed, the board's row reads `taken: 1, places: 1` (`b` counted by its claim). Invariant: the fix never loosens the gate of a change that `sessionDecide` does not hold. Layer: `placeFacts`, `boardOf`. Suite: roadmap-loop.
+- `upfront D-18 place: a claimed change does not wait for an unclaimed one, and the board's row then reads above the number` — `a`'s ticket claimed, `d` of this machine with the same claim and its ticket unclaimed, `d`'s `approval.md` on `origin`, `a`'s plan pushed, `occupied` empty, `places: 1`: `session-next` gives `a` its implementation hand-off and records `occupied: { a }`; `boardOf` then reads this machine's row `taken: 2, places: 1`. Invariant: the two counts stay apart as D-18 states, and the board shows both. Layer: `sessionDecide`, `boardOf`. Suite: roadmap-loop.
+- `upfront D-18 docs: ADR 0021 names ADR 0020 in its Amends and a Note, ADR 0020 is amended by ADR 0021, and ADR 0010's Note and the config rule qualify the triage by flow` (`roadmap-loop.test.mjs`, beside `upfront ADR 0021: the documents follow`): the Amends entry, the Note's sentences on the ticket, the `no-place` end, the cron and the two counts kept apart ("can hold more places than the run's number"); ADR 0020's header line in its first eight lines and its Note linking ADR 0021; the words "flow version 2 or later" in ADR 0010's roadmap-sessions-upfront Note and in `rules.requirements`; the sentence of item 1's documents below in `docs/openspec-flow.md` and in `docs/coordination-design.md`.
 
 Changed (D-13 T-27): `upfront ADR 0021: the documents follow` asserts the config `ADRs:` line's
 "amends 0004, 0006, 0010, 0011, 0013, 0014, 0017 and 0020" in place of "... 0014 and 0017".
@@ -1492,6 +1543,7 @@ focused patterns.
 | R-18 | Flow version 2 makes every unpinned test change of the suites follow flow 1 under an installed flow 2: a test that hands the triage for such a change, or reads a readout or resume reply as text, meets the refusal or the newer-flow line | HIGH × MEDIUM | D-13 T-18 to T-22 name the tests found by the planner's probe and readiness attempt 4's (the whole suite run on a scratch copy with version 2 released); the whole-suite gate of task 8.6 re-runs that search on the tree, after the documents of 8.5, and any other test found failing is fixed only where it assumed flow version 1 is the installed one, its invariant, layer and suite named |
 | R-20 | With the machines setting set, a change session of this machine that reaches its implementation before the coordinating session pushed its plan ends `blocked` `no-place` on the claims of `origin` and is never woken once the push lands (found by reading the code in review round 1 at `5edea6b`) | MEDIUM × HIGH | D-18 item 3: `placeFacts` gives no place facts to a `run` claim whose session claimed the run's ticket, so `occupied` is that change's only gate; the board's row of this machine counts the same places; tests of task 9.1 |
 | R-21 | Between a change's delivery and its archive this machine's place is free by `occupied` and taken by its claim on `origin` | HIGH × LOW | the rule of ADR 0021 decision 2 and AC-9, recorded in D-18 and in ADR 0021's Note; ADR 0020's count holds for every change counted from `origin`; the owner approves it with this plan |
+| R-22 | With the machines setting set, a change on the run's ticket and one of this machine with no claimed ticket are counted apart, so this machine can hold more places than the run's number (readiness attempt 6, F1) | LOW × MEDIUM | stated in the spec, D-18, ADR 0021's Note, the flow documents and the changelog; the board's row reads above the number; an unclaimed change is the fallback of R-1 only; one count in both gates is a follow-up for the owner (D-18) |
 | R-19 | Projects under way see the newer-flow line on every change after the update, and their grills get no triage until moved | HIGH × LOW | the line is change-version-pin's own notice (its D-5); the `CHANGELOG.md` "Projects" line and the flow doc say how to move a change; nothing is moved without the owner |
 
 ## Migration Plan
@@ -1548,7 +1600,8 @@ review round 1 (D-16; after `123a7ba`), its own full suite, 8 flow version 2 (D-
   (the Amends entry and a second Note), `docs/adr/0020-a-change-can-run-on-another-machine.md` (a header
   line and a Note), `docs/adr/0010-openspec-as-the-harness.md` (the flow qualifier), `openspec/config.yaml`
   (the `ADRs:` line; its `rules.requirements` sentence is written by this revision), `CHANGELOG.md`
-  (one sentence in the `## 0.37.0` entry). No version number moves.
+  (one sentence in the `## 0.37.0` entry), `docs/openspec-flow.md` and `docs/coordination-design.md`
+  (one sentence each). No version number moves.
 - Delete: none.
 
 **Estimate.** Optimistic 54.5 h · likely 77 h · pessimistic 112 h (phases 1 to 6: 40 · 55 · 79; phase
@@ -1588,9 +1641,9 @@ review round 1 (D-16; after `123a7ba`), its own full suite, 8 flow version 2 (D-
 | The grill actions' `helpers`, the check's triage filter, the two skills' condition (D-17) | 1.5 | Core | MEDIUM |
 | The flow doc's versions paragraph, the `## 0.37.0` sentence and Projects line, ADR 0021's Note (D-14, D-17) | 0.5 | Documentation | LOW |
 | Phase 8 gate | 1.5 | Testing | MEDIUM |
-| Phase 9 tests and the red record (four new tests, T-27) (D-18) | 1.5 | Testing | MEDIUM |
+| Phase 9 tests and the red record (five new tests, T-27) (D-18) | 1.5 | Testing | MEDIUM |
 | `placeFacts` on the run's ticket, the board's row of this machine (D-18) | 0.5 | Core | MEDIUM |
-| ADR 0021's Amends and Note, ADR 0020's line and Note, ADR 0010's qualifier, the config line, the changelog sentence (D-18) | 0.5 | Documentation | LOW |
+| ADR 0021's Amends and Note, ADR 0020's line and Note, ADR 0010's qualifier, the config line, the changelog sentence, the flow and coordination documents (D-18) | 0.5 | Documentation | LOW |
 | Phase 9 gate and the whole suite | 1.5 | Testing | LOW |
 
 ## Assumptions

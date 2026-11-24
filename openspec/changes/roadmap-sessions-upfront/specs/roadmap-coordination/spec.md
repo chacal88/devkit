@@ -23,9 +23,9 @@ The board SHALL list every one of them.
 
 ### Requirement: A place is held only by a change that loads the machine
 In a run with a session per change, a change SHALL hold a place only while its current stage is the
-implementation, a unit or E2E test stage, the evidence or the review, whatever its state there. At
-most the run's number of this machine's changes SHALL hold a place at once; the grill and the plan
-SHALL need none. A change that needs a place and finds none, or finds the machine loaded, SHALL wait
+implementation, a unit or E2E test stage, the evidence or the review, whatever its state. At most
+the run's number of the changes on the run's ticket SHALL hold a place at once; the grill and the
+plan SHALL need none. A change that needs a place and finds none, or finds the machine loaded, SHALL wait
 in its own session. A change no longer open SHALL hold no place.
 
 #### Scenario: Two changes reach the implementation with one place
@@ -53,30 +53,35 @@ in its own session. A change no longer open SHALL hold no place.
 - **THEN** `a` holds no place and is no longer counted ahead of anyone, and `b` takes the place at the check's next firing
 
 ### Requirement: With the machines setting set, a change session of this machine takes its place from the run's own count
-With the machines setting set, the run's number SHALL be this machine's places. A change of this
-machine whose session claimed the run's ticket SHALL take its place only from the run's count: its
-plan on `origin` SHALL NOT count as a place taken. Any other change SHALL keep the places of "A place
-is taken from the implementation on". The board's row of this machine SHALL count both.
+With the machines setting set, the run's number SHALL be this machine's places, applied to each count
+apart. A change of this machine on the run's ticket SHALL take its place only from the run's count,
+its plan on `origin` no place taken. Any other change SHALL keep "A place is taken from the
+implementation on". With both kinds at once the places held MAY exceed the number; the board's row
+of this machine SHALL count both.
 
 #### Scenario: The places of each machine with the machines setting set
-- **WHEN** the number is 1, the machines setting lists `avel` with 2 places, `a` of this machine holds this machine's place, and `e` on `avel` reaches its implementation with no place of `avel` taken
-- **THEN** `e` takes a place on `avel`, and `b` of this machine that reaches its implementation waits in its own session for this machine's place
+- **WHEN** the number is 1, the machines setting lists `avel` with 2 places, `a` of this machine, whose session claimed the run's ticket, holds this machine's place, and `e` on `avel` reaches its implementation with no place of `avel` taken
+- **THEN** `e` takes a place on `avel`, and `b` of this machine, whose session claimed the run's ticket, waits in its own session for this machine's place when it reaches its implementation
 
 #### Scenario: An approved plan pushed is no place taken on this machine
-- **WHEN** the machines setting is set, the number is 1, `a` of this machine holds the place in its implementation, and `b` of this machine, whose session claimed the run's ticket, has its approved plan on `origin` and waits for a place
+- **WHEN** the machines setting is set, the number is 1, `a` of this machine, whose session claimed the run's ticket, holds the place in its implementation, and `b` of this machine, whose session also claimed the run's ticket, has its approved plan on `origin` and waits for a place
 - **THEN** the row of this machine in the machines block reads 1 of 1 place taken, and `b` waits in its own session with the title `⏳ b`, never blocked waiting for a place
 
 #### Scenario: A change reaches its implementation before its plan is pushed
-- **WHEN** the machines setting is set, the number is 2, two other changes of this machine have their approved plans on `origin`, one holds a place in its implementation and the other is in its delivery, and `c` of this machine, whose session claimed the run's ticket, reaches its implementation before the coordinating session pushed its plan
+- **WHEN** the machines setting is set, the number is 2, two other changes of this machine, each on a ticket a session claimed, have their approved plans on `origin`, one holds a place in its implementation and the other is in its delivery, and `c` of this machine, whose session claimed the run's ticket, reaches its implementation before the coordinating session pushed its plan
 - **THEN** `c` takes the free place and is handed its implementation, and no step of `c` takes or waits for a place counted from `origin`
 
 #### Scenario: The place frees before the claim on origin does
-- **WHEN** the machines setting is set, the number is 1, `a` of this machine held the place and moved to its delivery while its branch on `origin` still holds its approval, and `b` of this machine, whose session claimed the run's ticket, waits for a place
+- **WHEN** the machines setting is set, the number is 1, `a` of this machine, whose session claimed the run's ticket, held the place and moved to its delivery while its branch on `origin` still holds its approval, and `b` of this machine, whose session claimed the run's ticket, waits for a place
 - **THEN** the row of this machine reads 0 of 1 place taken until `b` takes the place at its next check, and once `a` is archived nothing of `a` is counted on this machine
 
 #### Scenario: A change of this machine with no claimed ticket
-- **WHEN** the machines setting is set, the number is 1, `b` of this machine has its approved plan on `origin`, and `d` of this machine, whose ticket no session claimed, reaches its implementation
+- **WHEN** the machines setting is set, the number is 1, `occupied` holds no change, `b` of this machine, whose ticket no session claimed either, has its approved plan on `origin`, and `d` of this machine, whose ticket no session claimed, reaches its implementation
 - **THEN** `d` ends blocked waiting for a place on this machine (1 of 1 taken), titled `⏳ d`, and the row of this machine reads 1 of 1 place taken
+
+#### Scenario: Both kinds of change at once
+- **WHEN** the machines setting is set, the number is 1, `d` of this machine, whose ticket no session claimed, holds a place by its approved plan on `origin`, no change holds one by the run's count, and `a` of this machine, whose session claimed the run's ticket, reaches its implementation
+- **THEN** `a` takes the place by the run's count and is handed its implementation, and the row of this machine reads 2 of 1 places taken
 
 ### Requirement: A change's plan waits for its dependencies and starts from the code of that day
 In a run with a session per change, no plan file of a change SHALL be written while a change its
