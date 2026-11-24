@@ -1,7 +1,7 @@
 # ADR 0025: A merge of the base stales the evidence and reviews only when it brings the change's own files
 
 - Status: accepted
-- Amended by ADR [release-at-merge] (release-at-merge.md)
+- Amended by ADR 0031 (0031-release-at-merge.md)
 - Accepted by: the owner, on 2026-11-23, in the approval of the plan of change stale-only-on-own-files (openspec/changes/stale-only-on-own-files/approval.md)
 - Date: 2026-11-23
 - Change: stale-only-on-own-files
@@ -10,7 +10,7 @@
 
 ## Context
 
-Note (release-at-merge, 2026-11-24): ADR [release-at-merge] amends decision 1's list of files that are never own files, which grows by the numbering of an ADR (the renamed ADR file and the citations the delivery rewrites outside `openspec/changes/`), and decision 3's sentence "A plain commit on the branch is judged as before": for a change with a release note, a plain commit's release edits (`CHANGELOG.md`, `docs/catalog.md`, a path equal once its versions, CI pins and ADR numbers are masked, and the rename of an unnumbered ADR to its number) count as untouched, as in a merge of the base, which is still judged against its first parent. Every other edit of a plain commit, every commit of a change with no note and the per-reviewer allowances keep decision 3's rule. The Decision is otherwise unchanged.
+Note (release-at-merge, 2026-11-24): ADR 0031 amends decision 1's list of files that are never own files, which grows by the numbering of an ADR (the renamed ADR file and the citations the delivery rewrites outside `openspec/changes/`), and decision 3's sentence "A plain commit on the branch is judged as before": for a change with a release note, a plain commit's release edits (`CHANGELOG.md`, `docs/catalog.md`, a path equal once its versions, CI pins and ADR numbers are masked, and the rename of an unnumbered ADR to its number) count as untouched, as in a merge of the base, which is still judged against its first parent. Every other edit of a plain commit, every commit of a change with no note and the per-reviewer allowances keep decision 3's rule. The Decision is otherwise unchanged.
 
 ADR 0002 lets a change merge without the owner only on a default branch that requires the
 `devkit-reviews` check, which recomputes reviews, findings, gates and acceptance proof at the pull
