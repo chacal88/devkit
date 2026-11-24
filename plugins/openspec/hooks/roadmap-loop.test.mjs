@@ -9,10 +9,12 @@ import { pathToFileURL } from 'node:url';
 import {
   gitRepo, put, commitAll, git, FLOWS, cleanEnvLoop as cleanEnv, agentAct, grillAct, endAct, ownerAct, classify, world, OFFLINE, FLAGS, roadmapText,
   projectWith, cmd, doRun, doNext, doStatus, jsonOf, runFileOf, stateOf, putRun, events, addOpen,
+  roundRepo,
 } from './test-fixtures.mjs';
 import { parseRoadmap } from './guard.mjs';
 import * as guardModule from './guard.mjs';
-import { nextAction, render, MESSAGES, LoopUsageError, HOOKS_DIR, main as changeMain } from './change-loop.mjs';
+import { nextAction, render, MESSAGES, LoopUsageError, HOOKS_DIR, main as changeMain, baseFetches } from './change-loop.mjs';
+import { deliveredChange, gitShim, staleBase, implementingChange } from './change-loop-fixtures.mjs';
 import { makeOpenspec } from './flow-check.mjs';
 import * as loopModule from './roadmap-loop.mjs';
 import { limitOf, readLoad, parseWord, gateOf, isPrevious, decideRoadmap, boardOf, draftText } from './roadmap-loop.mjs';
@@ -1644,4 +1646,82 @@ test('roadmap-loop lock: no trap, not opted in, DEVKIT_BYPASS, an unreadable tra
   const brokenRun = lkProject(['[ ] a', '[ ] b'], { a: {}, b: {} });
   mkdirSync(runFileOf(brokenRun), { recursive: true });
   free('an unreadable run file', calls(brokenRun, transcript), 3);
+});
+
+// ================================================================ fresh-base-check: the roadmap fetches the base before it judges
+
+// A roadmap of `a`, `b` and `c`, each at its implementation, the remote one commit ahead of the clone's `origin/main`.
+function staleRoadmap() {
+  const t = roundRepo({ roadmap: roadmapText('[ ] a', '[ ] b', '[ ] c'), config: 'schema: devkit-lite\n' });
+  for (const id of ['a', 'b', 'c']) implementingChange(t, id);
+  t.commitOrigin({ 'other.txt': 'o\n' }, 'origin moves');
+  return { t, ...staleBase(t) };
+}
+const MISSING_ORIGIN = (t) => join(t.originDir, 'no-such-folder');
+
+test('fresh-base-check 12: roadmap next fetches the base once for the changes it reads', () => {
+  const { t, remote } = staleRoadmap();
+  const shim = gitShim();
+  const r = doNext(t.main, [], { env: shim.env(cleanEnv) });
+  assert.notEqual(r.code, 3, r.stderr);
+  assert.equal(shim.fetches().length, 1, 'three changes, one fetch');
+  assert.equal(git(t.main, 'rev-parse', 'origin/main'), remote);
+});
+
+test('fresh-base-check 13: the roadmap wait fetches the base at every poll', async () => {
+  const { t, wt, gh, env } = deliveredChange();
+  const shim = gitShim();
+  const sleeps = [];
+  const sleep = async (s) => {
+    sleeps.push(s);
+    if (sleeps.length === 2) gh.set('pr-checks', { stdout: [{ name: 'build', state: 'PASS', bucket: 'pass', link: 'https://ci/build' }] });
+  };
+  const r = await loopModule.runCommand(['wait', '--change', 'feat', ...FLAGS, '--interval', '5'], { cwd: t.main, env: shim.env(env), gh: t.ghFor(wt), sleep });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(shim.fetches().length, 3, 'three polls, three fetches');
+});
+
+test('fresh-base-check 14: status, status --json and the stop lock never fetch', () => {
+  const { t, stale } = staleRoadmap();
+  const shim = gitShim();
+  const env = shim.env(cleanEnv);
+  assert.equal(doStatus(t.main, { env }).code, 0);
+  assert.equal(cmd(t.main, ['status', ...FLAGS, '--json'], { env }).code, 0);
+  putRun(t.main, { places: 2 });
+  const d = withTmp(() => loopModule.roadmapStopDecision(lkStopInput(t.main, lkRun(2)), lkOpts({ env: shim.env(LK_ENV) })));
+  assert.notEqual(d.why, 'no-run', 'the lock read the run');
+  assert.deepEqual(shim.fetches(), []);
+  assert.equal(git(t.main, 'rev-parse', 'origin/main'), stale);
+});
+
+test('fresh-base-check 15: roadmap run fetches the base once', () => {
+  const { t } = staleRoadmap();
+  const shim = gitShim();
+  const r = doRun(t.main, '', { env: shim.env(cleanEnv) });
+  assert.notEqual(r.code, 3, r.stderr);
+  assert.equal(shim.fetches().length, 1);
+});
+
+test('fresh-base-check 18: a remote that cannot be reached leaves every change decided from the local copy, and the failure is read once', () => {
+  const { t, stale } = staleRoadmap();
+  git(t.main, 'remote', 'set-url', 'origin', MISSING_ORIGIN(t));
+  const shim = gitShim();
+  const facts = loopModule.collectRoadmap(t.main, { env: shim.env(cleanEnv), lang: 'en', gh: OFFLINE, fetchBase: baseFetches() });
+  assert.deepEqual(Object.keys(facts.actions).sort(), ['a', 'b', 'c']);
+  const errors = new Set();
+  for (const [id, action] of Object.entries(facts.actions)) {
+    const local = nextAction(t.main, id, { env: cleanEnv, lang: 'en', gh: OFFLINE });
+    assert.equal(action.baseFetch.ok, false, id);
+    assert.equal(action.baseFetch.base, 'main', id);
+    assert.match(action.baseFetch.error, /^[^\n]+$/, id);
+    errors.add(action.baseFetch.error);
+    assert.deepEqual([action.kind, action.step], [local.kind, local.step], `${id} is decided from the local copy`);
+  }
+  assert.equal(errors.size, 1, 'one failure, shared');
+  assert.equal(shim.fetches().length, 1, 'the failure is memoized for the call');
+  shim.clear();
+  const r = doNext(t.main, [], { env: shim.env(cleanEnv) });
+  assert.notEqual(r.code, 3, r.stderr);
+  assert.equal(shim.fetches().length, 1);
+  assert.equal(git(t.main, 'rev-parse', 'origin/main'), stale);
 });
