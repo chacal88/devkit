@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.48.0 — a project slice is claimed when it opens
+
+- **devkit-openspec** 0.43.0: with an origin remote, `/devkit project <slice>` now claims the slice
+  when it opens, as a change's open does: the open commits the slice's folder with the machine's name
+  and pushes its branch by a push that only creates it, so a slice already open on another machine is
+  refused, naming that machine, before any phase starts
+  ([ADR 0029](docs/adr/0029-a-project-slice-is-claimed-on-github-when-it-opens.md)). The slice's
+  readout shows the machine of its claim under its title; the board and `/devkit status` still list
+  no slice. A slice's branch is public from its open, and a remote that refuses the new branch now
+  fails the open. With no origin remote the open is unchanged, and so is the delivery.
+- Docs: ADR 0029, with Notes in ADRs 0015 and 0020; the flow doc, the coordination design and the
+  pack's README say it.
+
 ## 0.47.0 — the change folder is committed before the review round
 
 - **devkit-openspec** 0.41.0: `deliver-check` hands the `commit` step before a review round while anything under the
