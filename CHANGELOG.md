@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.44.0 — release-merge leftovers
+
+- **devkit-openspec** 0.39.2: a conduct-check test runs the release-merge override under the two-PR delivery model, with
+  the base and the test branch apart; the CI snippet now pins `v0.39.2`, the release's tag.
+- **devkit-panel** 0.3.1: the step table and the label table drop `push-rebased`, which no checker has returned since
+  devkit-openspec 0.29.0.
+- **Spec** (`commit-attribution`): drops the scenario and the mention of `push-rebased`.
+
 ## 0.43.1 — a change's own pull request may edit another change's archive
 
 - **devkit-openspec** 0.39.1: `deliver-check` counts a merged pull request as the change's own when it
