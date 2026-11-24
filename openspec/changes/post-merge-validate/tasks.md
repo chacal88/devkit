@@ -95,7 +95,7 @@ no project rule asks for it.
   holds in the summary (the red sequence with the planner's Agent call, the green sequence, the
   `devkit-stage` lines unchanged, both streams trusted by D-10 step 8); any other sequence stops the
   phase and goes back to the plan.
-- [ ] 3.7 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate post-merge-validate --strict` green (the guard suite as a background command of the conducting session); covers AC-1 to AC-10 and every other suite at once (AC-8 through the proof of 3.6).
+- [x] 3.7 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate post-merge-validate --strict` green (the guard suite as a background command of the conducting session); covers AC-1 to AC-10 and every other suite at once (AC-8 through the proof of 3.6).
 
 ## Workflow follow-up
 
