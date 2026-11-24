@@ -1,0 +1,203 @@
+Task 8.1: the tests of phase 8 run on the unchanged code (HEAD f6bf78d, no product file and no flow file edited).
+Command: env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront AC-5 flow" --test-name-pattern="^upfront AC-5 triage: the grill of a change on flow" --test-name-pattern="^upfront AC-5 lock agent" --test-name-pattern="^upfront AC-5 skill: the grill skill and" --test-name-pattern="^upfront AC-5 open" --test-name-pattern="^upfront AC-5 docs" --test-name-pattern="^upfront AC-4 lock agent: the coordinating session's triage for a change on flow 1" --test-name-pattern="^upfront AC-14 check: a grill of a change on flow 1" plugins/openspec/hooks/guard.test.mjs
+
+New tests that pass here (1):
+  - upfront AC-5 flow: flows/1.json of devkit and devkit-lite is released version 1, without requirements-triage, and devkit-project stays at version 1   (pins what change-version-pin released)
+
+New tests that fail here (9, each for the missing behaviour; none for a typo or an import error):
+  change-loop.test.mjs (5): AC-5 flow: version 2 ... (flow.json says version 1, no flows/2.json); AC-5 flow: released-flows.json records the digest of flows/2.json ... (no flows/2.json);
+    AC-5 triage: the grill of a change on flow 1 names no triage helper ... (the grill action has no helpers); AC-5 lock agent: a change run on flow 1 refuses ... (the triage is allowed on no pin);
+    AC-5 skill: the grill skill and the devkit skill ... (neither names helpers)
+  roadmap-loop.test.mjs (2): AC-4 lock agent: the coordinating session's triage for a change on flow 1 ... (allowed, not refused own-sessions);
+    AC-14 check: a grill of a change on flow 1 ... (the check stops: the flow-2 fixtures name a flows/2.json that is not installed yet)
+  version-pin.test.mjs (1): AC-5 open: a devkit and a devkit-lite change ... record x-devkit-flow 2 ... (records 1)
+  guard.test.mjs (1): AC-5 docs: ... (the flow doc has no versions paragraph yet)
+
+Output:
+
+✖ upfront AC-5 flow: version 2 of devkit and devkit-lite names requirements-triage among the grill's helpers in both copies, and flows/2.json is flow.json (38.528823ms)
+✔ upfront AC-5 flow: flows/1.json of devkit and devkit-lite is released version 1, without requirements-triage, and devkit-project stays at version 1 (4.727356ms)
+✖ upfront AC-5 flow: released-flows.json records the digest of flows/2.json of devkit and devkit-lite (1.186813ms)
+✖ upfront AC-5 triage: the grill of a change on flow 1 names no triage helper and that of a change on flow 2 names it (2057.986038ms)
+✖ upfront AC-5 lock agent: a change run on flow 1 refuses devkit-core:requirements-triage as not-a-role, and one on flow 2 allows it (171.054134ms)
+✖ upfront AC-5 skill: the grill skill and the devkit skill hand the triage only when the grill action's helpers name it (1.57088ms)
+✖ upfront AC-4 lock agent: the coordinating session's triage for a change on flow 1 is refused own-sessions (2339.771719ms)
+✖ upfront AC-14 check: a grill of a change on flow 1 gives no triage action, and one on flow 2 does (264.507546ms)
+✖ upfront AC-5 open: a devkit and a devkit-lite change opened on the tree's schemas record x-devkit-flow 2, and a project slice 1 (1316.045841ms)
+✖ upfront AC-5 docs: the flow doc names the released flow versions, the 0.36.0 entry names flow version 2, and ADR 0020's Note names flow 1 (3.928256ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 1
+ℹ fail 9
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 23623.634409
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3719:1
+✖ upfront AC-5 flow: version 2 of devkit and devkit-lite names requirements-triage among the grill's helpers in both copies, and flows/2.json is flow.json (38.528823ms)
+  AssertionError [ERR_ASSERTION]: plugins/devkit: flow.json is version 2
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/change-loop.test.mjs:3725:14)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3754:1
+✖ upfront AC-5 flow: released-flows.json records the digest of flows/2.json of devkit and devkit-lite (1.186813ms)
+  AssertionError [ERR_ASSERTION]: devkit: flows/2.json exists
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/change-loop.test.mjs:3757:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3791:1
+✖ upfront AC-5 triage: the grill of a change on flow 1 names no triage helper and that of a change on flow 2 names it (2057.986038ms)
+  AssertionError [ERR_ASSERTION]: none: the helpers of its flow's grill
+  + actual - expected
+  
+  + undefined
+  - [
+  -   'codebase-researcher'
+  - ]
+  
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/change-loop.test.mjs:3796:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [ 'codebase-researcher' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3820:1
+✖ upfront AC-5 lock agent: a change run on flow 1 refuses devkit-core:requirements-triage as not-a-role, and one on flow 2 allows it (171.054134ms)
+  AssertionError [ERR_ASSERTION]: devkit-core:requirements-triage on flow none: 
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/change-loop.test.mjs:3836:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3855:1
+✖ upfront AC-5 skill: the grill skill and the devkit skill hand the triage only when the grill action's helpers name it (1.57088ms)
+  AssertionError [ERR_ASSERTION]: step 2b of the grill skill: the helpers name the triage
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/change-loop.test.mjs:3862:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: "### 2b. Triage first Draft the questions of the four axes, then hand them all to the `devkit-core:requirements-triage` agent in one prompt whose first line is `Change <id> (<script> script), stage requirements: triage of the grill`, followed by the request and the drafted questions, each with its axis. The agent reads the project's files and returns, per question, `answered` with the file that settles it or `owner` with why nothing written does. - Record each `answered` in `requirements.md` under `### Answered by triage`, one item per question: `<n>. [<axis>] <question> → <answer> (source: \\`<path>[:<line>]\\`)`. - Ask the owner, one at a time, only the `owner` questions and those the agent answered with no source: an answer with no source is not an answer, and the loop sends a change whose triage section holds one back to its grill. - A question that changes what is delivered is the owner's whenever the agent is not certain; the triage never approves a plan and never answers a retro proposal. ",
+    expected: /`helpers`[^.]*`requirements-triage`/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:4083:1
+✖ upfront AC-4 lock agent: the coordinating session's triage for a change on flow 1 is refused own-sessions (2339.771719ms)
+  AssertionError [ERR_ASSERTION]: devkit-core:requirements-triage on flow none
+  + actual - expected
+  
+    [
+  +   'allow',
+  +   'grill-helper',
+  -   'refuse',
+  -   'own-sessions',
+      'a'
+    ]
+  
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:4092:14)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'allow', 'grill-helper', 'a' ],
+    expected: [ 'refuse', 'own-sessions', 'a' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:4448:1
+✖ upfront AC-14 check: a grill of a change on flow 1 gives no triage action, and one on flow 2 does (264.507546ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"a follows flow 2 of the devkit script, and this checkout has no openspec/schemas/devkit/flows/2.json: re-run openspec-setup with a devkit-openspec that ships it","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  roadmap-loop: a follows flow 2 of the devkit script, and this checkout has no openspec/schemas/devkit/flows/2.json: re-run openspec-setup with a devkit-openspec that ships it
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:4458:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:569:1
+✖ upfront AC-5 open: a devkit and a devkit-lite change opened on the tree's schemas record x-devkit-flow 2, and a project slice 1 (1316.045841ms)
+  AssertionError [ERR_ASSERTION]: devkit: "schema: devkit\ncreated: 2026-11-23\nx-devkit-version: 0.32.0\nx-devkit-flow: 1\n"
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/version-pin.test.mjs:573:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1704:1
+✖ upfront AC-5 docs: the flow doc names the released flow versions, the 0.36.0 entry names flow version 2, and ADR 0020's Note names flow 1 (3.928256ms)
+  AssertionError [ERR_ASSERTION]: one paragraph follows the one about raising a version
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/guard.test.mjs:1714:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

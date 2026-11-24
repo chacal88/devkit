@@ -1,0 +1,271 @@
+Passes on the base (expected): upfront AC-1 guard: a started task followed by a start line still makes a change run
+Changed existing test T-9 (roadmap-loop run: U4 ...) is red on the base too: see the second run below.
+
+Command: env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront" plugins/openspec/hooks/guard.test.mjs
+Command 2: env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="U4 the same session" plugins/openspec/hooks/guard.test.mjs
+
+✔ upfront AC-1 guard: a started task followed by a start line still makes a change run (5.716458ms)
+✖ upfront AC-1 entry: the run's own start of the change is claimed by the first session (145.26ms)
+✖ upfront AC-1 entry: the session that claimed the ticket is let through again (144.75475ms)
+✖ upfront AC-2 entry: another skill is let through (122.518084ms)
+✖ upfront AC-2 entry: a session whose first message is typed is refused (1115.14125ms)
+✖ upfront AC-2 entry: a started session with no start line for its change is refused (155.402292ms)
+✖ upfront AC-2 entry: a ticket the run does not record is refused (435.864ms)
+✖ upfront AC-2 entry: a ticket another session claimed is refused (128.0235ms)
+✖ upfront AC-2 entry: an unreadable transcript or run file is refused (123.271791ms)
+✖ upfront AC-2 guard: guard.mjs skill exits 2 on a refusal, 0 on a claim, 0 under DEVKIT_BYPASS=1, and logs one line under DEVKIT_HOOK_LOG (137.661ms)
+✖ upfront AC-1 ticket: decide gives each session start a fresh ticket recorded before it prints, keeps a claimed one, and withTicket adds the start line (3068.737167ms)
+✖ upfront AC-1 run file: readRun reads tickets, placed, queued, anyway, waits, cron and check, and drops a field of the wrong type (97.499459ms)
+✖ upfront AC-1 run file: decide keeps the tickets and started sessions of an archived line, and drops those of a line that left the roadmap (1822.424209ms)
+✖ upfront AC-2 guard: startedTaskOf and firstMessageOf read only the first message's started form (0.598833ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 1
+ℹ fail 13
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17994.720333
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2742:1
+✖ upfront AC-1 entry: the run's own start of the change is claimed by the first session (145.26ms)
+  TypeError [Error]: loopModule.entryDecision is not a function
+      at entryOf (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2739:41)
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2744:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2749:1
+✖ upfront AC-1 entry: the session that claimed the ticket is let through again (144.75475ms)
+  TypeError [Error]: loopModule.entryDecision is not a function
+      at entryOf (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2739:41)
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2751:28)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2755:1
+✖ upfront AC-2 entry: another skill is let through (122.518084ms)
+  TypeError [Error]: loopModule.entryDecision is not a function
+      at entryOf (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2739:41)
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2758:30)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2767:1
+✖ upfront AC-2 entry: a session whose first message is typed is refused (1115.14125ms)
+  TypeError [Error]: loopModule.entryDecision is not a function
+      at entryOf (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2739:41)
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2778:15)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2786:1
+✖ upfront AC-2 entry: a started session with no start line for its change is refused (155.402292ms)
+  TypeError [Error]: loopModule.entryDecision is not a function
+      at entryOf (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2739:41)
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2794:15)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2801:1
+✖ upfront AC-2 entry: a ticket the run does not record is refused (435.864ms)
+  TypeError [Error]: loopModule.entryDecision is not a function
+      at entryOf (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2739:41)
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2808:15)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2814:1
+✖ upfront AC-2 entry: a ticket another session claimed is refused (128.0235ms)
+  TypeError [Error]: loopModule.entryDecision is not a function
+      at entryOf (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2739:41)
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2816:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2825:1
+✖ upfront AC-2 entry: an unreadable transcript or run file is refused (123.271791ms)
+  TypeError [Error]: loopModule.entryDecision is not a function
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2828:45)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2842:1
+✖ upfront AC-2 guard: guard.mjs skill exits 2 on a refusal, 0 on a claim, 0 under DEVKIT_BYPASS=1, and logs one line under DEVKIT_HOOK_LOG (137.661ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2846:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2866:1
+✖ upfront AC-1 ticket: decide gives each session start a fresh ticket recorded before it prints, keeps a claimed one, and withTicket adds the start line (3068.737167ms)
+  AssertionError [ERR_ASSERTION]: the task is two lines
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2873:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2906:1
+✖ upfront AC-1 run file: readRun reads tickets, placed, queued, anyway, waits, cron and check, and drops a field of the wrong type (97.499459ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   anyway: undefined,
+  +   check: undefined,
+  +   cron: undefined,
+  +   placed: undefined,
+  +   queued: undefined,
+  +   tickets: undefined,
+  +   waits: undefined
+  -   anyway: [],
+  -   check: null,
+  -   cron: false,
+  -   placed: {},
+  -   queued: {},
+  -   tickets: {},
+  -   waits: {}
+    }
+  
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2914:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { tickets: undefined, placed: undefined, queued: undefined, anyway: undefined, waits: undefined, cron: undefined, check: undefined },
+    expected: { tickets: {}, placed: {}, queued: {}, anyway: [], waits: {}, cron: false, check: null },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2936:1
+✖ upfront AC-1 run file: decide keeps the tickets and started sessions of an archived line, and drops those of a line that left the roadmap (1822.424209ms)
+  AssertionError [ERR_ASSERTION]: the archived line keeps its session, the line that left the roadmap does not
+  + actual - expected
+  
+    [
+  -   'a',
+      'b'
+    ]
+  
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2947:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'b' ],
+    expected: [ 'a', 'b' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1571:1
+✖ upfront AC-2 guard: startedTaskOf and firstMessageOf read only the first message's started form (0.598833ms)
+  TypeError [Error]: GUARD.startedTaskOf is not a function
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/guard.test.mjs:1575:26)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+=== second run (T-9) ===
+✖ roadmap-loop run: U4 the same session keeps what is under way and changes the number; another session or --fresh starts from empty (3830.047625ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14412.72675
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:855:1
+✖ roadmap-loop run: U4 the same session keeps what is under way and changes the number; another session or --fresh starts from empty (3830.047625ms)
+  AssertionError [ERR_ASSERTION]: the same session keeps them all
+  + actual - expected
+  
+    [
+  +   undefined,
+  +   undefined,
+  +   undefined,
+  +   undefined,
+  +   undefined
+  -   {
+  -     a: {
+  -       at: '2026-11-21T10:00:00.000Z',
+  -       claimedBy: 'S-a',
+  -       ticket: '0123456789abcdef'
+  -     }
+  -   },
+  -   {
+  -     a: {
+  -       at: '2026-11-21T10:00:00.000Z'
+  -     }
+  -   },
+  -   {
+  -     b: {
+  -       at: '2026-11-21T10:00:00.000Z',
+  -       why: 'place'
+  -     }
+  -   },
+  -   {
+  -     a: [
+  -       {
+  -         at: '2026-11-21T10:00:00.000Z',
+  -         kind: 'session',
+  -         pid: 88162,
+  -         session: 'S-a'
+  -       }
+  -     ]
+  -   },
+  -   {
+  -     at: '2026-11-21T10:00:00.000Z',
+  -     id: 'job-1'
+  -   }
+    ]
+  
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:877:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ undefined, undefined, undefined, undefined, undefined ],
+    expected: [ { a: [Object] }, { a: [Object] }, { b: [Object] }, { a: [Array] }, { id: 'job-1', at: '2026-11-21T10:00:00.000Z' } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

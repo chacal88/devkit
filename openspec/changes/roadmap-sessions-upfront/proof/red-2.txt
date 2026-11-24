@@ -1,0 +1,40 @@
+Phase 2 tests on the unchanged code (base c561553 plus phase 1): every new test fails; none stops the file.
+Command: env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront AC-(1 session-next|7 session|8 |9 |10 )" plugins/openspec/hooks/guard.test.mjs
+
+✖ upfront AC-9 waitLoop: a given predicate keeps waiting while it holds and failWhy names the end (4.276792ms)
+✖ upfront AC-7 session-next: the grill, the plan approval and the retro answers are held for the coordinating session with their stage icon (0.431625ms)
+✖ upfront AC-7 session-next: every other gate stays in the change session (0.180166ms)
+✖ upfront AC-7 session-next: the held approval goes on once approval.md is written (219.461208ms)
+✖ upfront AC-8 session-next: a plan stage waits for an unarchived dependency with ⏳ (0.230958ms)
+✖ upfront AC-8 session-next: the roadmap of the main checkout says which dependency is still unarchived (404.283125ms)
+✖ upfront AC-8 session-next: once the dependency is archived and not merged, the step merges the default branch (0.183375ms)
+✖ upfront AC-8 merge-base: merges origin's default branch, and on a conflict aborts and exits 3 with base-conflict (510.604167ms)
+✖ upfront AC-9 place: a free place is claimed (0.196625ms)
+✖ upfront AC-9 place: no free place queues the change with why place (0.131209ms)
+✖ upfront AC-9 place: a loaded machine queues it with why load (0.08525ms)
+✖ upfront AC-9 place: start anyway claims despite the load once (0.080291ms)
+✖ upfront AC-9 place: an earlier queued change goes first (0.088833ms)
+✖ upfront AC-9 session-next: an implementation step claims a place and the delivery releases it (0.11975ms)
+✖ upfront AC-9 session-next: a blocked change in its implementation keeps its place (0.078291ms)
+✖ upfront AC-9 session-next: the archived end releases the place (0.083625ms)
+✖ upfront AC-9 session-next: no free place or a loaded machine holds the change with why place or load (0.089834ms)
+✖ upfront AC-9 session-next: a change outside a session-mode run gets the change loop's action unchanged (253.882333ms)
+✖ upfront AC-10 session-next: a held change is titled ⏳ <id> and a claimed one its stage icon again (0.285ms)
+✖ upfront AC-1 session-next: prints devkit-run first, so runOf reads a change run (249.765958ms)
+✖ upfront AC-9 session-wait: exits with the new action when a place frees, records and clears its wait (268.272042ms)
+✖ upfront AC-9 lock stop: a claimed change session held for a place may stop (290.018583ms)
+✖ upfront AC-9 lock stop: with its place and a stage ready the stop is refused once (299.893459ms)
+✖ upfront AC-9 lock stop: a session that did not claim the ticket is judged as any change run (299.442834ms)
+✖ upfront AC-9 messages: the held and base-conflict messages exist in both languages and name no stage or step (0.189292ms)
+ℹ tests 25
+ℹ pass 0
+ℹ fail 25
+
+Reasons (count):
+   1 AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+   2 AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+   3 AssertionError [ERR_ASSERTION]: {"version":1,"error":"usage: roadmap-loop.mjs run --lang <l> --load-limit <p> --session <id> [--fresh] [--change-sessi
+   2 SyntaxError [Error]: Unexpected end of JSON input
+   3 TypeError [Error]: loopModule.changeSessionStopDecision is not a function
+   5 TypeError [Error]: loopModule.placeDecision is not a function
+   8 TypeError [Error]: loopModule.sessionDecide is not a function

@@ -1,0 +1,67 @@
+✖ upfront budget session-next: at the cap a change session's session-next prints the budget end and keeps its place (2074.25675ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13652.452917
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:3307:1
+✖ upfront budget session-next: at the cap a change session's session-next prints the budget end and keeps its place (2074.25675ms)
+  AssertionError [ERR_ASSERTION]: devkit-run: a
+  {
+    "version": 1,
+    "change": "a",
+    "script": "devkit",
+    "root": "/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-deliver-rhY1TQ",
+    "branch": "a",
+    "filesLanguage": "en",
+    "kind": "agent",
+    "stage": "implementation",
+    "stageTitle": "Implementation",
+    "role": "tdd-implementer",
+    "skills": [
+      "test-driven-development",
+      "systematic-debugging"
+    ],
+    "agent": "devkit-core:tdd-implementer",
+    "step": "implement",
+    "detail": {
+      "step": "implement",
+      "reason": "phase 1 has unticked tasks: 1.1",
+      "phase": 1
+    },
+    "brief": "Change a (devkit script), stage implementation: step implement {\"step\":\"implement\",\"reason\":\"phase 1 has unticked tasks: 1.1\",\"phase\":1}. Work only in /private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-deliver-rhY1TQ on branch a; every file path is absolute under it; start every Bash command with cd /private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-deliver-rhY1TQ && ; do not fetch. Write the change's files in English.",
+    "progressKey": "implementation/implement@5256817a9242",
+    "icon": "🛠️",
+    "state": {
+      "state": "running",
+      "reason": null,
+      "stage": "implementation",
+      "stageTitle": "Implementation",
+      "phase": 1,
+      "stageIcon": "🛠️",
+      "stateIcon": null,
+      "title": "🛠️ a"
+    },
+    "sessionTitle": "🛠️ a"
+  }
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/roadmap-loop.test.mjs:3312:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -3,6 +3,7 @@
 - Status: accepted
 - Amended by ADR 0017 (0017-a-change-state-is-derived-in-one-place.md)
 - Amended by ADR 0020 (0020-a-change-can-run-on-another-machine.md)
+- Amended by ADR 0021 (0021-a-roadmap-run-opens-every-change-at-its-start.md)
 - Date: 2026-11-21
 - Change: roadmap-coordinator-followups
 - Supersedes: ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md), decision 1 where
@@ -12,6 +13,15 @@
 - Accepted by: the owner, on 2026-11-21, in the message that approved the plan of the change: `Aprovo` ("I approve"), given in answer to the question whether the owner approves the plan and ADR 0014; recorded in `openspec/changes/roadmap-coordinator-followups/approval.md`
 
 ## Context
+
+Note (roadmap-sessions-upfront, 2026-11-22): [ADR 0021](0021-a-roadmap-run-opens-every-change-at-its-start.md) amends decisions 1 to 4. Every pending
+change opens at the run's start and its session runs with no typed command, on the run's ticket; the
+grill, the plan approval and the retro answers are asked in the coordinating session; a change
+session waits for a place in itself, so a freed place needs no start; a roadmap run keeps one periodic
+check. Decision 3, as [ADR 0017](0017-a-change-state-is-derived-in-one-place.md) amended it, is
+amended again: while a change session waits for a place, the load or its dependencies, its title is
+⏳ and the id. A start still happens only on a turn the owner typed. Decisions 5 and 6 are otherwise
+unchanged.
 
 Note (change-state, 2026-11-22): [ADR 0017](0017-a-change-state-is-derived-in-one-place.md) amends
 decision 3: while the change is stopped, the title carries the state icon (🙋, ⏳ or ⛔) before the

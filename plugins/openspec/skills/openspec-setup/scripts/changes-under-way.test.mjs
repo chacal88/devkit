@@ -197,10 +197,12 @@ test('field-fixes 7 upgrade: without the owner answer no schema is replaced and 
   for (const dir of [t.root, t.started, t.planready]) assert.equal(git(dir, 'status', '--porcelain'), '');
 });
 
+// Invariant (T-26, D-13): readFlowFile reads a flow.json by path as the file declares it, readFlow reads the same flow by schema, and a malformed file
+// names its path; layer: flow-check's readers; suite: changes-under-way. The version it expects is the one the file declares, not release 1's.
 test('field-fixes 7 flow-check: readFlowFile reads a flow.json by path, readFlow still reads it by schema, and a malformed one names the path', () => {
   const file = join(here, '..', '..', '..', 'schemas', 'devkit', 'flow.json');
   const flow = flowCheck.readFlowFile(file);
-  assert.equal(flow.version, 1);
+  assert.equal(flow.version, JSON.parse(readFileSync(file, 'utf8')).version);
   assert.deepEqual(flow, flowCheck.readFlow(gitRepo({ config: 'schema: devkit\n' }), 'devkit'));
   const dir = tmpFolder('devkit-flow-');
   mkdirSync(join(dir, 'x'));

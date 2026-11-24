@@ -1,12 +1,12 @@
 {
-  "version": 1,
+  "version": 2,
   "script": "devkit",
   "ceilings": { "default": 3 },
   "stages": [
     { "id": "open", "source": "folder", "role": "change-coordinator", "skills": [], "part": "open",
       "title": { "en": "Open the change", "pt-BR": "Abrir a change" } },
     { "id": "requirements", "source": "artifact", "file": "requirements.md", "role": "change-coordinator", "owner": true,
-      "skills": ["requirements-grill"], "helpers": ["codebase-researcher"], "part": "plan",
+      "skills": ["requirements-grill"], "helpers": ["codebase-researcher", "requirements-triage"], "part": "plan",
       "title": { "en": "Requirements (grill)", "pt-BR": "Requisitos (grill)" } },
     { "id": "mockup", "source": "artifact", "file": "mockup.md", "role": "screen-designer", "owner": true,
       "skills": ["screen-mockup"], "part": "plan", "appliesWhen": { "flag": "ui" }, "notAfter": "proposal", "ceiling": "owner",
