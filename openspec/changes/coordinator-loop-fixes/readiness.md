@@ -1,199 +1,153 @@
-<!-- devkit-stage readiness result=failed attempt=8 commit=ad1c5d00147d693158238ad98b138812ad21c579 -->
+<!-- devkit-stage readiness result=failed attempt=9 commit=b439e7ad8b250260b84a769b16b22359442236bd -->
 # Readiness review: coordinator-loop-fixes
 
-Reviewed at HEAD ad1c5d0 (clean tree), after implementation started. Phase 1 is done (gate 1.6 ticked).
-Tasks 2.0 to 2.2 are ticked. 2.3 (8b9be44) and 2.4 (d3da0e9) are coded but not ticked. The revision ad1c5d0
-changes `design.md` (D-1, D-5, D-14 R7b, D-15, D-16 T96, D-23, the risk table), `tasks.md` (2.3, 2.4, 2.5,
-5.8, 5.9), `proposal.md` and `requirements.md` (an AC-20 note). I read the whole diff and re-derived each claim
-it makes against the code at HEAD.
-
-Since the approval (75ce9f0), the branch merged `origin/main` at 2.0. That merge brought one new project rule:
-the `Gates:` line of `openspec/config.yaml:42`, added by 2e70e34 (the archive of `state-skips-unlocated`). By the
-review method, a rule added since the approval applies to the revised plan.
+Reviewed at HEAD b439e7a (clean tree). Since attempt 8 (c789b9b) the only commit is the plan revision b439e7a. It
+answers attempt 8's B1 with option (a), the owner's choice ("Train's command (a)"). It changes D-17, the risk
+table and R7b in `design.md`, the exit criteria in `proposal.md`, and in `tasks.md` the preamble, the gates 2.5,
+3.9, 4.7, 5.9 and 6.6, and the Checks of 2.4, 3.8, 4.6, 5.8 and 6.5. No code changed. Phase 1 is done. 2.0 to 2.2
+are ticked. 2.3 and 2.4 are coded but not ticked.
 
 Checks run at HEAD:
-- `openspec validate coordinator-loop-fixes --strict` and `... --type change --strict --no-interactive` both
-  print "Change 'coordinator-loop-fixes' is valid".
-- `python3 scripts/check.py`: "all checks passed".
-- The three parts of gate 2.5 (`TMPDIR=/var/tmp/devkit-coordinator-loop-fixes`, `--concurrency=2`):
-  - part 1: 604 tests, 1 fail (`conduct: under two-prs, a conflict that also has README.md is blocked ...`);
-  - part 2: 321 tests, 1 fail (T96);
-  - part 3, the new jira call: 1 fail (`jira-entry-followups AC-10 ...`).
-  These are exactly the three failures the revision addresses.
-- I probed each revised assertion in a scratch copy of HEAD (`git archive`, nothing written to the worktree):
-  - T96 with the record committed and pushed gives `push`, then `fix-resolution`.
-  - The new jira fixture passes as the D-15 row states.
-  - The two-prs test with the D-15 row's assertions passes.
+- `openspec validate coordinator-loop-fixes --strict` and `... --type change --strict --no-interactive` both print
+  "Change 'coordinator-loop-fixes' is valid".
+- `python3 scripts/check.py` prints "all checks passed".
+- I did not run the gates' whole-suite part, `node scripts/test-suite.mjs`, because the caller's machine notes
+  forbid it, and no result was handed over. The filtered runs now in 2.4's Check are the ones attempt 8 ran: three
+  failures, exactly the ones 2.3 and 2.4 fix. No code changed since.
 
 The caller gave no verdict, and this review relies on none.
 
 ## 1. Decision
 - Status: NEEDS-REVISION
 - Confidence: high
-- Ready to implement: no. One narrow fix is needed: the gates must follow the project's new `Gates:` rule, or
-  state the exception it allows.
-
-The three gaps phase 2 found are closed correctly and verified against the code. The one blocker comes from
-the rule the 2.0 merge brought.
+- Ready to implement: no. The revision missed two copies of the old gate policy. The worse one makes three
+  implementer tasks run the whole suite (B1).
 
 ## 2. Scope validation
-Classification: correct. The revision adds no behaviour:
-- T96 now asserts what `nextStep` already does.
-- Two existing tests become D-15 rows.
-- Gate 2.5 runs one more test.
-- The `post-merge-validate 3` edit is dropped because main already made it.
+Classification: correct. The revision changes only which commands the gates name and where the filtered runs
+happen. It adds no behaviour.
 
 ## 3. Proposal review
-No new findings. The `post-merge-validate 3` sentence is true at HEAD (see section 4). The Low length item is
-carried (section 10).
+The new exit criteria (`proposal.md:135-137`) match D-17. The Low length item is carried (section 10).
 
 ## 4. Design review
 Claims of the revision, re-derived at HEAD:
-- D-1, item 5 lists every uncommitted file of the change folder. Confirmed:
-  `plugins/openspec/hooks/deliver-check.mjs:1116-1117` (`details.uncommitted = changedUnder(root, 'openspec/changes/<id>')`,
-  with no exemption for `declared.json`).
-- D-1, the `push` row comes before the two-prs rows. Confirmed: `push` is at `deliver-check.mjs:1967`, and
-  `two.resolution`'s `stop-review-deadlock` and `fix-resolution` are at `:1982` and `:1992`.
-- D-1, at the code review's deadlock `fix-review` comes first. Confirmed: `deliver-check.mjs:1896-1910`, where
-  `planDirty` leaves `declared.json` out (`:2181`). So T111 is unchanged.
-- The probed `declare` action is the `commit-and-pr` hand-off `push`, with
-  `detail.reason` "uncommitted files in the change folder: openspec/changes/feat/declared.json". R7b's "its
-  reason naming `declared.json`" therefore holds.
-- After the probe committed the record and pushed `feat`, `next` gave `fix-resolution`. The fixture's PR head
-  follows the remote branch (`test-fixtures.mjs:403`, `headRefOid: tip(p.head)`).
-- D-5 and the jira row: with `conflicts` omitted, `releaseConflict` sees a clean `git merge-tree` and, in `pr`
-  mode, returns null. The code is `plugins/openspec/hooks/conduct-check.mjs:426-431`, and `PR_CONFIG` is `pr` at
-  `change-loop-fixtures.mjs:50`. Item 5 then stays the blocked end `pr-problem`, exit 2. Probed: it passes.
-- D-5 and the two-prs row: `releaseConflict` returns `paths`, `others` and `base` (`conduct-check.mjs:435-437`).
-  The row's assertions (`['resolve-base-conflict', 'subagent']`, the implementer, `others: ['README.md']`,
-  `base: 'main'`, state `ready to run: resolve-base-conflict`) pass in the probe. The invariant comment the row
-  rewrites is at `conduct-check.test.mjs:624-627`.
-- D-23: `post-merge-validate 3: the roadmap line names the merge check and the sibling that counts evidence
-  attempts` is at `plugins/openspec/hooks/change-loop.test.mjs:2838`. It matches `/^- \[[ x]\] post-merge-validate/`,
-  and 6373424 (train 10) is an ancestor of HEAD and not of c09860c. The revised D-15 row, 5.8 and the 5.9
-  pattern all agree with that.
-- D-15 counts: five rows of `conduct-check.test.mjs` (`design.md:948-950`, 952), one of `change-loop.test.mjs`
-  (951) and one of `change-loop-remote.test.mjs` (953). That matches "five ... one ... one" in D-5 and "seven
-  updated tests" in 2.5.
+- The `Gates:` rule is quoted correctly from `openspec/config.yaml:42`.
+- The train's command is `node scripts/test-suite.mjs && python3 scripts/check.py` (`openspec/config.yaml:30`).
+- "Each part byte-equal to the train's part so that `deliver-check`'s `tasksItem` counts it as proven by the
+  train" holds:
+  - `trainParts` splits on `&&` and trims (`plugins/openspec/hooks/deliver-check.mjs:846`).
+  - `tasksItem` moves a part with no row into `byTrain` when `trainParts.includes(c)` (`deliver-check.mjs:526-527`).
+  - `trainOn` holds for a change on the `devkit` script (`deliver-check.mjs:2074`), and this change's
+    `.openspec.yaml` says `schema: devkit`.
+  - Every new gate's first two parts are exactly `node scripts/test-suite.mjs` and `python3 scripts/check.py`.
+- "No pass row for the parts the train proves" holds:
+  - `pr-verifier` writes a `train:` row for them and does not run them (`plugins/core/agents/pr-verifier.md:39`).
+  - Only gate commands need rows. `parseTasks` sets `command` only on `Gate:` lines (`deliver-check.mjs:487`), so
+    the filtered runs moved into Checks need no evidence row.
+- The new R7b clause (the fake `gh` reports the remote tip as the PR head) closes attempt 8's Low item. It matches
+  `test-fixtures.mjs:403`.
+- "Gate 1.6 keeps its filtered text, and its filtered parts keep needing `pass` rows" is stated explicitly, with
+  its cost. That cost is two filtered parts at verify. Accepted.
 
-Informational: the 2.0 merge brought "A merge-defect fix follows the rule of every plan edit" to the main spec
-(`grep -c` prints 1 on `openspec/specs/change-coordination/spec.md` and 0 on the change's delta). So 3.6a's
-copy will apply at phase 3, as the plan already provides.
-
-Finding (blocker B1; see section 9): the gate policy of D-17 (`design.md:1170-1173`) contradicts the new
-`Gates:` rule.
+Finding B2 (section 9): the Context section still states the old policy (`design.md:40-42`).
 
 ## 5. Specs review
-No findings. The deltas are unchanged by this revision, and strict validation passes.
+No findings. The "A phase gate" scenario (`specs/change-coordination/spec.md:61-63`) states what a gate step
+carries, not what its command is, so the revision leaves it true. Strict validation passes.
 
 ## 6. Tasks review
-The task changes of this revision are sound:
-- 2.3 now brings T96 to its row.
-- 2.4 names both new D-15 tests with their files.
-- 2.5 adds the jira call as a separate part, so the earlier patterns do not filter that file.
-- 5.8 and 5.9 match D-23.
-- The tests D-15 now names cover every README-conflict fixture that passes through `conduct-check`'s override.
-  I grepped the suite for `conflicts: [...README...]`, `twoPrsConflict` and `pr-problem`. The other hits
-  (`project-loop.test.mjs:1201`, `delivery-train.test.mjs:611-618`, `delivery-models.test.mjs:531-544`) read
-  `deliver-check` or the project loop directly, not the override. Gate 2.5's run shows no other failure.
+The new gates follow the rule. The filtered runs moved into the last implementation task of each phase:
+- 2.4 keeps the `^jira-entry-followups AC-10 ` call. The new text refers to it as "above", and it is in 2.4's Check
+  (`tasks.md:193`).
+- The runs added to 3.8, 4.6, 5.8 and 6.5 are the old gates' filtered parts, copied unchanged. The non-test parts
+  (`gen-agents.mjs --check`, `test -s`, `grep -q`, `gen-catalog.py --check`, `command claude plugin validate .`)
+  stay in the gates.
 
-Finding B1 applies here: every gate (`tasks.md:123`, `:193`, `:272`, `:336`, `:398`, `:457`) and the preamble
-(`tasks.md:27-33`).
+Finding B1 (section 9): the merge tasks 3.0, 4.0 and 5.0 still say "gate N passes as written".
 
 ## 7. Omission detection
-No new findings. A Low item on R7b's fake `gh` is in section 10.
+No new findings. A Low item on the session's `--concurrency` choice is in section 10.
 
 ## 8. Execution risks (top 5 failures)
-1. Cause: the gates keep their filtered `node scripts/test-suite.mjs ... <files>` parts. Thirteen such parts in
-   1.6 to 6.6 are not train parts (`deliver-check.mjs:526-527`), so each needs a `pass` row in `evidence.md` at
-   a current commit. This change edits `docs/openspec-flow.md` (D-22's sentences, 6.2's CI pins), so a base
-   merge that brings a pin stales its evidence. That is the case the `state-skips-unlocated` retro recorded.
-   Impact: every re-boarding after a train leaves the change re-runs every gate part on the owner's machine.
+1. Cause: 3.0, 4.0 and 5.0 check "gate 2.5 / 3.9 / 4.7 passes as written", which is now the whole suite inside an
+   implementer subagent.
+   Impact: the subagent's run exceeds the Bash tool's 10-minute ceiling (the suite takes about 10 minutes on an
+   idle 8-core machine, per `CLAUDE.md`). A base-added test that fails then fails the merge task's Check, though
+   D-17 (`design.md:1166-1167`) makes it "a row for D-15 and one plan revision, not a failure of the phase".
    Prevention: B1.
-2. Cause: R7b's fake `gh` reports a fixed PR head. Impact: after the fixture pushes the record, `next` keeps
-   answering `push`, R7b's check fails, and 6.3 stops for a plan revision. Prevention: section 10, item 1.
-3. Cause: `post-merge-validate` archives a sibling between phase 3 and the last merge. Impact: a main-spec
-   scenario no longer holds. Prevention: as planned (3.6a now applies; 6.1's re-check, D-7).
-4. Cause: `deliver-check.test.mjs` grows with phase 3's tests (120.9 s alone in part 1 of gate 2.5 today).
-   Impact: it crosses CONTRIBUTING's 300 s. Prevention: as planned (D-16 split rule).
-5. Cause: a sibling takes 0032 or 0033 before the last merge. Impact: stale links in the Notes of ADR 0011 and
-   ADR 0023. Prevention: as planned (`renumber-adr`; T78 and T139 read the number through `decisions.md`).
+2. Cause: a flaky or unrelated test anywhere in the suite now reds a phase gate.
+   Impact: `declare gate-red` hands a `fix-gate` to the implementer for a test the phase never touched. A second
+   red ends the run blocked.
+   Prevention: as planned. The N.0 merge runs the tests the base added first (D-17). An unrelated red is a
+   decision for the owner, through `waiting-owner-decision`.
+3. Cause: `post-merge-validate` archives a sibling between phase 3 and the last merge.
+   Impact: a main-spec scenario no longer holds.
+   Prevention: as planned (3.6a, and 6.1's re-check, D-7).
+4. Cause: `deliver-check.test.mjs` grows with phase 3's tests.
+   Impact: it crosses CONTRIBUTING's 300 s.
+   Prevention: as planned (the D-16 split rule, and each file run alone before the gate).
+5. Cause: a sibling takes 0032 or 0033 before the last merge.
+   Impact: stale links in the Notes of ADR 0011 and ADR 0023.
+   Prevention: as planned (`renumber-adr` in 6.1).
 
 ## 9. Mandatory fixes before implementation
-- [ ] B1. Severity Medium, Mandatory before implementation (of phases 2.5 to 6). The rule is
-  `openspec/config.yaml:42`: "A phase gate the delivery train runs names the train's command
-  (`node scripts/test-suite.mjs`, `python3 scripts/check.py`); a gate naming one test file needs a passing local
-  row after every base merge, so a plan uses one only when that file must pass before the train."
-
-  The plan does the opposite. Its preamble says "No gate and no task runs the whole suite or a near-whole list
-  of files" (`tasks.md:31`), and D-17 says the same (`design.md:1170-1173`). Every gate names filtered test
-  files: `tasks.md:123` (1.6), `:193` (2.5), `:272` (3.9), `:336` (4.7), `:398` (5.9) and `:457` (6.6).
-
-  No artifact claims the rule's exception (that a named file must pass before the train). The train is on in
-  this repository (`openspec/config.yaml:30`), and it runs every one of those tests. Only the `python3
-  scripts/check.py` parts are train parts today.
-
-  Why it matters: thirteen gate parts need local `pass` rows at a current commit. This change owns lines of
-  `docs/openspec-flow.md` (D-22, 6.2's pins), so its evidence goes stale on base merges, and every re-boarding
-  re-runs them all.
-
-  Smallest correction, the author's choice of one:
-  - (a) Follow the rule.
-    - Each gate names `node scripts/test-suite.mjs && python3 scripts/check.py` plus its non-test parts
-      (`gen-agents.mjs --check`, `gen-catalog.py --check`, `command claude plugin validate .`, `test -s ...`,
-      `grep -q ...`).
-    - Each phase's filtered command moves to the Check of the phase's last task, so it is still run before the
-      gate is ticked.
-    - The preamble and D-17 say that the implementer does not run the train's part (the train proves it and
-      `pr-verifier` writes its `train:` row).
-  - (b) Invoke the exception explicitly. The preamble and D-17 name, per gate, the files that must pass before
-    the train and why. They accept that `pr-verifier` records a `pass` row for each filtered part after every
-    base merge, or one whole-suite run standing for them, as `pr-verifier.md:38` allows.
-
-  Either way, the already-ticked gate 1.6 keeps its tick. Under (a), its command text changes. Under (b), it is
-  named in the exception.
+- [ ] B1. High, Mandatory before implementation (of 3.0).
+  - Where: `tasks.md:216` (3.0), `:298` (4.0) and `:365` (5.0) each end their Check with "gate 2.5 / 3.9 / 4.7
+    passes as written". After b439e7a, those gates are `node scripts/test-suite.mjs && python3 scripts/check.py
+    ...`. These are implementer tasks: D-17 says "The implementer then runs ..." (`design.md:1161`).
+  - Conflict: the plan says "No implementer task runs the whole suite" (`tasks.md:36`, `design.md:1188`), and it
+    gives the whole-suite part to the conducting session.
+  - Why it matters: two implementers will diverge. One runs the whole suite in a subagent, where it times out or
+    hits base tests that D-17 says are not the phase's failure. The other runs the filtered runs and skips
+    `check.py`.
+  - Smallest correction: in each of 3.0, 4.0 and 5.0, replace "gate N passes as written" with "the runs of 2.4's
+    Check that gate 2.5 held (resp. 3.8's, 4.6's) pass, and `python3 scripts/check.py` passes". For 4.0, add
+    `gen-agents.mjs --check`. For 5.0, add `test -s openspec/changes/coordinator-loop-fixes/proof/checks.txt`.
+    2.0's "gate 1.6 passes as written" is ticked and stays.
+- [ ] B2. Medium, Mandatory before implementation.
+  - Where: the Context of `design.md:40-42` still says "The whole suite runs only on the delivery train
+    (`devkit.delivery.train`, below); a phase gate of this plan runs the files its phase touches with
+    `--concurrency=2` (D-17)".
+  - Conflict: that is the opposite of the revised D-17 (`design.md:1170-1195`). Each fix must change every copy of
+    the literal it changes.
+  - Smallest correction: one sentence. The whole suite runs at each phase gate, from the conducting session, and
+    on the train. The files a phase touches run with `--concurrency=2` in its last task's Check (D-17).
 
 ## 10. Optional improvements (within scope)
-- [ ] Low, Fix during implementation: R7b (`design.md:850`) uses a "fake `gh`", and its check now needs
-  `fix-resolution` after "the fixture script commits and pushes the record". That holds only if the fake reports
-  the pushed branch tip as the PR head, as the suite's simulator does (`test-fixtures.mjs:403`). Smallest
-  correction: one clause in R7b, "the fake `gh` reports the remote branch's tip as each PR's head (the suite's
-  `test-fixtures.mjs` simulator)".
-- [ ] Low, Nice to have: `docs/adr/0033-a-changes-own-settings-live-in-an-x-devkit-block.md:53` still says
-  ADR 0023's "`## Decision` section untouched", while D-22 appends the Note inside it. Carried from attempt 7.
-- [ ] Low, Nice to have: `proposal.md` is 2,483 words, against `rules.proposal`'s "Keep it under two pages".
+- [ ] Low, Nice to have: D-17 (`design.md:1179-1181`) and the preamble (`tasks.md:37-38`) let the conducting
+  session run the whole-suite part with a `--concurrency` it chooses. The `gate` item of
+  `plugins/openspec/skills/devkit/SKILL.md:114` says "Run `detail.command` in Bash, alone", and the default is
+  already `availableParallelism()` (`scripts/test-suite.mjs:86`). Smallest correction: drop the permission, or say
+  that the session runs `detail.command` as written, in the background.
+- [ ] Low, Nice to have: `docs/adr/0033-a-changes-own-settings-live-in-an-x-devkit-block.md:53` still says ADR
+  0023's "`## Decision` section untouched", while D-22 appends the Note inside it. Carried.
+- [ ] Low, Nice to have: `proposal.md` is 2,494 words, against `rules.proposal`'s "Keep it under two pages".
   Carried.
 - [ ] Low, Nice to have: `decisions.md` says 0033 "was the next free number across the remote branches". Not
-  checked (no fetch); `renumber-adr` handles a clash. Carried.
+  checked (no fetch). `renumber-adr` handles a clash. Carried.
 
 ## 11. Explicitly out of scope
-- [ ] The other open plans in `openspec/changes/` (`fresh-base-check`, `stage-ceiling-consecutive`,
-  `archive-release-pin`) also use filtered gates. They are not this package.
-- [ ] Everything attempt 7 listed (a revised plan in `ship-change` without the loop, `decisions.md` and
-  `mockup.md` outside the digest, the roadmap coordinator's third round, `fresh-base-check`'s half of item 21,
-  the desktop app's monitor wake-up, the CompozyOS driver's red-gate question, `resolve-base-conflict` with the
-  train).
+- [ ] The other open plans in `openspec/changes/` that still use filtered gates.
+- [ ] Everything attempts 7 and 8 listed as out of scope.
 
 ## 12. Mandatory review questions
-1. Is the problem objectively defined? Yes. The three gaps are named and each is reproduced by a red test at
-   HEAD.
-2. Is the result measurable? Yes. T96 and the two D-15 rows have exact assertions, and each passes in the probe.
-3. Are error behaviors defined? Yes. They are unchanged since attempt 7.
-4. Are edge cases covered? Yes for the revision: both deadlocks (`push` then `fix-resolution` on the
-   resolution's, `fix-review` on the code review's), and a stale GitHub conflict in `pr` mode.
-5. Are dependencies clear? Yes. The 2.0 merge is recorded, and 6373424 is in the branch.
-6. Are contracts defined? Yes. The `push` hand-off and its reason are named.
-7. Can two developers interpret this differently? On the gates, yes. The plan and the project rule disagree on
-   what a gate names (B1).
-8. Are any decisions implicit instead of written? The reliance on the `Gates:` rule's exception is implicit (B1).
-9. Do the tasks fully deliver the intended outcome? Yes.
-10. What will be discovered too late if implementation starts now? At verify and on each re-boarding: the cost of
-    thirteen local gate rows on an evidence file that base merges stale (B1).
+1. Is the problem objectively defined? Yes. It is unchanged since attempt 8.
+2. Is the result measurable? Yes. Each gate is one command and each AC maps to tasks (`tasks.md:57-77`).
+3. Are error behaviors defined? Yes. A red gate goes through D-3. The merge tasks' failure path is the open point,
+   B1.
+4. Are edge cases covered? Yes, except a base-added failing test under a whole-suite Check (B1).
+5. Are dependencies clear? Yes.
+6. Are contracts defined? Yes. The train parts and the `train:` rows are confirmed in code.
+7. Can two developers interpret this differently? Yes, on what 3.0, 4.0 and 5.0 run (B1).
+8. Are any decisions implicit instead of written? No. Gate 1.6's exception is written.
+9. Do the tasks fully deliver the intended outcome? Yes, once B1 is fixed.
+10. What will be discovered too late if implementation starts now? At 3.0: an implementer asked to run the whole
+    suite (B1).
 
 ## 13. Final conclusion
-- Can we start? Not on gate 2.5 as written. Revise the gates first (B1); everything else in this revision is
-  ready.
-- What must be fixed? B1: make the gates follow `openspec/config.yaml`'s `Gates:` rule, or state the exception
-  per gate.
-- Main risk if ignored? Each re-boarding re-runs every filtered gate part locally to refresh stale evidence,
-  which is the cost the rule was written to prevent.
+- Can we start? 2.3 to 2.5 can proceed: nothing in them depends on B1 or B2. Fix B1 before 3.0 is handed.
+- What must be fixed? B1: the Checks of 3.0, 4.0 and 5.0 name the moved filtered runs, not "gate N as written".
+  B2: the Context sentence at `design.md:40-42`.
+- Main risk if ignored? An implementer subagent runs the whole suite at each phase's merge and times out, or
+  fails a base test the plan says is not the phase's failure.
