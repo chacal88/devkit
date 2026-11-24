@@ -42,7 +42,7 @@ code closed until the plan is ready, reviewer agents, checkers and a side panel.
   `devkit-reviews` checks, and the repository ships in `merge` mode (ADR 0002, ADR 0003).
 - Destructive Git (`reset`, `checkout --`, `clean`, `rm`, `stash`) only with explicit authorization.
 - Commits: conventional (`<type>(<scope>): <description>`), as `docs/conventions.md` states.
-- Before changing a test, name its invariant, the layer that owns it and the suite it lives in.
+- Before changing a test, name its invariant, the layer that owns it and the suite it lives in. A time or a count the documents state (the suite's minutes, its tests) is measured again after the last merge of the base, with no other suite running on the machine.
 - When the installed devkit-openspec cannot read `main`'s `flow.json` (`unknown key ...`), drive the change with the worktree's own `plugins/openspec/hooks/change-loop.mjs` until the plugin is updated.
 - When a change alters what an agent writes, its real-run proof covers every case the plan declares (each input variant, and the conducting session's own part), not one case plus prose tests.
 - A plan rule that reacts to a stage agent's failure names the hook that sees the failure (the stop hook refuses a first stop without a stage file) and the files the agent leaves, and its real run proves the failure path as well as the success path.
