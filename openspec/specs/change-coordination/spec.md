@@ -43,16 +43,17 @@ other verb SHALL answer in one plain sentence and create or run nothing.
 
 ### Requirement: The project's driver setting decides whether the command runs
 The command SHALL read `devkit.driver` from the project's `openspec/config.yaml`, `claude` when the
-block or the key is absent. With `claude` it SHALL run; with `compozy` or `script` it SHALL say the
-driver is not built yet, name its round and run nothing.
+block or the key is absent. With `claude` it SHALL run in the session; with `compozy` it SHALL start
+the change's run in CompozyOS; with `script` it SHALL say the driver is not built yet, name its
+round and run nothing.
 
 #### Scenario: No settings block
 - **WHEN** `openspec/config.yaml` has no `devkit:` block and a request is typed
 - **THEN** the command runs as with `driver: claude`
 
 #### Scenario: The CompozyOS driver
-- **WHEN** `devkit.driver` is `compozy`
-- **THEN** the reply says this driver is not built yet and names round 21, and nothing is created or run
+- **WHEN** `devkit.driver` is `compozy` and CompozyOS runs on the machine and knows the project
+- **THEN** the command starts the change's run in CompozyOS, as the requirement on the CompozyOS driver says, and asks no question of the change in the session
 
 #### Scenario: The script driver
 - **WHEN** `devkit.driver` is `script`
@@ -348,8 +349,12 @@ hold it.
 - **WHEN** the loop is called with the previous action's progress key and ends the run blocked for no progress or for a stage that was not delivered
 - **THEN** its output holds `devkit-end: <id> blocked` after its `devkit-run: <id>` line
 
+#### Scenario: A failed stage agent
+- **WHEN** a stage agent returned `Outcome: failure` without writing its stage file and the loop is called with its action's progress key
+- **THEN** the loop gives the retry of that stage or ends the run blocked itself, with `devkit-end: <id> blocked` after its `devkit-run: <id>` line, and the session declares no end for it
+
 #### Scenario: An end the session declares
-- **WHEN** the session renders the blocked reply for a failed stage agent or a red gate, or the reply for a pull-request decision left to the owner, naming the change
+- **WHEN** the session renders the blocked reply for a red gate, or the reply for a pull-request decision left to the owner, naming the change
 - **THEN** the output's first line is `devkit-end: <id> blocked` (or `devkit-end: <id> waiting-for-owner`), the reply follows on its own lines, and the session shows only the reply
 
 #### Scenario: An action that is not an end
@@ -1182,3 +1187,63 @@ one, and the parts of the devkit skill that run one change name no scheduling to
 #### Scenario: Every action of a change run
 - **WHEN** a `/devkit change` run goes from its grill to its archive
 - **THEN** no action asks for a schedule, and no periodic check exists in the session
+
+### Requirement: On the CompozyOS driver the command starts a run and says where to follow it
+With the `compozy` driver, `/devkit change <request>` and `/devkit change <id>` SHALL start one
+CompozyOS run of the change, or find the one already running, and SHALL reply in one message with
+where to follow it; the session SHALL ask none of the change's questions, and every later question
+SHALL reach the owner in CompozyOS.
+
+#### Scenario: A new request
+- **WHEN** the owner types `/devkit change add a CSV export` in a project on the CompozyOS driver
+- **THEN** the session names the change, starts its CompozyOS run with the request, replies with where to follow it, and ends its turn without asking a question
+
+#### Scenario: A change that already runs
+- **WHEN** the owner types `/devkit change add-csv-export` while a CompozyOS run of that change is under way
+- **THEN** no second run is started and the reply says the change already runs and where to follow it
+
+#### Scenario: A change whose run ended
+- **WHEN** the owner types `/devkit change add-csv-export` and no run of that change is under way
+- **THEN** a new run is started and it goes on from the change's files
+
+#### Scenario: A name already taken
+- **WHEN** the proposed name of a new request is taken by a change, a branch or a worktree
+- **THEN** no run is started and the reply is the one the Claude driver gives for a taken name
+
+### Requirement: On the CompozyOS driver the command starts nothing it cannot start
+With the `compozy` driver, `/devkit change` SHALL start no run and create nothing when the name is
+not a valid change name, when a new name comes with no request, or when the Claude driver would
+refuse the project.
+
+#### Scenario: An invalid name
+- **WHEN** the run is asked for the name `Add_CSV`, which is not a valid change name
+- **THEN** no run is started, nothing is created, and the reply is the one the Claude driver gives for an invalid name
+
+#### Scenario: A new name with no request
+- **WHEN** the run is asked for a name no checkout knows and the request is empty
+- **THEN** no run is started, nothing is created, and the command fails saying the request is missing
+
+#### Scenario: A project not set up
+- **WHEN** the project's settings name the `compozy` driver but the project has not been set up for devkit
+- **THEN** no run is started, nothing is created, and the reply is the one the Claude driver gives for a project not set up
+
+### Requirement: The CompozyOS driver says when CompozyOS cannot run
+With the `compozy` driver, `/devkit change` SHALL run nothing and reply in one plain sentence, with
+the command that fixes it, when CompozyOS is not installed, its daemon is not running, it does not
+know the project as a workspace, or the project has not installed the kit's loops.
+
+#### Scenario: CompozyOS not installed
+- **WHEN** the `compozy` command is not found
+- **THEN** the reply says CompozyOS is not installed and names the command that installs it, and nothing is created or run
+
+#### Scenario: The daemon stopped
+- **WHEN** the CompozyOS daemon does not answer
+- **THEN** the reply says CompozyOS is not running and names `compozy daemon start`, and nothing is created or run
+
+#### Scenario: An unknown workspace
+- **WHEN** CompozyOS runs but does not know the project's folder
+- **THEN** the reply names the command that adds the folder as a workspace, and nothing is created or run
+
+#### Scenario: The kit not installed
+- **WHEN** CompozyOS knows the project but has no change loop for it
+- **THEN** the reply says the CompozyOS kit is not installed in the project and how to install it, and nothing is created or run
