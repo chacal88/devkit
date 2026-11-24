@@ -717,15 +717,16 @@ test('conduct: an archive PR in conflict only in release files is resolve-releas
 
 // The state after the release merge, not pushed yet: the branch holds origin/main merged in and the CHANGELOG
 // resolved, and the PR still has the old head and still reads CONFLICTING (release-merge-conflict D-5).
-function mergedChange({ config = CONFIG } = {}) {
+function mergedChange({ config = CONFIG, shared = false } = {}) {
+  const lines = (first, last) => Array.from({ length: 12 }, (_, i) => (i === 0 ? first : i === 11 ? last : `line ${i + 1}`)).join('\n') + '\n';
   const t = roundRepo({
     roadmap: roadmapOf(['Round 1: x', '- [ ] b']), config,
-    files: { 'CHANGELOG.md': '# c\n', ...(config === CONFIG ? {} : MERGE_FILES) },
+    files: { 'CHANGELOG.md': '# c\n', ...(shared ? { 'src/shared.ts': lines('line 1', 'line 12') } : {}), ...(config === CONFIG ? {} : MERGE_FILES) },
   });
   const b = t.addWt('b');
-  readyChange(b, 'b', { files: { 'CHANGELOG.md': '# c\nb entry\n' } });
+  readyChange(b, 'b', { files: { 'CHANGELOG.md': '# c\nb entry\n', ...(shared ? { 'src/shared.ts': lines('b 1', 'line 12') } : {}) } });
   const oldHead = headOf(b);
-  t.commitOrigin({ 'CHANGELOG.md': '# c\norigin entry\n' }, 'origin edits the changelog');
+  t.commitOrigin({ 'CHANGELOG.md': '# c\norigin entry\n', ...(shared ? { 'src/shared.ts': lines('line 1', 'origin 12') } : {}) }, 'origin edits the changelog');
   openPr(t, b, 'b', { mergeable: 'CONFLICTING' });
   try { git(b, 'merge', '-q', '--no-ff', '--no-commit', 'origin/main'); } catch { /* the conflict is the point */ }
   put(b, { 'CHANGELOG.md': '# c\nb entry\norigin entry\n' });
@@ -740,8 +741,20 @@ function reviewedAt(b) {
   commitAll(b, 'reviews and evidence');
 }
 
-test('release-merge-conflict 8: after a release merge that is not pushed, verify and review run again, then push hands a plain git push', () => {
+test('release-merge-conflict 8: after a release merge that is not pushed, the records stay current and push hands a plain git push', () => {
   const { t, b } = mergedChange();
+  const c = byId(t.state(), 'b');
+  assert.equal(c.deliver.next.step, 'blocked');
+  assert.equal(c.deliver.next.conflict, true);
+  assert.deepEqual(planStep(c), ['push', 'subagent']);
+  assert.equal(c.next.agent, CAP);
+  assert.deepEqual(c.next.command, ['git', 'push', 'origin', 'b']);
+  assert.equal(c.next.number, 12);
+  assert.doesNotMatch(JSON.stringify(c.next), /--force/);
+});
+
+test('release-merge-conflict 8b: after a release merge that also brings a file the branch changed, verify and review run again, then push hands a plain git push', () => {
+  const { t, b } = mergedChange({ shared: true });
   let c = byId(t.state(), 'b');
   assert.deepEqual(planStep(c), ['verify', 'subagent']);
   reviewedAt(b);
@@ -751,7 +764,6 @@ test('release-merge-conflict 8: after a release merge that is not pushed, verify
   assert.deepEqual(planStep(c), ['push', 'subagent']);
   assert.equal(c.next.agent, CAP);
   assert.deepEqual(c.next.command, ['git', 'push', 'origin', 'b']);
-  assert.equal(c.next.number, 12);
   assert.doesNotMatch(JSON.stringify(c.next), /--force/);
 });
 

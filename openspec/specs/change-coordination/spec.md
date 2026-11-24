@@ -9,9 +9,10 @@ plain reply in the person's language, and resumes from the files alone.
 
 ### Requirement: The devkit command reads its verb
 `/devkit` SHALL read the first word of its arguments as the verb and the rest as the request. Only
-the verbs `change`, `roadmap`, `status` and `project` SHALL run anything (`roadmap` and `status` as the
-roadmap-coordination capability says, `project` as the project-definition capability says); every
-other verb SHALL answer in one plain sentence and create or run nothing.
+the verbs `change`, `roadmap`, `status`, `project` and `train` SHALL run anything (`roadmap` and
+`status` as the roadmap-coordination capability says, `project` as the project-definition capability
+says, `train` as the delivery-train capability says); every other verb SHALL answer in one plain
+sentence and create or run nothing.
 
 #### Scenario: A verb of a later round
 - **WHEN** the person types `/devkit help`
@@ -25,9 +26,17 @@ other verb SHALL answer in one plain sentence and create or run nothing.
 - **WHEN** the person types `/devkit project` or `/devkit project billing` in a project set up for devkit with the `claude` driver
 - **THEN** the command's script answers the `project` mode with the rest of the arguments, creates nothing itself, and the session carries on as the project-definition capability says
 
+#### Scenario: The train verb
+- **WHEN** the person types `/devkit train` in a project set up for devkit with the `claude` driver
+- **THEN** the command's script answers the `train` mode, creates nothing itself, and the session carries on as the delivery-train capability says
+
+#### Scenario: The train verb with words after it
+- **WHEN** the person types `/devkit train now`
+- **THEN** the reply says in one sentence that `/devkit train` takes no words after it, and nothing is created or run
+
 #### Scenario: No verb or an unknown verb
 - **WHEN** the person types `/devkit` alone or `/devkit` with a word that is not a verb
-- **THEN** the reply says in one sentence that `/devkit change`, `/devkit roadmap`, `/devkit status` and `/devkit project` exist and what each is for, and nothing is created or run
+- **THEN** the reply says in one sentence that `/devkit change`, `/devkit roadmap`, `/devkit status`, `/devkit project` and `/devkit train` exist and what each is for, and nothing is created or run
 
 #### Scenario: A usage error
 - **WHEN** the command's script meets an unknown option, a missing argument or an unreadable `openspec/config.yaml`
@@ -43,16 +52,17 @@ other verb SHALL answer in one plain sentence and create or run nothing.
 
 ### Requirement: The project's driver setting decides whether the command runs
 The command SHALL read `devkit.driver` from the project's `openspec/config.yaml`, `claude` when the
-block or the key is absent. With `claude` it SHALL run; with `compozy` or `script` it SHALL say the
-driver is not built yet, name its round and run nothing.
+block or the key is absent. With `claude` it SHALL run in the session; with `compozy` it SHALL start
+the change's run in CompozyOS; with `script` it SHALL say the driver is not built yet, name its
+round and run nothing.
 
 #### Scenario: No settings block
 - **WHEN** `openspec/config.yaml` has no `devkit:` block and a request is typed
 - **THEN** the command runs as with `driver: claude`
 
 #### Scenario: The CompozyOS driver
-- **WHEN** `devkit.driver` is `compozy`
-- **THEN** the reply says this driver is not built yet and names round 21, and nothing is created or run
+- **WHEN** `devkit.driver` is `compozy` and CompozyOS runs on the machine and knows the project
+- **THEN** the command starts the change's run in CompozyOS, as the requirement on the CompozyOS driver says, and asks no question of the change in the session
 
 #### Scenario: The script driver
 - **WHEN** `devkit.driver` is `script`
@@ -348,8 +358,12 @@ hold it.
 - **WHEN** the loop is called with the previous action's progress key and ends the run blocked for no progress or for a stage that was not delivered
 - **THEN** its output holds `devkit-end: <id> blocked` after its `devkit-run: <id>` line
 
+#### Scenario: A failed stage agent
+- **WHEN** a stage agent returned `Outcome: failure` without writing its stage file and the loop is called with its action's progress key
+- **THEN** the loop gives the retry of that stage or ends the run blocked itself, with `devkit-end: <id> blocked` after its `devkit-run: <id>` line, and the session declares no end for it
+
 #### Scenario: An end the session declares
-- **WHEN** the session renders the blocked reply for a failed stage agent or a red gate, or the reply for a pull-request decision left to the owner, naming the change
+- **WHEN** the session renders the blocked reply for a red gate, or the reply for a pull-request decision left to the owner, naming the change
 - **THEN** the output's first line is `devkit-end: <id> blocked` (or `devkit-end: <id> waiting-for-owner`), the reply follows on its own lines, and the session shows only the reply
 
 #### Scenario: An action that is not an end
@@ -1182,3 +1196,104 @@ one, and the parts of the devkit skill that run one change name no scheduling to
 #### Scenario: Every action of a change run
 - **WHEN** a `/devkit change` run goes from its grill to its archive
 - **THEN** no action asks for a schedule, and no periodic check exists in the session
+
+### Requirement: A boarded change ends its run waiting for the train
+In a train project, when the delivery checker reports a change or its archive as boarded, the loop
+SHALL end the run waiting for the owner with a reply that says the change is boarded and that
+`/devkit train` departs the train, and SHALL hand no stage.
+
+#### Scenario: Boarded at the end of its review
+- **WHEN** `alpha`'s review round approves at its head and every other boarding item holds
+- **THEN** `change-loop.mjs next --change alpha` exits 1 with an end waiting for the owner whose reply names `/devkit train`
+
+### Requirement: A change on an open train waits on GitHub
+When an open train's record lists a change or an archive at its current head, the loop SHALL end the
+run waiting on GitHub, naming the train's pull request, SHALL never report that change or archive as
+boarded while the train is open, and the background wait SHALL end when that pull request is merged or
+closed.
+
+#### Scenario: Riding train 4
+- **WHEN** `alpha` is listed in the record of the open pull request of `train/4` at its head
+- **THEN** `change-loop.mjs next --change alpha` exits 1 with an end waiting on GitHub naming that pull request
+
+#### Scenario: An archive riding train 4
+- **WHEN** the record at the head of the open pull request of `train/4` lists the archive of `gamma` at the head of `gamma`'s archive pull request
+- **THEN** `change-loop.mjs next --change gamma` exits 1 with an end waiting on GitHub naming the pull request of `train/4`, and the archive is not reported as boarded
+
+#### Scenario: The train merges
+- **WHEN** the pull request of `train/4` merges while the wait for `alpha` runs
+- **THEN** the wait ends and the next action is `alpha`'s retro
+
+### Requirement: The setting errors of the train are replies of the command
+Every verb that runs (`/devkit change`, `/devkit roadmap`, `/devkit status`, `/devkit project` and
+`/devkit train`) SHALL refuse to run, creating nothing, when the train setting is refused, as each does
+for a refused delivery model, with a reply in the person's language that names the setting and the
+reason, from the message table.
+
+#### Scenario: The train with two pull requests, in Portuguese
+- **WHEN** the person's language is `pt-BR` and the block holds `model: two-prs` and a train value
+- **THEN** the reply is the table's Portuguese text saying the train runs only with `trunk` or `trunk-auto`, and nothing is created
+
+#### Scenario: The status verb with a refused train
+- **WHEN** the block holds `train: "npm test"` and no `model`, and the person types `/devkit status`
+- **THEN** the reply says the train needs the model `trunk` or `trunk-auto`, and nothing is created or run
+
+### Requirement: On the CompozyOS driver the command starts a run and says where to follow it
+With the `compozy` driver, `/devkit change <request>` and `/devkit change <id>` SHALL start one
+CompozyOS run of the change, or find the one already running, and SHALL reply in one message with
+where to follow it; the session SHALL ask none of the change's questions, and every later question
+SHALL reach the owner in CompozyOS.
+
+#### Scenario: A new request
+- **WHEN** the owner types `/devkit change add a CSV export` in a project on the CompozyOS driver
+- **THEN** the session names the change, starts its CompozyOS run with the request, replies with where to follow it, and ends its turn without asking a question
+
+#### Scenario: A change that already runs
+- **WHEN** the owner types `/devkit change add-csv-export` while a CompozyOS run of that change is under way
+- **THEN** no second run is started and the reply says the change already runs and where to follow it
+
+#### Scenario: A change whose run ended
+- **WHEN** the owner types `/devkit change add-csv-export` and no run of that change is under way
+- **THEN** a new run is started and it goes on from the change's files
+
+#### Scenario: A name already taken
+- **WHEN** the proposed name of a new request is taken by a change, a branch or a worktree
+- **THEN** no run is started and the reply is the one the Claude driver gives for a taken name
+
+### Requirement: On the CompozyOS driver the command starts nothing it cannot start
+With the `compozy` driver, `/devkit change` SHALL start no run and create nothing when the name is
+not a valid change name, when a new name comes with no request, or when the Claude driver would
+refuse the project.
+
+#### Scenario: An invalid name
+- **WHEN** the run is asked for the name `Add_CSV`, which is not a valid change name
+- **THEN** no run is started, nothing is created, and the reply is the one the Claude driver gives for an invalid name
+
+#### Scenario: A new name with no request
+- **WHEN** the run is asked for a name no checkout knows and the request is empty
+- **THEN** no run is started, nothing is created, and the command fails saying the request is missing
+
+#### Scenario: A project not set up
+- **WHEN** the project's settings name the `compozy` driver but the project has not been set up for devkit
+- **THEN** no run is started, nothing is created, and the reply is the one the Claude driver gives for a project not set up
+
+### Requirement: The CompozyOS driver says when CompozyOS cannot run
+With the `compozy` driver, `/devkit change` SHALL run nothing and reply in one plain sentence, with
+the command that fixes it, when CompozyOS is not installed, its daemon is not running, it does not
+know the project as a workspace, or the project has not installed the kit's loops.
+
+#### Scenario: CompozyOS not installed
+- **WHEN** the `compozy` command is not found
+- **THEN** the reply says CompozyOS is not installed and names the command that installs it, and nothing is created or run
+
+#### Scenario: The daemon stopped
+- **WHEN** the CompozyOS daemon does not answer
+- **THEN** the reply says CompozyOS is not running and names `compozy daemon start`, and nothing is created or run
+
+#### Scenario: An unknown workspace
+- **WHEN** CompozyOS runs but does not know the project's folder
+- **THEN** the reply names the command that adds the folder as a workspace, and nothing is created or run
+
+#### Scenario: The kit not installed
+- **WHEN** CompozyOS knows the project but has no change loop for it
+- **THEN** the reply says the CompozyOS kit is not installed in the project and how to install it, and nothing is created or run
