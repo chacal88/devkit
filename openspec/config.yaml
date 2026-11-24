@@ -37,7 +37,7 @@ context: |
 
 rules:
   requirements:
-    - Ask the owner every question that nothing written settles; the requirements-triage agent answers the others first, each with its source. Never answer a question yourself.
+    - Ask the owner every question that nothing written settles; the requirements-triage agent answers the others first, each with its source. Never answer a question yourself. The triage answers first only in the grill of a change that follows flow version 2 or later of its script; in a change on flow 1 the owner answers every question.
   proposal:
     - Keep it under two pages; the how belongs in design.md
     - Every sentence stating a fact about the repository is true at the commit that ships it; a task that corrects such a claim names every file that repeats it

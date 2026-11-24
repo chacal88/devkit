@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=7 commit=0b409a5e21c6b8328e104e659417ec1bf51f6a74 -->
+<!-- devkit-stage tasks result=passed attempt=8 commit=9e78755559dc81c6ca2f110b9c29398b8796b46b -->
 # Tasks
 
 Change: `roadmap-sessions-upfront` · Date: 2026-11-22 · Owner: Kaue (chacal88) · Base: `c561553`;
@@ -567,6 +567,76 @@ test here is written before the code it proves; an existing test changes only wh
   design records the answers` and every `change-budget AC-10` docs test pass unchanged;
   `python3 scripts/check.py` passes (links, language, changelog).
 - [x] 8.6 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict` green, the suite run as a background command of the tool (13 to 45 minutes; it covers the documents 8.5 edits, read by suites outside phase 8's patterns), a failure handled by 8.4's rule; covers AC-5 (flow version 2, the triage of a change on flow 2 only), AC-4 (the coordinating session's triage by the change's flow) and AC-14 (the check's triage by the change's flow).
+
+## 9. This change beside remote-worker (AC-9, AC-10; design D-18)
+
+Added on 2026-11-23 after review round 1 at `5edea6b` (`review.md`, third block): three important
+findings from combining this change with main's `remote-worker` (ADR 0020, merged at `5cc1c69`).
+Item 3 of D-18 is a decision for the owner's approval; nothing here starts before the owner approves
+this revised plan. Every new test is written before the code or text it proves; an existing test
+changes only where D-13 names it (T-27). No version number moves. The whole suite ran on `5cc1c69`
+(2356 tests, 0 fail); this phase changes two product files (`change-loop.mjs`, `roadmap-loop.mjs`), so
+its last gate runs the whole suite again. The spec delta and the `rules.requirements` sentence of
+`openspec/config.yaml` are written by this revision of the plan.
+
+- [ ] 9.1 Write this phase's tests (design D-18 "The tests this asks"; spec `roadmap-coordination`
+  "With the machines setting set, a change session of this machine takes its place from the run's own count", scenarios "The places of each machine with the machines setting set", "An approved plan
+  pushed is no place taken on this machine", "A change reaches its implementation before its plan is
+  pushed", "The place frees before the claim on origin does", "A change of this machine with no
+  claimed ticket"). In `plugins/openspec/hooks/roadmap-loop.test.mjs`, over `upPushed`'s change `a` with
+  the claim `x-devkit-machine: <thisMachine()>` and `x-devkit-places: run`, another change `b` of this
+  machine with its `approval.md` on the same `origin`, and a run file with `changeSessions`, `places: 1`
+  and `a`'s ticket claimed:
+  - `upfront D-18 place: a change session of this machine on the run's ticket takes its place from occupied only, before and after its plan push`;
+  - `upfront D-18 place: a place of this machine frees when its change leaves the load stages, whatever its claim on origin, and nothing of it counts once archived`;
+  - `upfront D-18 place: a change of this machine whose ticket no session claimed keeps the remote-worker gate`;
+  - `upfront D-18 docs: ADR 0021 names ADR 0020 in its Amends and a Note, ADR 0020 is amended by ADR 0021, and ADR 0010's Note and the config rule qualify the triage by flow`;
+  and change T-27 (invariant: the config's ADR list names what ADR 0021 amends; layer: the
+  documents; suite: roadmap-loop): `upfront ADR 0021: the documents follow` asserts "amends 0004,
+  0006, 0010, 0011, 0013, 0014, 0017 and 0020". Each new test carries its Invariant, Layer and Suite
+  comment as D-18 states them. Run them on the unchanged code with
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront D-18" --test-name-pattern="^upfront ADR 0021: the documents follow" plugins/openspec/hooks/guard.test.mjs`
+  and save the output to `openspec/changes/roadmap-sessions-upfront/proof/red-9.txt`, listing at its
+  top the tests that pass there (expected: `upfront D-18 place: a change of this machine whose ticket
+  no session claimed keeps the remote-worker gate`, which pins today's gate). Check: the other three
+  tests and T-27 fail there, each on the assertion D-18 names (the `no-place` end or `take-place`
+  before the push, the board's `taken`, the ADR text; the docs test's config-rule assertion already
+  holds, since this revision wrote that sentence).
+- [ ] 9.2 One gate for a change session of this machine (D-18 item 3, change 1): in
+  `plugins/openspec/hooks/change-loop.mjs#placeFacts`, read the run file once
+  (`readRun(runFilePath(found.root))`) and, when the claim's `places` is `run` and that run has
+  `changeSessions` and `tickets[id]?.claimedBy`, return `null`; otherwise as today (the run's
+  `places` for `run`). The header comment of `placeFacts` names the condition and that it is
+  `sessionNext`'s. `placeChange`, `buildPart` and the `wake` of `decideRoadmap` do not change. Check:
+  `upfront D-18 place: a change session of this machine on the run's ticket ...` (its gate half) and
+  `upfront D-18 place: a change of this machine whose ticket no session claimed ...` pass; every
+  `remote AC-10` and `remote AC-11` test and every `upfront AC-9 session-next` test pass unchanged.
+- [ ] 9.3 The board's row of this machine (D-18 item 3, change 2): in
+  `plugins/openspec/hooks/roadmap-loop.mjs#boardOf`, with `f.changeSessions` the `taken` of the row
+  `machine.this` is the number of distinct ids in `f.occupied` and in this machine's claims with
+  `placed: true` whose ticket no session claimed (`!f.tickets?.[id]?.claimedBy`); other rows and a run
+  without a session per change keep `takenBy`. Check: both `upfront D-18 place` tests that read the
+  board pass; `remote AC-5 status: the machines block and the machine of each row`, `remote AC-12
+  status: a silent machine and its changes read no answer` and every `upfront merge` test pass
+  unchanged.
+- [ ] 9.4 The ADRs, the config and the changelog (D-18 item 1, the text it quotes): in
+  `docs/adr/0021-a-roadmap-run-opens-every-change-at-its-start.md`, the ADR 0020 entry at the end of
+  `- Amends:` and the second Note before `## Consequences`, the status and the decisions unchanged; in
+  `docs/adr/0020-a-change-can-run-on-another-machine.md`, the `- Amended by ADR 0021 (...)` header line
+  after `- Amends:` and the one Note before `## Consequences`, its status and decisions unchanged; in
+  `docs/adr/0010-openspec-as-the-harness.md`, the flow qualifier in the roadmap-sessions-upfront Note;
+  in `openspec/config.yaml`, the `ADRs:` line's 0021 entry ends "amends 0004, 0006, 0010, 0011, 0013,
+  0014, 0017 and 0020" (`rules.requirements` is already done); in `CHANGELOG.md`, the `## 0.37.0`
+  entry's **devkit-openspec** 0.33.0 bullet gains "With the machines setting set, a change session of
+  this machine on the run's ticket takes its place from the run's own count: its plan on `origin` is
+  no place taken, and the board's row of this machine counts those places." Check: `upfront D-18
+  docs: ...` and T-27 pass; `upfront AC-5 docs: ...` and `upfront AC-5 skill: the grill rule of
+  config.yaml ...` pass unchanged; `python3 scripts/check.py` passes (links, language, changelog).
+- [ ] 9.5 Gate (focused): `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront D-18" --test-name-pattern="^upfront ADR 0021: the documents follow" --test-name-pattern="^upfront AC-5 skill: the grill rule" --test-name-pattern="^upfront AC-5 docs" --test-name-pattern="^upfront AC-9 session-next" --test-name-pattern="^upfront merge" --test-name-pattern="^remote AC-10" --test-name-pattern="^remote AC-11" --test-name-pattern="^remote AC-5 status" --test-name-pattern="^remote AC-12 status" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict`
+  green; covers D-18 (AC-9 and AC-10 with the machines setting set) and the documents of 9.4.
+- [ ] 9.6 Gate (whole suite, two product files changed since `5cc1c69`): `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs`
+  green, run as a background command of the tool (13 to 45 minutes); a failure outside 9.1's tests is
+  a defect of 9.2 or 9.3, not a test to edit.
 
 ## Workflow follow-up
 

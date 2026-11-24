@@ -1,4 +1,4 @@
-<!-- devkit-stage proposal result=passed attempt=6 commit=0b409a5e21c6b8328e104e659417ec1bf51f6a74 -->
+<!-- devkit-stage proposal result=passed attempt=7 commit=9e78755559dc81c6ca2f110b9c29398b8796b46b -->
 # Proposal
 
 Change: `roadmap-sessions-upfront` · Date: 2026-11-22 · Owner: Kaue (chacal88) · PRD / tech spec:
@@ -9,7 +9,9 @@ not a line of `openspec/roadmap.md`. Revised on 2026-11-23 after main brought `c
 Revised again on 2026-11-23 after main brought `change-budget`, `jira-entry` and `delivery-models` (ADR
 0018): the token budget in a change session, the ADR number 0019 and the release versions.
 Revised a fourth time on 2026-11-23 after review round 1 (`review.md`): the fixes of its open
-findings (design D-16, phase 7 of `tasks.md`); no criterion changes.
+findings (design D-16, phase 7 of `tasks.md`); no criterion changes. Revised a fifth time on
+2026-11-23 after the review at `5edea6b`, the first since main brought `remote-worker` (ADR 0020):
+design D-18, phase 9 of `tasks.md`; no criterion changes.
 
 ## Why
 
@@ -76,6 +78,13 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
   0010 decision 8 (the triage answers what the files settle in every grill of a change on flow 2
   or later, D-17), the implementer's
   renumbering of an ADR and the home of the change session's loop.
+- **Beside remote-worker (after the review at `5edea6b`, design D-18).** With the machines setting
+  set, a change session of this machine on the run's ticket takes its place only from the run's own
+  count: its approved plan on `origin` is no place taken, it never ends waiting for a place counted
+  from `origin`, and the board's row of this machine counts those places; a change on another
+  machine keeps ADR 0020's places. The new ADR names ADR 0020 and says how its ticket, its wait for a
+  place and its periodic check sit beside it, and ADR 0020 records the amendment. Approving this plan
+  approves that place rule (a decision for the owner).
 
 ## Acceptance criteria
 
@@ -123,7 +132,8 @@ record, keeps its words.
   plan waits for its dependencies; ⏳ and the held state, on the title, the board and the state
   command alike; the grill and plan are pushed, the plan once per approval; the periodic check and
   the cleanup, stopping only processes that are still wait loops of the run; a change no longer open
-  holds no place.
+  holds no place; with the machines setting set, this machine's places are the run's number, and a
+  change session of this machine on the run's ticket takes its place from the run's own count.
 - `coordination-locks`: the entry of a started change session (the ticket); the stop of a change
   session waiting for a place; the triage hand-off of the coordinating session; the entry lock
   fails closed; the started form read past the host's leading notes.
@@ -164,7 +174,8 @@ record, keeps its words.
 - Dependencies: `roadmap-coordinator-followups` (archived); `change-state` (merged into this branch
   at `b216a46`: `changeState`, `runFactsOf`, ADR 0017); `change-budget` (merged at `a9ecdc1`:
   `nextAction`'s `budget` option and the end `waiting-budget`); `delivery-models` (merged at `a9ecdc1`:
-  ADR 0018). Siblings in flight may take the ADR number and the release versions first (ADR number at
+  ADR 0018); `remote-worker` (merged at `5cc1c69`: ADR 0020, the machines setting, the claims on
+  `origin` and the `no-place` end). Siblings in flight may take the ADR number and the release versions first (ADR number at
   merge; the release step renumbers).
 - Exit criteria: `node --test plugins/openspec/hooks/guard.test.mjs`, `python3 scripts/check.py`,
   `python3 scripts/gen-catalog.py --check`, `claude plugin validate .` and
@@ -174,7 +185,8 @@ record, keeps its words.
   grill answers amended for what the files settle), ADR 0011
   (decisions 1 and 2; its rejected fail-closed lock), ADR 0013 (decisions 3 and 4), ADR 0014
   (decisions 1 to 4; its rejected timer retry and message tool), ADR 0017 (decisions 1, 2 and 4;
-  decision 4 amended for a held change session); not an ADR, change-budget's design D-4, whose
+  decision 4 amended for a held change session), ADR 0020 (decisions 4, 5, 7 and 8; decisions 5 and 8
+  amended for a change session of this machine on the run's ticket, design D-18); not an ADR, change-budget's design D-4, whose
   `next`-only count this change extends to a change session's `session-next`, the roadmap
   coordinator's reads still counting nothing. Open decisions inherited: the new ADR
   is accepted with the owner's approval of this revised plan (design D-12, task 7.9); the exact input fields of `CronCreate`, `CronDelete`
