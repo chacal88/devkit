@@ -219,8 +219,8 @@ export function ciRepo({ branch = 'ship/feat', names = ['feat'], config = 'schem
 // A base where `x` was squash-merged (still active, unproven) next to the `others`, and a PR branch that archives it.
 // The retro approves `src/a.ts` by default; `retro` and `files` override what the PR carries.
 export const X_RETRO = '## Proposed updates\n\n### `src/a.ts` (process-friction)\nSummary.\n- Answer: approved\n- Applied: yes\n';
-export function archivePrRepo({ branch = 'chore/archive-x', others = [], retro = X_RETRO, files = {}, schema = 'devkit-lite' } = {}) {
-  const root = gitRepo({ branch: 'main', changes: Object.fromEntries(['x', ...others].map((n) => [n, { ...changeFilesOf(), ...(n === 'x' ? { '.openspec.yaml': `schema: ${schema}\n` } : {}) }])), files: { 'src/a.ts': 'a\n', 'openspec/roadmap.md': '## R\n- [ ] x\n' } });
+export function archivePrRepo({ branch = 'chore/archive-x', others = [], retro = X_RETRO, files = {}, schema = 'devkit-lite', base = {} } = {}) {
+  const root = gitRepo({ branch: 'main', changes: Object.fromEntries(['x', ...others].map((n) => [n, { ...changeFilesOf(), ...(n === 'x' ? { '.openspec.yaml': `schema: ${schema}\n` } : {}) }])), files: { 'src/a.ts': 'a\n', 'openspec/roadmap.md': '## R\n- [ ] x\n', ...base } });
   git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
   git(root, 'switch', '-q', '-c', branch);
   git(root, 'mv', 'openspec/changes/x', 'openspec/changes/archive/2026-11-09-x');
@@ -236,3 +236,47 @@ export function bothEntries(root, args = [], env = {}) {
   const r = spawnSync(process.execPath, [GUARD_FILE, 'ci', ...args], { cwd: root, encoding: 'utf8', env: { ...process.env, ...CI_ENV, ...env } });
   return [viaDeliver, { code: r.status, out: r.stdout, err: r.stderr, json: () => JSON.parse(r.stdout) }];
 }
+
+// ---- own-files (stale-only-on-own-files D-8): the repository the rule tests and the --ci test build
+export const OWN_REVIEWERS = ['code-quality-reviewer', 'test-coverage-reviewer', 'spec-reviewer', 'adr-reviewer', 'architecture-reviewer', 'security-reviewer'];
+// Twelve lines whose first and last differ, so the branch and the base edit one file without a conflict.
+export const ownLines = (first = 'line 1', last = 'line 12') => Array.from({ length: 12 }, (_, i) => (i === 0 ? first : i === 11 ? last : `line ${i + 1}`)).join('\n') + '\n';
+export const ownReviews = (sha, rejected = []) => Object.fromEntries(OWN_REVIEWERS.map((n) => [`openspec/changes/feat/reviews/${n}.md`, review(rejected.includes(n) ? 'rejected' : 'approved', sha)]));
+export const ownEvidence = (sha) => `Commit: ${sha}\n\n# Evidence\n\n### Gates\n| gate | command | result |\n|---|---|---|\n${ciGate()}\n### Acceptance\n| AC | proof | result |\n|---|---|---|\n${acRow('AC-1', 'pass: t')}`;
+export const ownUnrelated = (root) => { put(root, { 'src/other.ts': 'changed on main\n', 'openspec/changes/other/tasks.md': '- [ ] 1.1 x\n' }); commitAll(root, 'unrelated on main'); };
+export const ownMergeMain = (root) => git(root, 'merge', '-q', '--no-ff', '-m', 'merge main', 'main');
+
+// main with product, test, unrelated and release files and the change folder; branch feat with a product and test
+// commit, a release bump, then evidence and six reviews recorded at R; then `onMain` on main, origin/main set
+// (`origin`: 'tip' | 'initial' (not fetched) | 'none' | 'head' (the head is in the base)), then `merge` on feat.
+export function ownFilesRepo({ config = 'schema: devkit-lite\n', origin = 'tip', onMain = ownUnrelated, merge = ownMergeMain, before = null, rejected = [] } = {}) {
+  const root = gitRepo({
+    config,
+    changes: { feat: changeFilesOf() },
+    files: {
+      'src/a.ts': ownLines(), 'src/a.test.ts': ownLines(), 'src/b.ts': 'b\n', 'src/other.ts': 'other\n',
+      'CHANGELOG.md': '# Changelog\n\n## 1.0.0\n- start\n', 'plugins/p/.claude-plugin/plugin.json': '{"version":"1.0.0"}\n',
+      '.claude-plugin/marketplace.json': '{"version":"1.0.0"}\n', 'docs/catalog.md': 'catalog\n',
+    },
+  });
+  const initial = head(root);
+  git(root, 'switch', '-q', '-c', 'feat');
+  put(root, { 'src/a.ts': ownLines('branch 1'), 'src/a.test.ts': ownLines('branch 1') });
+  commitAll(root, 'product and test');
+  put(root, { 'CHANGELOG.md': '# Changelog\n\n## 1.1.0\n- feat\n\n## 1.0.0\n- start\n', 'plugins/p/.claude-plugin/plugin.json': '{"version":"1.1.0"}\n' });
+  commitAll(root, 'bump');
+  if (before) before(root);
+  const R = head(root);
+  put(root, { ...ownReviews(R, rejected), 'openspec/changes/feat/evidence.md': ownEvidence(R) });
+  commitAll(root, 'reviews and evidence');
+  git(root, 'switch', '-q', 'main');
+  onMain(root);
+  const tip = head(root);
+  if (origin === 'tip' || origin === 'initial') git(root, 'update-ref', 'refs/remotes/origin/main', origin === 'tip' ? tip : initial);
+  git(root, 'switch', '-q', 'feat');
+  if (merge) merge(root);
+  if (origin === 'head') git(root, 'update-ref', 'refs/remotes/origin/main', head(root));
+  return { root, R, initial, tip, merged: head(root) };
+}
+// The merge of main after the commits `edit` makes on main.
+export const ownBrings = (files) => (root) => { put(root, files); commitAll(root, 'base brings files'); };

@@ -179,7 +179,6 @@ const STEPS: Record<string, readonly [string, string]> = {
   'open-pr': ['abrir o PR', 'open the PR'],
   push: ['push', 'push'],
   'open-archive-pr': ['abrir PR final', 'open archive PR'],
-  'push-rebased': ['push do rebase', 'push the rebase'],
   verify: ['verificar', 'verify'],
   retro: ['retro', 'retro'],
   plan: ['planejar', 'plan'],

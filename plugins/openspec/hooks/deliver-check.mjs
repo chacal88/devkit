@@ -277,11 +277,49 @@ function dirtyPaths(root) {
 }
 
 // What every staleness check shares: the head sha (null before the first
-// commit) and the uncommitted paths that count.
-export function gitFacts(root) {
+// commit), the uncommitted paths that count and the base branch whose merges
+// the own-files rule may exempt (null: no merge is exempted, stale-only-on-own-files D-4).
+export function gitFacts(root, { base = null } = {}) {
   let head = null;
   try { head = git(root, ['rev-parse', 'HEAD']).trim(); } catch { /* no commit yet */ }
-  return { head, dirty: dirtyPaths(root) };
+  return { head, dirty: dirtyPaths(root), base };
+}
+
+// The remote-tracking tip of `base`, or null when this checkout has none (the checkers never fetch).
+const baseTip = (root, base) => {
+  try { return git(root, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${base}^{commit}`]).trim() || null; } catch { return null; }
+};
+
+// The branch whose merges the own-files rule may exempt, or null (stale-only-on-own-files D-1); first match wins:
+// the pull request's base in CI, the configured base (`two-prs`), the branch origin/HEAD points at, then main or master.
+export function stalenessBase(root, env = process.env, configuredBase = null) {
+  if (env.GITHUB_BASE_REF) return env.GITHUB_BASE_REF;
+  if (configuredBase) return configuredBase;
+  try {
+    const named = git(root, ['symbolic-ref', '--short', '-q', 'refs/remotes/origin/HEAD']).trim().replace(/^origin\//, '');
+    if (named) return named;
+  } catch { /* a clone without origin/HEAD */ }
+  return ['main', 'master'].find((name) => baseTip(root, name)) ?? null;
+}
+
+// The change's own files (stale-only-on-own-files D-2): { base, tip, isOwn(path) }, or null when the rule cannot
+// tell (no base, no origin/<base>, no head, the head already in the base, no merge base). Own are the paths that
+// differ between the merge base and the head, both sides of a move included, less the release files, and
+// everything under the change's folder. Memoized per change on `facts`.
+export function ownFiles(root, id, facts) {
+  const cache = (facts.ownCache ??= new Map());
+  if (cache.has(id)) return cache.get(id);
+  let own = null;
+  const tip = facts.base && facts.head ? baseTip(root, facts.base) : null;
+  if (tip && !gitOk(root, ['merge-base', '--is-ancestor', facts.head, tip])) {
+    try {
+      const paths = new Set(git(root, ['diff', '--name-only', '-z', '--no-renames', `${tip}...${facts.head}`]).split('\0').filter((p) => p && !RELEASE_FILE.test(p)));
+      const folder = `openspec/changes/${id}/`;
+      own = { base: facts.base, tip, isOwn: (p) => paths.has(p) || p.startsWith(folder) };
+    } catch { /* unrelated histories: no merge base */ }
+  }
+  cache.set(id, own);
+  return own;
 }
 
 // The paths commit `c` counts as touching: a merge (more than one parent) against its first
@@ -293,13 +331,29 @@ function touchedPaths(root, c, parents) {
   return git(root, args).split('\0').filter(Boolean);
 }
 
+// The two commit sets the own-files walk reads for one recorded sha (stale-only-on-own-files D-3), memoized on
+// `facts`: `line`, the commits on the branch's own first-parent line, and `offBase`, the commits of the range that
+// `origin/<base>` does not contain.
+function ownWalk(root, facts, full, tip) {
+  const cache = (facts.walkCache ??= new Map());
+  if (!cache.has(full)) {
+    const set = (args) => new Set(git(root, args).split('\n').filter(Boolean));
+    cache.set(full, {
+      line: set(['rev-list', '--first-parent', `${full}..${facts.head}`]),
+      offBase: set(['rev-list', `${full}..${facts.head}`, `^${tip}`]),
+    });
+  }
+  return cache.get(full);
+}
+
 // Why a recorded Commit is not current at HEAD, or null when it is: it
 // resolves, is an ancestor of HEAD, every commit since touches only
 // openspec/ (or, with `allowed`, only paths it accepts), it is not marked
 // uncommitted, and the working tree has no change outside openspec/ and .claude/.
 // A merge commit counts what it brought into the branch (its first-parent diff);
-// every commit in the range is still checked.
-export function staleness(root, recorded, facts = gitFacts(root), { allowed = isOpenspec } = {}) {
+// every commit in the range is still checked. With `own` (ownFiles), a merge of the base and
+// the base commits it brings in count only the change's own files; every other commit is judged as before.
+export function staleness(root, recorded, facts = gitFacts(root), { allowed = isOpenspec, own = null } = {}) {
   if (!recorded) return 'no Commit: line';
   const short = recorded.sha.slice(0, 7);
   if (recorded.uncommitted) return `${short} was recorded with uncommitted changes`;
@@ -309,9 +363,13 @@ export function staleness(root, recorded, facts = gitFacts(root), { allowed = is
   try { full = git(root, ['rev-parse', '--verify', '--quiet', `${recorded.sha}^{commit}`]).trim(); } catch { full = ''; }
   if (!full) return `${short} does not resolve to a commit`;
   if (!gitOk(root, ['merge-base', '--is-ancestor', full, facts.head])) return `${short} is not an ancestor of HEAD`;
+  const walk = own ? ownWalk(root, facts, full, own.tip) : null;
+  const inBase = (sha) => gitOk(root, ['merge-base', '--is-ancestor', sha, own.tip]);
   for (const line of git(root, ['rev-list', '--parents', `${full}..${facts.head}`]).split('\n').filter(Boolean)) {
     const [c, ...parents] = line.split(' ');
-    const product = touchedPaths(root, c, parents).find((f) => !allowed(f));
+    const fromBase = walk && ((!walk.line.has(c) && !walk.offBase.has(c))
+      || (walk.line.has(c) && parents.length > 1 && !inBase(parents[0]) && parents.slice(1).every(inBase)));
+    const product = touchedPaths(root, c, parents).find((f) => !allowed(f) && (!fromBase || own.isOwn(f)));
     if (product) return `${short} is behind ${c.slice(0, 7)}, which touches ${product}`;
   }
   return null;
@@ -358,7 +416,7 @@ export function readReviews(root, id, facts = gitFacts(root)) {
   return verdictFiles(join(changeDir(root, id), 'reviews')).map(({ name, verdict, commit }) => ({
     name,
     verdict,
-    why: staleness(root, commit, facts, { allowed: verdictAllowed(id, name, verdict) }),
+    why: staleness(root, commit, facts, { allowed: verdictAllowed(id, name, verdict), own: approved(verdict) ? ownFiles(root, id, facts) : null }),
   }));
 }
 
@@ -460,7 +518,7 @@ export function tasksItem(root, id, facts = gitFacts(root), { trainParts = [] } 
   const evFile = join(dir, 'evidence.md');
   const text = existsSync(evFile) ? readFileSync(evFile, 'utf8') : null;
   let evidence = 'missing';
-  const staleWhy = text === null ? null : staleness(root, parseCommitLine(text), facts);
+  const staleWhy = text === null ? null : staleness(root, parseCommitLine(text), facts, { own: ownFiles(root, id, facts) });
   if (text !== null) evidence = staleWhy ? 'stale' : 'current';
   const passing = text === null ? [] : tableRows(text).filter((cells) => /^pass/i.test(cells.at(-1) || ''));
   const withoutRow = commands.filter((c) => !passing.some((cells) => cells.some((cell) => cell.includes(`\`${c}\``))));
@@ -549,7 +607,7 @@ export function acceptanceItem(root, id, facts = gitFacts(root)) {
   }
   const evFile = join(dir, 'evidence.md');
   const text = existsSync(evFile) ? readFileSync(evFile, 'utf8') : null;
-  const why = text === null ? null : staleness(root, parseCommitLine(text), facts);
+  const why = text === null ? null : staleness(root, parseCommitLine(text), facts, { own: ownFiles(root, id, facts) });
   const evidence = text === null ? 'missing' : why ? 'stale' : 'current';
   const rows = text === null ? [] : tableRows(text);
   const resultsFor = (ac) => rows.filter((cells) => cells.some((c) => new RegExp(`\\b${ac}(?!\\d)`).test(c)))
@@ -633,12 +691,25 @@ export function prFiles(gh, number) {
   return { files: String(r.stdout).split(/\r?\n/).filter(Boolean) };
 }
 
-// The change's own pull request (field-fixes D-4): not an archive head, not a train's (`train/<n>`), no archive folder among its
-// files, and some file under the change's active folder. A body or a head name that names the change is never proof.
+// Whether `file` sits in the archive folder of change `id` (openspec/changes/archive/<date>-<id>/): a dated
+// first folder whose name after the date is `id` exactly (no pattern is built from `id`).
+function inOwnArchiveFolder(id, file) {
+  const prefix = 'openspec/changes/archive/';
+  if (!file.startsWith(prefix)) return false;
+  const rest = file.slice(prefix.length);
+  const slash = rest.indexOf('/');
+  if (slash <= 0) return false;
+  return ARCHIVED.exec(rest.slice(0, slash))?.[2] === id;
+}
+
+// The change's own pull request (field-fixes D-4, own-pr-archive-paths): not an archive head, not a train's
+// (`train/<n>`), no file in the change's own archive folder (openspec/changes/archive/<date>-<id>/, the exact id;
+// another change's archived files do not count), and some file under the change's active folder. A body or a
+// head name that names the change is never proof.
 export function isOwnPr(id, pr, files) {
   if (isArchiveHead(pr?.headRefName)) return false;
   if (TRAIN_BRANCH.test(String(pr?.headRefName ?? ''))) return false;
-  if (files.some((f) => f.startsWith('openspec/changes/archive/'))) return false;
+  if (files.some((f) => inOwnArchiveFolder(id, f))) return false;
   return files.some((f) => f.startsWith(`openspec/changes/${id}/`));
 }
 
@@ -1248,33 +1319,81 @@ function changedInTree(root) {
   return paths.filter((p) => !p.startsWith('.claude/'));
 }
 
-// The paths the archive branch changes against origin/<base>, committed or not:
-// { paths } | { missing: true } when origin/<base> does not resolve.
+// A file as it is at `rev`, or null when git cannot show it (absent there, or unreadable).
+function textAt(root, rev, path) {
+  try {
+    return execFileSync('git', ['-C', root, 'show', `${rev}:${path}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 });
+  } catch {
+    return null;
+  }
+}
+
+// The paths the archive branch changes against origin/<base>, committed or not, and for each pin file
+// among them its text at the merge base and in the working tree (null when unreadable):
+// { paths, texts } | { missing: true } when origin/<base> does not resolve.
 function archiveChanges(root, base) {
   const ref = `origin/${base}`;
   if (!gitOk(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`])) return { missing: true };
   let mergeBase;
   try { mergeBase = git(root, ['merge-base', ref, 'HEAD']).trim(); } catch { return { missing: true }; }
   const committed = git(root, ['diff', '--name-only', '-z', '--no-renames', `${mergeBase}..HEAD`]).split('\0').filter(Boolean);
-  return { paths: [...new Set([...committed, ...changedInTree(root)])].sort() };
+  const paths = [...new Set([...committed, ...changedInTree(root)])].sort();
+  const texts = {};
+  for (const path of PIN_LINE_FILES.filter((f) => paths.includes(f))) {
+    let after = null;
+    try { after = readFileSync(join(root, path), 'utf8'); } catch { after = null; }
+    texts[path] = { before: textAt(root, mergeBase, path), after };
+  }
+  return { paths, texts };
 }
 
 // What an archive always changes without a proposal: the change folders (the move) and the
 // roadmap tick. Everything else under openspec/ (config.yaml, schemas/) needs a named proposal.
 const isArchiveRecord = (p) => p.startsWith('openspec/changes/') || p === 'openspec/roadmap.md';
 const normalizePath = (p) => p.replace(/^(\.\/)+/, '');
+
+// ---- the CI pin lines (archive-release-pin, ADR 0027)
+// The pin definition is shared with the conflict resolution of the release tool, which re-exports it:
+// this file is downloaded by the consumer CI alone, so the definition lives here.
+// A pin line names a marker; a pin is a vX.Y.Z on such a line. A marker line may hold no pin.
+const PIN_MARKER = /pinned to the commit of v|<commit sha of v|git\/ref\/tags\/v|\(`v\d+\.\d+\.\d+` above\)/;
+const PIN_TOKEN = /(?<![A-Za-z0-9])v\d+\.\d+\.\d+(?!\d)/g;
+
+// Every pin (`v<x.y.z>`) on every pin line of `text`, in order; [] for a text with no pin line.
+export function pinsIn(text) {
+  return text.split('\n').flatMap((line) => (PIN_MARKER.test(line) ? line.match(PIN_TOKEN) ?? [] : []));
+}
+
+// Every pin on every pin line becomes v<version>; every other byte stays. Masking is setPins(text, '0.0.0').
+export function setPins(text, version) {
+  return text.split('\n').map((line) => (PIN_MARKER.test(line) ? line.replace(PIN_TOKEN, `v${version}`) : line)).join('\n');
+}
+
+// The one file whose CI pin lines an archive may change without a proposal naming it (ADR 0027 as amended by ADR 0030).
+export const PIN_LINE_FILES = ['docs/openspec-flow.md'];
+// true only when `path` is the pin file, both texts are strings, and they differ only in pins.
+// Anything else, missing or unreadable included, is false.
+export function pinLinesOnly(path, pair) {
+  if (!PIN_LINE_FILES.includes(path)) return false;
+  const { before, after } = pair ?? {};
+  if (typeof before !== 'string' || typeof after !== 'string') return false;
+  return setPins(before, '0.0.0') === setPins(after, '0.0.0');
+}
+
 // Files a version bump or a regenerated catalog changes without a proposal naming them (design D8).
+// The CI pin file is not a release file; see PIN_LINE_FILES (ADR 0027, ADR 0030).
 export const RELEASE_FILE = /^(plugins\/[^/]+\/\.claude-plugin\/plugin\.json|\.claude-plugin\/marketplace\.json|CHANGELOG\.md|docs\/catalog\.md)$/;
 // The file whose CI pins a release renumbers (delivery-train D-10). The same path as release-merge.mjs's PIN_FILE, written here
 // because release-merge.mjs imports this file and the CI job downloads neither; a test holds the two equal.
 export const TRAIN_PIN_FILE = 'docs/openspec-flow.md';
 
 // The changed paths that no approved proposal names exactly (AC-3):
-// no directory, prefix or glob matching.
-export function unnamedFiles(paths, proposals) {
+// no directory, prefix or glob matching. The one exception by content (ADR 0027, ADR 0030): the pin file passes
+// when `texts[path]` ({ before, after }) shows only its CI pin lines changed (pinLinesOnly).
+export function unnamedFiles(paths, proposals, texts = {}) {
   const named = new Set(proposals.filter((p) => p.answer === 'approved').flatMap((p) => p.targets.map(normalizePath)));
   const canonical = canonicalSpecs(paths);
-  return paths.filter((p) => !isArchiveRecord(p) && !canonical.has(p) && !RELEASE_FILE.test(p) && !named.has(p));
+  return paths.filter((p) => !isArchiveRecord(p) && !canonical.has(p) && !RELEASE_FILE.test(p) && !pinLinesOnly(p, texts[p]) && !named.has(p));
 }
 
 // openspec archive writes openspec/specs/<capability>/spec.md for each capability the archived
@@ -1585,7 +1704,7 @@ function archiveNext(state) {
   const answersStop = () => step('stop-retro-answers', `${unanswered.length} retro proposal${unanswered.length > 1 ? 's' : ''} waiting for the owner's answer`, { proposals: brief(unanswered) });
   const filesStop = () => {
     if (a.changed?.missing) return stopArchive('archive', `origin/${a.base} is not available; git fetch origin ${a.base}`);
-    const offending = unnamedFiles(a.changed?.paths ?? [], a.retro.proposals);
+    const offending = unnamedFiles(a.changed?.paths ?? [], a.retro.proposals, a.changed?.texts);
     return offending.length ? stopArchive('apply-proposals', `files no approved proposal names: ${offending.join(', ')}`) : null;
   };
 
@@ -1882,11 +2001,11 @@ export function readReviewMd(file) {
 // Everything nextStep and the report need: the eight items and the facts
 // behind the step choice. Reads files, git and (through gh) GitHub; writes nothing.
 export function collectState(root, id, { env = process.env, gh = makeGh(root, env), prNumber = null } = {}) {
-  const facts = gitFacts(root);
   const located = locateChange(root, id) ?? { dir: changeDir(root, id), archived: false };
   const dir = located.dir;
   const schema = schemaOf(root, located);
   const { ship, mergeMethod, model, base: configuredBase, testBranch, train: trainSuite } = deliveryConfig(root, schema);
+  const facts = gitFacts(root, { base: stalenessBase(root, env, configuredBase) });
   const two = model === 'two-prs';
   // The delivery train (delivery-train D-2): on for a change of a devkit script in a project that sets `devkit.delivery.train`.
   const trainOn = trainSuite !== null && isDevkitScript(schema);
@@ -2399,7 +2518,7 @@ function archivePrCheck(root, base) {
     noRetro: retros.filter((r) => !r.retro.readable).map((r) => r.folder),
     missingRetro: retros.filter((r) => !r.retro.exists).map((r) => r.folder),
     unanswered: proposals.filter((p) => p.answer === null).map((p) => p.n),
-    unnamed: devkit.length ? unnamedFiles(changes.paths, proposals) : [],
+    unnamed: devkit.length ? unnamedFiles(changes.paths, proposals, changes.texts) : [],
     slices,
     notes,
   };
@@ -2457,7 +2576,9 @@ function judgeBoarded(root, entry, base, parts) {
     if (!existsSync(join(wt, 'openspec', 'changes', entry.id))) return { problems: [`openspec/changes/${entry.id}/ does not exist at that head`] };
     const schema = changeSchema(wt, entry.id);
     if (!isDevkitScript(schema)) return { problems: [`${entry.id} is on the ${schema} script, not a devkit script (${DEVKIT_SCHEMAS.join(', ')})`] };
-    const one = checkOne(wt, entry.id, gitFacts(wt), null, { trainParts: parts });
+    // The base is the train pull request's, with an empty env so the process's own GITHUB_BASE_REF does not change the answer:
+    // the boarded change gets the own-files rule its own pull request's check applies (stale-only-on-own-files, ADR 0025).
+    const one = checkOne(wt, entry.id, gitFacts(wt, { base: stalenessBase(wt, {}, base) }), null, { trainParts: parts });
     const open = [...(one.report.readiness.met ? [] : [`readiness: Status ${one.report.readiness.status || 'missing'}`]), ...one.report.items.filter((i) => i.status !== 'met').map((i) => `${LABELS[i.id - 1]}: ${i.reason}`)];
     return { problems: open, report: one.report };
   });
@@ -2530,7 +2651,7 @@ function runCi(opts, env, cwd) {
     return finish(0, { version: 1, mode: 'ci', change: null, pass: true, note }, `devkit-reviews: ${note}\n`);
   }
   if (!gitOk(root, ['rev-parse', '--git-dir'])) throw new UsageError(`${root} is not a git repository: deliver-check reads commits and the working tree`);
-  const facts = gitFacts(root);
+  const facts = gitFacts(root, { base: stalenessBase(root, env, null) });
   ciPreflight(root, env, facts.head);
   const parts = ciTrainParts(root, env);
   const trainBranch = TRAIN_BRANCH.exec(currentBranch(root, env));
