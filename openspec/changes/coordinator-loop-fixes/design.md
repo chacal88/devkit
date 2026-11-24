@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=7 commit=d3da0e9857f5afb2922fb68337ee2548fb4c6d50 -->
+<!-- devkit-stage design result=passed attempt=8 commit=c789b9b4b3aa813e23b0de4603f3f05a8b1b9960 -->
 # Design
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a ·
@@ -847,7 +847,7 @@ this change keeps or adds:
 | R6 | a red gate twice on the same phase: `declare gate-red` twice at the phase 1 gate | **conducting session** (loop commands, rules 1, 3, 4) | `r6-declare-1.txt`, `r6-declare-2.txt`, `r6-declared.json` | the first exits 0 and holds the `fix-gate` step; the second exits 2 and `grep -c "^devkit-end: feat blocked$"` of its file prints 1; two `gate-red` entries |
 | R7 | the code review at round 2 FAIL (`review.md` header `result=failed attempt=2`, `Consensus: FAIL (round 2/2)`, a current rejection): `next`; `declare review-round` without words; with the owner's words; after a fixture fix commit and current evidence, `next`; the round script's arguments | **conducting session** (loop commands, rules 1, 3, 4) | `r7-next-1.txt`, `r7-declare-nowords.txt`, `r7-declare.txt`, `r7-next-2.txt`, `r7-next-3.txt`, `r7-args.txt`, `r7-declared.json` | `next` ends `blocked` `ceiling` on the stage `review`; without words: exit 3 `declare-no-words`, and `next` gives the same end again; with words: exit 0, a `review-round` entry of scope `review` and round 3, the action `fix-review`; after the fix and the evidence: the `commit` before the review round, then, committed, `review` with round 3 and limit 3; `validateArgs` of `review-round.mjs` accepts `{ round: 3, limit: 3 }` and refuses `{ round: 3 }` |
 | R7s | the session's own part of R7: turn 1 runs `/devkit change` on the R7 fixture and ends on the ceiling, saying one more round needs the owner's word; turn 2 (`--resume`) is the owner's typed message asking for one more round | implementer (`claude -p`, two turns, rule 2) | `r7s-turn1.jsonl`, `r7s-turn2.jsonl`, `r7s-declared.json` | turn 1: no `declare` call, the last assistant message holds the blocked reply and the sentence on the owner's word; turn 2: a Bash call of the nested main session whose command holds `change-loop.mjs declare` and `review-round`, one entry whose `words` hold the turn's message |
-| R7b | a `two-prs` resolution deadlock with the owner's typed words | **conducting session** (loop commands on a `two-prs` fixture, fake `gh`, rules 1, 3, 4) | `r7b-next-1.txt`, `r7b-declare.txt`, `r7b-next-2.txt`, `r7b-next-3.txt`, `r7b-declared.json` | the end is `waiting-review-dispute` with `detail.resolution`; a `review-round` entry of scope `resolution`; the declare's action is `push`, its reason naming `declared.json` (D-1); after the fixture script commits and pushes the record (it writes no `declared.json`, rule 3), `next` gives `fix-resolution`, then, after the fixture's fix of the resolution, `review-resolution` round 3 limit 3; the code review's limit stays 2 |
+| R7b | a `two-prs` resolution deadlock with the owner's typed words | **conducting session** (loop commands on a `two-prs` fixture, fake `gh`, rules 1, 3, 4; the fake `gh` reports the remote branch's tip as each pull request's head, as the suite's `test-fixtures.mjs` simulator does, so that `next` moves past `push` once the record is pushed) | `r7b-next-1.txt`, `r7b-declare.txt`, `r7b-next-2.txt`, `r7b-next-3.txt`, `r7b-declared.json` | the end is `waiting-review-dispute` with `detail.resolution`; a `review-round` entry of scope `resolution`; the declare's action is `push`, its reason naming `declared.json` (D-1); after the fixture script commits and pushes the record (it writes no `declared.json`, rule 3), `next` gives `fix-resolution`, then, after the fixture's fix of the resolution, `review-resolution` round 3 limit 3; the code review's limit stays 2 |
 | R8 | a change's pull request conflicting outside the release files; an archive's pull request that conflicts outside them (never on a train); and one only in the release files; each in a scratch project with no `devkit.delivery.train` (D-5) | implementer (fake `gh`, real git, real `tdd-implementer` for the first) | `r8-*.jsonl`, `r8-rows.txt` | the first gives `resolve-base-conflict` and ends with a merge commit and no push, and `next --view compozy` on the same fixture gives an `agent` view whose brief names the `ship-change` row of that step as its dispatch source; the second gives `resolve-base-conflict` with `archive: true`; the third gives `resolve-release-conflict`. The two train cases (a change that left a train gives `rejoin-train`; an archive that left one stays `stop-archive`, AC-13's exclusions) are built from a recorded train, which only the suites' own helpers make: T117 and T118 prove them on real git repositories, and R8 does not repeat them |
 | R9 | a phase with a `Conductor:` task before and after an implementer task | implementer (loop commands; `claude -p` for the `implement` brief) | `r9-*.txt`, `r9-*.jsonl` | `conductor-task` first; the implementer stops at `stopAt` and leaves the marked task unticked |
 | R10 | the person's language never set, installed plugin (task 4.1, before phase 4 is handed) | **conducting session** (rule 4) | `r10-*.jsonl` | the `init` event lists devkit-openspec from the install, no `language` option is set in the config dir used, and the reply is in Portuguese with no `${user_config` |
@@ -1167,19 +1167,32 @@ which merges `origin/main` into the branch and re-reads each function the phase 
   `node scripts/test-suite.mjs --concurrency=2 <file>...`: a failing one is a row for D-15 and one plan revision, not a
   failure of the phase. A test D-15 names that a split moved keeps its title (ADR 0026), so the
   implementer finds its new file by its title.
-- A phase gate runs `node scripts/test-suite.mjs --concurrency=2` (ADR 0026) over the test files its phase
-  touches, never the whole suite and never a near-whole list of files: the whole suite runs only on the
-  delivery train (`devkit.delivery.train` in `openspec/config.yaml`, ADR 0022), which runs it once at its
-  head for every boarded change. The files a phase touches are the ones it adds tests to or edits tests in,
-  and the ones that hold the tests D-15 names for the rules and texts the phase changes. A gate has two
-  parts: the files of the phase's own area whole, with no pattern; and the large mixed files filtered by
-  anchored `--test-name-pattern` values naming this change's tests and the kept tests of the phase (the
-  script applies its patterns to every file it runs, so the two kinds cannot share one call). No pattern
-  holds a `|` (the flow splits a gate at `&&` and refuses a `|`), so alternatives are separate values. Each
-  part runs with `GITHUB_HEAD_REF` and `GITHUB_BASE_REF` set, as a pull-request run on CI does. The gate adds
-  `python3 scripts/check.py` when the phase edits Markdown, a schema copy or the config, and
-  `gen-agents.mjs --check`, `gen-catalog.py --check` or `claude plugin validate .` when it edits what they
-  check. A sibling's new test outside the gates is caught by the train.
+- A phase gate follows the `Gates:` rule of `openspec/config.yaml` (its `context:`): "A phase gate the
+  delivery train runs names the train's command (`node scripts/test-suite.mjs`, `python3 scripts/check.py`);
+  a gate naming one test file needs a passing local row after every base merge, so a plan uses one only when
+  that file must pass before the train." No file of this change must pass before the train, so every gate
+  not yet ticked (2.5, 3.9, 4.7, 5.9, 6.6) names the train's command as `devkit.delivery.train` writes it,
+  `node scripts/test-suite.mjs && python3 scripts/check.py` (ADR 0022), each part byte-equal to the train's
+  part so that `deliver-check`'s `tasksItem` counts it as proven by the train, followed by the phase's parts
+  the train does not run: `gen-agents.mjs --check`, `gen-catalog.py --check` or `command claude plugin
+  validate .` when the phase edits what they check, and the `test -s` and `grep -q` checks of its files. No
+  gate names a test file. The conducting session runs each gate (the loop's `gate` step), its whole-suite
+  part `node scripts/test-suite.mjs` locally, as a background command; it may run that part with a
+  `--concurrency` it chooses for the machine, and what the run proves is the same. `evidence.md` needs no
+  `pass` row for the two parts the train proves, since the train runs them once at its head for every
+  boarded change, so a base merge that stales the evidence re-runs only the gates' other parts. Gate 1.6,
+  ticked before the rule reached this branch at task 2.0, keeps its filtered text, and its filtered parts
+  keep needing `pass` rows.
+- The test files a phase touches run in the Check of the phase's last implementation task (2.4, 3.8, 4.6,
+  5.8, 6.5), before its gate, with `node scripts/test-suite.mjs --concurrency=2` (ADR 0026), never the whole
+  suite and never a near-whole list of files: no implementer task runs the whole suite. The files a phase
+  touches are the ones it adds tests to or edits tests in, and the ones that hold the tests D-15 names for
+  the rules and texts the phase changes. The run has two parts: the files of the phase's own area whole,
+  with no pattern; and the large mixed files filtered by anchored `--test-name-pattern` values naming this
+  change's tests and the kept tests of the phase (the script applies its patterns to every file it runs, so
+  the two kinds cannot share one call). No pattern holds a `|`, so alternatives are separate values. Each
+  part runs with `GITHUB_HEAD_REF` and `GITHUB_BASE_REF` set, as a pull-request run on CI does. A sibling's
+  new test outside those runs is caught by the gate's whole-suite part and by the train.
 - The plan's validation after a merge of the base is the loop's own `merge-check` step (`post-merge-validate`),
   which runs before `verify` and the delivery steps, never the implementer's: a merge task merges and edits
   no plan file, and a red check goes to the planner's `merge-defect` step, which D-7 treats as any plan edit.
@@ -1552,7 +1565,7 @@ does not parse; the config rule reaches every planner and reviewer through `cont
 
 | Risk | Probability × impact | Mitigation |
 |---|---|---|
-| A sibling lands a change to `runReply`, `nextStep`, `validateArgs`, `buildPart` or `artifactState` first and the merge conflicts | HIGH × MEDIUM | D-17; a merge opens each phase and 6.1 is the last; each gate runs the files its phase touches on the merged head and the train runs the whole suite at its head; no merge after 6.1 is needed, because a sibling's merge stales nothing of this change (ADR 0025, the train) |
+| A sibling lands a change to `runReply`, `nextStep`, `validateArgs`, `buildPart` or `artifactState` first and the merge conflicts | HIGH × MEDIUM | D-17; a merge opens each phase and 6.1 is the last; each phase runs the files it touches before its gate, each gate runs the whole suite on the merged head and the train runs it again at its head; no merge after 6.1 is needed, because a sibling's merge stales nothing of this change (ADR 0025, the train) |
 | `resolve-base-conflict` judges against a stale `origin/<base>` until `fresh-base-check` lands | MEDIUM × LOW | The implementer's merge shows the real conflict; a clean merge gives `update-branch` as today |
 | The implementer resolves a conflict wrongly | MEDIUM × MEDIUM | `verify` and `review` run before the push (D-5); `Outcome: failure` ends blocked |
 | A session declares `review-round` without the owner's typed message | LOW × HIGH | The skill rule (D-4) and the words recorded in `declared.json`; a subagent can neither write the file (edit tool or redirect, any change's folder) nor run `change-loop.mjs declare` (the `guardBash` rule of D-1, T98 to T104); the main session's own misuse rests on the skill rule and the recorded words, as the plan approval does; the review trigger of the change's ADR |
@@ -1566,7 +1579,7 @@ does not parse; the config rule reaches every planner and reviewer through `cont
 | A plan file is edited between the CompozyOS question and the owner's answer, and the digest written at the record covers the edit | LOW × LOW | Accepted (D-7): nothing in a CompozyOS run edits a plan file while it waits, and a not-yet-started change is refused by `stateFor` when its readiness is stale |
 | A change that declared a third round on the Claude driver is then run on the CompozyOS driver, whose review loop passes no `limit` | LOW × LOW | Accepted (Non-Goals, D-19): `review-round.mjs` refuses the round naming `args.round`, and the owner decides at the deadlock as before |
 | A sibling merges into `main` while a phase runs, and a test it added fails on the merged head | HIGH × MEDIUM | D-17: each phase opens with a merge and runs the tests the base added by name; a failing one is a row for D-15 and one plan revision |
-| The suite takes longer (about 140 new tests), and a file passes CONTRIBUTING's 300 s | HIGH × LOW | The loop-level tests go to the new `change-loop-declared.test.mjs` (D-16); each file a phase added tests to runs alone before the gate and is split above 300 s; phase gates run only the files their phase touches, with `--concurrency=2`; the whole suite runs on the train |
+| The suite takes longer (about 140 new tests), and a file passes CONTRIBUTING's 300 s | HIGH × LOW | The loop-level tests go to the new `change-loop-declared.test.mjs` (D-16); each file a phase added tests to runs alone before the gate and is split above 300 s; the files a phase touches run with `--concurrency=2` before its gate; the whole suite runs at each gate, from the conducting session, and on the train |
 | The train renumbers devkit-compozy above this change's number and the kit manifest's `pack` trails it | MEDIUM × LOW | Accepted (D-18): no test reads the manifest's `pack` against `plugin.json`; the next install of the kit records the current version |
 | `headInBase` reads a stale `origin/<base>` (the checkers never fetch), so a branch advanced past the local ref reads as ahead | LOW × LOW | Then the walk judges staleness as today (the defect stays for that run, no wrong pass); the next fetch fixes it |
 | A change in conflict with its base boards the train in this repository, so `resolve-base-conflict` is never met here | HIGH × LOW | By design (D-5): the step serves projects without the train; T45 to T48 and R8 prove it on fixtures without the train setting |

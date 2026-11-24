@@ -1,4 +1,4 @@
-<!-- devkit-stage proposal result=passed attempt=6 commit=d3da0e9857f5afb2922fb68337ee2548fb4c6d50 -->
+<!-- devkit-stage proposal result=passed attempt=7 commit=c789b9b4b3aa813e23b0de4603f3f05a8b1b9960 -->
 # Proposal
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -132,8 +132,9 @@ None.
   change's own files); ADR 0026 (the suite runs by file); ADR 0030 (no test holds a release's version).
   Sibling changes in flight touch the same files (design D-17); each phase that edits one of them opens
   with a merge of `origin/main`.
-- Exit criteria: every phase gate green (each runs the test files its phase touches with
-  `--concurrency=2`, design D-17; the whole suite runs only on the delivery train, at its head), the new
+- Exit criteria: every phase gate green (each names the train's command by the `Gates:` rule of
+  `openspec/config.yaml`, and the test files its phase touches run with `--concurrency=2` before it, design
+  D-17; the train runs the whole suite again at its head), the new
   tests under CI's branch variables, `python3 scripts/check.py`,
   `python3 scripts/gen-catalog.py --check`, `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check`,
   `claude plugin validate .` and
