@@ -106,7 +106,7 @@ Line 1 of every stage file is a comment, so OpenSpec's strict validation and Git
 <!-- devkit-stage <stage> result=<passed|failed|not-applicable|pending> attempt=<n> commit=<sha|none> -->
 ```
 
-`<stage>` is the stage id of the schema; `pending` is what a template says (written, not judged yet); `attempt` is 1 on the first write and one more on each rewrite; `commit` is `git rev-parse HEAD` when the stage was produced. The reviewers' own files under `reviews/` keep `Verdict:` on line 1 and carry no header; `review.md` does. Each schema folder also holds `flow.json`, which declares the stages in order with their role, their file or source, and how many failed attempts they get, and `flows/<n>.json`, a copy of every released version of that declaration (`flows/<version>.json` holds the same bytes as `flow.json`).
+`<stage>` is the stage id of the schema; `pending` is what a template says (written, not judged yet); `attempt` is 1 on the first write and one more on each rewrite; `commit` is `git rev-parse HEAD` when the stage was produced. The reviewers' own files under `reviews/` keep `Verdict:` on line 1 and carry no header; `review.md` does. Each schema folder also holds `flow.json`, which declares the stages in order with their role, their file or source, and how many failures in a row they get, and `flows/<n>.json`, a copy of every released version of that declaration (`flows/<version>.json` holds the same bytes as `flow.json`). The checker counts a failed stage's failures in a row as the distinct `result=failed` headers its file carried in the commits since the file last carried `result=passed`, read from git history newest first, and as at least `attempt` when no passed header is visible (a depth-1 clone, a file never committed); a take written and overwritten without a commit is not seen, so commit each take.
 
 `flow-check` is a script that reads those headers, OpenSpec's own status, the task list and git, and says which stage passed and which comes next. It runs no model and no network call except `gh`:
 
@@ -730,8 +730,8 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.44.0 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.44.0>/plugins/openspec/hooks
+          # pinned to the commit of v0.44.1 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.44.1>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
@@ -744,7 +744,7 @@ The readiness is asked of a change when the flow it follows declares it, read fr
 
 The check also judges the archived folder of a `devkit-project` slice by the slice contract (see "Defining a project"); a project that sets `ship: devkit-project: merge` moves this pin to `v0.20.0` or later first, because older releases pass a slice with a note.
 
-Pin the commit sha of the release tag (`v0.44.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.44.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.44.1` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.44.1` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@2` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 

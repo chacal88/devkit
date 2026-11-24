@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.49.1 — a stage's ceiling counts failures in a row
+
+- **devkit-openspec** 0.42.1: `flow-check` blocks a stage with `ceiling-reached` only after its failures in a row reach
+  the stage's ceiling. They are counted from the stage file's history in git since the file last carried `passed`;
+  `attempt` is unchanged, there is no new header field and the flow version does not change. A stage that passed between
+  failures starts again from zero. The readout and the replies of `change-loop` and `project-loop` say "failures in a row"
+  (`failures` joins the reason params). It also delivers the roadmap line `evidence-attempts-by-failure` (fused).
+- **Docs**: `docs/openspec-flow.md`, `plugins/openspec/README.md` and `docs/coordination-design.md` describe the count;
+  the CI snippet pins `v0.42.1`.
+
 ## 0.49.0 — the jira-entry retro's fixes
 
 - **devkit-openspec** 0.43.0:
