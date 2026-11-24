@@ -244,7 +244,7 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
 
 ## 5. The Setup section of the devkit skill (AC-1, AC-5 to AC-8)
 
-- [ ] 5.1 Write N-11 to N-15 and N-17 in `plugins/openspec/hooks/guard.test.mjs`, with the N-15 fixture
+- [x] 5.1 Write N-11 to N-15 and N-17 in `plugins/openspec/hooks/guard.test.mjs`, with the N-15 fixture
   `plugins/openspec/skills/devkit/scripts/fixtures/old-setup/` (`config.yaml`, the template's
   bytes at `c1ac8c4` held as a file, and `settings.json` as the old skill wrote it). N-11 pins
   D-7's `## Start` sentence for the `compozy` driver and the `setup` item. Apply T-15's
@@ -253,7 +253,7 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   Check: `openspec/changes/project-setup/proof/red-5.txt` holds the run, and N-11 to N-14, N-17 and
   T-15 fail in it. N-15 passes on the base, because old projects already work; its task says so, and it
   guards the later tasks.
-- [ ] 5.2 Rewrite the `## Setup` section of `plugins/openspec/skills/devkit/SKILL.md` as D-7 says.
+- [x] 5.2 Rewrite the `## Setup` section of `plugins/openspec/skills/devkit/SKILL.md` as D-7 says.
   Step 5 runs `setup-block.mjs plan`, writes `schema`, `context`, `rules` and `operations` only as
   `fill` names them (with D-7's pinned sentence), asks the `missing` questions with the plan's
   `options`, says `kept` and `driverNotBuilt`, and runs `apply` through the quoted heredoc. The old
@@ -262,7 +262,7 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   first (D-5). Step 7 runs when the mode merges. Step 8 is the kit (D-6). Step 9 reports the version
   and the first command. Keep every sentence D-13 says a test pins. Check: N-12, N-13, N-14, N-17, T-3,
   T-5, T-15 and T-16 pass, and `grep -c rebase plugins/openspec/skills/devkit/SKILL.md` prints 0.
-- [ ] 5.3 Change the frontmatter and `## Start` of the same skill as D-7 says: the description
+- [x] 5.3 Change the frontmatter and `## Start` of the same skill as D-7 says: the description
   sentence after the train sentence (kept word for word), the "Use when" list and the argument hint
   with `setup` right after `status` (`| status | setup | train | project [<name>]`), the `setup` and
   `setup-no-repo` modes, and the first item's driver sentence reworded so that `setup` and
@@ -270,17 +270,17 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   Apply T-29 to `plugins/openspec/hooks/roadmap-loop-followups.test.mjs` and T-30's hint regex to
   `delivery-train docs: the documents follow` in `plugins/openspec/hooks/delivery-train-after.test.mjs`.
   Check: N-11, T-24, T-25, T-29 and `delivery-train docs: the documents follow` (T-30) pass.
-- [ ] 5.4 Change the sentence of `plugins/openspec/skills/ship-change/SKILL.md` that names "the
+- [x] 5.4 Change the sentence of `plugins/openspec/skills/ship-change/SKILL.md` that names "the
   `openspec-setup` GitHub step" and the `stop-merge-setup` row (D-7). Check:
   `grep -c "openspec-setup" plugins/openspec/skills/ship-change/SKILL.md` prints 0, and
   `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/release-tags.test.mjs`
   (every test file that reads the ship-change skill, `release-tags 3` included) exits 0.
-- [ ] 5.5 Check the skill-wide negatives of T-26 on the new text (no `--lang en`, no unquoted
+- [x] 5.5 Check the skill-wide negatives of T-26 on the new text (no `--lang en`, no unquoted
   heredoc, no `rebase` or `--force` anywhere in the file, no line naming a `change-loop.mjs` call
   without `--lang ${user_config.language}`, nothing of the Roadmap's scheduling tools and no
   session-model tool before `## Roadmap`) and T-28's heading list. Check: N-15 still passes and the
   T-26, T-28 and T-30 tests pass in gate 5.6.
-- [ ] 5.6 Gate: `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^setup " --test-name-pattern="^format: the Setup section" --test-name-pattern="^field-fixes 5 skill" --test-name-pattern="^gh-version 19" --test-name-pattern="^stage-roles" --test-name-pattern="^change-loop skill" --test-name-pattern="^roadmap-loop skill" --test-name-pattern="^project-loop skill" --test-name-pattern="^release-merge-conflict 16" --test-name-pattern="^delivery-train docs" --test-name-pattern="^upfront AC-1 skill" --test-name-pattern="^upfront AC-16 skill" --test-name-pattern="^stage-models AC-9" --test-name-pattern="^AC-6 instructions-follow" plugins/openspec/hooks/guard.test.mjs plugins/openspec/skills/devkit/scripts/github-setup.test.mjs plugins/openspec/skills/devkit/scripts/gh-version.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/roadmap-loop-followups.test.mjs plugins/openspec/hooks/roadmap-loop-upfront.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/stage-models.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs && python3 scripts/check.py` green; covers AC-1 (the skill, `## Start` on every driver), AC-4 (step 5's `fill` rule and the re-run on the `compozy` driver), AC-5, AC-6 and AC-7 (the step's text) and AC-8.
+- [x] 5.6 Gate: `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^setup " --test-name-pattern="^format: the Setup section" --test-name-pattern="^field-fixes 5 skill" --test-name-pattern="^gh-version 19" --test-name-pattern="^stage-roles" --test-name-pattern="^change-loop skill" --test-name-pattern="^roadmap-loop skill" --test-name-pattern="^project-loop skill" --test-name-pattern="^release-merge-conflict 16" --test-name-pattern="^delivery-train docs" --test-name-pattern="^upfront AC-1 skill" --test-name-pattern="^upfront AC-16 skill" --test-name-pattern="^stage-models AC-9" --test-name-pattern="^AC-6 instructions-follow" plugins/openspec/hooks/guard.test.mjs plugins/openspec/skills/devkit/scripts/github-setup.test.mjs plugins/openspec/skills/devkit/scripts/gh-version.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/roadmap-loop-followups.test.mjs plugins/openspec/hooks/roadmap-loop-upfront.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/stage-models.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs && python3 scripts/check.py` green; covers AC-1 (the skill, `## Start` on every driver), AC-4 (step 5's `fill` rule and the re-run on the `compozy` driver), AC-5, AC-6 and AC-7 (the step's text) and AC-8.
 
 ## 6. Documents, records and release (AC-2)
 

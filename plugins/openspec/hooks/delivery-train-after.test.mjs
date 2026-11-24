@@ -207,7 +207,7 @@ test('delivery-train docs: the documents follow', () => {
   assert.equal(heads.indexOf('## Train'), heads.indexOf('## Waiting on GitHub') + 1, 'it sits right after Waiting on GitHub');
   const train = sliceOf(skill, '## Train', '## Roadmap');
   for (const re of [/train-loop\.mjs next/, /depart/, /update-train/, /background/, /`end`/, /wait/]) assert.match(train, re, String(re));
-  assert.match(skill, /argument-hint: "change \[<request> \| <change-id> \| <Jira key or link>\] \| roadmap \[<n> \| stop\] \| status \| train \| project \[<name>\]"/);
+  assert.match(skill, /argument-hint: "change \[<request> \| <change-id> \| <Jira key or link>\] \| roadmap \[<n> \| stop\] \| status \| setup \| train \| project \[<name>\]"/); // project-setup T-30: setup right after status
   assert.match(skill, /\/devkit train departs the boarded changes of a project with a delivery train, together on one train\./);
   for (const mode of ['train', 'train-args']) assert.ok(sliceOf(skill, '## Start', '## A new change').includes(`\`${mode}\``), `the start mode ${mode}`);
 

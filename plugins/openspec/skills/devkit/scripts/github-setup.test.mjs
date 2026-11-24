@@ -336,7 +336,7 @@ test('format: the Setup section has the GitHub step: script path that resolves, 
   assert.match(md, /plan again|re-run the plan|run the plan again/i);
   assert.match(md, /owner-push|refuse direct pushes/i);
   assert.match(md, /deferred/);
-  assert.match(md, /`ship` and `merge_method`[^\n]*only if the owner asks/i);
+  assert.match(md, /`ship` and `merge_method` are asked in step 5, `merge` suggested/); // project-setup T-15: the ship mode is asked in step 5
   const never = md.slice(md.indexOf('## Never'));
   assert.match(never, /Change GitHub settings without the owner's confirmation of that item/);
 });
