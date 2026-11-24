@@ -1,83 +1,70 @@
-<!-- devkit-stage readiness result=passed attempt=3 commit=6fce9721974668c73a1403e5d3121aa24349d8a2 -->
+<!-- devkit-stage readiness result=passed attempt=4 commit=96f7a7638c645e54bcba6bc76122beb5e20f5963 -->
 # Readiness review: stage-ceiling-consecutive
 
-Re-review (attempt 3) at `6fce972` (devkit-openspec 0.33.0), after the author's revision of round 2's one Mandatory finding (F-3). Run here: `openspec validate stage-ceiling-consecutive --strict` (valid). Not run, as the caller asked: any test suite, `scripts/check.py` and `gen-catalog.py` (the revision touches only `design.md` and `tasks.md` under the change folder; `proposal.md`, `requirements.md` and both spec deltas are unchanged since round 2, by their file times), so the filtered gates of tasks 1.7, 2.4 and 3.6 are not checked against the base here (their new tests do not exist yet either).
+Delta re-review (attempt 4) at `96f7a76`, after the plan was implemented and reviewed. Commit `96f7a76` changes only the wording of AC-8 (`git show 96f7a76 --stat`: `requirements.md` and `proposal.md`, one line each). Scope of this round: the new AC-8, its consistency across the artifacts, its task and proof path, and any remaining use of the old wording. The rest of the plan is as round 3 approved it (attempt 3, `6fce972`), and no behaviour, task, design or spec file changed. Run here: `openspec validate stage-ceiling-consecutive --strict` (valid). Not run: test suites and gates (nothing they cover changed).
 
 ## 1. Decision
 - Status: APPROVED
 - Confidence: high
-- Ready to implement: yes
+- Ready to implement: yes (already implemented; the plan stays executable and AC-8 is now provable before the pull request merges)
 
-Round 2's Mandatory finding is fixed: P-1 no longer claims a brief from `change-loop.mjs next` on a failed evidence, and the new real run P-13 reaches the plan brief through a path I re-derived in the code. No open Mandatory finding remains; two Low notes are listed in section 10.
+The new AC-8 can be observed and proved before archive. No open Mandatory finding. One Medium finding on `evidence.md` (not a plan artifact) is listed in section 10, and it needs the evidence stage to be redone before the delivery gate reads it.
 
 ## 2. Scope validation
-Classification: correct. The revision adds one real-run case and its explanation; no scope change.
+Classification: correct. The reword narrows AC-8 to what holds before archive and moves the ticks to the archive follow-up the plan already had. It adds no scope.
 
 ## 3. Proposal review
-Unchanged since round 2 and still sound: the claims about the `review` stage's restarting round, the nine ACs with stable ids (each in a task row, `tasks.md:27-35`), both capabilities existing with full deltas, the proposal under two pages.
+- `proposal.md:55` and `requirements.md:38` carry the same AC-8 text, character for character (checked with `git show 96f7a76`: both added lines are identical). Id and slug `roadmap-ticks-both` are unchanged, so the `tasks.md:34` row still resolves.
+- `proposal.md:40-41` ("At archive, both roadmap lines ... are ticked; the second says this change delivered it") and `requirements.md:17` (assumption 1, "ticked ... when this change is archived") still say the old thing in prose. Neither is an acceptance criterion. Each describes what happens at the archive step, which is what the new AC-8 delegates to the follow-up, so they do not contradict it. Not a finding.
+- The rule "every sentence stating a fact about the repository is true at the commit that ships it" (`openspec/config.yaml`, proposal) holds: lines 40-41 state a future act, not a present fact.
 
 ## 4. Design review
-Claims about the live code, re-derived at `6fce972`:
-
-| Claim | Result |
-|---|---|
-| D-8: a failed evidence leaves the change `inDelivery` (`change-loop.mjs:867-874`; `BUILD_PARTS` at `:854`), so `buildPart` (`:1176`) runs `testStageStep` first (`:1178`), which takes only `TEST_STAGES` (`:856`) as the failed stage (the `fix-tests` branch, `:1157-1160`); every other failure is the delivery row's (`:1180-1196`), whose brief is `step <step> <detail JSON>` | holds; P-1 now runs `flow-check` only, as D-8 says |
-| D-8: a failed `readiness` goes to `onFail: proposal` (`plugins/openspec/schemas/devkit/flow.json`, readiness: `ceiling 3`, `onFail proposal`); `proposal` is `part: plan` with role `change-planner`, so `inDelivery` is false, `planPart` runs and `n.reasonCode === 'fix-after-failure'` (`change-loop.mjs:1117-1121`) gives `agent('proposal', 'change-planner', ...)` with the brief at `:1121` | holds |
-| P-13 walk: `mockup` has `notAfter: proposal` and `appliesWhen ui`, `decisions` has `notAfter: proposal`, so both are not-applicable once `proposal.md` exists; `readiness` is the current failed stage; `readiness` is not `codeBound`, and its `stale-plan` test is by file times against `staleAfter` (`flow-check.mjs:452-458`), so a `readiness.md` written last is not `fixed`; the order of the checks in `computeFlow` (`:575-581`) gives `fix-after-failure` for `proposal` with `failures` 1 over `[passed 1, passed 2, failed 3]` | holds |
-| P-13 `next` runs with no GitHub lookup: `collectState` and `defaultBase` are called only `if (inDelivery(...))` (`change-loop.mjs:1298-1308`); the existing `change-loop next: a readiness failed at its ceiling exits 2` test (`change-loop.test.mjs:741`) already runs `next` on a `planChange` repository of the same shape; an `agent` action exits 0 (`loopOutput` at `:2406`, `code: 0` at `:2533`) | holds |
-| The brief is wrapped by `brief(stage, what, detail)` (`change-loop.mjs:1035-1041`): `Change <id> (<script> script), stage <stage>: <what>. Work only in ...` | the D-6 sentence is a substring of the printed brief, not the whole string (Low note, section 10) |
-| D-8 `fix-tests` without a real run: a failed `unit-tests` has next `implementation`, so `next` calls `collectState` with a real `gh` first (`:1298-1308`); the brief is built from the stage checker's params alone (`:1176-1178`, `:1157-1160`) | holds; the unit test `stage-ceiling-consecutive AC-6 loop: the fix briefs name the failures in a row` is its proof, and the reason is written |
-| Round 2's other claims (the `review` round restart, `collectFlow` throwing outside a git repository, `artifactState` and `computeFlow` ordering, D-3 pseudocode against D-4 and D-9 cases, `blocked-why.ceiling` lines, `render`, `project-loop.mjs#blockedEnd`) | unchanged files; `flow-check.mjs` and `change-loop.mjs` are as round 2 read them (`HEAD` is the same commit) |
-| Every test name in D-9's "existing tests" table and in the tasks | re-grepped: each exists in the file the table names (`flow-check.test.mjs`, `version-pin.test.mjs`, `change-loop.test.mjs`, `project-loop.test.mjs`, `roadmap-loop.test.mjs`) |
-
-Parsers: D-2 decides unterminated input, a missing blob, no commit and a non-zero exit. No gap.
-
-Config rules (`openspec/config.yaml`): test history is a fixture repository (holds); every existing test that asserts a changed text is a row of the D-9 table (holds); release numbers are "the next free one on `origin/main` at the last merge before review" (task 3.1, D-10; holds); each gate task names its test command (holds).
+`design.md` does not state AC-8 or the tick. Its only `roadmap.md` mentions are file lists (`design.md:392`, `:402`: the file is modified, which task 3.2 does) and unrelated uses of the word "roadmap" (`:20`, `:21`, `:73`, `:205`, `:371`, `:452`). No claim about internals changed. No finding.
 
 ## 5. Specs review
-Unchanged since round 2. Normative language and `#### Scenario:` blocks are present; every decision-table row of D-4 that the checker can reach has a scenario (H-1 and H-3 to H-6, F-3, F-4, the readout row; H-2 is the existing scenario; F-1 and F-2 are reader-only unit cases by design). The `project-definition` delta restates the requirement. No requirement lives only in a support doc. The two briefs have no spec scenario; the spec says the reason names the count, and AC-6 names the readout and the reply (not a finding, as in round 2).
+Both spec deltas (`specs/`) do not mention AC-8, ticks or the roadmap line (grep over `specs/`: no match except an unrelated `billing` scenario). Nothing depends on the old wording.
 
 ## 6. Tasks review
-- One `## N.` group per phase, each ending in a gate (1.7, 2.4, 3.6); every AC id is in a task (`tasks.md:27-35`); tests first with the red output saved (1.1, 2.1).
-- Task 3.4 now names P-13 in its environment sentence, its run list, its expected column (the brief `readiness failed at attempt 3 (failures in a row: 1 of 3): revise the plan from its findings`) and the AC-6 row. The `fix-tests` brief is declared to have no real run, with the reason. The check of 3.4 can now pass for every run it lists.
-- The files that assert an old text are named in the task that changes it (1.4, 1.5, 2.2, 2.3, 3.1). Paths exist. Gate commands are single commands; the long gate (3.6) is marked for a background run.
+- Row `tasks.md:34`: `AC-8 | roadmap-ticks-both | 3.2 (the line); the ticks at archive (Workflow follow-up)`. It still maps to the right places for both clauses of the new text.
+- Clause 1 (the line says it was delivered by this change): task 3.2 (`tasks.md:98-100`, ticked `[x]`) with its check `grep -n "evidence-attempts-by-failure" openspec/roadmap.md`. I ran the equivalent: `openspec/roadmap.md:79` reads `- [ ] evidence-attempts-by-failure — ... — delivered by stage-ceiling-consecutive (fused, 2026-11-23)`. Observable now. Met.
+- Clause 2 (the archive follow-up in `tasks.md` ticks both lines): `tasks.md:133-135` says "At archive (`ship-change`'s archive steps): tick both `stage-ceiling-consecutive` and `evidence-attempts-by-failure` in `openspec/roadmap.md` (AC-8), the second keeping the 'delivered by' text of 3.2". The line of `stage-ceiling-consecutive` is `openspec/roadmap.md:178`, present and unticked. The clause is a statement about the content of `tasks.md`, so a grep proves it before the merge. It does not need the archive to have happened. Met.
+- The follow-up is a plain bullet, not a `- [ ]` task, so it does not add an open checkbox that the task checker or the delivery gate would count. Consistent with how `ship-change` treats the archive.
+- `tasks.md:99` ("leaving both lines unticked until the archive (AC-8)") matches the new AC-8, and the 3.2 check expects `- [ ]` on the line, which is true at `roadmap.md:79`.
+- Config rule "every acceptance criterion id appears in at least one task": holds (AC-8 at `tasks.md:34`).
 
 ## 7. Omission detection
-Validation, error handling and side effects: D-2, D-4. Retries, permissions, rollback: none apply (read-only checker; rollback is a revert). Legacy records: the `{failures}` fallback in `render` is written and pinned. The restarting `review` round: D-3, H-6, the scenario, the test, P-9. The brief's real run: P-13. No omission found.
+Test strategy and evidence expectation for AC-8: the proof is two greps (the roadmap line, the follow-up text), no test. That is enough for a documentation criterion. Nothing else is missing for this delta.
 
 ## 8. Execution risks (top 5 failures)
-1. A passed take that was never committed. Cause: stage files overwritten between commits. Impact: the count falls back to the real streak minus the unseen takes (H-5). Prevention: documented (D-7 sentence, Risks, the `ship-change` rows that commit the change folder).
-2. Two failed takes with the same `attempt` and `commit` merge into one under the de-duplication key. Impact: low, as the no-progress rule stops a stage that comes back unchanged. Hypothesis only.
-3. P-13 readiness mtime ordering. Cause: the scratch plan files and `readiness.md` written inside one second. Impact: `stale-plan` needs a gap over `FRESH_MS`, so a `readiness.md` written after the plan files is never `fixed`; only a wrong write order would show `rerun-after-fix`. Prevention: D-8 says the takes are written in order.
-4. Shallow clones: P-6 and P-10 depend on `git log` listing the boundary commit of a shallow clone as the commit that adds the file. I read the code, not a git run here; F-3 and H-3 and the real runs show a difference at once. Low.
-5. `change-loop.mjs next` in a scratch repository (P-2, P-13) could stop at a gate the unit fixtures stub. Prevention: task 3.4 names the CLI tests' environment, and `planChange` already runs `next` on branch `main` with no remote (`change-loop.test.mjs:741`). Hypothesis, not run here.
+1. Stale evidence row. Cause: `evidence.md:50` still quotes the old AC-8 ("at archive both lines are ticked ... in `openspec/roadmap.md`") and concludes `no proof`. Impact: the delivery gate reads an AC with no proof and blocks, which is the reason for this reword. Prevention: the evidence stage rewrites that row to the new text with the two greps (section 10).
+2. The archive follow-up is skipped at archive, leaving `roadmap.md:79` and `:178` unticked. Impact: roadmap lags. Prevention: `tasks.md:133-135` names the step and the owner of the step (`ship-change`'s archive steps). Hypothesis only; no evidence of it happening.
+3 to 5. No other risk comes from this delta.
 
 ## 9. Mandatory fixes before implementation
 None.
 
 ## 10. Optional improvements (within scope)
-- [ ] Low — `design.md:289` (P-13, "whose brief is ...") and `tasks.md:117-118`: the printed brief is `Change feat (devkit script), stage proposal: readiness failed at attempt 3 (failures in a row: 1 of 3): revise the plan from its findings. Work only in ...` (`change-loop.mjs:1035-1041`). Read "whose brief is" as "whose brief contains"; the implementer sees the output at once. Fix during implementation: save the whole printed brief in `real-run.txt`.
-- [ ] Low — `design.md:289`: the `flow-check` expected cell for P-13 could name `failed: readiness` in the params, as P-1's `fix-after-failure` does for the evidence, so the section shows which stage failed.
+- [ ] Medium, fix during the evidence stage (not a plan defect) — `openspec/changes/stage-ceiling-consecutive/evidence.md:50`: the AC-8 row (evidence attempt 2, commit `c8b607f`) quotes the old AC-8 wording and says "no proof: the ticks happen at archive". Under the new AC-8 it has proof. Smallest correction: the evidence writer redoes the row with the new criterion text and the two checks (`grep -n "evidence-attempts-by-failure" openspec/roadmap.md` shows line 79 with "delivered by stage-ceiling-consecutive"; `grep -n "tick both" openspec/changes/stage-ceiling-consecutive/tasks.md` shows the follow-up at line 133). The evidence header's commit is also older than `96f7a76`, so the stage is retaken as the flow requires.
+- [ ] Low — `openspec/changes/stage-ceiling-consecutive/tasks.md:34`: the check for clause 2 is not written anywhere as a command. Nothing blocks, because the grep above is enough, but a sentence in the AC-8 row would let the next reviewer repeat it. Not required.
+- [ ] Low — prose still says "ticked at archive" at `proposal.md:40-41` and `requirements.md:17`. It is true and consistent with the follow-up; reword only if the owner wants one phrasing across the three places.
 
 ## 11. Explicitly out of scope
-- [ ] Making `deliver-check.mjs` tolerate a non-git root (a CI-downloaded file the plan leaves untouched).
-- [ ] Merge detection and `post-merge-validate` (stated non-goals).
-- [ ] Aligning the `review` round numbering with "one more on each rewrite" (a header-writing change; AC-5 forbids it).
-- [ ] The sentence in `docs/openspec-flow.md:109` that `attempt` is "one more on each rewrite" (false for the `review` stage; D-7 only rewords the ceiling sentence there; AC-5 keeps the header's values as they are).
+- [ ] Ticking the two roadmap lines now: the plan keeps them unticked until archive on purpose (`tasks.md:99`).
+- [ ] Everything round 3 already settled (behaviour, design, specs, tasks 1.x and 2.x).
 
 ## 12. Mandatory review questions
-1. Is the problem objectively defined? Yes: the checker blocks at the first failure after passed takes; the remote-worker case is cited.
-2. Is the result measurable? Yes: AC-1 to AC-9 are observable, each with a test or a real run; the one brief with no real run says why.
-3. Are error behaviors defined? Yes: history read failures return `[]` (D-2); outside a repository the checker exits 3 as today, which the plan says.
-4. Are edge cases covered? Yes: shallow clones, uncommitted takes, made-up `commit=`, merges, the restarting review round.
-5. Are dependencies clear? Yes: ADR 0010 decision 3, ADR 0017 decision 1; `remote-worker` is archived; no dependency on `post-merge-validate`.
-6. Are contracts defined? Yes: the three reason codes gain `failures`; the `render` fallback for records without it is written.
-7. Can two developers interpret this differently? Not on behavior; only on whether "brief is" means the whole string (Low).
+1. Is the problem objectively defined? Yes, unchanged.
+2. Is the result measurable? Yes: AC-8 now has two clauses, each checkable by a grep at the current commit.
+3. Are error behaviors defined? Not applicable to this delta.
+4. Are edge cases covered? Not applicable; the only edge is a skipped archive step, named at `tasks.md:133-135`.
+5. Are dependencies clear? Yes: the clause 1 line is made by task 3.2 (done); the ticks belong to the archive steps of `ship-change`.
+6. Are contracts defined? Yes, unchanged.
+7. Can two developers interpret this differently? Only on "the archive follow-up ... ticks": it means the text of the follow-up says to tick, and the section above reads it that way; the AC names the follow-up in `tasks.md`, so the reading is stable.
 8. Are any decisions implicit instead of written? No.
-9. Do the tasks fully deliver the intended outcome? Yes: AC-1 to AC-9 each map to tasks and a test or a real run.
-10. What will be discovered too late if implementation starts now? Nothing I could find; the unrun parts are the gates (the machine is overloaded) and the shallow-clone behavior of `git log`, both shown at once by the first real runs.
+9. Do the tasks fully deliver the intended outcome? Yes: 3.2 plus the follow-up.
+10. What will be discovered too late? That `evidence.md:50` still carries the old wording; it is found now and listed.
 
 ## 13. Final conclusion
-- Can we start? Yes.
-- What must be fixed? Nothing before implementation; the two Low notes of section 10 can be applied while building.
-- Main risk if ignored? Low: a proof section that saves only the D-6 sentence and not the whole brief.
+- Can we start? Yes; the plan is approved as reworded.
+- What must be fixed? Nothing in the plan. The evidence row for AC-8 (`evidence.md:50`) is rewritten by the evidence stage.
+- Main risk if ignored? The delivery gate keeps seeing "no proof" for AC-8 and blocks the pull request.
