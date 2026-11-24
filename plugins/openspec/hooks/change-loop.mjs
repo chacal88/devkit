@@ -471,6 +471,11 @@ export const MESSAGES = {
     'state.github': 'waits on GitHub',
     'state.owner': 'waits for you',
     'state.blocked': 'is blocked',
+    // The status line's own words (run-status-bar D-8): the progress, the coordinator's counts and the word for a blocked count of one.
+    'bar.progress': '{n} of {total}',
+    'bar.counts': '{all} in play · {running} working · 🙋 {waiting} waiting on the owner · ⛔ {blocked} {blockedWord}',
+    'bar.blocked-one': 'blocked',
+    'bar.blocked-other': 'blocked',
     'where.slice-pr': 'its pull request #{number} {state}',
     'where.slice-archived': 'its pull request comes next',
     'why.no-verdict-file': 'its verdict file is missing',
@@ -756,6 +761,10 @@ export const MESSAGES = {
     'state.github': 'espera o GitHub',
     'state.owner': 'espera você',
     'state.blocked': 'está travado',
+    'bar.progress': '{n} de {total}',
+    'bar.counts': '{all} em jogo · {running} em andamento · 🙋 {waiting} aguardando o dono · ⛔ {blocked} {blockedWord}',
+    'bar.blocked-one': 'bloqueada',
+    'bar.blocked-other': 'bloqueadas',
     'where.slice-pr': 'o pull request #{number} dela {state}',
     'where.slice-archived': 'o pull request dela vem a seguir',
     'why.no-verdict-file': 'o arquivo do veredito não existe',
@@ -3184,9 +3193,10 @@ export async function runCommand(argv, opts = {}) {
 }
 
 // The request on standard input, for `start` and `open` (empty when there is none to read).
-// A pipe that is still empty makes the read fail with EAGAIN: wait a little and read again, up to STDIN_WAIT.ms in all.
+// A pipe that is still empty makes the read fail with EAGAIN: wait a little and read again, up to `waitMs` in all (STDIN_WAIT.ms unless
+// the caller gives one: the status line gives 1 second, run-status-bar D-2).
 const STDIN_WAIT = { stepMs: 20, ms: 10_000 };
-export function readStdin() {
+export function readStdin(waitMs = STDIN_WAIT.ms) {
   if (process.stdin.isTTY) return '';
   const chunks = [];
   const buf = Buffer.alloc(65_536);
@@ -3197,7 +3207,7 @@ export function readStdin() {
       n = readSync(0, buf, 0, buf.length, null);
     } catch (e) {
       if (e?.code !== 'EAGAIN') return '';
-      if (waited >= STDIN_WAIT.ms) break;
+      if (waited >= waitMs) break;
       sleepSync(STDIN_WAIT.stepMs);
       waited += STDIN_WAIT.stepMs;
       continue;
