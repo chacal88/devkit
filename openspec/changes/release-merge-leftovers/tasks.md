@@ -191,14 +191,14 @@ merge before review"; the numbers at the plan base are given only to locate the 
 
 ## 2. The two-PR override tests (AC-3, AC-4)
 
-- [ ] 2.1 Move `TWO_PRS` into `plugins/openspec/hooks/conduct-check.test.mjs` and make
+- [x] 2.1 Move `TWO_PRS` into `plugins/openspec/hooks/conduct-check.test.mjs` and make
   `plugins/openspec/hooks/delivery-models.test.mjs` import and re-export it, as "The `TWO_PRS`
   constant moves, unchanged" says; commit message: invariant "the two-prs settings text is one
   constant, unchanged", layer "test fixture", suite "the guard suite (delivery-models and
   release-tags)". Check: `git diff` shows the constant's text identical on both sides, no assertion
   line changed, and `grep -n "TWO_PRS" plugins/openspec/hooks/release-tags.test.mjs` still shows the
   import from `./delivery-models.test.mjs`.
-- [ ] 2.2 Add the fixture (`TWO_PRS_CONFIG`, `twoPrsConflict`, `listedBases`) and the two tests of
+- [x] 2.2 Add the fixture (`TWO_PRS_CONFIG`, `twoPrsConflict`, `listedBases`) and the two tests of
   "The new tests" to `plugins/openspec/hooks/conduct-check.test.mjs`, after the README test. Run
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="under two-prs" plugins/openspec/hooks/conduct-check.test.mjs`:
   both pass. Then prove they are not vacuous: change `twoPrsConflict`'s `{ config: TWO_PRS_CONFIG }`
@@ -206,7 +206,7 @@ merge before review"; the numbers at the plan base are given only to locate the 
   assertion ("the two-prs model is in force"), and restore the line (`git diff` shows only the
   additions of this task). If a test fails on the real fixture, stop as the preamble says. Commit
   message: invariant, layer and suite of the comment above the fixture.
-- [ ] 2.3 Gate: `mkdir -p /private/tmp/devkit-rml-p2 && env TMPDIR=/private/tmp/devkit-rml-p2 GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 plugins/openspec/hooks/release-tags.test.mjs && rmdir /private/tmp/devkit-rml-p2` green (`release-tags.test.mjs` imports `delivery-models.test.mjs`, which imports `conduct-check.test.mjs`, so this one process runs the three files' tests and the deliver-check and release-merge tests they load); covers AC-3 and, for these suites, AC-4.
+- [x] 2.3 Gate: `mkdir -p /private/tmp/devkit-rml-p2 && env TMPDIR=/private/tmp/devkit-rml-p2 GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 plugins/openspec/hooks/release-tags.test.mjs && rmdir /private/tmp/devkit-rml-p2` green (`release-tags.test.mjs` imports `delivery-models.test.mjs`, which imports `conduct-check.test.mjs`, so this one process runs the three files' tests and the deliver-check and release-merge tests they load); covers AC-3 and, for these suites, AC-4.
 
 ## 3. Release, the spec proof and the whole suite (AC-1, AC-4)
 

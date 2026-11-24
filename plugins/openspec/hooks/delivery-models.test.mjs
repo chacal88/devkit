@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { tmpFolder } from './test-tmp.mjs';
 import { git, put, commitAll } from './deliver-check.test.mjs';
-import { roundRepo } from './conduct-check.test.mjs';
+import { roundRepo, TWO_PRS } from './conduct-check.test.mjs';
 import * as guard from './guard.mjs';
 import * as deliver from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
@@ -21,7 +21,7 @@ import { collectFlow, reasonText } from './flow-check.mjs';
 const SET = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
 const cleanEnv = { ...process.env, ...SET };
 
-export const TWO_PRS = 'devkit:\n  delivery:\n    model: two-prs\n    base: main\n    test_branch: develop\n';
+export { TWO_PRS }; // defined in conduct-check.test.mjs, which this file already imports (no import cycle)
 
 function configRepo(text) {
   const root = tmpFolder('devkit-delivery-models-cfg-');
