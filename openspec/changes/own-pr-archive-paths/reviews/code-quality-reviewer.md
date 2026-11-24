@@ -1,17 +1,17 @@
 Verdict: approved
-Commit: 4299e85743098ed3546412873167b5e4a38aeeee
+Commit: 76b0bc48af58ac15c7894644a804f1fef3ecbb61
 
-## Quality review — own-pr-archive-paths (round 1)
+## Quality review — own-pr-archive-paths (round 1, re-check after the origin/main merge)
 
 ### Findings
-- [praise] plugins/openspec/hooks/deliver-check.mjs:636-646 — inOwnArchiveFolder compares the folder name by equality after the existing ARCHIVED pattern; no regex is built from the id, so ids like a.b or foo versus foo-two cannot collide, and tests 3 and 5 pin both cases.
-- [praise] openspec/changes/own-pr-archive-paths/proof/red-1.txt — The red-before-fix run was saved: tests 2, 3, 5 and 6 fail for the stated reasons, 1 and 4 pass because they pin today's answer; the evidence reproduces this honestly.
-- [nit] plugins/openspec/hooks/deliver-check.mjs:636 — The helper comment says 'a dated first folder' without noting that a bare file under openspec/changes/archive/ or an undated folder returns false on purpose (test 5 covers it); a short note would keep the next reader from widening the check.
-- [nit] openspec/changes/own-pr-archive-paths/proposal.md (What Changes) — The proposal and spec name deliver-check.test.mjs for the new tests, which now live in deliver-check-archive.test.mjs after the suite-speed split; the merge note in tasks.md and evidence.md say so, the proposal text is not updated. Harmless.
+- [praise] plugins/openspec/hooks/deliver-check.mjs:696-715 — inOwnArchiveFolder compares the folder name by equality after the ARCHIVED pattern, with no regex built from the id; it survived the merge intact, with the train/<n> rule kept ahead of it in isOwnPr.
+- [praise] openspec/changes/own-pr-archive-paths/evidence.md (Whole suite paragraph and suite run row) — The evidence says plainly that the whole suite was not run at the merged head, points to the last green run on 9374aeb and the delivery train, and claims no whole-suite pass it did not observe.
+- [nit] plugins/openspec/hooks/deliver-check.mjs:694 — The helper comment says 'a dated first folder' without noting that a bare file under openspec/changes/archive/ or an undated folder returns false on purpose (own archive 5 covers it); carried from round 1, optional.
+- [nit] openspec/changes/own-pr-archive-paths/proposal.md (What Changes) — The proposal still names deliver-check.test.mjs for the new tests, which live in deliver-check-archive.test.mjs after the suite-speed split; tasks.md and evidence.md say so; carried from round 1, harmless.
 
 ### Summary
-- 4 findings (0 blocking, 0 important, 2 nit) + 2 praise.
-- Reviewed against the merge base cf34ff2; the diff matches the proposal: helper inOwnArchiveFolder and the isOwnPr rule are the only logic changes, the rest is the 0.38.1 release.
-- The fix sits in isOwnPr, which every reader goes through (ADR 0017 decision 1); isArchiveHead, the train/<n> rule and the active-folder rule are untouched, so ADR 0003 holds.
-- Edge cases are covered (no slash after the prefix, undated folder, file instead of folder, regex metacharacter id, id-prefix pairs, both archive head forms, nested own-archive path) and findChangePr is tested end to end through the fake gh.
-- The acceptance proof in evidence.md has real outputs; the filtered run reproduced 7 of 7 green.
+- 4 findings (0 blocking, 0 important, 2 nit) + 2 praise. The two nits and both praise items carry over from round 1; this re-check adds nothing new.
+- The merge of origin/main (the 0.39.1 and 0.43.1 release, the train/<n> rule, the stale-only-on-own-files rule) left the change's logic alone: against the merge base 9dff573, deliver-check.mjs has exactly one hunk (the inOwnArchiveFolder helper, the isOwnPr comment and its one rule), and the train/<n> rule stays ahead of it. The own-files code of main does not touch isOwnPr.
+- Release numbers are consistent: the plugin and marketplace entry hold 0.39.1, the marketplace version holds 0.43.1, and the CHANGELOG opens with 0.43.1.
+- Acceptance proof: the filtered run with the patterns field-fixes 4, findChangePr and own archive printed 38 files, 72 tests, 72 pass, 0 fail. No whole suite was run; the last whole-suite run is proof/suite-run.txt on 9374aeb.
+- Previous round: no blocking or important finding existed, so no disposition is owed.
