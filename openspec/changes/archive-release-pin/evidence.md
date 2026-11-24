@@ -1,114 +1,100 @@
-<!-- devkit-stage evidence result=passed attempt=3 commit=54f947e2848bf86dd89463b165322f16db05a6a5 -->
-Commit: 54f947e2848bf86dd89463b165322f16db05a6a5
+<!-- devkit-stage evidence result=passed attempt=4 commit=0e76c413b45074e97db712dfe21ed4f443ef55d8 -->
+Commit: 0e76c413b45074e97db712dfe21ed4f443ef55d8
 
 # Evidence: archive-release-pin
 
-Verified on 2026-11-24 at head `54f947e` (attempt 3; working tree clean; no uncommitted change). Since attempt 2
-(`211c1eb`) the branch merged `origin/main` twice: `b72c47a` renumbered the release to devkit-openspec 0.40.0 and
-marketplace 0.44.0 (PR #97, `stale-only-on-own-files`, took 0.39.0 / 0.43.0) and moved the pin block to 0.40.0;
-`54f947e` brought PR #103, which turned the delivery train on for this repository (`openspec/config.yaml`
-`devkit.delivery`: model `trunk-auto`, train `node scripts/test-suite.mjs && python3 scripts/check.py`).
-The repository now delivers through the train, which runs the whole suite at the joined head. For that reason no
-new full run was started here: the whole-suite row below cites `proof/full-suite.txt` (38 files, 2928 tests, 0 fail,
-run at `687535a`, before the two merges) as the last full run. Every filtered run below ran at this head, through
-`node scripts/test-suite.mjs` (one process and one private TMPDIR per file) with
-`TMPDIR=/var/tmp/devkit-archive-release-pin`, `GITHUB_HEAD_REF=probe-branch` and `GITHUB_BASE_REF=main`.
+Verified on 2026-11-24 at head `0e76c41` (attempt 4; working tree clean, no uncommitted change), on the AMENDED
+plan: requirements answer A3, ADR 0030, design D-12, tasks phase 4. Attempt 3 (`54f947e`) verified the plan before
+the amendment; its criteria AC-3, AC-4, AC-8, AC-9 and AC-10 described the test-file half of the rule, which A3
+withdraws, so this file replaces it. Every filtered run below ran at this head through `node scripts/test-suite.mjs`
+(one process and one private TMPDIR per file) with `TMPDIR=/var/tmp/devkit-archive-release-pin`,
+`GITHUB_HEAD_REF=probe-branch` and `GITHUB_BASE_REF=main`, except the two entry-file runs said so. No fetch was done.
+The whole suite was not run here, by the coordinator's instruction: the delivery train runs it at the joined head.
 
 ## Verification
 
 ### Notes the reader needs
 
-- Entry files. After the `suite-speed` split the entry files `conduct-check.test.mjs` and `guard.test.mjs` no longer
-  import the deliver-check, release-merge and change-loop suites (`tasks.md` says they do). The gate commands of
-  tasks 1.5 and 2.4, run exactly as written at this head, exit 0 but select few tests (10 and 2). Their rows below
-  say so, and each is backed by a second run of the same patterns, through `node scripts/test-suite.mjs`, on the
-  files that now hold the tests. Run A: `deliver-check-archive.test.mjs`, `deliver-check-cli.test.mjs`,
-  `deliver-check.test.mjs`, `release-merge.test.mjs`, `conduct-check.test.mjs`: 5 files, 78 tests, 78 pass, 0 fail
-  (22, 4, 1, 41 and 10 tests), holding `archive-release-pin 1` to `11` and `release list`. Run B (the 2.4 patterns):
-  `guard.test.mjs`, `deliver-check-archive.test.mjs`, `deliver-check-cli.test.mjs`, `release-merge.test.mjs`,
-  `change-loop-compozy.test.mjs`, `roadmap-loop-upfront.test.mjs`, `release-tags.test.mjs`: 7 files, 38 tests,
-  38 pass, 0 fail. Run C (no name filter): `merge-setup.test.mjs` 24 tests and `change-loop-compozy.test.mjs`
-  197 tests, 221 pass, 0 fail, 347.7s (this file holds the pin block). Run D: `version-pin.test.mjs` filtered to
-  `^version-pin AC-2`: 10 tests, 10 pass, 0 fail.
-- The whole suite was not re-run here, by the coordinator's instruction. The last full run is
-  `proof/full-suite.txt` (merged head `687535a`, before both merges of `origin/main`): `suite: 38 files,
-  2928 tests, 2925 pass, 0 fail, 806.7s, concurrency 8`, `exit=0` (38 `pass` file lines and 0 `fail` lines,
-  counted at this head). Since `5ca9329` the pin code of this change did not change (`git diff 5ca9329 HEAD --
-  plugins/openspec/hooks/deliver-check.mjs` has 12 hunks, in `gitFacts`, `touchedPaths`, `staleness`,
-  `readReviews`, `tasksItem`, `acceptanceItem`, `collectState`, `judgeBoarded` and `runCi`, and none of its lines
-  holds `pinLinesOnly`, `PIN_LINE`, `PIN_TEST`, `textAt` or `unnamedFiles`), but the merges brought code of other
-  changes (`git diff --stat 687535a HEAD -- plugins scripts docs CHANGELOG.md .claude-plugin`:
-  19 files, among them `deliver-check.mjs` +72 -12 lines of PR #97 and the pin block of
-  `change-loop-compozy.test.mjs`). The delivery train (`openspec/config.yaml`: `node scripts/test-suite.mjs &&
-  python3 scripts/check.py`) runs the whole suite once at the joined head, so no new full run was started here.
-- Pin test file. The pin test file is `plugins/openspec/hooks/change-loop-compozy.test.mjs`: the rule's
-  `PIN_LINE_FILES` (`deliver-check.mjs:1361`) is `['docs/openspec-flow.md', 'plugins/openspec/hooks/change-loop-compozy.test.mjs']`,
-  and ADR 0027 and ADR 0003's Note name that path. `requirements.md` and `tasks.md` still say `change-loop.test.mjs`
-  (the name before the split). Not a defect.
-- The release moved. `plugins/openspec/.claude-plugin/plugin.json` is `0.40.0` and `metadata.version` of
-  `.claude-plugin/marketplace.json` is `0.44.0`; `docs/openspec-flow.md` has three `v0.40.0` pins and none of
-  `v0.39.0`. `origin/main` is `9dff573` and is an ancestor of this head (no fetch was done; this is the local ref).
-  ADR numbers: `0025` and `0026` are other changes', `0027` is this change's, no collision. The comment above the
-  pin-block `assert.match` in `change-loop-compozy.test.mjs` now reads "archive-release-pin moves it to 0.40.0
-  (release 0.44.0), above stale-only-on-own-files' 0.39.0".
-- Proof logs: `proof/red-1.txt` (ten new tests plus `release list` fail before the fix), `proof/red-2.txt`
-  (test 11 fails before the documents), `proof/real-run.txt` (cases R1 to R8, run before the first merge, when the
-  pin file was still `change-loop.test.mjs`: the pre-merge record, on the old path), `proof/real-run-head.txt`
-  (cases R1 to R8 and the extra X1, run at `5ca9329` on the shipped path `change-loop-compozy.test.mjs`: the proof on
-  the shipped path; it holds the verbatim build commands and, per run, its command, exit code and `archive.unnamed`),
-  `proof/full-suite.txt` (the conducting session's full run at `687535a`).
-- Real-run proof on the shipped path: `proof/real-run-head.txt`. Each case is a fresh clone of a scratch origin, an
-  archive branch with an approved retro proposal naming only `CONTRIBUTING.md`, run as
-  `env GITHUB_BASE_REF=main GITHUB_HEAD_REF=chore/archive-demo node plugins/openspec/hooks/deliver-check.mjs --ci --json`
-  (build commands at lines 24 to 109, output from line 111). Results, by line of that file:
-  - R1 (doc as at c561553): exit 0, `[]` (lines 141 to 142). R2 (R1 plus one doc edit): exit 1, `["docs/openspec-flow.md"]` (151 to 152).
-  - R3 (`change-loop-compozy.test.mjs` as the c561553 pin hunk): exit 0, `[]` (157 to 158).
-  - R4 (R3 plus `assert.ok(flow.length > 0, 'x');`): exit 1, `["plugins/openspec/hooks/change-loop-compozy.test.mjs"]` (169 to 170).
-  - R5 (`git rm docs/openspec-flow.md`): exit 1, `["docs/openspec-flow.md"]` (175 to 176).
-  - R6 (both files as c561553): exit 0, `[]` (181 to 182). R7 (the same from a folder of `guard.mjs`, `deliver-check.mjs`, `merge-setup.mjs`): exit 0, `[]` (188 to 189).
-  - R8 (`pinLinesOnly` against merge base `44ca321`): `docs/openspec-flow.md` false, `change-loop-compozy.test.mjs` true, exit 0 (lines 225 to 227).
-  - X1 (the c561553 text written to the old path `change-loop.test.mjs`): exit 1, `["plugins/openspec/hooks/change-loop.test.mjs"]` (198 to 199): the old path is no longer a pin file.
-  - Gap: no case there deletes the test file (R5 deletes the doc). The deleted-test-file half rests on the unit tests (`archive-release-pin 5`, `7`).
-- My own re-run of R3, R4 and R8 at `54f947e` (the same recipe as the build script of `proof/real-run-head.txt`,
-  scratch repository `/var/tmp/devkit-archive-release-pin/reverify-head2`, removed afterwards; R3 and R4 against a
-  scratch `main` holding the c561553^ text at the new path). R3: exit 0, `archive.unnamed` `[]`. R4: exit 1,
-  `["plugins/openspec/hooks/change-loop-compozy.test.mjs"]`. R8 against the merge base of this head, now `9dff573`
-  (it was `44ca321`): `docs/openspec-flow.md` false, `change-loop-compozy.test.mjs` true, exit 0. All equal to the log.
+- Whole suite. The whole-suite row (task 3.2) is proved by the delivery train at the joined head (`openspec/config.yaml`
+  `devkit.delivery`: `node scripts/test-suite.mjs && python3 scripts/check.py`). `proof/full-suite.txt` (merged head
+  `687535a`: `suite: 38 files, 2928 tests, 2925 pass, 0 fail, 806.7s, concurrency 8`, `exit=0`) is a historical record
+  of an earlier head, before the amendment and before two merges of `origin/main`; it is not proof of this head.
+- Entry files. After the `suite-speed` split, `conduct-check.test.mjs` and `guard.test.mjs` no longer import the
+  deliver-check, release-merge and change-loop suites (tasks 1.5 and 2.4 say they do). Those two gate commands, run
+  exactly as written, exit 0 but select few tests (10 and 2); each is backed by a second run of the same patterns
+  through `node scripts/test-suite.mjs` on the files that now hold the tests. Run A (the 1.5 patterns;
+  `deliver-check-archive`, `deliver-check-cli`, `deliver-check`, `release-merge`, `conduct-check` test files): exit 0,
+  `suite: 5 files, 79 tests, 79 pass, 0 fail, 30.9s`, holding `archive-release-pin 1` to `12` and `release list`.
+  Run B (the 2.4 patterns; `guard`, `deliver-check-archive`, `deliver-check-cli`, `release-merge`,
+  `change-loop-compozy`, `roadmap-loop-upfront`, `release-tags` test files): exit 0, `suite: 7 files, 39 tests,
+  39 pass, 0 fail, 4.6s`. The phase-4 gate (4.6) uses the file list that holds the tests, and is the current gate.
+- Superseded records. `proof/real-run.txt` (cases R1 to R8, run before the first merge, pin file `change-loop.test.mjs`)
+  and `proof/real-run-head.txt` (cases R1 to R8 and X1 at `5ca9329`, pin file `change-loop-compozy.test.mjs`) are the
+  earlier-phase records of the test-file half of the rule, which A3 and ADR 0030 withdraw. Their R3, R4, R6, R8 and X1
+  results (a pin-only test file passes) no longer describe the code and prove nothing about it now. The cited proof of
+  the amended code is `proof/real-run-amended.txt` and `proof/red-4.txt`.
+- Pin test. `change-loop docs: the design records the answers` in `plugins/openspec/hooks/change-loop-compozy.test.mjs`
+  (line 325) reads `version` from `plugins/openspec/.claude-plugin/plugin.json` (`0.40.0` here) and asserts
+  `pinMismatches(flow, version)` is `[]`. `docs/openspec-flow.md` holds three lines with `v0.40.0`. Inside that
+  test the only version literals are the `v0.20.0` slice-merge floor assertions (three lines, counted at this head),
+  and the only change name is `review-writer-prompt` in the roadmap-line assertion (outside the pin block). Its diff
+  against `main`'s merge base `9dff573` (`git diff --merge-base origin/main --stat`) is 28 deletions and no addition.
+- Fixtures. `git ls-files plugins/openspec/hooks/fixtures/c561553` lists only `openspec-flow.after.txt` and
+  `openspec-flow.before.txt` (15 lines each, counted at this head); the two `change-loop.test.*.txt` fixtures are gone.
+- The release number and ADR numbers. `plugin.json` is `0.40.0`. The local `origin/main` ref is `8085104` and the
+  merge base is `9dff573`; the flow's release step re-takes the number from a fresh `origin/main` (no fetch here),
+  so a number collision, if any, is not checked by this verification. ADR 0027 and ADR 0030 both hold
+  `- Status: accepted`.
 - `openspec/roadmap.md` ticks of `archive-release-pin` and `release-pin-is-a-release-file` happen at archive; no
   acceptance criterion depends on it.
+- My own re-run of A3 and A1 (recipe of the build script in `proof/real-run-amended.txt`, scratch repository
+  `/var/tmp/devkit-archive-release-pin/verify-amended`, removed afterwards; a fresh clone, an archive branch whose
+  approved proposal names only `CONTRIBUTING.md`, run as `env GITHUB_BASE_REF=main GITHUB_HEAD_REF=chore/archive-demo
+  node plugins/openspec/hooks/deliver-check.mjs --ci --json`): A3 (`change-loop-compozy.test.mjs` set to the
+  c561553 pin hunk, `git diff --stat` 2 insertions and 1 deletion): exit 1, `archive.unnamed`
+  `["plugins/openspec/hooks/change-loop-compozy.test.mjs"]`. A1 (the doc as at c561553): exit 0, `[]`. A6 re-run in the
+  worktree: the pin test passes (`ℹ tests 1`, `pass 1`, `fail 0`, exit 0), and `git grep -c -E
+  '[0-9]+\\?\.[0-9]+\\?\.[0-9]+'` on the test file counts 11 now against 40 at `34e3500`, a drop of 29. All equal to
+  `proof/real-run-amended.txt`.
 
 ### Gates
 
 | Gate | Command | Result |
 |---|---|---|
 | 1.5 | `mkdir -p /var/tmp/devkit-archive-release-pin` | pass: exit 0 |
-| 1.5 | `env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^archive-release-pin " --test-name-pattern="^release list" --test-name-pattern="^unnamedFiles" --test-name-pattern="^P13" --test-name-pattern="^P3j" --test-name-pattern="^--ci on an archive branch" --test-name-pattern="^release-merge" --test-name-pattern="^conduct pin" plugins/openspec/hooks/conduct-check.test.mjs` | pass: exit 0, 10 tests, 10 pass, 0 fail (the release-merge-conflict, `conduct pin` and `P3j`/`P13` tests that `conduct-check.test.mjs` still imports; the deliver-check tests are no longer imported by this file). Run A (same patterns, the five files that hold the tests): exit 0, 78 tests, 78 pass, 0 fail, including `archive-release-pin 1` to `11` and `release list` |
-| 1.5 | `env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 plugins/openspec/hooks/merge-setup.test.mjs` | pass: exit 0, 24 tests, 24 pass, 0 fail (run C, through `node scripts/test-suite.mjs`, same file) |
+| 1.5 | `env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^archive-release-pin " --test-name-pattern="^release list" --test-name-pattern="^unnamedFiles" --test-name-pattern="^P13" --test-name-pattern="^P3j" --test-name-pattern="^--ci on an archive branch" --test-name-pattern="^release-merge" --test-name-pattern="^conduct pin" plugins/openspec/hooks/conduct-check.test.mjs` | pass: exit 0, 10 tests, 10 pass, 0 fail (the tests `conduct-check.test.mjs` still holds or imports). Run A, same patterns on the five files that hold the tests: exit 0, 79 tests, 79 pass, 0 fail, including `archive-release-pin 1` to `12` and `release list` |
+| 1.5 | `env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 plugins/openspec/hooks/merge-setup.test.mjs` | pass: exit 0, 24 tests, 24 pass, 0 fail |
 | 1.5 | `python3 scripts/check.py` | pass: exit 0, "all checks passed" |
 | 2.4 | `mkdir -p /var/tmp/devkit-archive-release-pin` | pass: exit 0 |
-| 2.4 | `env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^archive-release-pin " --test-name-pattern="^release list" --test-name-pattern="^change-loop docs: the design records the answers" --test-name-pattern="^release-merge pin" --test-name-pattern="^release-merge-conflict 1[56]:" --test-name-pattern="^the pin in docs/openspec-flow.md" --test-name-pattern="^AC-8 release-ready" --test-name-pattern="^ADR 0003 exists" --test-name-pattern="^upfront AC-5 docs" --test-name-pattern="^upfront ADR 0021" --test-name-pattern="^upfront D-18 docs" --test-name-pattern="^release-tags 4:" plugins/openspec/hooks/guard.test.mjs` | pass: exit 0, 2 tests, 2 pass, 0 fail (`guard.test.mjs` holds only `ADR 0003 exists` and `upfront AC-5 docs`). Run B (same patterns, the seven files that hold the tests): exit 0, 38 tests, 38 pass, 0 fail |
+| 2.4 | `env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^archive-release-pin " --test-name-pattern="^release list" --test-name-pattern="^change-loop docs: the design records the answers" --test-name-pattern="^release-merge pin" --test-name-pattern="^release-merge-conflict 1[56]:" --test-name-pattern="^the pin in docs/openspec-flow.md" --test-name-pattern="^AC-8 release-ready" --test-name-pattern="^ADR 0003 exists" --test-name-pattern="^upfront AC-5 docs" --test-name-pattern="^upfront ADR 0021" --test-name-pattern="^upfront D-18 docs" --test-name-pattern="^release-tags 4:" plugins/openspec/hooks/guard.test.mjs` | pass: exit 0, 2 tests, 2 pass, 0 fail (`guard.test.mjs` holds only `ADR 0003 exists` and `upfront AC-5 docs`). Run B, same patterns on the seven files that hold the tests: exit 0, 39 tests, 39 pass, 0 fail |
 | 2.4 | `python3 scripts/check.py` | pass: exit 0, "all checks passed" |
 | 2.4 | `python3 scripts/gen-catalog.py --check` | pass: exit 0 |
 | 2.4 | `command claude plugin validate .` | pass: exit 0, "Validation passed" |
 | 2.4 | `openspec validate archive-release-pin --strict` | pass: exit 0, "Change 'archive-release-pin' is valid" |
 | 3.2 | `mkdir -p /var/tmp/devkit-archive-release-pin` | pass: exit 0 |
-| 3.2 | `env TMPDIR=/var/tmp/devkit-archive-release-pin node scripts/test-suite.mjs` | pass: not re-run at this head. Last full run: `proof/full-suite.txt`, merged head `687535a` (before both merges of `origin/main`), `suite: 38 files, 2928 tests, 2925 pass, 0 fail, 806.7s, concurrency 8`, `exit=0 end 2026-11-24T07:57:48-03:00`. The delivery train runs the whole suite at the joined head, so no new full run was started. Filtered runs A to D at this head, listed in the notes, all pass |
-| 3.2 | `python3 scripts/check.py` | pass: exit 0, "all checks passed" (re-run at `54f947e`) |
-| 3.2 | `python3 scripts/gen-catalog.py --check` | pass: exit 0 (re-run at `54f947e`) |
-| 3.2 | `command claude plugin validate .` | pass: exit 0, "Validation passed" (re-run at `54f947e`) |
-| 3.2 | `openspec validate archive-release-pin --strict` | pass: exit 0, "Change 'archive-release-pin' is valid" (re-run at `54f947e`) |
+| 3.2 | `env TMPDIR=/var/tmp/devkit-archive-release-pin node scripts/test-suite.mjs` | pass: not run here by the coordinator's instruction; the delivery train proves the whole suite at the joined head. Last full run, historical: `proof/full-suite.txt` at `687535a`, `suite: 38 files, 2928 tests, 2925 pass, 0 fail, 806.7s`, `exit=0`. The filtered runs of gates 1.5, 2.4 and 4.6 at this head all pass |
+| 3.2 | `python3 scripts/check.py` | pass: exit 0, "all checks passed" |
+| 3.2 | `python3 scripts/gen-catalog.py --check` | pass: exit 0 |
+| 3.2 | `command claude plugin validate .` | pass: exit 0, "Validation passed" |
+| 3.2 | `openspec validate archive-release-pin --strict` | pass: exit 0, "Change 'archive-release-pin' is valid" |
+| 4.6 | `mkdir -p /var/tmp/devkit-archive-release-pin` | pass: exit 0 |
+| 4.6 | `env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^archive-release-pin " --test-name-pattern="^release list" --test-name-pattern="^unnamedFiles" --test-name-pattern="^P13" --test-name-pattern="^--ci on an archive branch" --test-name-pattern="^the pin in docs/openspec-flow.md" --test-name-pattern="^release-merge" --test-name-pattern="^conduct pin" --test-name-pattern="^change-loop docs: the design records the answers$" --test-name-pattern="^version-pin " --test-name-pattern="^ADR 0003 exists" --test-name-pattern="^delivery-models docs: the documents follow" --test-name-pattern="^upfront ADR 0021" --test-name-pattern="^release-tags 4:" plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/version-pin.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/roadmap-loop-upfront.test.mjs plugins/openspec/hooks/release-tags.test.mjs` | pass: exit 0, `suite: 10 files, 149 tests, 149 pass, 0 fail, 76.8s, concurrency 2`; all ten files `pass`; `archive-release-pin 1` to `12`, `release list` and `change-loop docs: the design records the answers` each ✔ |
+| 4.6 | `python3 scripts/check.py` | pass: exit 0, "all checks passed" |
+| 4.6 | `python3 scripts/gen-catalog.py --check` | pass: exit 0 |
+| 4.6 | `command claude plugin validate .` | pass: exit 0, "Validation passed" |
+| 4.6 | `openspec validate archive-release-pin --strict` | pass: exit 0, "Change 'archive-release-pin' is valid" |
 
 ### Acceptance criteria
 
 | Id | Criterion | What was done and observed | Result |
 |---|---|---|---|
-| AC-1 | A pin-only change to `docs/openspec-flow.md` is absent from `unnamedFiles`, no `apply-proposals` stop | `archive-release-pin 1` (pin-only doc text and the real c561553 doc hunks), `6` (c561553's 16-file list passes with proposals naming neither pin file) and `7` (local stop through `collectState`: pin-only edits open the archive PR) pass in run A (78 tests) at `54f947e`. Real run on the shipped path, `proof/real-run-head.txt`: R1 (doc as at c561553) exit 0, `archive.unnamed` `[]` (lines 141 to 142); R6 (both files) exit 0, `[]` (181 to 182). Pre-merge record: `proof/real-run.txt` R1, same result | pass |
-| AC-2 | A doc change beyond the pin lines stays in `unnamedFiles` and stops with `files no approved proposal names: docs/openspec-flow.md` | `archive-release-pin 2` (changed sentence, added paragraph, marker line with other words changed) and the beyond-pin halves of `7`, `8`, `9` pass in run A. `proof/real-run-head.txt` R2: exit 1, `["docs/openspec-flow.md"]` (lines 151 to 152). Pre-merge record: `proof/real-run.txt` R2, same result | pass |
-| AC-3 | Only the two line forms of the test file leave it unnamed-free | `archive-release-pin 3` (added and removed `assert.match` / `assert.doesNotMatch(flow, /vX.Y.Z/, '<message>')` lines, `// Invariant: the CI snippet pins the current release`) passes in run A, with the c561553 hunks (`fixtures/c561553/change-loop.test.{before,after}.txt`). `proof/real-run-head.txt` R3 on the shipped path `change-loop-compozy.test.mjs`: exit 0, `[]` (lines 157 to 158); my re-run at `54f947e`: exit 0, `[]`. At this head the file's own diff against the merge base (`git diff --merge-base origin/main -U0`) holds only those forms: one Invariant comment removed and one added, one `assert.match` removed and one added (now `/v0\.40\.0/`), one added `assert.doesNotMatch(flow, /v0\.39\.0/, ...)`; R8 (re-run at this head): `pinLinesOnly` is true for it. Pre-merge record on the old path: `proof/real-run.txt` R3, exit 0, `[]` | pass |
-| AC-4 | Any other added or removed line keeps the file in `unnamedFiles` | `archive-release-pin 4` (other assertion, assertion on another subject, regex that is not a plain `vX.Y.Z`, unrelated test, other comment) and the other-line halves of `7`, `8`, `9` pass in run A. `proof/real-run-head.txt` R4 (c561553 text plus `assert.ok(flow.length > 0, 'x');`, shipped path): exit 1, `["plugins/openspec/hooks/change-loop-compozy.test.mjs"]` (lines 169 to 170); my re-run at `54f947e`: exit 1, the same list. X1 (pin-only text at the old path): exit 1, `["plugins/openspec/hooks/change-loop.test.mjs"]` (198 to 199). Pre-merge record on the old path: `proof/real-run.txt` R4, exit 1 | pass |
-| AC-5 | A file missing on either side, or unreadable, stays in `unnamedFiles` | `archive-release-pin 5` (missing, unreadable, other path, CRLF, lost and gained final newline, empty base against text; the two empty-base `true` cases) and the deleted-file half of `7` pass in run A. `proof/real-run-head.txt` R5: `git rm docs/openspec-flow.md`, exit 1, `["docs/openspec-flow.md"]` (lines 175 to 176). No real-run case deletes the test file on the shipped path; that half rests on the unit tests above | pass |
-| AC-6 | `RELEASE_FILE` unchanged, `RELEASE_FILE.test('docs/openspec-flow.md')` false, conflict classification unchanged | `RELEASE_FILE` at `deliver-check.mjs:1380` is the same regular expression as on `origin/main` (`git show origin/main:plugins/openspec/hooks/deliver-check.mjs`, line 1325: `/^(plugins\/[^/]+\/\.claude-plugin\/plugin\.json|\.claude-plugin\/marketplace\.json|CHANGELOG\.md|docs\/catalog\.md)$/`; `diff` of the two `export const RELEASE_FILE` lines prints nothing). Test `release list: RELEASE_FILE is unchanged and unnamedFiles still reports docs/openspec-flow.md (AC-7)` passes in run A; in `proof/red-1.txt` it failed only on its new pin-only half. `release-merge.test.mjs` (whole file, 41 tests, in run A), `release-merge-conflict 15` and `16` (run B) and the `conduct pin` tests pass. `git grep -n "PIN_MARKER\|PIN_TOKEN" -- plugins/openspec/hooks/release-merge.mjs` prints nothing. `deliver-check.mjs` has no import of `release-merge.mjs` (its `import` lines 7 to 19 name `node:*`, `merge-setup.mjs` and `guard.mjs`); `git grep -n "release-merge"` on it prints only the comment lines 1381 and 1382 (the pin file path is written there, from the delivery-train change, and a test holds the two equal) | pass |
-| AC-7 | `devkit-reviews --ci` applies the same rule through the shared function | `archive-release-pin 8` (`--ci` on an archive branch: same pin rule) and `9` (`--ci` from only `guard.mjs`, `deliver-check.mjs`, `merge-setup.mjs`: pin-only passes, beyond-pin fails) pass in run A. `archive-release-pin 10` passes: `release-merge.mjs` re-exports the one pin definition of `deliver-check.mjs`, which never imports `release-merge.mjs`. R7 (consumer folder of the three files only, `proof/real-run-head.txt`): exit 0, `[]`. `git grep -n "unnamedFiles(" -- plugins/openspec/hooks/deliver-check.mjs` prints 3 lines at this head: the definition (1388) and two callers (1702 `filesStop` with `a.changed?.texts`, 2516 `archivePrCheck` with `changes.texts`), both pass texts | pass |
-| AC-8 | `docs/openspec-flow.md` and ADR 0003 state the rule; `check.py` and `gen-catalog.py --check` pass | `archive-release-pin 11` passes in run A (failed in `proof/red-2.txt` on "the P13 row names the flow page"). `git diff --merge-base origin/main --numstat` at this head: ADR 0003 3 added and 0 removed (the header `Amended by ADR 0027` and the Note), `docs/openspec-flow.md` 6 added and 6 removed, `openspec/config.yaml` 1 and 1. `docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md` is new (108 lines) and holds `- Status: accepted`. `python3 scripts/check.py` and `python3 scripts/gen-catalog.py --check`: exit 0 | pass |
-| AC-9 | The real-run proof covers every declared case, on a real archive branch | `proof/real-run-head.txt` (shipped path `change-loop-compozy.test.mjs`, at `5ca9329`) holds the verbatim build commands (lines 24 to 109) and cases R1 to R8 (output from line 111), each with its command, exit code and `archive.unnamed`, each equal to D-10's Expected column (the test-file column read as the shipped path): pin-only doc passes; doc beyond the pin does not; c561553 test file passes; test file plus another assert does not; missing file does not; both files pass; the three-file consumer folder passes; R8 `pinLinesOnly` true for the test file and false for the doc. They ran on `deliver-check.mjs --ci --json` against scratch git repositories, not unit tests. the changes to `deliver-check.mjs` since `5ca9329` are the 12 hunks of PR #97 listed in the notes, none in the pin code, and I re-ran R3, R4 and R8 at `54f947e` with the same results as the log (see notes). `proof/real-run.txt` is the pre-merge record on the old path. The local stop (`filesStop`) is proved by `archive-release-pin 7` through `collectState` with the fake gh, as both logs say | pass |
-| AC-10 | The c561553 diffs are fixtures and both pass; so does the matching pair of a bump that names neither file | Four fixture files exist under `plugins/openspec/hooks/fixtures/c561553/` (`openspec-flow.before.txt` 15 lines, `openspec-flow.after.txt` 15, `change-loop.test.before.txt` 7, `change-loop.test.after.txt` 8; counted at this head), read by `archive-release-pin 1` (doc hunks) and `3` (test hunks), both pass in run A; `6` runs the 16-path list of c561553 through `unnamedFiles` with proposals naming neither pin file and gets `[]` | pass |
+| AC-1 | A pin-only change to `docs/openspec-flow.md` is absent from `unnamedFiles`, no `apply-proposals` stop | `archive-release-pin 1` (pin-only doc text and the real c561553 doc hunks), `6` (c561553's file list, proposals naming neither file) and `7` (the local stop through `collectState`: a pin-only doc edit opens the archive PR) pass in the 4.6 run and in run A at this head. `proof/real-run-amended.txt` A1 (doc as at c561553, archive branch whose proposal names only `CONTRIBUTING.md`): exit 0, `archive.unnamed` `[]`; my re-run of A1 at this head: exit 0, `[]` | pass |
+| AC-2 | A doc change beyond the pin lines stays in `unnamedFiles` and stops with `files no approved proposal names: docs/openspec-flow.md` | `archive-release-pin 2` (changed sentence, added paragraph, marker line with other words changed) and the beyond-pin halves of `7`, `8`, `9` pass in the 4.6 run. `proof/real-run-amended.txt` A2 (A1 plus one edited sentence): exit 1, `["docs/openspec-flow.md"]`. I did not re-run A2; the unit tests above prove it at this head | pass |
+| AC-3 | Any change to `plugins/openspec/hooks/change-loop-compozy.test.mjs`, a pin-assertion-only edit included, leaves it in `unnamedFiles` | `archive-release-pin 3` (renamed in phase 4: the pin-assertion-only edit is named, with the c561553 test hunks no longer read from a fixture) and `4` pass in the 4.6 run. `PIN_LINE_FILES` at `plugins/openspec/hooks/deliver-check.mjs:1360` is `['docs/openspec-flow.md']`; `git grep -n "PIN_TEST_LINES\|change-loop-compozy" -- plugins/openspec/hooks/deliver-check.mjs` prints only `PIN_LINE_FILES` lines (1329, 1360, 1364, 1371), no `PIN_TEST_LINES` and no test path. `proof/real-run-amended.txt` A3 (the test file set to the c561553 pin hunk, 2 insertions and 1 deletion): exit 1, `["plugins/openspec/hooks/change-loop-compozy.test.mjs"]`; my re-run of A3 at this head: the same exit and list | pass |
+| AC-4 | The pin test reads the pin from `plugin.json`, holds no release version literal or change name outside the `v0.20.0` floor, and passes | `archive-release-pin 12` passes in the 4.6 run (it failed in `proof/red-4.txt` on the first version literal of the pin block). `change-loop docs: the design records the answers` passes at this head (4.6 run, and my A6 re-run: `tests 1`, `pass 1`, `fail 0`). Reading the test body (line 325 and following): `version` comes from `plugins/openspec/.claude-plugin/plugin.json` and `pinMismatches(flow, version)` is asserted `[]`; the only `v0.20.0` hits are the three floor lines. Version-like literals in the test file: 11 now, 40 at `34e3500`, a drop of 29 (`git grep -c`), equal to the 29 lines task 4.3 removes. Its diff against the merge base is 28 deletions and no addition | pass |
+| AC-5 | A file missing on either side, or unreadable, stays in `unnamedFiles` | `archive-release-pin 5` (missing, unreadable, other path, CRLF, lost and gained final newline, empty base against text; the two empty-base `true` cases) and the deleted-file half of `7` pass in the 4.6 run. `proof/real-run-amended.txt` A4 (`git rm docs/openspec-flow.md`): exit 1, `["docs/openspec-flow.md"]`. I did not re-run A4 | pass |
+| AC-6 | `RELEASE_FILE` unchanged, `RELEASE_FILE.test('docs/openspec-flow.md')` false, conflict classification unchanged | `export const RELEASE_FILE` at `deliver-check.mjs:1372` is the same line as on `origin/main` (`diff` of the two lines prints nothing). `release list: RELEASE_FILE is unchanged and unnamedFiles still reports docs/openspec-flow.md (AC-7)` passes in the 4.6 run; the whole `release-merge.test.mjs` (the conflict classification, `release-merge-conflict 15` and `16` included) and the `conduct pin` tests pass. `git grep -n "PIN_MARKER\|PIN_TOKEN" -- plugins/openspec/hooks/release-merge.mjs` prints nothing. `deliver-check.mjs` has no import of `release-merge.mjs`; `git grep -n "release-merge"` on it prints only the two comment lines 1373 and 1374 | pass |
+| AC-7 | `devkit-reviews --ci` applies the same rule through the shared function | `archive-release-pin 8` (`--ci` on an archive branch applies the same pin rule) and `9` (`--ci` from only `guard.mjs`, `deliver-check.mjs`, `merge-setup.mjs`: a pin-only archive passes, one beyond the pin fails) pass; `archive-release-pin 10` (changed in phase 4 to the one-file list: `release-merge.mjs` re-exports the one pin definition and the archive check reads by content exactly `docs/openspec-flow.md`) passes in `release-merge.test.mjs` (it failed in `proof/red-4.txt` with the extra test path). `git grep -n "unnamedFiles(" -- plugins/openspec/hooks/deliver-check.mjs` prints the definition (1380) and two callers (1694 with `a.changed?.texts`, 2508 with `changes.texts`). `proof/real-run-amended.txt` A5 (consumer folder of only the three files): exit 0, `[]` | pass |
+| AC-8 | The flow page, ADR 0003's list and ADR 0027's header state the one-file rule; the config names ADR 0030; `check.py` and `gen-catalog.py --check` pass | `archive-release-pin 11` passes in the 4.6 run (it failed in `proof/red-4.txt` on the first missing document text). `docs/openspec-flow.md` line 571 (the file-check paragraph) says one file passes by its content, `docs/openspec-flow.md`, "as amended by ADR 0030", and "No test file passes by its content"; `git grep -n "change-loop-compozy.test.mjs" -- docs/openspec-flow.md docs/adr/0003-auto-merge-the-archive-pr.md` prints nothing. ADR 0003 holds `- Amended by ADR 0030` (line 6) and ADR 0027 holds `- Amended by ADR 0030` (line 9); both ADRs and ADR 0030 hold `- Status: accepted`. `openspec/config.yaml` line 37 names `0030 the pin test reads the manifest, so only the flow page pins pass unnamed, amends 0003 and 0027`. Against the merge base: ADR 0003 4 added 0 removed, ADR 0027 111 added 0 removed, flow page 6 and 6, config 1 and 1. `python3 scripts/check.py` and `python3 scripts/gen-catalog.py --check`: exit 0 | pass |
+| AC-9 | The real-run proof covers every case the plan declares, on a real archive branch, and the pin test passes with no release literal | `proof/real-run-amended.txt` holds the verbatim build script and cases A1 to A6, each with command, exit code and `archive.unnamed`, each equal to D-10 amended's Expected column: A1 pin-only doc passes (exit 0, `[]`); A2 doc beyond the pin does not (exit 1, doc named); A3 pin-assertion-only edit of `change-loop-compozy.test.mjs` is named (exit 1); A4 deleted doc is named (exit 1); A5 consumer folder of the three downloaded files passes a pin-only doc archive (exit 0, `[]`); A6 the pin test passes, 11 literals now against 40 at `34e3500`. They ran `deliver-check.mjs --ci --json` on scratch git repositories, not unit tests. I re-ran A1, A3 and A6 myself at this head, with the same results (see notes). `proof/real-run.txt` and `proof/real-run-head.txt` are earlier-phase records of the superseded test-file half and are not cited as proof. The local stop (`filesStop`) needs GitHub's answers, so it is proved by `archive-release-pin 7` through `collectState` with the fake `gh`, as the log says | pass |
+| AC-10 | The c561553 doc diff is a fixture and passes; the file list leaves the doc out of `unnamedFiles`; the test-file fixtures are deleted | `plugins/openspec/hooks/fixtures/c561553/` holds `openspec-flow.before.txt` and `openspec-flow.after.txt` (15 lines each) and nothing else (`git ls-files`). `archive-release-pin 1` (doc hunks pass) and `6` (c561553's file list, no proposal naming the doc, leaves the doc out and names its test file as any test file is) pass in the 4.6 run. `proof/red-4.txt` shows test `6` failing before phase 4's code and the amended tests 3, 5, 6, 7, 8, 10, 11 and 12 failing for the amended behaviour while 1, 2, 4 and 9 passed | pass |
