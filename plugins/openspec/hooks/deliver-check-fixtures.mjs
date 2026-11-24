@@ -219,8 +219,8 @@ export function ciRepo({ branch = 'ship/feat', names = ['feat'], config = 'schem
 // A base where `x` was squash-merged (still active, unproven) next to the `others`, and a PR branch that archives it.
 // The retro approves `src/a.ts` by default; `retro` and `files` override what the PR carries.
 export const X_RETRO = '## Proposed updates\n\n### `src/a.ts` (process-friction)\nSummary.\n- Answer: approved\n- Applied: yes\n';
-export function archivePrRepo({ branch = 'chore/archive-x', others = [], retro = X_RETRO, files = {}, schema = 'devkit-lite' } = {}) {
-  const root = gitRepo({ branch: 'main', changes: Object.fromEntries(['x', ...others].map((n) => [n, { ...changeFilesOf(), ...(n === 'x' ? { '.openspec.yaml': `schema: ${schema}\n` } : {}) }])), files: { 'src/a.ts': 'a\n', 'openspec/roadmap.md': '## R\n- [ ] x\n' } });
+export function archivePrRepo({ branch = 'chore/archive-x', others = [], retro = X_RETRO, files = {}, schema = 'devkit-lite', base = {} } = {}) {
+  const root = gitRepo({ branch: 'main', changes: Object.fromEntries(['x', ...others].map((n) => [n, { ...changeFilesOf(), ...(n === 'x' ? { '.openspec.yaml': `schema: ${schema}\n` } : {}) }])), files: { 'src/a.ts': 'a\n', 'openspec/roadmap.md': '## R\n- [ ] x\n', ...base } });
   git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
   git(root, 'switch', '-q', '-c', branch);
   git(root, 'mv', 'openspec/changes/x', 'openspec/changes/archive/2026-11-09-x');
