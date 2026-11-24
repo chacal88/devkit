@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=5 commit=6e683aa3e98ecc40a3cdece58e1394082910e54e -->
+<!-- devkit-stage tasks result=passed attempt=6 commit=db28ef29d37b4607c396c090d2c81724ac0848f1 -->
 # Tasks
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88)
@@ -360,7 +360,9 @@ every task with `git status --short`.
 - [ ] 5.6 D-22's texts: in `docs/openspec-flow.md` the two sentences of "The token budget." and "The model of each stage."
   and the new paragraph `**A change's own settings.**` with its example, byte for byte as D-22 gives it; the two
   settings comment lines of `openspec/config.yaml`; the two settings sentences of `docs/coordination-design.md`; the
-  Note of `docs/adr/0023-the-model-is-chosen-by-stage.md` after its stage-models Note (its `## Decision` untouched),
+  Note appended to the `## Decision` section of `docs/adr/0023-the-model-is-chosen-by-stage.md`, right after its
+  stage-models Note and before `## Consequences` (the section's text on the base, decisions 1 to 7 and the
+  stage-models Note, unchanged),
   worded as D-22 gives it, pointing to the change's settings ADR as `decisions.md` lists it, by a relative link to
   its file and the number that file has at this commit, as ADR 0011's Note points to the change's ADR (D-12).
   Before the edit, each sentence it changes is grepped in the test files (the rule of `openspec/config.yaml`); a test

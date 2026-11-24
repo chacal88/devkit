@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=5 commit=6e683aa3e98ecc40a3cdece58e1394082910e54e -->
+<!-- devkit-stage design result=passed attempt=6 commit=db28ef29d37b4607c396c090d2c81724ac0848f1 -->
 # Design
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a ·
@@ -1120,7 +1120,7 @@ and a file whose summary time passes about 300 s is split by CONTRIBUTING's rule
 | T136 | 19 | the fenced example that follows `**A change's own settings.**` in `docs/openspec-flow.md`, written byte for byte as the `.openspec.yaml` of change `feat` in a fixture project (an `openspec/config.yaml` naming `devkit-lite`, a `proposal.md` and one ADDED delta): the real `openspec validate feat --type change --strict` exits 0; `modelsOf(root, dir, { strict: true })` gives `review: 'opus'` and the default of every other stage; `budgetOf(root, dir, 'en')` gives `{ cap: 2000000, from: 'change' }`; the same lines under `devkit:` in place of `x-devkit:` make the CLI exit 1 (the reason of the rule) and are still read by `budgetOf` | loop and CLI | change-loop-declared.test.mjs |
 | T137 | 19 | `budget: 0` in the `x-devkit:` block of a change's `.openspec.yaml` makes `next` exit 3 with the `setting-unknown` reply naming `budget` and `0`; `design: gpt` in its `models:` the same naming `design: gpt`; the `waiting-budget` reply names the `x-devkit` block and the file in both languages; `writePin` on a file holding an `x-devkit:` block keeps the block's lines byte for byte and `readPin` reads the pin | loop | change-loop-declared.test.mjs |
 | T138 | 19 | the spend block of `flow-check` (the stage-models AC-12 fixture, with the project's `budget: 2000000`): with the change's `x-devkit:` `budget: 500000` its total line names the cap 500000; with only a `devkit:` block of `budget: 500000` in the change, the same | stage checker | stage-models.test.mjs |
-| T139 | 19 | the "token budget" and "model of each stage" paragraphs of `docs/openspec-flow.md` name the `x-devkit:` block of a change's own `.openspec.yaml` and no longer the words "a `devkit:` block of a change's own"; the paragraph `**A change's own settings.**` follows "The model of each stage", names `openspec validate <id> --type change --strict` and the fallback; the comment lines of `openspec/config.yaml` and the two settings sentences of `docs/coordination-design.md` name `x-devkit:`; ADR 0023 has the `Note (coordinator-loop-fixes, <date>)` naming `x-devkit:` and the change's settings ADR (by the number the file has then, as `decisions.md` names it) after the stage-models Note, and its `## Decision` section equals the text held in the test | doc | change-loop-declared.test.mjs |
+| T139 | 19 | the "token budget" and "model of each stage" paragraphs of `docs/openspec-flow.md` name the `x-devkit:` block of a change's own `.openspec.yaml` and no longer the words "a `devkit:` block of a change's own"; the paragraph `**A change's own settings.**` follows "The model of each stage", names `openspec validate <id> --type change --strict` and the fallback; the comment lines of `openspec/config.yaml` and the two settings sentences of `docs/coordination-design.md` name `x-devkit:`; ADR 0023 has the `Note (coordinator-loop-fixes, <date>)` naming `x-devkit:` and the change's settings ADR (by the number the file has then, as `decisions.md` names it) appended to its `## Decision` section, right after the stage-models Note and before `## Consequences`; the test holds that section's text as it is on the base (decisions 1 to 7 and the stage-models Note) and asserts that this text is unchanged and immediately followed by the new Note | doc | change-loop-declared.test.mjs |
 | T140 | 20 | the `context:` of `openspec/config.yaml` holds the `Live roadmap:` rule on the line right after `Test history:`, naming the tick, the done state and the fixture or constant | doc | change-loop-declared.test.mjs |
 | T141 | 7 | `collectState` on a git fixture whose change folder holds an uncommitted `declared.json` and nothing else uncommitted: `planDirty` is empty and `folderDirty` lists the record; with an uncommitted `design.md` as well, `planDirty` lists `design.md` only | checker | deliver-check.test.mjs |
 
@@ -1424,14 +1424,16 @@ per file (decision 2), the `devkit:` fallback (decision 3), the project's block 
   override it in its x-devkit: block" (budget) and "... can override a stage in its x-devkit: block" (models).
 - `docs/coordination-design.md`: the two sentences "its override in a change's own `.openspec.yaml`" gain
   "(its `x-devkit:` block)".
-- ADR 0023: a dated Note after its stage-models Note: "Note (coordinator-loop-fixes, <date of the edit>):
+- ADR 0023: a dated Note appended to its `## Decision` section, right after the stage-models Note and before
+  `## Consequences`: "Note (coordinator-loop-fixes, <date of the edit>):
   decision 1's override in a change's `.openspec.yaml` is written in an `x-devkit:` block, not a `devkit:`
   block, as ADR <its number> decides, because `openspec validate <id> --type change --strict` refuses any
   top-level key it does not know and accepts one that starts with `x-`; the `budget` key of the same file moves
   with it, and a `devkit:` block written there before is still read when the file has no `x-devkit:` block.
   Decision 1 is otherwise unchanged." (The change's settings ADR, written as a relative link to its file, as the
   other Notes link theirs; the link and the number are the ones the file has at the last merge, as for ADR
-  0011's Note, D-12.) Its `## Decision` section is not touched (the settings ADR's decision 5). The record is
+  0011's Note, D-12.) The text its `## Decision` section has on the base (decisions 1 to 7 and the stage-models
+  Note) is not changed, and the new Note follows it (the settings ADR's decision 5). The record is
   the decision; the Note points to it, as ADR 0011's Note points to the change's ADR. The owner's AC-19 chose
   between moving the place and dropping the offer; this plan moves it.
 - Spec deltas: `stage-models` modifies "A project and a change can set a stage's model"; `change-coordination`
@@ -1494,7 +1496,8 @@ does not parse; the config rule reaches every planner and reviewer through `cont
   D-22: the readiness review of attempt 5 found that moving the place of ADR 0023 decision 1's override changes
   that decision's text, which `rules.design` of `openspec/config.yaml` records as a new ADR, and the owner chose
   a record of its own; the ADR author drafted it. Its Amends line names ADR 0023 decision 1, and ADR 0023 gets a
-  dated Note pointing to it (D-22), its `## Decision` section untouched. It is accepted by `accept-decisions`
+  dated Note pointing to it (D-22), appended to its `## Decision` section after the stage-models Note, the
+  section's text on the base unchanged. It is accepted by `accept-decisions`
   after the owner's next approval of this plan (D-7, "This plan's own approval and its records").
 - Not recorded as an ADR, per `decisions.md`: the verifier's `proof/` folder, the host-monitor wait,
   the shared agent map, the language check, the nits and the two `devkit-lite` decisions. D-23 is not in
