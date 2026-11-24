@@ -2,18 +2,40 @@
 # Design
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a ·
-Decision: ADR 0025 (`docs/adr/0025-the-loop-declares-the-decisions-outside-the-stage-gates.md`,
-proposed; see `decisions.md`).
+Decision: the change's ADR, `docs/adr/<next free number at merge>-the-loop-declares-the-decisions-outside-the-stage-gates.md`
+(accepted at the plan approval; `decisions.md` points to it).
+
+## How this plan names things
+
+`origin/main` moves while this change is in flight (sibling changes merge about ten times a day), so the
+plan holds no fact that a merge can change:
+
+- A function, an export, a constant, a table, a test or a file is cited by its name, never by its line.
+  The implementer finds it with `grep -n "<name>"`, and re-reads it before editing it (D-17).
+- No plugin or marketplace version is written as a literal, and no sentence says what a version is
+  "today": the release is "the next free version at merge", by the rule of D-18.
+- The change's ADR is the file `docs/adr/<next free number at merge>-the-loop-declares-the-decisions-outside-the-stage-gates.md`.
+  Its number was the next free one when this plan was written; a sibling that merges first takes it, and the loop's
+  `renumber-adr` step then renames the file and every reference with it. This plan says "the change's ADR"
+  and its decision numbers, never the number, except in `decisions.md`, where the loop's `accept-decisions`
+  needs the real path.
+- Other ADRs are cited by their number: they are merged and do not move.
 
 ## Context
 
-See `proposal.md` for the why. The facts the approach rests on, at `origin/main` c1ac8c4:
+See `proposal.md` for the why. The facts the approach rests on, as the files read at the last revision of
+this plan (the base then held the CompozyOS driver and its kit, the stage models and the delivery train):
 
 - `plugins/openspec/hooks/change-loop.mjs`: `runReply` prints `devkit-end: <id> <state>` only for the
   two keys of `END_OF_KEY` (`blocked`, `waiting-pr-decision`); `roadmap-loop.mjs` keeps a second copy
   of that table in `replyCmd`, with the gate `decision` written in. `decide()` builds every action;
   `ROWS` maps each delivery step to a stage and a role; `AGENT` is a literal map of nine roles, while
-  `PACKS` (declared 1,500 lines later) is the pack table a test ties to `docs/roles.md`.
+  `PACKS` (declared further down the file) is the pack table a test ties to `docs/roles.md`. The
+  CompozyOS driver reads the same `nextAction` through `buildView` and `compozyView`, and writes
+  `approval.md` itself: `approvalText` and `recordApproval` (the `record-approval` step), in "the form of
+  the `stop-plan-approval` row of `ship-change`". `SKILL_LOOP_STEPS` names the hand-off steps whose
+  dispatch sentence the view takes from a `devkit` skill Loop bullet; every other hand-off step takes it
+  from its `ship-change` row (`SHIP_ROW_STEPS`).
 - `plugins/openspec/hooks/guard.mjs`: `runMarkers` reads `devkit-end: <id> <state>` but drops the id,
   so `runOf` sets `ended` for any change's end; `writeViolation` lets `pr-verifier` write
   `evidence.md` only ("only writes its own verdict file").
@@ -23,15 +45,27 @@ See `proposal.md` for the why. The facts the approach rests on, at `origin/main`
 - `plugins/openspec/hooks/flow-check.mjs`: `artifactState` skips the `stale-plan` check once a task is
   ticked, because the stale check is by file time and a tick changes `tasks.md`. `computeFlow` ends the
   walk `blocked` `ceiling-reached` when a failed stage's header attempt reaches its ceiling
-  (`raw.attempt >= ceilingOf(s)`, lines 575-579). The code review stage `review` (role `review-bench`)
-  declares `"ceiling": 2` in both scripts (`plugins/openspec/schemas/devkit/flow.json` line 49,
-  `devkit-lite/flow.json` line 34), and the `review` row of `ship-change/SKILL.md` sets its header to
-  `attempt=<the round>`, so a round-2 FAIL ends the walk blocked before the delivery checker is read
-  (`inDelivery` is false for a blocked end, `change-loop.mjs` line 869): the loop's code-review
+  (the `raw.attempt >= ceilingOf(s)` comparison of `computeFlow`, with a local `ceilingOf`; the
+  `header-failed` reason of `artifactState` computes the same ceiling inline). The code review stage
+  `review` (role `review-bench`) declares `"ceiling": 2` in both scripts (the `review` stage of
+  `plugins/openspec/schemas/devkit/flow.json` and of `devkit-lite/flow.json`), and the `review` row of
+  `ship-change/SKILL.md` sets its header to `attempt=<the round>`, so a round-2 FAIL ends the walk
+  blocked before the delivery checker is read (`inDelivery` is false for a blocked end): the loop's code-review
   deadlock is that blocked end (`why=ceiling`, stage `review`), which the coordinator-field-fixes retro
   met ("`next` answers `blocked` until someone sets the header of `review.md` by hand").
 - `plugins/openspec/hooks/conduct-check.mjs`: `releaseConflict` turns a conflict outside the release
-  files into a blocked row; `SUBAGENT` and `MAIN` give each step its actor.
+  files into a blocked row; `trainRejoin` keeps its own blocked `stop-archive` for an archive that left
+  a delivery train and conflicts outside the release files and the roadmap ticks; `deliveryRow` tries
+  the overrides in that order and returns the change's own `rejoin-train` step before any of them;
+  `SUBAGENT` and `MAIN` give each step its actor.
+- `plugins/compozy/skills/compozy-setup/`: the CompozyOS kit. `scripts/gen-agents.mjs` writes
+  `templates/agents/<role>/AGENT.md` for every role of `PACKS` from the Claude agent file
+  `plugins/<pack>/agents/<role>.md` (the body unchanged), and CI runs it with `--check`;
+  `scripts/install-kit.mjs <project-root>` copies the templates into the project's `.compozy/` and
+  records their digests and the pack's version in `.compozy/kit-manifest.json`; this repository's own
+  `.compozy/` is that install, and `scripts/adoption.test.mjs` compares it byte for byte with the
+  templates. Two files this change edits are sources of the kit: `plugins/core/agents/tdd-implementer.md`
+  and `plugins/core/agents/pr-verifier.md` (D-6, D-8, D-19).
 - `plugins/core/skills/review-change/scripts/review-round.workflow.js`: `validateArgs` accepts round 1
   or 2 only and the texts say "of 2" and "/2".
 - `plugins/openspec/skills/devkit/SKILL.md`: a red `gate` ends the run with
@@ -60,8 +94,19 @@ present (AC-16).
   session asks only the grill, the plan approval and the retro answers (`skills/devkit/SKILL.md`,
   `### A session per change`); the deadlock is answered in the change's own session.
 - Any change to `devkit-lite`'s stages or gates (AC-15).
+- The CompozyOS driver's loops (`devkit-change`, `devkit-review`, `devkit-roadmap` under
+  `plugins/compozy/skills/compozy-setup/templates/loops/`) and the `.compozy/loops/` copies: no
+  template of a loop changes. The driver therefore keeps its red-gate question to the owner (its
+  `phase_gate` node asks when the gate is red; `declare` is the main session's command and a CompozyOS
+  session has no main session to run it) and its review loop's two rounds (`devkit-review` builds the
+  round script's `args` from `next.round` and passes no `limit`, and the owner's authorization is
+  recorded by `declare` only). D-19 states what the driver does take from this change.
+- An archive that left a delivery train and conflicts with the base outside the release files and the
+  roadmap ticks keeps the blocked `stop-archive` that `trainRejoin` gives it (the delivery-train
+  design D-2; ADR 0022, decision 8): the conflict is a person's to resolve on the archive's branch.
+  AC-13 is read this way (D-5).
 
-## D-1 The declared steps: one table, one helper (AC-1; ADR 0025 decision 1)
+## D-1 The declared steps: one table, one helper (AC-1; the change's ADR decision 1)
 
 One table and one helper in `plugins/openspec/hooks/change-loop.mjs` carry every step or end the
 session declares outside the stage gates. They replace `END_OF_KEY` in `change-loop.mjs` and in
@@ -82,7 +127,9 @@ export function declaredStep(cwd, key, { params, lang, env, openspec, gh }) // {
 
 - `declaredStep` is the only function that prints a declared marker. For a `reply` row it renders the
   key and prints `devkit-end: <params.id> <end>` first, as `runReply` does today. For a `declare` row
-  it checks the loop's current action (`nextAction`) against `at` (`gate`: the session step `gate` of
+  it checks the loop's current action (`nextAction`, called as `runNext` calls it for `next`:
+  `budget: true`, `strictModels: true`, and `retry: false`, since a declared step retries no agent)
+  against `at` (`gate`: the session step `gate` of
   the phase named, D-3; `review-deadlock`: `deadlockScope(action)` is not null, D-4), records the step (D-1 record),
   and prints `loopOutput(id, action)` of the action that follows (D-3, D-4).
 - `runReply(args)` keeps its arguments; a key whose row is `declare` is refused (exit 3, `error`
@@ -99,7 +146,9 @@ export function declaredStep(cwd, key, { params, lang, env, openspec, gh }) // {
 - `GATE_OF_WHY` gains `'waiting-pause': 'pause'` and `'waiting-owner-decision': 'decision'`;
   `changeState`'s `declaredEnd` needs nothing else (it reads `params.gate ?? GATE_OF_WHY[why]`).
 
-**The record.** `openspec/changes/<id>/declared.json`, written only by `declare`:
+**The record.** `openspec/changes/<id>/declared.json`, written only by `declare` (it is not the
+roadmap run file's `declared[id]`, which `roadmap-loop.mjs reply` writes for the ends a roadmap run's
+session declares: two records of different things that share a word):
 `{ "version": 1, "steps": [ { "key": "gate-red", "phase": 2, "at": "<ISO time>" }, { "key":
 "review-round", "scope": "review", "round": 3, "words": "<the owner's words, up to 200 characters>", "at":
 "<ISO time>" } ] }` (`scope` is `review` or `resolution`, D-4; an entry with no `scope` reads as `review`).
@@ -146,6 +195,10 @@ entry, and writes through a temporary file in the same folder and a rename.
   a rephrase). The rule judges the command's text, not the folder it works in: a `cd <scratch project>
   &&` before the call exempts nothing (T99), so a subagent cannot run `declare` in a scratch project
   either (D-14 assigns every real run that calls it).
+- In a CompozyOS session (`COMPOZY_SESSION_ID` set) `writeViolation`'s first branch for an owner-`''`
+  gate refuses `declared.json` with the message that names `approval.md` and the kit's record step. A
+  CompozyOS session never calls `declare` (the driver has none, Non-Goals), so the wording is accepted
+  and the branch is not changed.
 - The guard's header comment lists `declared.json` (main session) and the `declare` command rule.
 
 **The skill.** `plugins/openspec/skills/devkit/SKILL.md`, `## Loop`: a new item after `end`, "A pause
@@ -177,20 +230,20 @@ upgrade'`, so "change-loop replies: no internal term in either language" renders
 | `declare-unreadable` | The record of the steps declared for {id} cannot be read ({error}), so nothing was recorded. | `O registro dos passos declarados de {id} não pode ser lido ({error}), então nada foi registrado.` |
 | `waiting-review-dispute` (reworded) | The code review of {id} still disagrees after its last round: the disputed points need your decision, or your word for one more round. | `A revisão de código de {id} ainda discorda depois da última rodada: os pontos em disputa precisam da sua decisão, ou da sua palavra para mais uma rodada.` |
 
-Alternatives: a fifth end state `paused` (rejected by ADR 0025: ADR 0010 decision 3 has four ends);
+Alternatives: a fifth end state `paused` (rejected by the change's ADR: ADR 0010 decision 3 has four ends);
 putting the recorded keys under `reply` too (rejected: `reply` stays a pure printer that reads no
 change, so a reply can never write a file by mistake); a second table in `roadmap-loop.mjs` (the
 drift this change removes).
 
-## D-2 The end marker names the run's change (AC-2; ADR 0025 decision 2)
+## D-2 The end marker names the run's change (AC-2; the change's ADR decision 2)
 
 `guard.mjs`: `runMarkers` captures the end's id, `{ end: { id, state } }`; `runOf` sets
 `ended = mark.end.state` only when `mark.end.id === change` (the newest `devkit-run:` id), and leaves
 `ended` as it was otherwise. An end line before any run line is ignored, as today. The roadmap
-reader (`roadmapRunOf`) and the run-line reader at `guard.mjs` line 861 read `mark.run` only and do
+reader (`roadmapRunOf`) and the other readers of the run line in `guard.mjs` read `mark.run` only and do
 not change. `stopDecision` in `change-loop.mjs` is unchanged: it trusts `run.ended`.
 
-## D-3 One fix after a red gate (AC-10; ADR 0025 decision 4)
+## D-3 One fix after a red gate (AC-10; the change's ADR decision 4)
 
 - `declare <id> gate-red --param phase=<n>`: `nextAction` must be the session step `gate` whose
   `detail.phase` is `n` (else `declare-not-at-gate`, exit 3, nothing recorded). The command counts
@@ -206,6 +259,9 @@ not change. `stopDecision` in `change-loop.mjs` is unchanged: it trusts `run.end
   approved tasks, and leave the gate task unticked; the gate runs again after you". `facts.redGate`
   is set only by `declare`; `next` never gives `fix-gate`, and `fix-gate` is no row of `ROWS` (as
   `fix-tests` is not), so the "rows match the checkers" test is unchanged.
+- The CompozyOS driver keeps its red-gate question to the owner, unchanged: its `phase_gate` node asks
+  when `run-gate` is red, and `declare` is run by a main session that a CompozyOS session does not
+  have (Non-Goals). AC-10 holds for the Claude driver, which is the one `declare` serves.
 - The bound is per phase and for the change's life: a third red of the same phase ends blocked
   again. After a blocked red gate the owner's way on is unchanged (fix it, call `/devkit change`,
   a green gate ticks the task).
@@ -219,10 +275,10 @@ not change. `stopDecision` in `change-loop.mjs` is unchanged: it trusts `run.end
   (so the run file holds it). `ship-change/SKILL.md` `gate` row: unchanged (ship-change is not the
   loop).
 
-## D-4 One more review round on the owner's word (AC-7; ADR 0025 decision 3)
+## D-4 One more review round on the owner's word (AC-7; the change's ADR decision 3)
 
 Two reviews can reach a deadlock: the change's code review and, in `two-prs`, the review of a
-conflict resolution on the support branch (`deliver-check.mjs` lines 1621 and 1635, the
+conflict resolution on the support branch (the `review-resolution` and `stop-review-deadlock` rows of `nextStep` in `deliver-check.mjs`, the
 `delivery-models` requirement "A resolution review deadlock goes to the owner"). The owner's word
 answers the deadlock in front of them, so each authorized round is recorded with the review it
 answers (its `scope`) and raises only that review's limit. The `delivery-models` spec is modified to
@@ -231,7 +287,7 @@ match (its delta in this change).
 **Where each deadlock stops the loop.** Two checkers bound the code review, and the stage walk comes
 first: at a round-2 FAIL the `review` stage's header (`result=failed attempt=2`) reaches its ceiling 2
 and `computeFlow` ends the walk `blocked` `ceiling-reached`, so `decide` gives the blocked end
-`why=ceiling` on the stage `review` and the delivery checker's `stop-review-deadlock` (line 1554) is
+`why=ceiling` on the stage `review` and the delivery checker's `stop-review-deadlock` row for the code review is
 not read (Context). That blocked end is the code review's deadlock in the loop; `stop-review-deadlock`
 of the code review is reached only by `ship-change` without the loop, or under a flow whose `review`
 ceiling is above the delivery checker's limit. The resolution's review has no stage of its own (its
@@ -245,7 +301,7 @@ therefore lifts two bounds of the code review by one each, and one bound of the 
 | The resolution review's round limit | `deliver-check.mjs` `res.limit` | 2 | 2 | 2 + m (m records) |
 
 Because both bounds of the code review rise together, each authorization hands exactly one more round
-whichever of them binds (ADR 0025 decision 3): with the shipped flows both are 2; under a flow whose
+whichever of them binds (the change's ADR decision 3): with the shipped flows both are 2; under a flow whose
 `review` ceiling is 1 (the synthetic version 2 of `version-pin.test.mjs`) the stage ceiling binds and
 an authorization still gives one round. T113 pins the shipped flows' `review` ceiling to
 `REVIEW_ROUNDS`.
@@ -253,17 +309,17 @@ an authorization still gives one round. T113 pins the shipped flows' `review` ce
 - `deliver-check.mjs`: `authorizedRounds(dir, scope)` (exported) = the number of `review-round`
   entries of `readDeclared(dir)` whose `scope` is `scope` (an entry with no `scope` counts as
   `review`), 0 on a reader error. It is the one count both checkers read. `collectState` sets
-  `state.roundLimit = REVIEW_ROUNDS + authorizedRounds(dir, 'review')`, and at line 1737, after
-  `resolutionState(...)`, `resolution.limit = REVIEW_ROUNDS + authorizedRounds(dir, 'resolution')`.
-  `nextStep`:
-  - line 1554: `state.reviewMd.round >= (state.roundLimit ?? REVIEW_ROUNDS)`, and the `why` text says
-    `after round ${limit}` (reads "after round 2" with no record);
-  - line 1587: `const limit = state.roundLimit ?? REVIEW_ROUNDS; const last = state.reviewMd?.round ?? 0;
+  `state.roundLimit = REVIEW_ROUNDS + authorizedRounds(dir, 'review')`, and in `twoPrsOf` (the closure
+  of `collectState` that calls `resolutionState(...)`, where `dir` is in scope),
+  `resolution.limit = REVIEW_ROUNDS + authorizedRounds(dir, 'resolution')`. `nextStep`, four rows:
+  - the code review's `stop-review-deadlock` row: `state.reviewMd.round >= (state.roundLimit ?? REVIEW_ROUNDS)`,
+    and the `why` text says `after round ${limit}` (reads "after round 2" with no record);
+  - the `review` row's round: `const limit = state.roundLimit ?? REVIEW_ROUNDS; const last = state.reviewMd?.round ?? 0;
     const round = state.reviewMd?.consensus === 'FAIL' && reRejected && last >= 1 && last < limit ? last + 1 : 1;`
     and the detail gains `limit` only when `limit > 2`;
-  - line 1621 (the resolution's deadlock): `res.round.round >= (res.limit ?? REVIEW_ROUNDS)`, `why`
+  - the resolution's `stop-review-deadlock` row: `res.round.round >= (res.limit ?? REVIEW_ROUNDS)`, `why`
     `after round ${limit}`, detail unchanged (`{ reviewers, resolution: true }`);
-  - line 1635 (the resolution's round): `const limit = res.limit ?? REVIEW_ROUNDS; const last =
+  - the `review-resolution` row's round: `const limit = res.limit ?? REVIEW_ROUNDS; const last =
     res.round?.round ?? 0; const round = res.round?.consensus === 'FAIL' && again && last >= 1 && last <
     limit ? last + 1 : 1;` and the `review-resolution` detail gains `limit` only when `limit > 2`.
   With no record, both limits are 2 and every row reads as today (a state built by a test without
@@ -274,19 +330,19 @@ an authorization still gives one round. T113 pins the shipped flows' `review` ce
   ceiling: `export function ceilingOf(stage, flow, facts)` is `null` for `stage.ceiling === 'owner'`,
   else `(stage.ceiling ?? flow.ceilings.default) + (stage.id === 'review' && stage.role ===
   'review-bench' ? facts.authorizedReviewRounds ?? 0 : 0)`. It replaces the local `ceilingOf` of
-  `computeFlow` (line 510, used at line 578) and the ceiling of `artifactState` (line 459, the
+  `computeFlow` (the comparison `raw.attempt >= ceiling`) and the ceiling of `artifactState` (the
   `header-failed` reason's `ceiling`). No other stage is lifted, and neither is a `review` stage of
   another role (the ADR review of `devkit-project`, role `adr-reviewer`, keeps its own two-round rule,
   a Non-Goal). A fact that is absent (every synthetic test fact of today), a missing record, an
   unreadable one or one with only `resolution` entries gives 0, so every walk reads as today and the
   pinned test `flow-check stages: a failed stage past its ceiling ends blocked`
-  (`flow-check.test.mjs` lines 534-541) passes unchanged. With one `review` record, a round-2 FAIL is
+  (`flow-check.test.mjs`) passes unchanged. With one `review` record, a round-2 FAIL is
   below the ceiling 3: the walk offers the implementation (`fix-after-failure`, `{ failed: 'review',
   attempt: 2, ceiling: 3 }`), or the review itself (`rerun-after-fix`) once a commit stales its
   header, both in the build or after part, so `inDelivery` is true and the delivery row gives
   `fix-review`, then `verify`, then `review` round 3 limit 3. A round-3 FAIL reaches the ceiling 3 and
   ends blocked again. No `flow.json` changes, so no flow version is raised.
-- `change-loop.mjs` `decide`, the owner-end branch (`OWNER_STEP`, today's line 1211): for
+- `change-loop.mjs` `decide`, the owner-end branch (the `OWNER_STEP` table): for
   `stop-review-deadlock` with `row.next.resolution === true`, the `waiting-review-dispute` end carries
   the detail `{ resolution: true }` (the fifth argument of `waiting`); the code review's deadlock
   carries no detail, as today. The blocked end of a ceiling and its reply (`blocked-why.ceiling`) do
@@ -314,7 +370,12 @@ an authorization still gives one round. T113 pins the shipped flows' `review` ce
   the deadlock sentence. `review-round.mjs` reads the same rules and passes `limit` through.
 - `plugins/core/skills/review-change/SKILL.md`: `args` gains the optional `limit` ("the `limit` of
   the loop's `review` or `review-resolution` step when it gives one", in a resolution call too); the `Consensus: PASS | FAIL (round N/2)` line becomes
-  `(round N/<limit>)`, with "2 unless the owner authorized more rounds".
+  `(round N/<limit>)`, with "2 unless the owner authorized more rounds". The same file's other sentences about the
+  round count change to the limit too, found by `grep -n "round 2\|2 rounds\|third round\|round N/2" plugins/core/skills/review-change/SKILL.md`:
+  "round 2 re-summons only the reviewers that failed" (a later round re-summons only the reviewers that
+  failed), "No convergence after 2 rounds -> stop and escalate ... No automatic third round" (after the
+  round limit, 2 unless the owner authorized more; no round beyond it without the owner's word) and "no
+  convergence after round 2 goes to the owner" (after the last round). No test pins them.
 - `plugins/openspec/skills/ship-change/SKILL.md`: the `review` and `review-resolution` rows pass
   `next.limit` when present; the `stop-review-deadlock` row's "after round 2" becomes "after its last
   round (2 unless the owner authorized more)", and the row adds: "Only the owner's own typed message asking for one more round
@@ -325,7 +386,8 @@ an authorization still gives one round. T113 pins the shipped flows' `review` ce
   deadlock: say its reply, add one sentence that one more review round needs the owner's own word, and
   end the turn; the owner's own typed message asking for it is recorded with the same `declare`."
 
-**How it composes with `stage-ceiling-consecutive`** (roadmap line 174, not merged at c1ac8c4). That
+**How it composes with `stage-ceiling-consecutive`** (a roadmap line in `openspec/roadmap.md`; check
+whether it has merged before the phase that edits `computeFlow`). That
 sibling changes how a stage's failures are counted (the failures since its last passed attempt, in
 place of the header's `attempt`); this change changes only how many are allowed (the ceiling, through
 `ceilingOf`). The two meet in one comparison, `count >= ceilingOf(stage, flow, facts)`: whichever lands
@@ -334,29 +396,55 @@ new tests T105 to T109 hold under either count: none of their fixtures has a pas
 failure, so the count equals `attempt`. This change merges `origin/main` before its last gate (task
 6.1), so the merged head is what the whole suite of 6.6 and the real runs prove.
 
-## D-5 A conflict outside the release files (AC-13; ADR 0025 decision 5)
+## D-5 A conflict outside the release files (AC-13; the change's ADR decision 5)
+
+**How AC-13 is read.** `requirements.md` is passed and stays as it is. Its AC-13 says that a pull request
+that conflicts with the base outside the release files gets a declared resolve step. This plan reads "a
+pull request" as the pull requests the override `releaseConflict` reads: a change's own pull request
+(delivery checker item 5) and an archive's pull request (`archive-pr`) that is not on a delivery train and
+never left one. Two cases are outside it, each with a declared step or a blocked end that exists
+today and does not change:
+
+- A change that left a delivery train: the delivery checker's own step `rejoin-train` (a hand-off to the
+  implementer, "resolve <next.paths> or fix <next.failure>") is its resolve step, and `deliveryRow`
+  returns it before any override, so `releaseConflict` is never reached for it (T118).
+- An archive that left a delivery train (`rejoin-archive` from the delivery checker): `trainRejoin` gives
+  it a session step when the base conflicts only in release files, the CI pin and roadmap ticks, and a
+  blocked `stop-archive` (`archiveStep: 'train-left'`, `blockedState`) when any other path conflicts,
+  because that conflict is the person's to resolve on the archive's branch (the delivery-train design D-2;
+  ADR 0022, decision 8). `releaseConflict` returns null for `rejoin-archive`, so this blocked end stays
+  (T117).
 
 - `conduct-check.mjs` `releaseConflict` (the override): where it returns `stop(... conflict in
   ${others})` today, it returns `step('resolve-base-conflict', 'the PR conflicts with <base> outside
   the release files: <others>', { number, paths: <every conflicting path, sorted>, others: <the
   non-release ones, sorted>, base: ctx.base, archive: onArchive })`. The `git merge-tree` error and the
   "head not in local history" stops stay blocked. `SUBAGENT['resolve-base-conflict'] = TDD`. The
-  comment "anything else stays blocked" becomes "anything else: resolve-base-conflict".
+  comment "anything else stays blocked" becomes "anything else: resolve-base-conflict". `trainRejoin` is
+  not edited.
 - `change-loop.mjs` `ROWS['resolve-base-conflict'] = handOff('implementation', 'tdd-implementer')`.
   After the implementer's merge commit, `unpushedMerge` already gives `push` / `open-archive-pr` with
   a plain `git push`; `verify` and `review` come first because the merge changed files outside the
   change's folder (as after `resolve-release-conflict`).
-- Skills: `devkit/SKILL.md`, a `resolve-base-conflict` item next to `resolve-release-conflict`: "an
-  `agent` hand-off to `devkit-core:tdd-implementer` with the brief and this sentence: Merge
-  `origin/<detail.base>` into the branch, never rebase; resolve each conflict of `detail.paths`
-  keeping what both sides meant, and the release files among them by the rule of
-  `resolve-release-conflict` (the base's version plus the branch's own bump, the branch's changelog
+- **Where the dispatch sentence is.** `resolve-base-conflict` stays out of `SKILL_LOOP_STEPS`, so the
+  CompozyOS view takes its dispatch sentence from the `ship-change` row of that name (`SHIP_ROW_STEPS`),
+  and the Claude driver reads the same row ("for a delivery step, append the dispatch sentence of that
+  step's `ship-change` row", `devkit/SKILL.md`, Loop, `agent`). The merge sentence is written once, in
+  that row. The `devkit` item says only what the row cannot: the declared end of a failure.
+- Skills: `ship-change/SKILL.md` gains the row `resolve-base-conflict`: "Dispatch
+  `devkit-core:tdd-implementer`: Merge `origin/<next.base>` into the branch, never rebase; resolve each
+  conflict of `next.paths` keeping what both sides meant, and the release files among them by the rule
+  of `resolve-release-conflict` (the base's version plus the branch's own bump, the branch's changelog
   entry above the base's newest, the catalog regenerated); run the project's test command; commit the
-  merge; never push. `Outcome: failure` ends the run blocked: run `reply blocked --param id=<id>
-  --param why=role-failed --param stage="<stageTitle>"`." `ship-change/SKILL.md` gains the row
-  `resolve-base-conflict` with the same dispatch sentence.
+  merge; never push." `devkit/SKILL.md` gains a `resolve-base-conflict` item next to
+  `resolve-release-conflict`: "an `agent` hand-off to `devkit-core:tdd-implementer` with the brief and
+  the dispatch sentence of the `ship-change` row of that name. `Outcome: failure` ends the run blocked:
+  run `reply blocked --param id=<id> --param why=role-failed --param stage="<stageTitle>"`."
+- Existing tests this changes (D-15): four tests of `conduct-check.test.mjs` and one of
+  `change-loop.test.mjs` pin the blocked end this step replaces, and the compozy view's hand-off test
+  pins the exact list of hand-off steps.
 
-## D-6 A task for the conducting session (AC-9; ADR 0025 decision 6)
+## D-6 A task for the conducting session (AC-9; the change's ADR decision 6)
 
 - The marker: a task whose description (the text after its id) starts with `Conductor:`.
 - `deliver-check.mjs` `parseTasks`: each task gains `isConductor: description.startsWith('Conductor:')`
@@ -375,7 +463,8 @@ failure, so the count equals `attempt`. This change merges `origin/main` before 
   "with `next.stopAt`, stop before that task". `devkit/SKILL.md` `session` item names `conductor-task`.
 - `plugins/core/agents/tdd-implementer.md`, `## Work`: "A task whose description starts with
   `Conductor:` is the conducting session's: never do it or tick it; stop before the first open one,
-  report the phase as stopped there, and return `success` for the tasks before it."
+  report the phase as stopped there, and return `success` for the tasks before it." The kit's copy of
+  this file is generated from it, so the same task regenerates the kit (D-19).
 - Both schemas' tasks instruction (`plugins/openspec/schemas/devkit/schema.yaml` and
   `devkit-lite/schema.yaml`, and their byte-identical copies under `openspec/schemas/`), after the gate
   sentence: "A task only the conducting session can do (a run in the host, a host setting, a real
@@ -384,7 +473,7 @@ failure, so the count equals `attempt`. This change merges `origin/main` before 
 - This change's own `tasks.md` uses no marker (it is written before the marker exists); the tasks the
   conducting session does are named in D-14.
 
-## D-7 A plan revised after the start (AC-8; ADR 0025 decision 7)
+## D-7 A plan revised after the start (AC-8; the change's ADR decision 7)
 
 - `deliver-check.mjs`: `planDigest(dir)` is the one digest of the plan: SHA-256 over, in this order,
   `proposal.md`, `design.md`, `tasks.md` and every `.md` file under `specs/` sorted by its path
@@ -396,8 +485,8 @@ failure, so the count equals `attempt`. This change merges `origin/main` before 
 - `planRevision(dir)` returns `{ plan: planDigest(dir), recorded: <approval.md's "- Plan:" value,
   lowercased, or null>, changed: recorded !== null && recorded !== plan }`. `approvalState` is
   unchanged (its shape is pinned by two tests).
-- `collectState` sets `state.plan = needsReadiness ? planRevision(dir) : null`. `nextStep` line 1535:
-  the plan approval stop holds when `!state.approval.ok && (!state.started || state.plan?.changed)`,
+- `collectState` sets `state.plan = needsReadiness ? planRevision(dir) : null`. `nextStep`'s plan-approval
+  row (the `stop-plan-approval` step): the plan approval stop holds when `!state.approval.ok && (!state.started || state.plan?.changed)`,
   and its detail gains `plan: state.plan?.plan ?? null`.
 - `flow-check.mjs` `collectFlow` adds `approvalOk` (`approvalState(dir).ok`) and `planRevision` to the
   facts for a flow that declares `approval`. `artifactState`, after the `stale-plan` block: when
@@ -412,11 +501,29 @@ failure, so the count equals `attempt`. This change merges `origin/main` before 
   `plan: planRevision(dir)` to the facts; both approval waits of `planPart` and the one of `buildPart`
   carry `detail.plan` beside `detail.readiness`.
 - `ship-change/SKILL.md` `stop-plan-approval` row: the form gains `- Plan: <next.plan>` after
-  `- Readiness:` (omitted when `next.plan` is null); line 20's "A change whose tasks are already ticked
-  is resumed without it" gains "unless its approval records a plan the plan files no longer match".
+  `- Readiness:` (omitted when `next.plan` is null); the sentence of the skill's opening section "A change
+  whose tasks are already ticked is resumed without it" gains "unless its approval records a plan the plan files no longer match".
   `devkit/SKILL.md` `### A session per change` names `ask.action.detail.plan` beside
   `ask.action.detail.readiness`.
 - An approval written before this change has no `- Plan:` line: nothing is stale for it (AC-16).
+- **The CompozyOS driver writes the same line** (decided here; AC-8 holds for both drivers). The driver is
+  a second writer of `approval.md`: `approvalText` and `recordApproval` (the `record-approval` step) write
+  the form of the `stop-plan-approval` row, so they follow it when the row changes. `approvalText` gains
+  a `plan` field and writes `- Plan: <digest>` after `- Readiness:` (and no such line when `plan` is
+  null or absent, so a caller without a digest writes today's text); `recordApproval` passes
+  `planDigest(dir)`, the digest of the plan files at the moment it writes, read through
+  `deliver-check.mjs` as `approvalState` already is. This is sound: `record-approval` runs only while
+  the loop's view asks for the approval (`stateFor` refuses otherwise), a revised plan reaches that view
+  through the same `plan-revised` reason and the readiness reviewer's hand-off as in the Claude driver
+  (the walk and `planPart` are shared), and the digest ignores ticks, so the CompozyOS run is sent back
+  to its gates after a plan edit exactly as the Claude run is. One difference is accepted: the Claude
+  session writes the digest `next` gave when it asked, and the driver writes the digest at the moment of
+  the record, so a plan file edited by hand between the question and the answer is covered by the
+  approval (nothing in a CompozyOS run edits a plan file in that window; a loop's own revision goes
+  through the `notes` path and a new question). The driver's loops are not edited (they call
+  `record-approval` as before). The test that pins the text, `change-loop compozy record-approval:
+  it writes approval.md in the form of the ship-change row, and approvalState reads it back as ok`, is
+  updated to expect the line (D-15), and T115 and T116 are new.
 
 ## D-8 The verifier's proof folder (AC-12)
 
@@ -428,13 +535,17 @@ failure, so the count equals `attempt`. This change merges `origin/main` before 
   writer's rule under `proof/` is as today.
 - `plugins/core/agents/pr-verifier.md`, `## Delivers`: "you are its only writer, and it is the only
   file you write" becomes "you are its only writer; besides it you write only the output of the runs
-  you record, under the change's `proof/` folder, and you name each such file in its row".
+  you record, under the change's `proof/` folder, and you name each such file in its row". Two existing
+  tests read the rest of this file and stay as they are (D-15): the new sentence holds neither the word
+  "screenshot" nor `gh pr comment`, and the `Never` line that forbids a screenshot, an image or a
+  pull-request comment stays. The kit's copy of this file is generated from it, so the same task
+  regenerates the kit (D-19).
 
 ## D-9 The agent map from the pack table (AC-4)
 
 `change-loop.mjs`: `PACKS` moves above `AGENT`; `export const agentOf = (role) => (PACKS[role] ?
 `${PACKS[role]}:${role}` : undefined)`; `export const AGENT = Object.freeze(Object.fromEntries(AGENT_ROLES.map((r) => [r,
-agentOf(r)])))` with `AGENT_ROLES` the nine roles of today's literal (exported too, so T75 and T76 read
+agentOf(r)])))` with `AGENT_ROLES` the nine roles of the literal it replaces (exported too, so T75 and T76 read
 the shipped map through these two exports); `COMMIT_AGENT` stays a literal
 and a test ties it to `agentOf('commit-and-pr')`. `project-loop.mjs` `AGENT` becomes
 `{ 'commit-and-pr': COMMIT_AGENT, 'adr-reviewer': agentOf('adr-reviewer') }`. `conduct-check.mjs`
@@ -483,29 +594,40 @@ and its output files, and writes no sentence when that line is missing or does n
 - `docs/adr/0011-the-change-coordinator-is-the-owners-session.md`: a Note after the last Note of
   `## Context`: "Note (coordinator-loop-fixes, <date of the edit>): the stop lock lets the session end
   its turn after a recorded end only when that end's `devkit-end:` line names the run's change, and
-  the ends a session declares outside the stage gates are those of ADR 0025." (ADR 0025 written as a
-  relative link to its file, as the other Notes link theirs.) "Decisions 1 to 3 are unchanged." `## Decision`
+  the ends a session declares outside the stage gates are those of ADR <its number>." (The change's ADR,
+  written as a relative link to its file, as the other Notes link theirs; the link and the number are the
+  ones the file has at the last merge.) "Decisions 1 to 3 are unchanged." `## Decision`
   is not touched.
 - `docs/openspec-flow.md`: the `devkit-lite` section records the two decisions of item 8 and item 9
   (no plan approval of its own by decision, the owner's message that sends it being the go-ahead; a
   change that creates the project's first spec follows the ordinary choice rule, with `WHY_CODES`);
   **The loop.** paragraph: "a gate that stays red" becomes "a gate that stays red after its one fix",
   and the declared-ends sentence lists the four reply keys and `declare`; **The locks** paragraph: the
-  end must name the run's change, and `change-loop.mjs declare` and `declared.json` are the main session's; **Delivery rows**: `resolve-base-conflict`, `conductor-task`;
+  end must name the run's change, and `change-loop.mjs declare` and `declared.json` are the main session's; **Delivery rows**: `resolve-base-conflict`, `conductor-task`, and the **Release-file conflict.**
+  bullet (a conflict outside the release files is `resolve-base-conflict` for a change's pull request and
+  for an archive's that never left a train, and still `blocked: archive` train-left for an archive that
+  did) with the `blocked: item 5` row of the troubleshooting table (the loop resolves a conflict in the
+  release files by the release merge and any other by the implementer's merge);
   **Order of the delivery steps** and the review-change bullet ("stops after two rounds"): the round
   limit, for the code review and for a resolution's review, and the code review stage's ceiling that
   rises with it (D-4); **Plan approval on disk**: the `- Plan:`
-  line and the revised plan; **Waiting on GitHub.**: the host monitor (what the session does; no claim
+  line and the revised plan, written by both drivers (the CompozyOS driver's `record-approval` writes it too, D-7);
+  **Waiting on GitHub.**: the host monitor (what the session does; no claim
   that the monitor wakes it on green checks, D-10); the person's language sentence (D-11, written from
   R10's recorded result).
-- `docs/coordination-design.md` line 185: "consensus; two rounds at most" becomes "consensus; two
-  rounds, one more for each the owner authorizes (ADR 0025)".
+- `docs/coordination-design.md`, the review row of the stage table: "consensus; two rounds at most" becomes "consensus; two
+  rounds, one more for each the owner authorizes (the change's ADR)".
 - Both schemas' review gate sentence "Gate: the reviewers reach consensus; two rounds at most."
   becomes "... two rounds at most, one more for each round the owner authorizes." (both copies).
-- `openspec/config.yaml` `context:` ADR list gains "0025 the loop declares every decision outside the
-  stage gates, and a revised plan goes back to its gates".
-- Every mention of "ADR 0025" follows the number the ADR has at the last merge of `origin/main` (the
-  ADR may be renumbered, `decisions.md`).
+- `openspec/config.yaml` `context:` ADR list gains "<the ADR's number> the loop declares every decision
+  outside the stage gates, and a revised plan goes back to its gates".
+- Every mention of the change's ADR in a file this change edits follows the number the ADR has at the
+  last merge of `origin/main` (the ADR may be renumbered; the loop's `renumber-adr` step carries the
+  references, and `decisions.md` points to the file).
+- `docs/compozy-kit.md`, the paragraph "The CompozyOS driver does not carry every feature of the Claude
+  driver": one sentence naming what this change does not carry there (the declared pause and decision,
+  the fix after a red gate and the owner-authorized review round: a CompozyOS run asks the owner at a red
+  gate and stops its review at two rounds) and what it does (the plan digest in the approval, D-7).
 
 ## D-13 The nits (AC-14)
 
@@ -534,7 +656,7 @@ commands where no agent is involved; each output goes to `openspec/changes/coord
 with a one-line check in `proof/checks.txt`, written `<run id> <what was checked>: pass` (or `: fail`),
 the run id in lower case (`r10`, `r13a`).
 
-**Who may run what.** Four rules decide the "Who runs it" column; each follows from a guard or lock
+**Who may run what.** Five rules decide the "Who runs it" column; each follows from a guard or lock
 this change keeps or adds:
 
 1. A `declare` the run calls directly is the conducting session's. The rule of D-1 refuses any
@@ -560,6 +682,13 @@ this change keeps or adds:
    `/devkit change coordinator-loop-fixes` run. Each loop command of R6, R7, R7b and R10 sends its
    stdout and stderr to its file under `proof/` and echoes only its exit code; each check reads the
    file with `grep -c` or `test`, never prints or reads it back whole.
+5. A proof file is scrubbed of the host before it is kept. The stream JSON of a `claude -p` run holds the
+   working directory and the person's home path in its `init` event, and this repository is public. Each
+   run's fixture script (kept outside the scratch project, rule 3) ends with a scrub that replaces, in
+   every file the run wrote under `proof/`, the worktree's absolute path with `<worktree>`, the scratch
+   run's folder with `<scratch>` and the home folder (read from `$HOME` by the script, never typed in a
+   command) with `<home>`; the run's one-line check in `proof/checks.txt` is appended only after
+   `grep -c` of each of those three paths over the run's files prints 0.
 
 | Run | Case (input variant) | Who runs it | Output | Check |
 |---|---|---|---|---|
@@ -572,17 +701,18 @@ this change keeps or adds:
 | R7 | the code review at round 2 FAIL (`review.md` header `result=failed attempt=2`, `Consensus: FAIL (round 2/2)`, a current rejection): `next`; `declare review-round` without words; with the owner's words; after a fixture fix commit and current evidence, `next`; the round script's arguments | **conducting session** (loop commands, rules 1, 3, 4) | `r7-next-1.txt`, `r7-declare-nowords.txt`, `r7-declare.txt`, `r7-next-2.txt`, `r7-next-3.txt`, `r7-args.txt`, `r7-declared.json` | `next` ends `blocked` `ceiling` on the stage `review`; without words: exit 3 `declare-no-words`, and `next` gives the same end again; with words: exit 0, a `review-round` entry of scope `review` and round 3, the action `fix-review`; after the fix and the evidence: `review` with round 3 and limit 3; `validateArgs` of `review-round.mjs` accepts `{ round: 3, limit: 3 }` and refuses `{ round: 3 }` |
 | R7s | the session's own part of R7: turn 1 runs `/devkit change` on the R7 fixture and ends on the ceiling, saying one more round needs the owner's word; turn 2 (`--resume`) is the owner's typed message asking for one more round | implementer (`claude -p`, two turns, rule 2) | `r7s-turn1.jsonl`, `r7s-turn2.jsonl`, `r7s-declared.json` | turn 1: no `declare` call, the last assistant message holds the blocked reply and the sentence on the owner's word; turn 2: a Bash call of the nested main session whose command holds `change-loop.mjs declare` and `review-round`, one entry whose `words` hold the turn's message |
 | R7b | a `two-prs` resolution deadlock with the owner's typed words | **conducting session** (loop commands on a `two-prs` fixture, fake `gh`, rules 1, 3, 4) | `r7b-next-1.txt`, `r7b-declare.txt`, `r7b-next-2.txt`, `r7b-declared.json` | the end is `waiting-review-dispute` with `detail.resolution`; a `review-round` entry of scope `resolution`; `next` gives `fix-resolution`, then `review-resolution` round 3 limit 3; the code review's limit stays 2 |
-| R8 | a pull request conflicting outside the release files, and one only in them | implementer (fake `gh`, real git, real `tdd-implementer` for the first) | `r8-*.jsonl`, `r8-rows.txt` | the first gives `resolve-base-conflict` and ends with a merge commit and no push; the second gives `resolve-release-conflict` |
+| R8 | a change's pull request conflicting outside the release files; an archive's pull request that conflicts outside them (never on a train); and one only in the release files | implementer (fake `gh`, real git, real `tdd-implementer` for the first) | `r8-*.jsonl`, `r8-rows.txt` | the first gives `resolve-base-conflict` and ends with a merge commit and no push, and `next --view compozy` on the same fixture gives an `agent` view whose brief names the `ship-change` row of that step as its dispatch source; the second gives `resolve-base-conflict` with `archive: true`; the third gives `resolve-release-conflict`. The two train cases (a change that left a train gives `rejoin-train`; an archive that left one stays `stop-archive`, AC-13's exclusions) are built from a recorded train, which only the suites' own helpers make: T117 and T118 prove them on real git repositories, and R8 does not repeat them |
 | R9 | a phase with a `Conductor:` task before and after an implementer task | implementer (loop commands; `claude -p` for the `implement` brief) | `r9-*.txt`, `r9-*.jsonl` | `conductor-task` first; the implementer stops at `stopAt` and leaves the marked task unticked |
 | R10 | the person's language never set, installed plugin (task 4.1, before phase 4 is handed) | **conducting session** (rule 4) | `r10-*.jsonl` | the `init` event lists devkit-openspec from the install, no `language` option is set in the config dir used, and the reply is in Portuguese with no `${user_config` |
 | R11 | a plan file edited after the first tick, and a tick alone | implementer (loop commands, rule 3: the edit, the re-review's `readiness.md` and `approval.md` by the fixture script) | `r11-*.txt` | edit: `next` hands the readiness review, then after the re-review `waiting-approval-again` with `detail.plan`; tick: the implementation goes on |
+| R15 | the same plan edit on the CompozyOS driver's own commands (AC-8 on the second driver) | implementer (loop commands, rule 3: no CompozyOS binary, the view and the record step are scripts) | `r15-*.txt` | after the edit `next --view compozy` hands the readiness reviewer ("out of date"); after the re-review by the fixture script it is the `approval` view; `record-approval --words go` writes an `approval.md` whose `- Plan:` line equals `planDigest` of the folder and whose other lines are the form of the `ship-change` row; after a tick alone the view is the implementation again |
 | R12 | the verifier's own run writes under `proof/` and is refused elsewhere | **pr-verifier** in this change's evidence stage | `proof/ver-*` and the hook log | its files under `proof/` exist; its write to any plan file is refused |
 | R13a | a run ending waiting on GitHub, the session's host instructions naming a pull-request monitor and forbidding polling | implementer (`claude -p --append-system-prompt "<the host text, in r13a-host.txt>"`, fake `gh`) | `r13a-*.jsonl`, `r13a-host.txt` | no Bash call whose command holds `change-loop.mjs wait`; the last assistant message holds the reply and names the monitor; the result event ends the turn |
 | R13b | the same project and run without the host text | implementer (`claude -p`, fake `gh`) | `r13b-*.jsonl` | a Bash call with `run_in_background: true` whose command holds `change-loop.mjs wait --change <id>` |
 | R14 | a real `tdd-implementer` subagent told to run `change-loop.mjs declare <id> review-round --param words=x` | implementer (`claude -p`, the Agent tool, rule 2) | `r14-*.jsonl`, `r14-hooklog.jsonl` | the subagent's Bash call is refused naming the main session; no `declared.json` is written |
 
 Which tasks are the conducting session's: 4.1 (R10), 6.3 (R6, R7, R7b) and the fetch of `origin/main`
-before 6.1. This `tasks.md` is written before the `Conductor:` marker exists (D-6), so 4.1 and 6.3 are
+before each phase that opens with a merge (D-17) and before 6.1. This `tasks.md` is written before the `Conductor:` marker exists (D-6), so 4.1 and 6.3 are
 ordinary tasks that the intro of `tasks.md` names: the conducting session does 4.1 and ticks it before it
 hands phase 4 (it needs nothing this change builds, so it may run earlier), and says in that hand-off
 that it is done. In phase 6, the implementer does 6.1 and 6.2 and stops before 6.3, reporting it
@@ -601,10 +731,18 @@ recorded by the verifier from the session's commits and `declared.json`, if one 
 
 Searched in `guard.test.mjs`, `change-loop.test.mjs`, `deliver-check.test.mjs`, `flow-check.test.mjs`,
 `conduct-check.test.mjs`, `project-loop.test.mjs`, `roadmap-loop.test.mjs`, `delivery-models.test.mjs`,
-`version-pin.test.mjs`, `review-round.test.mjs` and `github-setup.test.mjs` for "round 2", "/2", "of 2", "1 or 2",
-`stop-review-deadlock`, `ceiling`, `ceiling-reached`, `tests-red`, the started exemption, `stale-plan`, `END_OF_KEY`, `GATE_OF_WHY`,
-"only writes its own", `ATTRIBUTION_ASK ?? `, `Attribution below`, `approvalState`. `scripts/check.py`
-has no tests of its own.
+`version-pin.test.mjs`, `review-round.test.mjs`, `github-setup.test.mjs`, and, since the base gained the
+CompozyOS kit, the train and the stage models, in `gen-agents.test.mjs`, `adoption.test.mjs`,
+`loop-templates.test.mjs`, `devkit-kit.test.mjs`, `install-kit.test.mjs`, `delivery-train.test.mjs`,
+`stage-models.test.mjs`, `compozy-driver.test.mjs` and `release-tags.test.mjs`, for "round 2", "/2", "of 2",
+"1 or 2", `stop-review-deadlock`, `ceiling`, `ceiling-reached`, `tests-red`, the started exemption,
+`stale-plan`, `END_OF_KEY`, `GATE_OF_WHY`, "only writes its own", "only file you write", `ATTRIBUTION_ASK ?? `,
+`Attribution below`, `approvalState`, `approvalText`, `record-approval`, `resolve-release-conflict`,
+"conflict in", `blocked: item 5`, `stop-archive`, the names of the two agent files this change edits and
+`SKILL_LOOP_STEPS`. `scripts/check.py` has no tests of its own; `gen-agents.mjs --check` is a CI step.
+Tests are named here by their title and their file, never by their line, so the list holds when the base
+moves; before each gate the implementer also runs by name the tests that `origin/main` added since the plan's
+base (D-17, `CONTRIBUTING.md`).
 
 | Test (file) | Rule it pins | Fate | Task |
 |---|---|---|---|
@@ -616,11 +754,11 @@ has no tests of its own.
 | `change-loop skill: the release-conflict sentence` (change-loop.test.mjs) | "`Outcome: failure` ends the run blocked" | kept: the phrase stays, followed by the reply call | 1.5 |
 | `change-loop lock stop: T3a ...` (change-loop.test.mjs) | an end the session declared lets the stop through | kept: every case names the run's change | 1.3 |
 | `change-state AC-3 state: each end waiting for the owner ...` (change-loop.test.mjs) | a subset of `GATE_OF_WHY` | kept | 1.2 |
-| `nextStep row 7: FAIL (round 2/2) ...`, `nextStep row 9 ...`, the tests at lines 1667, 2065, 2088, 5379, `rejectedLoop`, `review-openspec-fix 16 ...` (deliver-check.test.mjs) | deadlock after round 2, round 2 after round 1 | kept: limit 2 with no record | 2.3 |
-| `delivery-models P7 T8 ...` and the resolution tests at lines 1063 to 1814 (delivery-models.test.mjs) | the resolution's deadlock after round 2 | kept: with no `resolution`-scope record the limit is 2, the `why` text still says "after round 2" and the deadlock's detail is unchanged | 2.3 |
+| `nextStep row 7: FAIL (round 2/2) ...`, `nextStep row 9 ...`, the other `nextStep` tests that read the round limit (found by `grep -n "round 2\|/2" plugins/openspec/hooks/deliver-check.test.mjs`), `rejectedLoop`, `review-openspec-fix 16 ...` (deliver-check.test.mjs) | deadlock after round 2, round 2 after round 1 | kept: limit 2 with no record | 2.3 |
+| `delivery-models P7 T8 ...` and the resolution tests of delivery-models.test.mjs (`grep -n "round 2\|resolution"`) | the resolution's deadlock after round 2 | kept: with no `resolution`-scope record the limit is 2, the `why` text still says "after round 2" and the deadlock's detail is unchanged | 2.3 |
 | `conduct: deliveryStep maps every deliver-check step ...` (conduct-check.test.mjs) | `stop-review-deadlock` state text; every step has an actor | kept; `conductor-task` and `resolve-base-conflict` get actors | 2.4, 3.2 |
 | the validation test listing `{ ...ok, round: 3 }` as invalid and the texts `(round 2/2)`, `deadlock after round 2`, `(round 1/2)` (review-round.test.mjs) | two rounds | kept: no `limit` means 2 | 2.3 |
-| `change-loop decide: ... waiting-review-dispute` (change-loop.test.mjs, line 483) | the dispute reply equals the rendered key | kept: re-rendered from the reworded key | 2.3 |
+| `change-loop decide: ... waiting-review-dispute` (change-loop.test.mjs) | the dispute reply equals the rendered key | kept: re-rendered from the reworded key | 2.3 |
 | the rows-match test and `change-loop decide: the loop's step agents match conduct-check's actorOf` (change-loop.test.mjs) | every returnable step has a row, and agents agree | kept; pass once `ROWS`, `SUBAGENT`, `MAIN` gain the two steps | 2.4, 3.2 |
 | `format: ship-change names every next.step the checker can return` (deliver-check.test.mjs) | a ship-change row per emitted step | kept; passes with the `conductor-task` row | 3.3 |
 | `stop-plan-approval: a change with a ticked task keeps running without approval.md (the started exemption)` (deliver-check.test.mjs) | no approval asked once started | kept: no approval.md means no recorded plan | 3.4 |
@@ -631,14 +769,27 @@ has no tests of its own.
 | `change-loop skill: the wait is started in the background on a GitHub wait` (change-loop.test.mjs) | the background wait | kept: the first paragraph is unchanged | 4.5 |
 | `commit-attribution AC-1 T25 ...` (project-loop.test.mjs) | the negative with `?? '\u0000'` | updated (D-13) | 5.2 |
 | `commit-attribution AC-2 T31 ...` (deliver-check.test.mjs) | the count of `Attribution below` | updated (D-13) | 5.3 |
-| roadmap tests with `tests-red` (roadmap-loop.test.mjs lines 657, 3280, 4637, 4661, 4667, 4687) | a declared blocked end of a red gate | kept: `roadmap-loop.mjs reply blocked` still records it | 2.2 |
-| `flow-check stages: a failed stage past its ceiling ends blocked` (flow-check.test.mjs lines 534-541) | `review` failed at attempt 2 ends blocked `ceiling-reached` `{ stage: 'review', attempt: 2, ceiling: 2 }`; at attempt 1 no end | kept: its synthetic facts carry no `authorizedReviewRounds`, so `ceilingOf` gives 2 (D-4) | 2.3 |
-| `flow-check stages: a failed header does not pass its stage` (line 445, `{ attempt: 1, ceiling: 2 }`) and `flow-check stages: a failed stage offers its fix, then itself after the fix` (line 543, `{ failed: 'review', attempt: 1, ceiling: 2 }`) (flow-check.test.mjs) | the review's ceiling in the reason's parameters | kept: no record, ceiling 2 | 2.3 |
-| the `liveChange` test at line 1093 (`review: 'failed', reviewAttempt: 2` exits 2) (flow-check.test.mjs) | the CLI exit of a review at its ceiling | kept: its fixture writes no `declared.json` | 2.3 |
-| `flow-check readout: both languages cover every reason code` (flow-check.test.mjs, the `ceiling-reached` and `header-failed` parameters at lines 1239-1241) | every reason code is said in both languages | kept: no reason code is added or renamed for the ceiling | 2.3 |
-| `stage-roles flow owner: a mock-up sent back at attempt 3 and at attempt 40 is never blocked by a ceiling` (flow-check.test.mjs, line 1723: "a numeric ceiling still blocks") | a numeric ceiling still blocks the review | kept: no record | 2.3 |
-| `version-pin AC-2 readout: the version-1 ceiling holds after the upgrade` and `version-pin AC-3 readout: the version-2 ceiling blocks` (version-pin.test.mjs lines 194-200 and 303-309) | the pinned flow's `review` ceiling (2, or 1 in the synthetic version 2) | kept: no record, so `ceilingOf` is the pinned flow's own ceiling | 2.3 |
-| `change-loop decide: P9 a ceiling and the other blocked ends of the plan` (change-loop.test.mjs lines 304-307) and the `ceilingFixture` tests of roadmap-loop.test.mjs (lines 604-635) | a readiness at its ceiling ends blocked `ceiling` | kept: the readiness is never lifted (`ceilingOf` lifts only the `review` stage of role `review-bench`) | 2.3 |
+| roadmap tests with `tests-red` (roadmap-loop.test.mjs, `grep -n "tests-red"`) | a declared blocked end of a red gate | kept: `roadmap-loop.mjs reply blocked` still records it | 2.2 |
+| `flow-check stages: a failed stage past its ceiling ends blocked` (flow-check.test.mjs) | `review` failed at attempt 2 ends blocked `ceiling-reached` `{ stage: 'review', attempt: 2, ceiling: 2 }`; at attempt 1 no end | kept: its synthetic facts carry no `authorizedReviewRounds`, so `ceilingOf` gives 2 (D-4) | 2.3 |
+| `flow-check stages: a failed header does not pass its stage` (`{ attempt: 1, ceiling: 2 }`) and `flow-check stages: a failed stage offers its fix, then itself after the fix` (`{ failed: 'review', attempt: 1, ceiling: 2 }`) (flow-check.test.mjs) | the review's ceiling in the reason's parameters | kept: no record, ceiling 2 | 2.3 |
+| the `liveChange` test (`review: 'failed', reviewAttempt: 2` exits 2) (flow-check.test.mjs) | the CLI exit of a review at its ceiling | kept: its fixture writes no `declared.json` | 2.3 |
+| `flow-check readout: both languages cover every reason code` (flow-check.test.mjs, the `ceiling-reached` and `header-failed` parameters) | every reason code is said in both languages | kept: no reason code is added or renamed for the ceiling | 2.3 |
+| `stage-roles flow owner: a mock-up sent back at attempt 3 and at attempt 40 is never blocked by a ceiling` (flow-check.test.mjs: "a numeric ceiling still blocks") | a numeric ceiling still blocks the review | kept: no record | 2.3 |
+| `version-pin AC-2 readout: the version-1 ceiling holds after the upgrade` and `version-pin AC-3 readout: the version-2 ceiling blocks` (version-pin.test.mjs) | the pinned flow's `review` ceiling (2, or 1 in the synthetic version 2) | kept: no record, so `ceilingOf` is the pinned flow's own ceiling | 2.3 |
+| `change-loop decide: P9 a ceiling and the other blocked ends of the plan` (change-loop.test.mjs) and the `ceilingFixture` tests of roadmap-loop.test.mjs | a readiness at its ceiling ends blocked `ceiling` | kept: the readiness is never lifted (`ceilingOf` lifts only the `review` stage of role `review-bench`) | 2.3 |
+| `change-loop compozy view: every hand-off step of the delivery rows carries its dispatch sentence, from the table the loop itself reads` (change-loop.test.mjs) | the exact set of hand-off steps (`deepEqual` of `handOffs` against `expected`), a `ship-change` row for each step that is not in `SKILL_LOOP_STEPS`, and one dispatch source per step | updated: `expected` gains `resolve-base-conflict` (the other two lists of the test are unchanged, because `resolve-base-conflict` stays out of `SKILL_LOOP_STEPS`, D-5, and its `ship-change` row is the source the test then requires); the invariant is "the table's hand-offs are the delivery rows' agent steps, each with one dispatch source" | 2.1, 2.4 |
+| `conduct: a conflict that also has README.md is blocked, and an independent change in the round is still dispatched` (conduct-check.test.mjs) | a conflict outside the release files is a blocked row | updated: the row is `resolve-base-conflict` (actor `subagent`, `others` `['README.md']`, `paths` both files), and the independent change is still dispatched; the list `res.dispatch` is recomputed for the new row | 2.1, 2.4 |
+| `conduct: an archive PR in conflict only in release files is resolve-release-conflict; a README conflict is blocked (P3b)` (conduct-check.test.mjs) | the same, for an archive's pull request | updated: the README half gives `resolve-base-conflict` with `archive: true` (the release-files half is kept) | 2.1, 2.4 |
+| `conduct pin: both sides editing one paragraph of docs/openspec-flow.md is blocked (AC-2)` and `conduct pin: an archive PR conflicting in the CI pin only is resolve-release-conflict, beyond the pin it is blocked (AC-3)` (conduct-check.test.mjs) | a conflict in the CI-pin file beyond its pins is blocked | updated: each gives `resolve-base-conflict` with the pin file in `others` (the pin-only half of AC-3 is kept) | 2.1, 2.4 |
+| `change-loop next: a pull request conflicting in another file ends blocked as a pull request problem` (change-loop.test.mjs) | `next` through `deliveryRow` ends blocked `pr-problem` for a conflict in `README.md` | updated: `next` gives the `agent` action `resolve-base-conflict` for `devkit-core:tdd-implementer`, exit 0; the invariant is "a conflict outside the release files is a declared hand-off, not a blocked end" | 2.1, 2.4 |
+| `change-loop decide: B1a a conflict elsewhere ends blocked, a clean merge in merge mode is the session step update-branch` (change-loop.test.mjs) | `decide` ends blocked on a `blocked` row of item 5 | kept: it builds the `blocked` row itself, which the delivery checker and the override still give when git cannot classify the conflict | 2.4 |
+| `conduct`-tests of an archive that left a train (`rejoin-archive`, `train-left`; found by `grep -n "rejoin-archive\|train-left" plugins/openspec/hooks/*.test.mjs`) and the `delivery-train` tests of the rows `rejoin-train` and `stop-archive` | `trainRejoin`'s steps and its blocked end, and the change's own `rejoin-train` | kept: `releaseConflict` returns null for both, `trainRejoin` is not edited | 2.4 |
+| `change-loop compozy record-approval: it writes approval.md in the form of the ship-change row, and approvalState reads it back as ok` (change-loop.test.mjs) | the exact text of the CompozyOS driver's `approval.md` | updated: the expected text gains the line `- Plan: <planDigest of the folder>` after `- Readiness:`; the invariant is "the driver writes the form of the `stop-plan-approval` row" | 3.1, 3.5 |
+| `change-loop compozy record-approval: words over 200 characters are cut, and a replaced approval raises the attempt` and `change-loop compozy record-approval: refused while the readiness review is due, with approval.md absent or unchanged` (change-loop.test.mjs) | the cut of the words, the attempt, and the refusal that leaves the file byte for byte | kept: neither reads the new line | 3.5 |
+| `stage-roles roles verifier: pr-verifier records text, takes no screenshot and posts no pull-request comment` (change-loop.test.mjs) and `delivery-train docs: pr-verifier leaves the parts the train proves to the train, and a change that edits the key runs every part` (delivery-train.test.mjs) | sentences of `pr-verifier.md` | kept: the `proof/` sentence of D-8 holds no "screenshot" and no `gh pr comment`, and the sentences they match are not edited | 4.3 |
+| `compozy-agents check: the repository is up to date`, `compozy-agents seat: ...` (gen-agents.test.mjs) | the kit's agents are the generator's output, and each seat names its Claude agent | kept: they go red until the kit is regenerated and pass after it (D-19) | 3.3, 4.3 |
+| `AC-9 repo-adopts: the tdd-implementer agent is the shipped template, byte for byte`, the same for `pr-verifier`, and `AC-9 repo-adopts: the manifest records this repository's three inputs and a digest for every kit file, and none for a retired one` (adoption.test.mjs) | this repository's `.compozy/` equals the rendered templates, and the manifest names every kit file | kept: they go red until `.compozy/` is installed again from the regenerated templates (D-19) | 3.3, 4.3, 6.2 |
+| `compozy-driver`, `loop-templates`, `devkit-kit`, `install-kit`, `stage-models`, `release-tags` suites | the driver's calls, the three loops, the resolver, the installer, the stage models, the tag step | kept: searched for the texts this change replaces, none found; their names are in the gates only through the whole suite (6.6) | 6.6 |
 
 ## D-16 New tests
 
@@ -695,9 +846,9 @@ Every new test's name starts `coordinator-loop-fixes AC-<n> T<k> `. "Loop CLI" t
 | T45 | 13 | a PR conflicting outside the release files: the row is `resolve-base-conflict`, actor `subagent` `devkit-core:tdd-implementer`, detail `paths`, `others`, `base`, `number` | checker (real git) | conduct-check.test.mjs |
 | T46 | 13 | a conflict in release files and in another file: `resolve-base-conflict` with both in `paths` and only the other in `others` (`others` is `classifyConflict`'s `blocking`, so a CI-pin file git cannot merge would be in it too; this test uses an ordinary file) | checker (real git) | conduct-check.test.mjs |
 | T47 | 13 | a conflict only in release files: still `resolve-release-conflict` | checker (real git) | conduct-check.test.mjs |
-| T48 | 13 | the archive PR conflicting outside the release files: `resolve-base-conflict` with `archive: true` | checker (real git) | conduct-check.test.mjs |
+| T48 | 13 | an archive PR that never left a train, conflicting outside the release files: `resolve-base-conflict` with `archive: true` | checker (real git) | conduct-check.test.mjs |
 | T49 | 13 | `decide` on a `resolve-base-conflict` row: an `agent` action to the implementer, stage implementation | loop | change-loop.test.mjs |
-| T50 | 13 | the skill item and the ship-change row of `resolve-base-conflict` hold the merge sentence, "never push" and the role-failed declared end | skill text | change-loop.test.mjs |
+| T50 | 13 | the `ship-change` row of `resolve-base-conflict` holds the merge sentence and "never push"; the `devkit` skill item names that row as the dispatch source and holds the role-failed declared end | skill text | change-loop.test.mjs |
 | T51 | 8 | `planDigest`: ticking a task (`[x]`, `[X]`, `[ x]`) leaves it equal | checker | deliver-check.test.mjs |
 | T52 | 8 | `planDigest`: an edit of `design.md`, of `proposal.md`, of a spec delta, and a new task line in `tasks.md` each change it | checker | deliver-check.test.mjs |
 | T53 | 8 | `planDigest`: `evidence.md`, `review.md`, `reviews/x.md` and `declared.json` leave it equal | checker | deliver-check.test.mjs |
@@ -725,7 +876,7 @@ Every new test's name starts `coordinator-loop-fixes AC-<n> T<k> `. "Loop CLI" t
 | T75 | 4 | for every role of the exported `AGENT_ROLES`, the exported `AGENT[role]` is `${PACKS[role]}:${role}`, and `COMMIT_AGENT` is `agentOf('commit-and-pr')` | loop | change-loop.test.mjs |
 | T76 | 4 | a map built from a `PACKS` with one pack changed differs from the shipped one (the test fails on a drift); `agentOf('owner')` is undefined | loop | change-loop.test.mjs |
 | T77 | 4 | project-loop's ADR reviewer agent is `agentOf('adr-reviewer')` | loop | project-loop.test.mjs |
-| T78 | 5 | ADR 0011 has a `Note (coordinator-loop-fixes, <date>)` naming the stop lock, the run's change and ADR 0025, and its `## Decision` section equals the text held in the test | doc | change-loop.test.mjs |
+| T78 | 5 | ADR 0011 has a `Note (coordinator-loop-fixes, <date>)` naming the stop lock, the run's change and the change's ADR (by the number the file has then), and its `## Decision` section equals the text held in the test | doc | change-loop.test.mjs |
 | T79 | 6 | `normalizeLang`'s fallback equals `userConfig.language.default` of devkit-openspec's `plugin.json` | loop | change-loop.test.mjs |
 | T80 | 6 | each `DECLARED` reply key rendered with `--lang '${user_config.language}'` and with `--lang ''`, with the parameters it needs (`id`, and `decision` for `waiting-owner-decision`), equals the pt-BR text and holds no `${` | loop CLI | change-loop.test.mjs |
 | T81 | 6 | `next` on a fixture change with `--lang '${user_config.language}'` gives the pt-BR reply of the same action | loop CLI | change-loop.test.mjs |
@@ -762,6 +913,10 @@ Every new test's name starts `coordinator-loop-fixes AC-<n> T<k> `. "Loop CLI" t
 | T112 | 7 | `deadlockScope`: `waiting-review-dispute` with `detail.resolution` gives `resolution`, without it `review`; a blocked `ceiling` end of role `review-bench` gives `review`; a blocked `ceiling` end of the readiness, of the evidence and of role `adr-reviewer`, a blocked `no-progress` end of the review, and an `agent` step each give null | loop | change-loop.test.mjs |
 | T113 | 7 | `REVIEW_ROUNDS` of `deliver-check.mjs` equals the `ceiling` of the `review` stage in `plugins/openspec/schemas/devkit/flow.json` and `plugins/openspec/schemas/devkit-lite/flow.json` | schema | deliver-check.test.mjs |
 | T114 | 1 | `RECORDED_KEYS` of `deliver-check.mjs` equals the keys of `DECLARED` whose `via` is `declare` | loop | change-loop.test.mjs |
+| T115 | 8 | `approvalText` with a `plan` writes `- Plan: <plan>` right after `- Readiness:` and keeps every other line of the form; with no `plan` it writes today's text byte for byte; `recordApproval` on a plan with a ticked task and a revised `design.md` writes a `- Plan:` line equal to `planDigest(dir)`, and `planRevision(dir).changed` is false right after | checker | change-loop.test.mjs |
+| T116 | 8 | the CompozyOS view of a plan revised after the first tick (the same fixture as T60): `next --view compozy` gives the readiness reviewer's `agent` view ("out of date"), then after the re-review the `approval` view, and a tick alone gives the implementation again | loop CLI | change-loop.test.mjs |
+| T117 | 13 | an archive that left a delivery train and conflicts outside the release files and the roadmap ticks keeps the blocked `stop-archive` (`archiveStep: 'train-left'`, `blockedState` naming the paths) and is never `resolve-base-conflict`; `releaseConflict` returns null for its `rejoin-archive` step | checker (real git) | conduct-check.test.mjs |
+| T118 | 13 | a change that left a delivery train (`rejoin-train` from the delivery checker) keeps `rejoin-train` with the base added, whatever it conflicts in: never `resolve-base-conflict` | checker (real git) | conduct-check.test.mjs |
 
 T87 reads the spec text: until the archive moves the delta into the main spec, it reads
 `openspec/changes/coordinator-loop-fixes/specs/change-coordination/spec.md` when that file exists,
@@ -769,46 +924,106 @@ else `openspec/specs/change-coordination/spec.md`, and asserts "the union of eve
 
 ## D-17 Siblings and the merge of `origin/main`
 
+Sibling changes land while this one is in flight (about ten merges of `main` in a day). The five hook
+files this change edits most are the ones they edit: `change-loop.mjs`, `flow-check.mjs`,
+`deliver-check.mjs`, `guard.mjs` and `conduct-check.mjs`.
+
+**The rule for every phase.** A phase that edits one of those five files starts with its own task `N.0`,
+which merges `origin/main` into the branch and re-reads each function the phase edits before it edits it:
+
+- The conducting session fetches `origin/main` and says so when it hands the phase; the implementer never
+  fetches (the plan's base is whatever that fetch brought). The task merges the local ref `origin/main`
+  with `git merge origin/main`, never a rebase.
+- The implementer then runs `grep -n "<name>"` for each function, export, constant or table the phase
+  names (the plan cites them by name, so the search finds them wherever the merge moved them) and reads
+  the function as it is now: a sibling may have changed it, and the plan's text then applies to the new
+  shape of the same function, or, when the new shape contradicts the plan, the phase stops and reports it.
+- Tests that `origin/main` added since the plan's base are run by name before the phase's own tests
+  (`git diff <the base of the previous merge>..origin/main --stat -- '*.test.mjs'`, `CONTRIBUTING.md`): a
+  failing one is a row for D-15 and one plan revision, not a failure of the phase.
+- A phase gate uses filtered test patterns: `node --test --test-name-pattern=... plugins/openspec/hooks/guard.test.mjs`
+  with the patterns of this change's tests and of the kept tests of the phase's area, plus the
+  stand-alone commands of the phase (`gen-agents.mjs --check`, the review round's tests). The whole
+  suite (13 to 21 minutes) runs once, in 6.6, on the merged head. A pattern is anchored (`^`) and names
+  a test's own prefix, so a sibling's new test with another prefix is outside every phase gate and
+  caught by 6.6.
+
+**What siblings touch.**
+
 | Sibling (roadmap line) | What it touches that this change also touches |
 |---|---|
 | `loop-place-and-evidence` | `change-loop.mjs` `stopDecision`, `END_OF_KEY` (a place end), the `waiting-` keys of `MESSAGES` and `GATE_OF_WHY`; `deliver-check.mjs` `nextStep` around `verify` and `review`; `devkit/SKILL.md` `## Loop` |
 | `fresh-base-check` | `conduct-check.mjs` `releaseConflict` and `deliveryRow` (a fetch before the judgment); `deliver-check.mjs` `update-branch` |
 | `post-merge-validate` | `deliver-check.mjs` `nextStep` after a base merge; `flow-check.mjs` `artifactState` attempts of the evidence |
 | `stale-only-on-own-files` | `deliver-check.mjs` `staleness`, `gitFacts`, `touchedPaths` (no overlap with `planDigest`) |
-| `stage-ceiling-consecutive` | `flow-check.mjs` `artifactState` and `computeFlow` ceilings: it changes how failures are counted (since the last passed attempt), this change how many are allowed (`ceilingOf`, the code review's ceiling plus its authorized rounds, D-4); `flow-check.test.mjs` around lines 534-549 |
+| `stage-ceiling-consecutive` | `flow-check.mjs` `artifactState` and `computeFlow` ceilings: it changes how failures are counted (since the last passed attempt), this change how many are allowed (`ceilingOf`, the code review's ceiling plus its authorized rounds, D-4); `flow-check.test.mjs`, the ceiling tests of `flow-check stages` |
 
-Whichever lands first, the other merges it. This change merges `origin/main` before its last gate
-(task 6.1), then runs the whole suite once on the merged head; if `loop-place-and-evidence` landed a
-place key in `END_OF_KEY`, that key becomes a `reply` row of `DECLARED` with its gate, and the
-roadmap test of every owner wait gains it. If `stage-ceiling-consecutive` landed first, the
-comparison of `computeFlow` keeps its count of failures on the left and `ceilingOf(stage, flow, facts)`
-on the right, `artifactState`'s `header-failed` parameters take `ceilingOf` too, and its tests and
-T105 to T109 must all pass on the merged head (D-4 says why T105 to T109 hold under either count).
-Before the first long evidence run, the conducting session asks the coordinator to pause sibling
-merges (owner's lesson).
+Whichever lands first, the other merges it. The task `6.1` is the last merge, then the whole suite runs
+once on the merged head; if `loop-place-and-evidence` landed a place key in `END_OF_KEY`, that key becomes
+a `reply` row of `DECLARED` with its gate, and the roadmap test of every owner wait gains it. If
+`stage-ceiling-consecutive` landed first, the comparison of `computeFlow` keeps its count of failures on
+the left and `ceilingOf(stage, flow, facts)` on the right, `artifactState`'s `header-failed` parameters
+take `ceilingOf` too, and its tests and T105 to T109 must all pass on the merged head (D-4 says why T105
+to T109 hold under either count). Before the first long evidence run, the conducting session asks the
+coordinator to pause sibling merges (owner's lesson).
 
 ## D-18 Release
 
-`CONTRIBUTING.md`, step 5, against `origin/main` at the last merge before review: devkit-openspec and
-devkit-core take the next minor after `main`'s (today 0.33.0 to 0.34.0 and 0.14.0 to 0.15.0), in
-each `plugin.json` and in `.claude-plugin/marketplace.json`, whose own version takes its next minor
-(today 0.37.0 to 0.38.0); `CHANGELOG.md` a section for the marketplace version with one bullet per
-pack and a docs bullet; every `v0.33.0` mention of `docs/openspec-flow.md` (the CI snippet's lines 661
-and 662, and the two on line 675) names the new devkit-openspec version. `docs/catalog.md` does not change (no
-description changes; `gen-catalog.py --check` proves it). The tag is the loop's `tag-release` step.
+`CONTRIBUTING.md`, step 5, against `origin/main` at the last merge before review (the conducting session
+fetches it; the plan holds no version). Every pack this change changes takes the next free minor after
+`main`'s, in its `plugin.json` and in `.claude-plugin/marketplace.json`: devkit-openspec and devkit-core,
+and devkit-compozy, because two of its agent templates are generated from agent files this change edits
+and its installed kit and manifest change with them (D-19). The marketplace's own version takes its next
+minor; `CHANGELOG.md` gets a section for it with one bullet per pack and a docs bullet; every
+devkit-openspec version tag the CI snippet of `docs/openspec-flow.md` names (found with `grep -n
+"v[0-9]*\.[0-9]*\.[0-9]*" docs/openspec-flow.md`, never by a number of a line) names the new devkit-openspec
+version. A sibling that merged meanwhile took the version: the merge of `main` renumbers (the loop's
+`resolve-release-conflict` step does it). `docs/catalog.md` does not change (no description changes;
+`gen-catalog.py --check` proves it). The kit's `.compozy/kit-manifest.json` records the devkit-compozy version
+at install, so the install runs once more after the bump (D-19). The tag is the loop's `tag-release` step.
+
+## D-19 The CompozyOS driver and its kit (the readiness review of attempt 4)
+
+The base brought a second driver that reads the same checkers and a kit generated from this change's
+agent files. What this change does for each, decided here:
+
+- **Takes from this change.** The `- Plan:` line of the approval (D-7: `approvalText`, `recordApproval`,
+  T115, T116, R15); the new delivery step `resolve-base-conflict` as a hand-off whose dispatch sentence is
+  its `ship-change` row (D-5, one entry of `ROWS`); `conductor-task` as a coordinator step by the view's
+  generic session branch, which names the `ship-change` row; the reworded `waiting-review-dispute`
+  and the new reply texts through `render`.
+- **Does not take** (Non-Goals): the declared pause and decision (a CompozyOS run has no session to
+  declare them and no stop lock), the fix after a red gate and the owner-authorized review round (both
+  need `declare`, the main session's command).
+- **The kit.** The two agent files this change edits, `plugins/core/agents/tdd-implementer.md` (D-6) and
+  `plugins/core/agents/pr-verifier.md` (D-8), are sources of `templates/agents/<role>/AGENT.md`. The
+  task that edits each of them also regenerates the kit, in two commands and never by hand:
+  1. `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs` rewrites the two templates
+     (`gen-agents.mjs --check` exits 0 afterwards);
+  2. `node plugins/compozy/skills/compozy-setup/scripts/install-kit.mjs .`, run in the worktree root,
+     refreshes `.compozy/agents/<role>/AGENT.md` (each file equals its recorded digest, so the state is
+     `update`) and the digests of `.compozy/kit-manifest.json`; it writes nothing outside `.compozy/`.
+  The two checks that prove it are `gen-agents.mjs --check` (the CI step "CompozyOS agents are up to
+  date" and `gen-agents.test.mjs`) and `adoption.test.mjs` (byte for byte against the rendered
+  template, and the manifest). The release (D-18) changes devkit-compozy's version, which the manifest's
+  `pack` field records, so task 6.2 runs the second command once more.
+- **No loop template changes**, so `loop-templates.test.mjs` and the `.compozy/loops/` copies are as they
+  are.
 
 ## Decisions and ADRs
 
-- ADR 0025 (proposed, `decisions.md`) is the decision behind D-1 to D-7; the plan follows its eight
-  points. Read for this plan: ADR 0010 (decisions 3, 5, 6, 8), ADR 0011, ADR 0016, ADR 0017, ADR 0021
-  (only the owner's own typed message is a go-ahead), ADR 0002 and ADR 0003 (merge mode, unchanged).
+- The change's ADR (accepted at the plan approval; `decisions.md` points to it) is the decision behind D-1
+  to D-7; the plan follows its eight points. Read for this plan: ADR 0010 (decisions 3, 5, 6, 8), ADR 0011,
+  ADR 0016, ADR 0017, ADR 0021 (only the owner's own typed message is a go-ahead), ADR 0002 and ADR 0003
+  (merge mode, unchanged), and, for the CompozyOS driver and the train, ADR 0022 (decision 8) and
+  ADR 0024. No decision of theirs is reversed.
 - Not recorded as an ADR, per `decisions.md`: the verifier's `proof/` folder, the host-monitor wait,
   the shared agent map, the language check, the nits and the two `devkit-lite` decisions.
-- Rejected alternatives that an ADR already rejected are not used: no fifth end state (ADR 0025), no
-  unbounded fix loop (ADR 0025, ADR 0010 decision 3's ceilings), no authorization from any message
+- Rejected alternatives that an ADR already rejected are not used: no fifth end state (the change's ADR), no
+  unbounded fix loop (the change's ADR, ADR 0010 decision 3's ceilings), no authorization from any message
   (ADR 0011, ADR 0021), no lifting of the edit lock for a conductor task (ADR 0010 decision 8, ADR 0011
   decision 2).
-- ADR 0025 decision 3 ("recorded from the owner's session ... a message from another session or
+- The change's ADR decision 3 ("recorded from the owner's session ... a message from another session or
   agent is no authorization", "each authorization hands exactly one round") covers the
   main-session-only `declare` command and a round of the resolution's review. Its wording was made
   precise in this revision (attempt 3 of the readiness review): the code review's deadlock the loop
@@ -821,7 +1036,7 @@ description changes; `gen-catalog.py --check` proves it). The tag is the loop's 
 | Option | Why not |
 |---|---|
 | Count red gates from the transcript instead of a record | The loop is a script that reads files; a transcript read by the loop would make the gate's bound depend on which session ran it |
-| Record the authorized round in `review.md` | `review.md` is the round's output; editing it is the hand-edited header ADR 0025 forbids |
+| Record the authorized round in `review.md` | `review.md` is the round's output; editing it is the hand-edited header the change's ADR forbids |
 | Turn the stage walk's `ceiling-reached` on `review` into `waiting-review-dispute` in `decide` | It changes what the owner sees at every round-2 FAIL with no authorization (a blocked end becomes a wait), which AC-16 keeps as today, and the walk would still block a third round, so the ceiling would need lifting anyway |
 | Drop the `review` stage's numeric ceiling and let the delivery checker own the round limit | A `flow.json` change needs a new flow version, and a change under way keeps every rule of the version it opened with (`openspec/specs/change-stages/spec.md`, the version-pin requirement), so changes opened before it would keep the numeric ceiling anyway; one count read by both checkers keeps both bounds and lifts them together |
 | A `fix-gate` row in `ROWS` returned by the delivery checker | The checker cannot know the gate was red (the session ran it); a row no checker returns breaks the rows-match invariant |
@@ -830,7 +1045,7 @@ description changes; `gen-catalog.py --check` proves it). The tag is the loop's 
 | Keep the resolution's review at two rounds | An authorization recorded at the resolution's deadlock would then change nothing, and the owner's word would be lost (readiness finding 2) |
 | Word the declared-steps record as a direct-write rule only | `guardBash` sees the command a subagent runs (it already judges `gh pr create` by its text), so the command can be refused at the same layer |
 | Record the plan digest in `readiness.md` | That changes what the readiness reviewer writes and every readiness ever written; the approval is the record the owner already writes from `next` |
-| Keep a blocked end for a conflict outside the release files and let the owner merge | The retro's finding; ADR 0025 decision 5 |
+| Keep a blocked end for a conflict outside the release files and let the owner merge | The retro's finding; the change's ADR decision 5 |
 
 ## Risks / Trade-offs
 
@@ -839,14 +1054,18 @@ description changes; `gen-catalog.py --check` proves it). The tag is the loop's 
 | A sibling lands a change to `END_OF_KEY`, `nextStep` or `artifactState` first and the merge conflicts | HIGH × MEDIUM | D-17; merge before the last gate; one full suite per merge that matters; ask a merge pause before the long evidence run |
 | `resolve-base-conflict` judges against a stale `origin/<base>` until `fresh-base-check` lands | MEDIUM × LOW | The implementer's merge shows the real conflict; a clean merge gives `update-branch` as today |
 | The implementer resolves a conflict wrongly | MEDIUM × MEDIUM | `verify` and `review` run before the push (D-5); `Outcome: failure` ends blocked |
-| A session declares `review-round` without the owner's typed message | LOW × HIGH | The skill rule (D-4) and the words recorded in `declared.json`; a subagent can neither write the file (edit tool or redirect, any change's folder) nor run `change-loop.mjs declare` (the `guardBash` rule of D-1, T98 to T104); the main session's own misuse rests on the skill rule and the recorded words, as the plan approval does; the review trigger of ADR 0025 |
+| A session declares `review-round` without the owner's typed message | LOW × HIGH | The skill rule (D-4) and the words recorded in `declared.json`; a subagent can neither write the file (edit tool or redirect, any change's folder) nor run `change-loop.mjs declare` (the `guardBash` rule of D-1, T98 to T104); the main session's own misuse rests on the skill rule and the recorded words, as the plan approval does; the review trigger of the change's ADR |
 | A subagent's command names `node .../change-loop.mjs declare` inside a quoted string (a commit message) and is refused | LOW × LOW | The rule needs a `node` call before the script; the refusal names the main session, and the subagent rephrases (T102 pins the ordinary commit message) |
 | An authorization at one deadlock lifts the other review's limit | LOW × MEDIUM | Each entry records its `scope` from the deadlock it answers (D-4); T96, T97 |
 | The plan digest changes for an edit that is not a plan change (a header rewrite of `tasks.md`) | LOW × MEDIUM | Only `tasks.md`'s checkboxes are ignored; any other edit after the approval is a plan edit by the ADR, and asks the owner once |
 | A host's monitor wakes on a failure only, so a green pull request waits for the owner's message | HIGH × MEDIUM | AC-11's deferred half (D-10): the roadmap line `host-monitor-wake` and this change's retro carry it; the reply says calling `/devkit change` again is safe |
 | The conducting session hands phase 4 before R10 is recorded | LOW × MEDIUM | D-14 and task 4.1 say R10 comes first; the implementer stops on an open 4.1, and 4.6 writes no language sentence without R10's `pass` line |
 | The two new reply keys widen the replies a session must choose from | LOW × LOW | T12 and the skill name when each applies |
-| The suite takes longer (about 114 new tests) | HIGH × LOW | Phase gates run this change's tests, the kept tests of their area and `check.py`; the whole suite runs once, in 6.6 |
+| The kit drifts from the two agent files this change edits, so CI's "CompozyOS agents are up to date" step and two kit suites go red on the pull request | MEDIUM × HIGH | D-19: the task that edits each file regenerates the kit and installs it, the gates 3.7 and 4.7 run `gen-agents.mjs --check` and the two kit suites by pattern, and 6.2 installs again after the release bump |
+| A plan file is edited between the CompozyOS question and the owner's answer, and the digest written at the record covers the edit | LOW × LOW | Accepted (D-7): nothing in a CompozyOS run edits a plan file while it waits, and a not-yet-started change is refused by `stateFor` when its readiness is stale |
+| A change that declared a third round on the Claude driver is then run on the CompozyOS driver, whose review loop passes no `limit` | LOW × LOW | Accepted (Non-Goals, D-19): `review-round.mjs` refuses the round naming `args.round`, and the owner decides at the deadlock as before |
+| A sibling merges into `main` while a phase runs, and a test it added fails on the merged head | HIGH × MEDIUM | D-17: each phase opens with a merge and runs the tests the base added by name; a failing one is a row for D-15 and one plan revision |
+| The suite takes longer (about 118 new tests) | HIGH × LOW | Phase gates run this change's tests, the kept tests of their area and `check.py`; the whole suite runs once, in 6.6 |
 | The stage walk's ceiling and the delivery checker's limit drift apart, so an authorization lifts one and not the other | LOW × HIGH | One count (`authorizedRounds`) read by both checkers; `ceilingOf` the one function of every ceiling (D-4); T105 to T111 walk both through `nextAction`; T113 pins the shipped flows' `review` ceiling to `REVIEW_ROUNDS` |
 | `stage-ceiling-consecutive` lands first and its count meets this change's ceiling in a merge conflict | MEDIUM × MEDIUM | D-4 and D-17: the sibling's count on the left, `ceilingOf` on the right; T105 to T109 hold under either count; the merge comes before the last gate (6.1) and the whole suite runs on the merged head (6.6) |
 | A real run that calls `declare` is given to a subagent and refused, or a run's loop output lands in the conducting session's transcript and moves its stop lock to the scratch change | MEDIUM × MEDIUM | D-14's four rules: a direct `declare` is the conducting session's (6.3), a nested one is the nested main session's with the prompt in a file, fixtures by a script that never writes `declared.json`, and the conducting session's loop output only in files checked with `grep -c` |
@@ -862,23 +1081,28 @@ change folders are then ignored.
 
 Order (dependency): D-1 and D-2 (the mechanism and the marker), then D-3, D-4, D-5 (the steps that
 use it), then D-6 and D-7 (the delivery checker's new facts), then D-8 to D-12 (independent), then
-D-13 (the nits), then the merge, the release and D-14.
+D-13 (the nits), then the merge, the release and D-14. D-19's regeneration goes with the task that edits each
+agent file; every phase that edits one of the five hook files opens with D-17's merge.
 
 **Per surface.** Hooks (`plugins/openspec/hooks/`): `change-loop.mjs` (D-1, D-3, D-4, D-5, D-6,
 D-7, D-9, D-13), `guard.mjs` (D-1 file and command rules, D-2, D-8), `deliver-check.mjs` (D-1 reader, D-4, D-6, D-7),
 `flow-check.mjs` (D-4 `ceilingOf` and `authorizedReviewRounds`, D-7), `conduct-check.mjs` (D-5, D-6), `roadmap-loop.mjs` (D-1), `project-loop.mjs`
 (D-9). Skills: `devkit`, `devkit-session`, `ship-change` (openspec pack); `review-change` and its
-workflow (core pack). Agents: `pr-verifier.md`, `tdd-implementer.md`. Schemas: four `schema.yaml`
-files. Docs: D-12.
+workflow (core pack). Agents: `pr-verifier.md`, `tdd-implementer.md`. Kit (`plugins/compozy`,
+`.compozy/`): generated copies of the two agents and the manifest, `approvalText` and `recordApproval` in
+`change-loop.mjs` (D-7, D-19); no loop template. Schemas: four `schema.yaml` files. Docs: D-12.
 
 **File structure.** Create: none outside tests' fixtures and this change's `proof/`. Modify: the files
 above, their test files (`change-loop.test.mjs`, `guard.test.mjs`, `deliver-check.test.mjs`,
 `flow-check.test.mjs`, `conduct-check.test.mjs`, `roadmap-loop.test.mjs`, `delivery-models.test.mjs`,
 `project-loop.test.mjs`, `review-round.test.mjs`, `github-setup.test.mjs`), `docs/openspec-flow.md`,
-`docs/coordination-design.md`, `docs/adr/0011-...md`, `openspec/config.yaml`, `openspec/roadmap.md`
-(the `host-monitor-wake` line, D-10), `CHANGELOG.md`, the three manifests. Delete: none.
+`docs/coordination-design.md`, `docs/compozy-kit.md`, `docs/adr/0011-...md`, `openspec/config.yaml`,
+`openspec/roadmap.md` (the `host-monitor-wake` line, D-10), `CHANGELOG.md`, the manifests of the three
+packs and the marketplace. Generated by the commands of D-19, never by hand: the two `AGENT.md` templates
+of `tdd-implementer` and `pr-verifier` under `plugins/compozy/skills/compozy-setup/templates/agents/`,
+their two copies under `.compozy/agents/` and `.compozy/kit-manifest.json`. Delete: none.
 
-**Estimate.** Optimistic 26 h, likely 35 h, pessimistic 49 h.
+**Estimate.** Optimistic 30 h, likely 40 h, pessimistic 55 h.
 
 | Component | Hours | Type | Risk |
 |---|---|---|---|
@@ -886,14 +1110,15 @@ above, their test files (`change-loop.test.mjs`, `guard.test.mjs`, `deliver-chec
 | D-2 marker id | 1 | Core | LOW |
 | D-3 red gate | 2.5 | Core | MEDIUM |
 | D-4 round limits (review and resolution), the review stage's ceiling, `deadlockScope`, round script, skills | 6 | Core | MEDIUM |
-| D-5 conflict outside release files | 2 | Integration | MEDIUM |
+| D-5 conflict outside release files, the five existing tests it changes, the train exclusions (T117, T118) | 3 | Integration | MEDIUM |
 | D-6 conductor tasks | 2.5 | Core | LOW |
-| D-7 plan digest and revised plan | 3.5 | Core | MEDIUM |
+| D-7 plan digest and revised plan, on both drivers (T115, T116) | 4.5 | Core | MEDIUM |
 | D-8 to D-11 | 2.5 | Core | LOW |
 | D-12 documents and schemas | 1.5 | Documentation | LOW |
 | D-13 nits | 1.5 | Testing | LOW |
-| D-14 real runs (R1 to R14, R7b, R7s, R13a, R13b; R6, R7, R7b by the conducting session) | 5.5 | Testing | MEDIUM |
-| D-17 merge, D-18 release, whole suite | 1.5 | Migration | MEDIUM |
+| D-14 real runs (R1 to R15, R7b, R7s, R13a, R13b; R6, R7, R7b by the conducting session) and the scrub of the proof files | 6.5 | Testing | MEDIUM |
+| D-17 the merge that opens each phase, the last merge, D-18 release of three packs, whole suite | 2.5 | Migration | MEDIUM |
+| D-19 the kit: regenerate and install twice, the gates that run its suites | 1 | Integration | MEDIUM |
 
 **Assumptions** (where the plan breaks if reality differs): `nextAction` can be called from `declare`
 in the same process as `next` (it is exported and pure but for its reads; `change-loop.mjs`);
@@ -903,10 +1128,13 @@ in the same process as `next` (it is exported and pure but for its reads; `chang
 `ship-change/SKILL.md`), so the stage ceiling counts review rounds and one authorization lifts it by
 exactly one round (D-4); `devkit-session` carries out every kind as the devkit skill's
 Loop says (`devkit-session/SKILL.md` item 3); a fixture can make `.openspec.yaml` unreadable with a
-folder at its path.
+folder at its path; `install-kit.mjs .` on this repository's root reports every kit file `same` before the
+edit and `update` for the two regenerated agents after it (the files equal their recorded digests; checked on
+a scratch copy of `.compozy/` at the last revision of this plan); `deliveryRow` returns `rejoin-train`
+before `releaseConflict` (`conduct-check.mjs`), and `releaseConflict` returns null for `rejoin-archive`.
 
-**Dependencies:** ADR 0025 accepted at the plan approval (`accept-decisions`); no sibling change is
-required first.
+**Dependencies:** the change's ADR, accepted at the plan approval (`accept-decisions`); no sibling change
+is required first.
 
 ## Open Questions
 

@@ -1,188 +1,241 @@
-<!-- devkit-stage readiness result=passed attempt=3 commit=bec9bf03e8ba0b5dc02c6ad2e719f9b7757f6e7c -->
+<!-- devkit-stage readiness result=failed attempt=4 commit=2fbb92f42503b846c67e1594c8e936d09fc21046 -->
 # Readiness review: coordinator-loop-fixes
 
-Reviewed at HEAD bec9bf0 (the plan files are uncommitted in the worktree). The whole plan was judged afresh from
-the files, not from the attempt 1 or attempt 2 reports. Artifacts read: `proposal.md`, `design.md` (all 916 lines),
-`tasks.md`, `decisions.md`, `requirements.md`, the seven spec deltas, ADR 0022, the main specs the deltas touch,
-`openspec/config.yaml`, `openspec/roadmap.md`, and the code each claim names.
+Reviewed at HEAD 2fbb92f (clean tree: the plan files are committed). This round follows the merge of `origin/main`
+(8185b85: delivery-train, stage-models, compozy-driver, roadmap-panel-study) and the renumbering of the change's ADR
+from 0022 to 0025 (2fbb92f). The whole plan was judged afresh from the files, not from the attempt 3 report. Artifacts
+read: `proposal.md`, `design.md` (all 916 lines), `tasks.md`, `decisions.md`, `requirements.md`, `approval.md`, the eight
+spec deltas, ADR 0025 and ADRs 0022 to 0024, `openspec/config.yaml`, `CLAUDE.md`, `CONTRIBUTING.md`, the roadmap, and the
+merged code each claim names (`git diff 0501f0a 8185b85 --stat` read in full, then the files the plan edits).
 
-Checks run: `openspec validate coordinator-loop-fixes --strict` passes; `python3 scripts/check.py` passes;
-`python3 scripts/gen-catalog.py --check` exits 0; `command claude plugin validate .` passes. `parseTasks` and
-`readPhases` read `tasks.md` as 36 tasks in 6 phases, each phase with one gate, no gate command holding a `|`.
-Every gate command that exists on the base was run there, node part and `check.py`, with `GITHUB_HEAD_REF` and
-`GITHUB_BASE_REF` set, `TMPDIR` under `/private/tmp`: gate 1.6 (220 tests, green), 2.5 (596 tests green, and
-`review-round.test.mjs` 90 green), 3.7 (429 green), 4.7 (333 green), 5.5 (36 green); `check.py` green. Gate 6.6 is
-the whole suite and was not run (the caller forbids it); its non-suite parts are the four commands above, all green.
-The local `origin/main` is one docs-only commit ahead (605ed9b, `roadmap-panel-study`); no code the plan touches moved.
+Checks run at HEAD: `openspec validate coordinator-loop-fixes --strict` passes; `python3 scripts/check.py` passes;
+`python3 scripts/gen-catalog.py --check` exits 0; `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check`
+exits 0 (21 agents); `command claude plugin validate .` passes. `parseTasks` and `readPhases` read `tasks.md` as 36 tasks in 6
+phases, each phase with one gate, no gate command holding a `|`. Every gate command that exists on the base was run
+there once, with `GITHUB_HEAD_REF=probe-branch` and `GITHUB_BASE_REF=main`, `TMPDIR` under `/private/tmp`: gate 1.6 (222
+tests, green), 2.5 (614 tests green, and `review-round.test.mjs` green), 3.7 (504 green), 4.7 (408 green), 5.5 (36 green);
+`check.py` green. Gate 6.6 is the whole suite and was not run (the caller forbids it); its non-suite parts are the checks
+above, all green. No gate is red on the merged base. A probe on a scratch copy of `plugins/` and `.compozy/` (a one-line
+edit of `plugins/core/agents/tdd-implementer.md`, the file task 3.3 edits) made `gen-agents.mjs --check` print
+`tdd-implementer: differs from its source` and exit 1; that is finding 1.
 
 ## 1. Decision
-- Status: APPROVED
-- Confidence: medium-high
-- Ready to implement: yes
+- Status: NEEDS-REVISION
+- Confidence: high
+- Ready to implement: no
 
-No open mandatory finding. The two blockers of attempt 2 (the review stage's ceiling, and the real runs the new
-guard refuses) are closed (section 4). Two Medium and four Low findings remain, none mandatory (section 9 is empty; section
-10 lists them, with the fix class of each). Confidence is not "high" because AC-7 rests on a new two-checker
-mechanism (the stage walk's ceiling and the delivery checker's limit) that no test of the base exercises yet; the
-plan's own tests T105 to T111 and real runs R7, R7s and R7b are what prove it.
+The plan was approved on an older base. The merge brought in the CompozyOS driver and kit (ADR 0024), and the plan does
+not know it exists: three of its edits break suites and a CI step that the merge added, and one of its ACs (AC-8) is
+silently void for the new driver. Five findings are mandatory (section 9); each fits in a revision of `design.md` and
+`tasks.md` with no change of scope and no new decision (they apply ADR 0025's decisions 6 and 7 and `CONTRIBUTING.md` step 5
+to files that did not exist when the plan was written). Every claim about the delivery checker, the stage walk, the guard and
+the loops that the attempt 3 review verified still holds in substance at the merged head; only line numbers moved.
+
+The readiness hash changes with this file, so the owner's recorded approval (`approval.md`, `sha256:6dff42735a92`) is stale
+once it is written: the revised plan goes back to the owner, as AC-8's own rule says it should.
 
 ## 2. Scope validation
-Classification: correct
+Classification: correct (incomplete on one edge, finding 4)
 
-The scope is explicit (proposal "What Changes", non-goals, design Non-Goals, "Dropped" in `requirements.md`) and
-follows ADR 0022's eight points. Every capability the plan touches has a delta (eight, matching the proposal's
-list, none new). Each MODIFIED requirement carries every scenario of its main requirement, checked by name with a
-script: `change-coordination` (21, 11 and 7 scenarios kept), `change-stages` (2 kept, 7 added), `delivery-models`
-(1 kept, 3 added), `project-setup` (4 kept, 2 added). Items 1, 10 and 15 use `declare` for the two keys that
-record, where `requirements.md` assumes `reply`; the assumption says "the planner picks the shape", ADR 0022
-records the reason (a `reply` stays a pure printer), so this is a decision made and written, not a gap.
+The scope is unchanged and explicit (proposal "What Changes", non-goals, design Non-Goals, "Dropped" in `requirements.md`),
+and follows ADR 0025's eight points. Every capability the plan touches has a delta (eight, none new), and the merge added no
+main spec: `openspec/specs/` is untouched by 0501f0a..8185b85, so each MODIFIED requirement still carries every scenario of
+the main one. I compared the requirement names of the deltas of `delivery-train`, `stage-models` and `compozy-driver`
+(still under `openspec/changes/`, not archived) with this change's deltas for `change-coordination`, `change-delivery`,
+`coordination-locks` and `change-stages`: no requirement is modified by two changes, so the archives do not overwrite each
+other. What the plan leaves out is the surface the merge added: the CompozyOS driver reads the same `nextAction` and writes
+`approval.md` itself (finding 2), and its kit is generated from two files the plan edits (finding 1).
 
 ## 3. Proposal review
-- Problem and goal are clear; the sixteen ACs are observable. AC-11 is split into a half proven here (T82, R13a,
-  R13b) and a half carried to the roadmap line `host-monitor-wake` (task 6.5), and the AC says so itself.
-- Non-goals are tight: "Dropped", `fresh-base-check`, `devkit-lite`'s stages, the slice ADR review, the panel, the
-  roadmap coordinator's third round in session-per-change mode.
-- Dependencies and the siblings that touch the same functions are named (design D-17).
-- The proposal is about 1,800 words against the "under two pages" rule of `openspec/config.yaml`; archived proposals
-  run 2,000 to 2,800 words, so it is a note (section 10).
+- Problem, goal and the sixteen ACs are unchanged and observable. AC-11 stays split into a proven half and a carried half.
+- `proposal.md` Impact (lines 106-125) lists `devkit-openspec` and `devkit-core` as the packs to bump; the merge made
+  `devkit-compozy` a third, because the plan edits two agent files its templates are generated from (finding 1). Its exit
+  criteria (lines 121-125) omit `gen-agents.mjs --check`, which `CLAUDE.md` now lists as a command and CI runs.
+- AC-13 (line 77) says "a pull request that conflicts with the base outside the release files gets a declared resolve step";
+  at the merged head an archive that left a delivery train and conflicts outside the release files keeps a blocked
+  `stop-archive` (finding 4).
+- ADR 0025 is `accepted` in its file (accepted at the 2026-11-24 approval); `proposal.md` lines 6 and 118 and `design.md` lines 5-6,
+  802 and 908 still say "proposed". Wording only (section 10).
 
 ## 4. Design review
-Every claim about internals below was re-derived with Read and Grep at HEAD.
+Every claim about internals was re-derived with Read, Grep and runs at HEAD. Held, with the line the code is now at
+(the design's own line numbers are the c1ac8c4 ones and are all off; section 10):
 
-Closed since attempt 2:
-- The review stage's ceiling. `flow.json` gives `review` `"ceiling": 2` in both scripts
-  (`schemas/devkit/flow.json:49`, `devkit-lite/flow.json:34`); `artifactState` computes the ceiling at
-  `flow-check.mjs:459` and `computeFlow` compares it at `:575-579` (`raw.attempt >= ceilingOf(s)`);
-  `inDelivery` is false for a blocked end (`change-loop.mjs:869`), so the stage walk's `ceiling-reached` is the code
-  review's deadlock in the loop, exactly as D-4's Context says. D-4 now lifts that ceiling with the same count the
-  delivery checker uses (`authorizedRounds`, one function read by both), through one exported `ceilingOf(stage,
-  flow, facts)` that replaces the local one at `:510` and the inline one at `:459`, and only for the `review` stage
-  of role `review-bench` (the `devkit-project` flow's `review` has role `adr-reviewer`, checked in its `flow.json`).
-  I walked the sequence against the code: unauthorized round 2 FAIL ends `blocked` `ceiling` on `review` and
-  `decide` gives `blockedEnd` with `role` `review-bench` (`stageFields`, `change-loop.mjs:1025`), which is what
-  `deadlockScope` reads; with one record the walk's `raw.fixed` is false before the fix, so it offers
-  `implementation` (`fix-after-failure`, `flow-check.mjs:580-581`), whose part is `build`, so `inDelivery` is true
-  and `nextStep` (`deliver-check.mjs:1554`, limit 3) falls through to `fix-review` (`:1561`); after the fix commit
-  evidence goes stale (`verify`), then the review header goes stale (`rerun-after-fix`) and `nextStep:1587` gives
-  round 3 limit 3. A round-3 FAIL reaches ceiling 3 and ends blocked again. A second `declare` finds `fix-review`,
-  not a deadlock, and refuses. The pinned tests D-15 lists (`flow-check.test.mjs:534-541`, `:445`, `:543`,
-  `version-pin.test.mjs` ceilings 2 and 1) carry no `authorizedReviewRounds` fact, so `?? 0` keeps them as they are.
-  T113 pins the shipped `review` ceiling of both scripts to `REVIEW_ROUNDS` (both are 2, verified).
-- The real runs that call `declare`. D-14 now has four rules: a direct `declare` is the conducting session's
-  (R6, R7, R7b in task 6.3, with the loop's output sent to files so `runOf` never reads a `devkit-run:` line of a
-  scratch change), a nested `claude -p` session's own main session may declare (R5, R7s), fixtures are built by a
-  script outside the scratch project and never write `declared.json`, and R14 is the one run whose refusal is the
-  proof. The guard facts hold: `role(input)` is `''` for the main session (`guard.mjs:74`), `guardBash` has the git
-  rules under `sessionRoot && optedIn(sessionRoot)` (`:1036-1041`), `sanitize` is heredoc removal plus quote
-  replacement (`:634-646`), `classify` has the `approval.md` line to mirror (`:564`, `:573`), and the three tests
-  that match `approval\.md is written only by the main session...` (`guard.test.mjs:1028`, `:1043`, `:1673`) are
-  unanchored, so a path before `approval.md` still matches.
-- `tasks.md` 4.1 and 6.3 are the conducting session's and the intro, D-14 and each task say so; 4.6 writes no
-  language sentence unless R10's line ends in `pass`.
+- `deliver-check.mjs`: `nextStep` starts at 1669; the plan-approval stop is at 1705 (`!state.started`); the phase loop
+  (`implement`, `gate`) at 1715-1720; `stop-review-deadlock` at 1724-1725 (`round >= 2`); `fix-review` 1736; `review` round at
+  1757; the resolution's deadlock at 1801-1802 and its round at 1815; `readReviewMd` reads any `/N` (1877); `approvalState`
+  keeps its `{ status, recorded, readiness, ok }` shape (1655-1664); `resolutionState` is called inside `twoPrsOf` (1923), where
+  `dir` is in scope, so `res.limit` is computable there; `parseTasks` 416 and `readPhases` 434 know `Gate:` only; `staleness`
+  allows anything under `openspec/` (`isOpenspec`, 231, 302), so `declared.json` and `proof/` never stale evidence or a
+  review. The delivery train rows (`disable-auto-merge`, `boarded`, `on-train`, `wait-train`, `rejoin-train`) sit before and
+  after the rows the plan changes and do not touch them.
+- `flow-check.mjs`: the local `ceilingOf` is at 532 and is used at 600-601 (`raw.attempt >= ceiling`), the `header-failed`
+  ceiling is computed inline at 481; both are the two places D-4 replaces with one exported `ceilingOf(stage, flow, facts)`.
+  `flow-check.mjs` already imports from `deliver-check.mjs` (line 11), so `authorizedRounds` needs no new edge. `stage-ceiling-
+  consecutive` is still unmerged (roadmap line 177), so D-17's rule has nothing to apply yet.
+- `change-loop.mjs`: `END_OF_KEY` 2951 and `runReply` 2972 (and `roadmap-loop.mjs` 1719-1745, `replyCmd`); `GATE_OF_WHY` 810 and
+  `declaredEnd` 899-906 read `params.gate ?? GATE_OF_WHY[why]`; `FAMILY.what` 779; `LoopRefusal` 57 and `failure()` 3140 give
+  `{ version: 1, error, reply }` and exit 3; `AGENT` is still a non-exported literal of nine roles (968-978) and `PACKS` is
+  exported at 2523, so D-9's move holds; `COMMIT_AGENT` and `ATTRIBUTION_ASK` are exported (963, 965); `createdAfter` (1739) is
+  not exported and has a `catch`; `decide`'s `buildPart` has `const step = row.next.step;` at 1340 and the plan-approval wait
+  at 1362-1365; `planPart`'s two approval waits are at 1290-1291 and `PLAN_REASONS` at 981; the owner-end branch is at 1368.
+  `nextAction` takes an options object (1432), so `redGate` is one more key. The stage-models retry (`retried`, 1219-1229)
+  works on the brief of an agent action; it does not touch `fix-gate`, which only `declare` hands.
+- `guard.mjs`: `runMarkers` 812 and `runOf` 816-833 drop the end's id and set `ended` from any end line, so D-2 is as described;
+  `classify` keeps the `approval.md` line (604, 613); `sanitize` (680) is heredoc removal plus quote replacement;
+  `guardBash` (1306) has the git rules under `sessionRoot && optedIn(sessionRoot)` (1310).
+- `conduct-check.mjs`: `releaseConflict` (406) returns `stop(... conflict in ${others})` at 432, the line D-5 overrides;
+  `SUBAGENT` (50) and `MAIN` (62) are the two tables D-5 and D-6 extend; `deliveryRow` (473) puts `releaseConflict` before
+  `trainRejoin`.
+- Skills and docs: `ship-change/SKILL.md` has the rows the plan edits (`stop-plan-approval` 52, `implement` 54, `gate` 55,
+  `review` 57, `stop-review-deadlock` 59, `review-resolution` 88) and line 20; `devkit/SKILL.md` has the Loop items, `## Owner
+  gates` 138, `## Waiting on GitHub` 142 and, new, `## Train` 152 right after it, which the new train test pins by position (D-10
+  adds a paragraph, not a heading, so it holds); `devkit-session/SKILL.md`, `review-change/SKILL.md` and
+  `review-round.workflow.js` are not in the merge diff and read as the plan says; both schemas still hold "two rounds at most"
+  (`devkit/schema.yaml:561`, `devkit-lite/schema.yaml:414`, both copies); `docs/openspec-flow.md` holds each anchor D-12 names
+  (`**The loop.**` 232, `**Waiting on GitHub.**` 238, `**The locks (devkit-openspec 0.16.0).**` 242, `**Delivery rows.**` 306,
+  `**Order of the delivery steps.**` 467, `Plan approval on disk` 489, the review-change bullet 858, the `devkit-lite` section 81);
+  `docs/coordination-design.md` holds the review row at 188; ADR 0011 is untouched by the merge.
+- ADRs: ADR 0025 is consistent with ADRs 0022 to 0024 (no decision of theirs is reversed; ADR 0022 point 8 and ADR 0024 are
+  the context of findings 4 and 2). ADR 0025 decision 3 raises the `review` stage's ceiling and the delivery limit together;
+  the code the walk reads is as D-4 says.
 
-Held, re-derived: `END_OF_KEY` in both loops (`change-loop.mjs:2409`, `roadmap-loop.mjs:1510`); `runMarkers` drops
-the end's id (`guard.mjs:766-767`) and `runOf` sets `ended` from any end line (`:784`); the only readers of
-`mark.end` are in `runOf`, and every `devkit-end:` line in the existing tests names the run's change (checked at
-`change-loop.test.mjs:1723-1739`, `:1826-1829`); `FAMILY.what = 'what.'` (`change-loop.mjs:655`), so `{decision}` is
-the right parameter and `SAMPLE` gains it; `gate.decision` exists (`:244`, `:499`); `GATE_OF_WHY` (`:686`) and
-`declaredEnd` (`:775-778`) read `params.gate ?? GATE_OF_WHY[why]`; `parseTasks` knows `Gate:` only
-(`deliver-check.mjs:403-415`); `nextStep` rows at `:1535` (plan approval, `!state.started`), `:1543-1548` (phase
-loop, gate step detail `{ phase, task, command }`), `:1554`, `:1587`, `:1621`, `:1635`; `readReviewMd` already reads
-any `/N` (`:1693`); `approvalState` shape is `{ status, recorded, readiness, ok }` (`:1496-1505`) and `planRevision`
-stays apart; `staleness` allows anything under `openspec/` (`isOpenspec`), so `declared.json` and `proof/` never stale
-the evidence or a review; `flow-check.mjs` imports from `deliver-check.mjs` already (`:11`), so `authorizedRounds`
-and `approvalState` need no new edge, and `deliver-check.mjs` cannot import `DECLARED` (`RECORDED_KEYS` and T114 are
-the right answer); `PACKS` is exported at `change-loop.mjs:2342` and `AGENT` is a non-exported literal at `:844`;
-`createdAfter` is not exported (`:1570`) and has a `catch`; `ATTRIBUTION_ASK` is already exported (`:841`);
-`github-setup.mjs` exits 1 for a blocked state; `pr-verifier.md:50` holds the sentence D-8 replaces; both schemas
-hold "two rounds at most" (`devkit/schema.yaml:561`, `devkit-lite/schema.yaml:414`); `docs/openspec-flow.md` holds
-each anchor D-12 names ("a gate that stays red", the Order of the delivery steps paragraph, the review-change
-bullet); versions 0.33.0, 0.14.0 and 0.37.0 match D-18; every path in the tasks exists.
+Failed re-derivations (each is a finding of section 9 or 10):
 
-The Existing-tests rule of `openspec/config.yaml` is met: D-15 has 31 rows. I grepped the test files for the texts
-the plan changes (`waiting-review-dispute`, `tests-red`, "two rounds at most", "only file you write", "stays red",
-the F1 sentence) and found no pinning test that is not a row.
-
-ADRs: ADR 0022 is `proposed`, `accept-decisions` takes it at the plan approval, its points match D-1 to D-7, and no
-approach an earlier ADR rejected is used (no fifth state, no unbounded fix loop, no authorization from any message,
-no lift of the edit lock).
+- The plan does not mention the CompozyOS driver, its kit or its tests, though the merge made them depend on files the plan
+  edits and on the text it changes (findings 1, 2, 3).
+- D-18 states "today 0.33.0 to 0.34.0 and 0.14.0 to 0.15.0 ... 0.37.0 to 0.38.0" and the CI pin lines "661, 662 and 675". At 8185b85
+  the packs are devkit-openspec 0.36.0, devkit-core 0.14.1 and the marketplace 0.40.0, and the pin lines are 731, 732 and 745
+  (finding 5).
 
 ## 5. Specs review
-- Normative `SHALL` and WHEN/THEN scenarios throughout; every outcome row of the decision tables of D-3, D-4 (the
-  three-bound table included) and D-5 has a scenario: the stage walk at round 2 FAIL with and without an
-  authorization, after a failed authorized round, with two, for a resolution-only record, for other stages and for
-  another role's `review` stage, and for a flow whose own ceiling is 1 (`change-stages`).
-- The `change-coordination` delta covers the `declare` outcomes (not at the gate, not at a deadlock, no words,
-  twice for one deadlock, the resolution's deadlock); `delivery-models` has four scenarios; `file-writers` covers the
-  command rule (quoted path, `cd`, other verbs, commit message, heredoc, project without the schemas).
-- Two wording points, not blockers (section 10): `coordination-locks` adds a qualifying requirement beside an
-  unmodified one that calls any `devkit-end:` line an end line; `change-stages` leaves its title "until the work
-  starts" over a requirement that the new one narrows.
+- Normative `SHALL` and WHEN/THEN scenarios throughout; every outcome row of the decision tables of D-3, D-4 and D-5 has a
+  scenario (attempt 3 checked it row by row; no spec text changed).
+- `change-coordination` and `file-writers` say nothing about the CompozyOS driver, so a reader cannot tell whether "the
+  session records the digest" (AC-8) and "a red gate hands one fix" (AC-10) cover it (finding 2).
+- The two wording points of attempt 3 stay open (section 10): the qualifying requirement of `coordination-locks` beside an
+  unmodified one, and the title of the `change-stages` requirement.
 
 ## 6. Tasks review
-- Six `## N.` groups, each ending in a `Gate:` task with one backticked command whose `&&` parts the checker runs
-  one by one. Every AC id is in at least one task. T1 to T114 are each written by exactly one task (1.1: 30, 2.1: 40,
-  3.1: 21, 4.2: 15, 5.1: 8 = 114), test-first order holds, and each "check" names the tests it expects to pass.
-- Version and ADR numbers are named as "the next free ... at the last merge before review" (6.1, 6.2), as the rule
-  asks. Tasks that change a pinned text name the test files (1.1, 1.5, 2.3, 3.6, 4.2, 4.6).
-- 4.1, 6.3 and the fetch before 6.1 are the conducting session's; the `Conductor:` marker does not exist yet, so the
-  order is kept by the intro, by each task's own text and by the implementer's stop rule. Adequate, and the plan
-  says why it is not the marker.
-- Phase gates were run on the base (header). No gate is red.
+- Six `## N.` groups, each ending in a `Gate:` task with one backticked command; every AC id is in a task; T1 to T114 are each
+  written by one task; version and ADR numbers are named as "the next free ... at the last merge before review" (6.1, 6.2), as
+  the rules of `openspec/config.yaml` ask. No gate is red on the merged base (header).
+- Tasks 3.3 and 4.3 edit `plugins/core/agents/tdd-implementer.md` and `plugins/core/agents/pr-verifier.md`; neither names the
+  kit's generated copies of those files, the suites that pin them, or the pack bump (finding 1). The rule of `openspec/config.yaml`
+  "a task that changes a text a test pins names each test file that asserts the old text" is not met for them, nor for the
+  `ROWS` addition of 2.4 (finding 3) or the approval form of 3.4 to 3.6 (finding 2).
+- The `CONTRIBUTING.md` rule added by the merge ("run by name the tests that base added since the plan's base ...: a failing one
+  is a row for the plan's test table and one plan revision") is what findings 1 to 3 apply. The search of D-15 covers eleven
+  test files; it does not cover `gen-agents.test.mjs`, `adoption.test.mjs`, `loop-templates.test.mjs`, `devkit-kit.test.mjs`,
+  `install-kit.test.mjs`, `delivery-train.test.mjs`, `stage-models.test.mjs`, `compozy-driver.test.mjs` or `release-tags.test.mjs`.
+  I grepped the last four and the train and models suites for the texts the plan changes (`tests-red`, `stop-review-deadlock`,
+  `waiting-review-dispute`, `stop-plan-approval`, `Outcome: failure`, `round 2`, "two rounds", "only file you write",
+  `resolve-release-conflict`) and found no pin there beyond the ones in findings 1 to 3.
 
 ## 7. Omission detection
-- Validation, errors, atomicity of `declared.json` (temporary file and rename), parser decisions (`readDeclared`,
-  `planDigest`, `declareViolation`), exit codes and refusal messages in both languages: defined.
-- Idempotency of `declare gate-red` (a second call is a second red) and of `declare review-round` (the next action
-  is no longer a deadlock, so a second call refuses): written.
-- Migration, rollback and compatibility: written (no record means limit 2 and today's ceilings; an approval with no
-  `- Plan:` line asks nothing; no `Conductor:` task reads as today; a revert leaves ignored files).
-- Authorization of an extra round: skill rule, the recorded words, the guard's refusal of a subagent's `declare` and
-  of any subagent's write of the file. The main session's own misuse rests on the skill rule, as the plan approval
-  does (ADR 0011, ADR 0021); the plan says so in its risk table.
-- Observability: the stop lock's decision log; the real runs of D-14 with their one-line checks.
-- Not covered, and fine to leave: a flow whose own `review` ceiling is 1 shows "round 3" in the `declare` reply while
-  the next round is 2 (a synthetic flow of a test; the shipped flows are 2).
+- Validation, errors, atomicity of `declared.json`, parser decisions, exit codes, idempotency, migration, rollback and
+  observability are defined (attempt 3), and nothing the merge brought changes them.
+- Not defined, and new: what each of D-3, D-4 and D-7 does under the CompozyOS driver. At the merged head a red gate in that
+  driver asks the owner (`buildView`, `change-loop.mjs` 2677, `loop.yaml` 466-478) and its review loop passes `next.round`
+  with no `limit` to `review-round.mjs` (`devkit-review/loop.yaml` 61-66), so an authorized third round would be refused there;
+  it writes `approval.md` itself (finding 2). Saying "the CompozyOS driver is not changed by this change, except ..." closes it.
+- `declare`'s printed action: `next` reads the budget, the strict model table and the retry (`runNext`, 2955-2965); `declare`
+  does not say whether its `nextAction` call does (Low, section 10).
+- In a CompozyOS session, `writeViolation` (`guard.mjs` 642-644) refuses every owner-`''` gate with the `approval.md` message;
+  `declared.json` would get that message there. A CompozyOS session never calls `declare`, so this is a wording point (Low).
 
 ## 8. Execution risks (top 5 failures)
-1. The two bounds drift on a merge. Cause: `stage-ceiling-consecutive` (roadmap line 174) changes the count at
-   `flow-check.mjs:578` while this change changes the limit. Impact: a third round the stage walk refuses, found only
-   at R7. Prevention: D-4 and D-17 give the rule (the sibling's count left, `ceilingOf` right), T105 to T109 hold under
-   either count, and the merge precedes the last gate and the whole-suite run (6.1, 6.6).
-2. A real run reaches the wrong session. Cause: the new guard refuses a subagent's `declare` by command text, and a
-   conducting session that prints a scratch change's `devkit-run:` line moves its own stop lock. Impact: a stalled
-   phase or a false stop. Prevention: D-14's four rules and the file-only output of 4.1 and 6.3.
-3. The proof files carry the host's paths. Cause: stream JSON of 14 real runs is committed under `proof/` in a public
-   repository, and its `init` events hold working directories and the person's home path. Impact: personal data in a
-   public repository. Prevention: section 10, first item.
-4. A session obeys the review skill's own "no convergence after 2 rounds → stop" at round 3. Cause: the plan edits
-   `review-change/SKILL.md`'s `args` and consensus line but not lines 126 to 128 and 149. Impact: a refusal of a round
-   the owner authorized, caught by a person, not a test. Prevention: section 10, second item.
-5. AC-11's second half is never observed. Cause: only the desktop app shows it. Impact: carried by the roadmap line
-   and the retro; the plan says so and does not claim it.
+1. Cause: tasks 3.3 and 4.3 edit two agent files and nothing regenerates the kit. Impact: phases 3 and 4 pass their gates (no gate
+   runs the kit's suites), CI's "CompozyOS agents are up to date" step and `gen-agents.test.mjs` / `adoption.test.mjs` go red, found
+   at 6.6 or on the pull request, after the review round. Prevention: finding 1.
+2. Cause: the CompozyOS driver writes `approval.md` without a `- Plan:` line. Impact: a change run on CompozyOS is never sent back
+   to its gates after a plan edit, and AC-8 is true for one driver only. Prevention: finding 2.
+3. Cause: `ROWS['resolve-base-conflict']` makes the exhaustive hand-off test of the compozy view fail. Impact: red in phase 2's
+   neighbour suites (the 2.5 patterns do not match `change-loop compozy view`; 3.7's `^change-loop` does), so it surfaces a phase late.
+   Prevention: finding 3.
+4. Cause: the stage walk's ceiling and the delivery checker's limit drift (D-4, unchanged risk). Impact: a third round the walk
+   refuses, found at R7. Prevention: unchanged: `ceilingOf` and `authorizedRounds` as the one count, T105 to T113.
+5. Cause: the proof files of 14 real runs carry the host's paths (attempt 3, unchanged). Impact: personal data in a public
+   repository. Prevention: section 10, first item.
 
 ## 9. Mandatory fixes before implementation
-None.
+- [ ] High — `tasks.md` 3.3 (lines 138-143), 4.3 (173-176), gates 3.7 (157) and 4.7 (194), 6.2 (220-225); `design.md` D-6 (376-378), D-8
+  (429-431), D-15 (600-641), D-18 (790-798); `proposal.md` Impact (106-125) — the plan edits `plugins/core/agents/tdd-implementer.md`
+  and `plugins/core/agents/pr-verifier.md`, and the merge made the kit's `templates/agents/<role>/AGENT.md` a generated copy of
+  every Claude agent file (`gen-agents.mjs` lines 1-12: "the instructions body is the source text, unchanged"), checked by CI
+  (`.github/workflows/ci.yml`, step "CompozyOS agents are up to date"), by `gen-agents.test.mjs:114` ("the repository is up to
+  date"), and, for this repository's own `.compozy/agents/<role>/AGENT.md`, by `adoption.test.mjs:81-87` (byte for byte against
+  the rendered template) and its manifest test (`:97-104`); a probe confirmed exit 1. `CONTRIBUTING.md` step 5 bumps every pack
+  changed, and `plugins/compozy` changes. Smallest correction: in 3.3 and 4.3 add "regenerate the kit's two agent templates with
+  `gen-agents.mjs`, refresh `.compozy/agents/tdd-implementer/AGENT.md`, `.compozy/agents/pr-verifier/AGENT.md` and
+  `.compozy/kit-manifest.json` the way `adoption.test.mjs` renders them, and say which command does it"; add `devkit-compozy` (next
+  minor after `origin/main`'s at the last merge, `plugin.json`, `marketplace.json`, a `CHANGELOG.md` bullet) to D-18, 6.2 and the
+  proposal's Impact; add `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check` to the exit criteria and to the
+  gates 3.7 and 4.7, with `node --test` of `gen-agents.test.mjs` and `adoption.test.mjs` by name; add the three kit tests as rows
+  of D-15.
+- [ ] High — `design.md` D-7 (387-419), `tasks.md` 3.4 to 3.6 (144-156), D-15 (626-627); `proposal.md` AC-8 (line 70) — the CompozyOS
+  driver is a second writer of `approval.md`: `approvalText` (`change-loop.mjs:2810`, "in the form of the `stop-plan-approval` row
+  of `ship-change`") and `recordApproval` (`:2830-2840`) write `- Status`, `- Readiness`, `- Date`, `- Owner's words` and no
+  `- Plan:`, and the test `change-loop compozy record-approval: it writes approval.md in the form of the ship-change row ...`
+  (`change-loop.test.mjs:4175`, with the two after it at 4188 and 4203) pins that exact text. D-7 changes that row's form and says an
+  approval with no `- Plan:` line "asks nothing", so a plan approved on CompozyOS is never sent back, and the test and the row
+  disagree after the change. Two developers can choose differently. Smallest correction: decide it in D-7. The one that keeps AC-8
+  whole: `approvalText` takes the digest from `planDigest(dir)` and writes `- Plan:` as the row does, `recordApproval` passes it,
+  task 3.4 or 3.5 does it with its tests (the text test above updated, one new case for a revised plan under
+  `next --view compozy`), and D-15 gets the row. Add one sentence to D-3 and D-4 and to the Non-Goals: the CompozyOS driver keeps its
+  red-gate question to the owner and its review loop's two rounds (`declare` is the Claude driver's; `devkit-review` passes no
+  `limit`), unchanged.
+- [ ] High — `design.md` D-5 (337-357), D-15 (609-641), `tasks.md` 2.4 (120-125) — D-5 adds `ROWS['resolve-base-conflict'] =
+  handOff('implementation', 'tdd-implementer')`, and `change-loop compozy view: every hand-off step of the delivery rows carries its
+  dispatch sentence ...` (`change-loop.test.mjs:3888-3905`) asserts the exact set of hand-off steps (`deepEqual` against a list that
+  ends `... 'renumber-adr', 'rejoin-train'`), so it fails until `resolve-base-conflict` is added to it; its gate pattern
+  (`^change-loop compozy`) is in no phase 2 gate. The same test also decides where a hand-off's dispatch sentence comes from:
+  `SKILL_LOOP_STEPS` (`change-loop.mjs:2620`) names the steps whose sentence is a `devkit` skill Loop bullet, every other one needs a
+  `ship-change` row, and the view names "one source only". D-5 writes the sentence in both places and does not say which the view
+  uses. Smallest correction: D-5 says `resolve-base-conflict` stays out of `SKILL_LOOP_STEPS`, so its `ship-change` row is the
+  dispatch source and the `devkit` skill item points to it (or the opposite, and `SKILL_LOOP_STEPS` gains it); D-15 and 2.4 name the
+  test and its list; the gate 2.5 gets `--test-name-pattern="^change-loop compozy"`.
+- [ ] Medium — `proposal.md` AC-13 (line 77), `design.md` D-5 (337-357) and Non-Goals (52-62) — `trainRejoin` (`conduct-check.mjs:443-465`)
+  stops an archive that left a train with `stop-archive` when it conflicts outside the release files and the roadmap ticks, and
+  `rejoin-train` (`deliver-check.mjs:1767`) is the change's own step; D-5 changes only `releaseConflict`. AC-13 as worded ("a pull
+  request that conflicts with the base outside the release files gets a declared resolve step") is wider than the code D-5 builds,
+  and T48 does not say whether a train project is covered. Smallest correction: scope AC-13 and D-5 to the pull requests the
+  override reads (`releaseConflict`: a change's and an archive's, with no train left), and write in the Non-Goals that an archive that
+  left a train keeps `stop-archive` (ADR 0022 point 8), unchanged.
+- [ ] Medium — `design.md` D-18 (790-798), `decisions.md` line 3 — D-18 states facts that are false at the commit that ships it:
+  "today 0.33.0 to 0.34.0 and 0.14.0 to 0.15.0 ... 0.37.0 to 0.38.0" (they are 0.36.0, 0.14.1 and 0.40.0) and the CI pin lines "661, 662
+  and 675" (731, 732 and 745); `decisions.md` still says "the number 0022 is the next free one" for an ADR that is 0025. Smallest
+  correction: word D-18 with the rule only ("the next minor after `origin/main`'s at the last merge before review", no literal
+  version or line) and have `decisions.md` say the ADR was drafted as 0022 and renumbered to 0025 at the merge of 8185b85.
 
 ## 10. Optional improvements (within scope)
-- [ ] Medium, fix during implementation — `design.md` D-14 (the output column), tasks 4.1, 6.3 and 6.4: the stream JSON
-  files under `proof/` hold the host's working directory and the person's home path in their `init` events. Before they
-  are committed, have the run's check also `grep -c` for the home path and replace it with a placeholder (or keep only
-  the events the check reads). The repository is public.
-- [ ] Medium, fix during implementation — `design.md` D-4, "`plugins/core/skills/review-change/SKILL.md`" bullet and
-  task 2.3: that file also says "round 2 re-summons only the reviewers that failed", "No convergence after 2 rounds →
-  stop and escalate ... No automatic third round" (line 128) and "no convergence after round 2 goes to the owner" (line
-  149). Word them as "after the round limit (2 unless the owner authorized more)"; the rule stays that a third round
-  is never automatic. No test pins these lines.
-- [ ] Low — `specs/coordination-locks/spec.md`: the new requirement qualifies the unmodified "A run is known from the
-  session's own record" ("an end line"). Moving it into a MODIFIED requirement with that requirement's scenarios kept
-  keeps the main spec from reading two ways after the archive. Same for the title "until the work starts" in
-  `change-stages`.
-- [ ] Low — `proposal.md`: about 1,800 words against "under two pages"; trim "What Changes" to one-line bullets.
-- [ ] Low — `design.md` D-1: the loop's `declared.json` and the roadmap run file's `declared[id]` share a name and are
-  different records; one sentence saying so spares a reader the mistake.
-- [ ] Low — `ship-change` used without the loop does not see a plan revised after the approval until the readiness
-  runs again; the skill line could say so.
+- [ ] Medium, fix during implementation — `design.md` D-14 (output column), tasks 4.1, 6.3 and 6.4 (carried from attempt 3): the stream
+  JSON files under `proof/` hold the host's working directory and the person's home path in their `init` events; the repository is
+  public. Have each run's check also `grep -c` for the home path and replace it with a placeholder before the files are committed.
+- [ ] Medium, fix during implementation — `design.md` D-4, "`plugins/core/skills/review-change/SKILL.md`" bullet and task 2.3 (carried):
+  that file also says "round 2 re-summons only the reviewers that failed", "No convergence after 2 rounds -> stop ... No
+  automatic third round" and "no convergence after round 2 goes to the owner"; word them as "after the round limit (2 unless the
+  owner authorized more)". No test pins them.
+- [ ] Low — every line number of `design.md` and `tasks.md` is the c1ac8c4 one and has moved (for example "line 1554, 1587, 1621,
+  1635, 1737" of `deliver-check.mjs` are 1724, 1757, 1801, 1815 and 1923; `flow-check.mjs` "459, 510, 575-579" are 481, 532, 600-601;
+  `change-loop.mjs` "869, 1211, 2342, 844, 1570" are 995-997, 1368, 2523, 968, 1739; `guard.mjs` "564, 573, 861" are 604, 613 and
+  about 1001-1071; `docs/coordination-design.md` "line 185" is 188; the roadmap "line 174" is 177; test lines "657, 3280 ..." and "534-541").
+  The implementer locates each by name; say so in the intro of `tasks.md`, or replace the numbers by names.
+- [ ] Low — `design.md` D-3 and D-4: say whether `declare`'s `nextAction` call reads the budget, the strict model table and the
+  retry as `next` does (`runNext`, `change-loop.mjs:2955-2965`); the cheapest rule is "as `next` does, except `retry`".
+- [ ] Low — `design.md` D-1, "Who writes it": say that in a CompozyOS session (`COMPOZY_SESSION_ID` set) `writeViolation` refuses
+  `declared.json` through its first branch (`guard.mjs:642-644`), and that its message names `approval.md`; give `declared.json` its own
+  message there or state that the wording is accepted.
+- [ ] Low — "ADR 0025 (proposed ...)" in `proposal.md` lines 6 and 118 and `design.md` lines 5-6, 802 and 908: the ADR is accepted
+  (`docs/adr/0025-...md` line 3).
+- [ ] Low — `specs/coordination-locks/spec.md` (carried): the new requirement qualifies the unmodified "A run is known from the
+  session's own record"; moving it into a MODIFIED requirement keeps the main spec from reading two ways after the archive. Same for
+  the title "until the work starts" in `change-stages`.
+- [ ] Low — `proposal.md` (carried): about 1,800 words against "under two pages"; trim "What Changes" to one-line bullets.
+- [ ] Low — `design.md` D-1 (carried): the loop's `declared.json` and the roadmap run file's `declared[id]` share a name and are
+  different records; one sentence saying so.
+- [ ] Low — `ship-change` used without the loop does not see a plan revised after the approval until the readiness runs again
+  (carried); the skill line could say so.
 
 ## 11. Explicitly out of scope
 - [ ] A plan revised after the approval in `ship-change` used without the loop (the legacy path).
@@ -190,28 +243,32 @@ None.
 - [ ] The roadmap coordinator's third review round in session-per-change mode (a design Non-Goal).
 - [ ] The `fresh-base-check` half of item 21 and every "Dropped" item.
 - [ ] Whether the desktop app's monitor wakes the session on green checks (AC-11's deferred half, the roadmap line).
+- [ ] Any change to the CompozyOS driver's loops (`devkit-change`, `devkit-review`) for the declared steps: the plan keeps them as
+  they are (finding 2 asks only that the plan say so, and that `approvalText` follow the approval form).
 
 ## 12. Mandatory review questions
-1. Is the problem objectively defined? Yes: four retros, ADR 0022's context, each kept item anchored to code.
-2. Is the result measurable? Yes for every AC; AC-11 is split into a measured half and a carried half, and AC-7 now
-   has a path the loop reaches (walk, `declare`, round 3), tested through `nextAction` (T111).
+1. Is the problem objectively defined? Yes: four retros, ADR 0025's context, each kept item anchored to code.
+2. Is the result measurable? Yes for every AC. AC-8 is measurable only for the Claude driver until finding 2 is settled; AC-13 is
+   wider than the code D-5 builds (finding 4).
 3. Are error behaviors defined? Yes: exit codes, `LoopRefusal` messages in both languages, reader errors, refusals.
-4. Are edge cases covered? Yes: unreadable record, version 2, unknown keys, empty and missing files, unclosed fences, an
-   approval with no digest, a quoted or `cd`-prefixed command, a project without the schemas, a record for the other
-   review, another role's `review` stage, a flow with its own lower ceiling.
-5. Are dependencies clear? Yes: ADR 0022 accepted at the approval, siblings in D-17, the merge before the last gate.
-6. Are contracts defined? Yes: `DECLARED`, `declaredStep`, `readDeclared`, `declared.json`, `ceilingOf`,
-   `authorizedRounds`, `deadlockScope`, the digest, the new steps' details, the messages and their parameter names.
-7. Can two developers interpret this differently? Not at a point that changes behavior; the two skill-text lines of
-   section 10 are the only places.
-8. Are any decisions implicit instead of written? No.
-9. Do the tasks fully deliver the intended outcome? Yes, with the two section 10 corrections made on the way.
-10. What will be discovered too late if implementation starts now? Possibly a merge conflict with
-    `stage-ceiling-consecutive` on the ceiling comparison (handled by D-17 and the order of 6.1), and the fact that
-    R7, R7s and R7b are the first end-to-end exercise of the two-bound mechanism, in phase 6.
+4. Are edge cases covered? Yes for the Claude driver and the guard; the CompozyOS driver, the train archive and the kit's generated
+   files are not (findings 1, 2, 4).
+5. Are dependencies clear? Partly: ADR 0025, the siblings of D-17 and the merge before the last gate are; the surfaces the merged
+   siblings added (the kit, its tests, the driver's approval writer) are not.
+6. Are contracts defined? Yes: `DECLARED`, `declaredStep`, `readDeclared`, `declared.json`, `ceilingOf`, `authorizedRounds`,
+   `deadlockScope`, the digest, the new steps' details, the messages. Not defined: the approval form shared with the driver, and
+   the dispatch source of `resolve-base-conflict`.
+7. Can two developers interpret this differently? Yes, at three points: whether the driver's approval gets `- Plan:` (finding 2),
+   which source holds the `resolve-base-conflict` dispatch sentence (finding 3), and whether regenerating the kit belongs to the
+   change (finding 1).
+8. Are any decisions implicit instead of written? Yes: the three above.
+9. Do the tasks fully deliver the intended outcome? Not until finding 1 is in them: as written the phases pass their gates and the
+   pull request's CI step fails.
+10. What will be discovered too late if implementation starts now? That the kit's sync check fails at 6.6 or in CI, that the
+    compozy view's hand-off test fails a phase after the row that breaks it, and that a CompozyOS-approved plan is never sent back.
 
 ## 13. Final conclusion
-- Can we start? Yes.
-- What must be fixed? Nothing before implementation. Two Medium corrections go in during implementation (section 10).
-- Main risk if ignored? The ceiling mechanism of D-4 first meets the real loop at R7, in phase 6, after the code is
-  written; T105 to T111 exercise it through `nextAction` earlier, in phase 2, which is where a flaw would show.
+- Can we start? No: five mandatory corrections, all in `design.md`, `tasks.md` and `proposal.md`, none of them a change of scope.
+- What must be fixed? Section 9, then a new readiness run; the owner approves the revised plan again (the hash changes).
+- Main risk if ignored? Phases 3 and 4 go green on gates that do not run the kit's suites, and the CI step "CompozyOS agents are up
+  to date" fails on the pull request after the review round.

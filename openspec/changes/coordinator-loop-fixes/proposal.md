@@ -3,7 +3,7 @@
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
 (source: `requirements.md`, the kept items 1 to 6, 8 to 18, 21 to 24 of its "Checked against main" list;
-decision record: `decisions.md`, ADR 0025 as proposed).
+decision record: `decisions.md`, the change's ADR, accepted at the plan approval).
 
 ## Why
 
@@ -12,8 +12,9 @@ decision outside the gates, a third review round, a small fix after a red gate, 
 conflict, a task only the session can do), and each ended on an undeclared stop, a false `blocked`
 or a stage header edited by hand. The stop lock also accepts an end marker of another change, and a
 plan revised after the implementation started keeps an approval the owner gave to the older plan.
-ADR 0025 decides how the loop declares each of these; this change builds it and closes the open
-nits the same retros left.
+The change's ADR decides how the loop declares each of these; this change builds it and closes the open
+nits the same retros left. Two drivers run a change, the Claude session and CompozyOS: this change reaches
+the second only where the plan says so (design D-19).
 
 ## What Changes
 
@@ -36,12 +37,15 @@ nits the same retros left.
   without an authorization reads as today).
 - A pull request that conflicts with its base outside the release files gets the declared step
   `resolve-base-conflict` (the implementer merges the base and resolves it), in place of a blocked
-  end; a release-only conflict keeps `resolve-release-conflict`.
+  end; a release-only conflict keeps `resolve-release-conflict`. This covers a change's pull request and
+  an archive's that never left a delivery train; an archive that left one keeps its blocked
+  `stop-archive`, and a change that left one keeps `rejoin-train` (design D-5).
 - A task whose description starts with `Conductor:` is the conducting session's: the delivery
   checker gives the session step `conductor-task` for it and never hands it to the implementer.
-- The owner's approval records a digest of the plan files (ticks ignored); a plan file edited after
-  the implementation started makes the readiness review stale and then the approval, so the revised
-  plan goes back to its gates.
+- The owner's approval records a digest of the plan files (ticks ignored), in the Claude session's
+  approval and in the CompozyOS driver's `record-approval`; a plan file edited after the implementation
+  started makes the readiness review stale and then the approval, so the revised plan goes back to its
+  gates.
 - `pr-verifier` may write under the change's `proof/` folder; its definition says so.
 - With a host that has its own pull-request monitor and forbids polling, the session ends the turn
   without the background wait and says so; elsewhere the wait starts as today. Whether the desktop
@@ -66,15 +70,15 @@ nits the same retros left.
 - AC-4 `agent-map-from-pack-table`: the loop's fallback agent map and the pack table `PACKS` come from one source; a test fails when they differ.
 - AC-5 `adr-0011-note`: `docs/adr/0011-the-change-coordinator-is-the-owners-session.md` has a dated Note on the stop lock after a recorded end, and its Decision section is unchanged.
 - AC-6 `language-never-set`: with the person's language never set, the loop's messages come out in the project's default language with no unsubstituted placeholder, shown by a test and by one real run of the installed plugin with the setting absent.
-- AC-7 `review-round-after-limit`: after the second review round, a declared step the owner authorizes with their own typed message hands a third round; `next` leaves `stop-review-deadlock` for it without a header edited by hand, and `review-round.workflow.js` accepts the round. Without that message the deadlock stays.
-- AC-8 `plan-revised-after-start`: a plan file (`proposal.md`, `design.md`, `tasks.md`, a spec delta) edited after the implementation started makes the readiness review and the approval stale, and `next` hands the plan back to its own gate; a `tasks.md` tick or an evidence file does not.
+- AC-7 `review-round-after-limit`: after the second review round, a declared step the owner authorizes with their own typed message hands a third round; `next` leaves `stop-review-deadlock` for it without a header edited by hand, and `review-round.workflow.js` accepts the round. Without that message the deadlock stays. The step is the Claude session's (`declare` is the main session's command); the CompozyOS driver's review loop keeps its two rounds.
+- AC-8 `plan-revised-after-start`: a plan file (`proposal.md`, `design.md`, `tasks.md`, a spec delta) edited after the implementation started makes the readiness review and the approval stale, and `next` hands the plan back to its own gate; a `tasks.md` tick or an evidence file does not. It holds for both drivers: the approval the CompozyOS driver's `record-approval` writes carries the same `- Plan:` digest.
 - AC-9 `task-for-the-conductor`: a `tasks.md` line carrying the marker the plan names is never handed to the implementer; the loop leaves it to the conducting session and counts it done only when ticked.
-- AC-10 `fix-after-red-gate`: a red `gate` hands one declared fix step to the implementer and runs the gate again; a second red ends the run `blocked` (`why=tests-red`).
+- AC-10 `fix-after-red-gate`: a red `gate` hands one declared fix step to the implementer and runs the gate again; a second red ends the run `blocked` (`why=tests-red`). It is the Claude session's; the CompozyOS driver keeps asking the owner at a red gate.
 - AC-11 `host-monitor-wait`: when the host has its own pull-request monitor and forbids polling, the loop ends the turn without starting the background `wait`, and the host's event starts the next turn, which goes on alone when the checks pass. Without that host, the background `wait` starts as today. Split by this plan (`requirements.md` keeps the wording above; design D-10):
   - proven in this change: with host instructions that name a monitor and forbid polling, the session starts no `wait` and says that the host's monitor holds the wait; without them, the background `wait` starts (T82, real runs R13a and R13b);
   - deferred to the next change run in the desktop app: whether the host's event wakes the session when the checks pass, so that it goes on alone. Carried by the roadmap line `host-monitor-wake` (task 6.5) and recorded by this change's retro; this change does not claim it.
 - AC-12 `verifier-writes-proof`: `pr-verifier` can write under the change's `proof/` folder, `guard.mjs` allows it, `core/agents/pr-verifier.md` says so, and a write outside `evidence.md` and `proof/` is still refused.
-- AC-13 `resolve-outside-release-files`: a pull request that conflicts with the base outside the release files gets a declared resolve step; the run does not end blocked for it, and a conflict in the release files still uses `resolve-release-conflict`.
+- AC-13 `resolve-outside-release-files`: a pull request that conflicts with the base outside the release files gets a declared resolve step; the run does not end blocked for it, and a conflict in the release files still uses `resolve-release-conflict`. Read as design D-5 reads it: the pull requests are a change's and an archive's that never left a delivery train; an archive that left a train and conflicts outside the release files and the roadmap ticks keeps its blocked `stop-archive`, and a change that left one keeps its own `rejoin-train`, both unchanged.
 - AC-14 `nits-closed`: the change-coordination spec words the archive sources as their union; the project-setup spec states exit 1 of `github-setup` for a blocked state; a test covers an unreadable `.openspec.yaml`; project-loop T25 fails without the export; the roadmap scenario of the commit-attribution spec has a test of its own; T31 no longer counts a literal phrase.
 - AC-15 `short-script-decisions-recorded`: `docs/openspec-flow.md` records that `devkit-lite` has no plan approval of its own by decision and that a first-spec change follows the ordinary choice rule; no behaviour changes: `devkit-lite`'s stages and gates are the same before and after.
 - AC-16 `no-behaviour-change-elsewhere`: no behaviour changes for any item under "Dropped" and for the stages `devkit` runs today, other than what AC-1 to AC-13 state; the existing suites stay green.
@@ -89,9 +93,10 @@ None.
 
 - `change-coordination`: the declared ends for a pause and for a decision outside the gates, the
   declared fix after a red gate, the owner-authorized review round, the resolve step for a conflict
-  outside the release files, the session step for a conductor task, the wait with a host's own
-  monitor, and the archive sources worded as their union.
-- `coordination-locks`: a recorded end releases the stop lock only for the run's change.
+  outside the release files (not for an archive that left a train), the session step for a conductor
+  task, the wait with a host's own monitor, and the archive sources worded as their union.
+- `coordination-locks`: a recorded end counts as the run's last action only when it names the run's
+  change (a modified requirement, with the scenarios of the declared pause and decision).
 - `change-stages`: a plan revised after the implementation started goes back to its gates; the
   code review stage's attempt ceiling is its declared ceiling plus the rounds the owner authorized.
 - `change-delivery`: a task marked for the conducting session is never handed to the implementer
@@ -107,19 +112,26 @@ None.
 
 - `devkit-openspec` (minor bump): `plugins/openspec/hooks/change-loop.mjs`, `guard.mjs`,
   `deliver-check.mjs`, `flow-check.mjs`, `conduct-check.mjs`, `roadmap-loop.mjs`, `project-loop.mjs`
-  and their tests; `skills/devkit/SKILL.md`, `skills/devkit-session/SKILL.md`,
+  and their tests (`change-loop.mjs` also holds the CompozyOS driver's approval writer, `approvalText` and
+  `recordApproval`); `skills/devkit/SKILL.md`, `skills/devkit-session/SKILL.md`,
   `skills/ship-change/SKILL.md`; both schemas' `schema.yaml` (both copies, no flow version change);
   `skills/openspec-setup/scripts/github-setup.test.mjs`.
 - `devkit-core` (minor bump): `agents/pr-verifier.md`, `agents/tdd-implementer.md`,
   `skills/review-change/SKILL.md` and `scripts/review-round.workflow.js` with its tests.
+- `devkit-compozy` (minor bump): no source file of the pack is edited; the two templates
+  `skills/compozy-setup/templates/agents/tdd-implementer/AGENT.md` and `.../pr-verifier/AGENT.md` are
+  regenerated by `gen-agents.mjs` from the two core agent files, and this repository's `.compozy/` copies
+  and `.compozy/kit-manifest.json` are installed again by `install-kit.mjs` (design D-19).
 - Docs: `docs/openspec-flow.md`, `docs/coordination-design.md`, ADR 0011's Note,
   `openspec/config.yaml`'s ADR list, `CHANGELOG.md`, `.claude-plugin/marketplace.json`,
-  `openspec/roadmap.md` (the `host-monitor-wake` line).
-- Dependencies: ADR 0025 (proposed, accepted at the plan approval through `accept-decisions`); ADR
+  `openspec/roadmap.md` (the `host-monitor-wake` line), `docs/compozy-kit.md`. Versions: each changed pack
+  and the marketplace take the next free minor at merge (design D-18); the plan names no version.
+- Dependencies: the change's ADR (accepted at the plan approval through `accept-decisions`); ADR
   0010 decisions 3, 5 and 6; ADR 0011 decision 2; ADR 0016; ADR 0017. Sibling changes in flight touch
-  the same files (design, "Siblings"); this change merges `origin/main` before its last gate.
+  the same files (design D-17); each phase that edits one of them opens with a merge of `origin/main`.
 - Exit criteria: `node --test plugins/openspec/hooks/guard.test.mjs`, `python3 scripts/check.py`,
-  `python3 scripts/gen-catalog.py --check`, `claude plugin validate .` and
+  `python3 scripts/gen-catalog.py --check`, `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check`,
+  `claude plugin validate .` and
   `openspec validate coordinator-loop-fixes --strict` green on the merged head, and the real-run
   proofs of design D-14 recorded in `evidence.md`, and the roadmap line `host-monitor-wake` present
   in `openspec/roadmap.md`.

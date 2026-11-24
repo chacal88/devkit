@@ -34,6 +34,10 @@ as before.
 - **WHEN** a task is ticked and `approval.md` records no plan digest
 - **THEN** no plan file makes the readiness or the approval stale, as before
 
+#### Scenario: The approval the CompozyOS driver records
+- **WHEN** the owner's approval is recorded by the CompozyOS driver's record step
+- **THEN** `approval.md` carries the plan's digest in its `- Plan:` line, as the approval the session writes does, and a plan file edited after a task is ticked sends that run back to its gates the same way
+
 #### Scenario: The short script
 - **WHEN** a `devkit-lite` change edits a plan file after a task is ticked
 - **THEN** nothing is reported stale and no approval is asked, as before

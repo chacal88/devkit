@@ -39,7 +39,7 @@ not know, SHALL be taken from the stage checker alone.
 - **THEN** none of them is `push-rebased` and no command they carry holds `--force` or `--force-with-lease`
 
 #### Scenario: A conflict in any other file
-- **WHEN** the change's or the archive's pull request conflicts with its base in a file that is not a release file, with or without release files among the conflicting paths
+- **WHEN** the change's pull request, or the archive's pull request of an archive that never left a delivery train, conflicts with its base in a file that is not a release file, with or without release files among the conflicting paths
 - **THEN** the next action hands `resolve-base-conflict` to the implementer's agent with the base and every conflicting path, and the run does not end blocked for it
 
 #### Scenario: A conflict git cannot classify
@@ -289,6 +289,7 @@ The step `resolve-base-conflict` SHALL hand the implementer the base and the con
 merge `origin/<base>` into the branch, resolve every conflict, run the project's test command and
 commit the merge, never pushing and never rebasing; the loop SHALL then hand the evidence, the review
 and a plain push. An agent's failure on it SHALL end the run blocked as any stage agent's failure.
+The step SHALL not replace the train steps `stop-archive` and `rejoin-train`.
 
 #### Scenario: The resolution is pushed plainly
 - **WHEN** the implementer committed the merge and the pull request's head is an ancestor of the new head
@@ -297,3 +298,11 @@ and a plain push. An agent's failure on it SHALL end the run blocked as any stag
 #### Scenario: The implementer cannot resolve it
 - **WHEN** the implementer returns a failure for `resolve-base-conflict`
 - **THEN** the session declares the run blocked with `reply blocked --param why=role-failed`
+
+#### Scenario: An archive that left a delivery train
+- **WHEN** an archive left a delivery train and its pull request conflicts with the base in a file that is neither a release file, the CI pin nor a roadmap tick
+- **THEN** the run ends blocked as `stop-archive`, naming the conflicting paths, as before, and `resolve-base-conflict` is not given
+
+#### Scenario: A change that left a delivery train
+- **WHEN** a change left a delivery train and its pull request conflicts with the base
+- **THEN** the next action is its own step `rejoin-train`, as before, and `resolve-base-conflict` is not given
