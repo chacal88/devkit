@@ -16,7 +16,7 @@ import { readDevkitSettings, MESSAGES, render, main, LoopUsageError } from './ch
 import {
   LOOP, TDD, COMMIT, PLANNER, configRepo, shape, says, buildRep, build, next, parsed, deliveredChange, startRun, body, snapshot, devkitRepo, openRun,
   freshProject, WAIT, waited, skillBodyLine, hook, PLAN_UP_TO_TASKS, approvedChange, REPO_ROOT, readRepo, skillText, LANG_FLAG, section, IDENT,
-  addChange, archiveGh, archivedFolder, archiveOnOrigin, withCreated,
+  addChange, runTranscript, archiveGh, archivedFolder, archiveOnOrigin, withCreated,
 } from './change-loop-fixtures.mjs';
 import { TASK_REQUIREMENTS, recordFile, asked, usageLine, budgetEnv } from './change-loop-remote-fixtures.mjs';
 

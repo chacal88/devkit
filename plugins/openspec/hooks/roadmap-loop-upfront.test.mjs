@@ -18,7 +18,7 @@ import { classifyLines, decideRoadmap, boardOf } from './roadmap-loop.mjs';
 import {
   HERE, sessionAct, githubAct, blockedAct, archivedAct, FLYING, say, changesOf, rowAt, inFlight, picture, GUARD, LK_SESSION, lkSandbox, lkAssistant,
   lkRun, lkStopInput, lkAgentInput, BRIEF, PLANNER_TYPE, lkProject, LK_PLAN, LK_ENV, lkOpts, withTmp, recordOf, nothingRecorded, agentOf, lkHook, skillMd,
-  sessionSkillMd, sectionOf, deadPid, lockFileOf, AT, START_FIELDS, sessionWorld, UP_SESSION, UP_TICKET, upTickets, upEntry, entryOf, labelOf, sd,
+  sessionSkillMd, sectionOf, deadPid, lockFileOf, AT, START_FIELDS, sessionWorld, stopOf, UP_SESSION, UP_TICKET, upTickets, upEntry, entryOf, labelOf, sd,
   implAct, upChange, approve, doSessionNext, upBase, sessionNextOf, upStopInput, AT2, JOB, gateLine, upPushed, pushesOf, PUSH_OPTS,
 } from './roadmap-loop-fixtures.mjs';
 
@@ -1063,7 +1063,7 @@ test('unlocated 2: the roadmap stop lock lets the stop through when x is the onl
 test('unlocated 2: a placed roadmap line reads as before', () => {
   const { root } = unplacedProject({ branch: 'x' });
   const board = placedOn(boardOfRoot(root));
-  const s = changeLoopModule.changeState(nextAction(root, 'x', { env: cleanEnv, lang: 'en', gh: OFFLINE }), null, { lang: 'en' });
+  const s = changeLoopModule.changeState(changeLoopModule.nextAction(root, 'x', { env: cleanEnv, lang: 'en', gh: OFFLINE }), null, { lang: 'en' });
   assert.notEqual(board.x[0], 'blocked', 'x is placed: its worktree is on the branch x');
   assert.deepEqual(board.x, [BLOCK_OF_STATE[s.state], render('en', 'running.stage', { title: s.stageTitle })]);
 });
