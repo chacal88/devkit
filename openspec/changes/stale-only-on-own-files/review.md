@@ -75,3 +75,29 @@ None.
 
 ## Next
 Ready to ship.
+
+# Review: stale-only-on-own-files, round 1
+
+Path: agents · range `8c9685d9101476d14b0edee87bedea87de697dce..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 605ef10 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 605ef10 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Scoped re-review (range 8c9685d..605ef10) because the records went stale after a second merge of origin/main (archives #99, #101, #102, which touch CONTRIBUTING.md and docs/openspec-flow.md, files this change also edits); no round budget consumed
+- The merge brought nothing into plugins/, .github/, scripts/ or docs/adr/; the own-files rule, the v0.39.0 CI pin, the train sentence and the ADR 0025 pointer are intact in both documents
+- Two nits stay open and do not block: tasks.md gates 1.5, 2.5 and 3.8 still name node --test guard.test.mjs (after suite-speed it matches only its own tests; evidence.md says node scripts/test-suite.mjs and the filtered runs cover the change), and the move-under-openspec and root-commit scenarios are tested only without a base
+- The whole suite ran once at ed0d463 (2944 tests, 2941 pass, 0 fail, 3 skipped); the commit after it adds only evidence.md
+
+## Next
+Ready to ship.
