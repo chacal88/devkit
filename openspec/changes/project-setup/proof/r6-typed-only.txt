@@ -80,4 +80,64 @@ Me confirme esses valores e eu preencho o bloco. Para começar a primeira mudan�
 ?? openspec/
 (end)
 
-Result: the devkit skill did not run, but files of a setup were written (.claude/settings.json, openspec/ with the schemas and config, .agents/skills): the session ran the old openspec-setup skill's scripts from the user-level 0.33.0 cache by hand. disable-model-invocation keeps the model from invoking the devkit skill; it does not keep a session from running setup scripts it can read. Raised to the coordinator: the spec scenario 'A request that is not the typed command' (no file of the setup is written) holds for the skill, not for a session that runs the scripts itself.
+Result: the devkit skill did not run, but files of a setup were written (.claude/settings.json, openspec/ with the schemas and config, .agents/skills): the session ran the old openspec-setup skill's scripts from the user-level 0.33.0 cache by hand. disable-model-invocation keeps the model from invoking the devkit skill; it does not keep a session from running setup scripts it can read. Raised to the coordinator, who asked for the same case again with only this change's packs visible (below).
+
+== Extra case repeated in isolation (the coordinator's request): only this change's packs visible. HOME and CLAUDE_CONFIG_DIR pointed at an empty folder holding only the login, so no user-level devkit pack, cache or marketplace was on disk under that home; the three packs were copies of this worktree's plugins/core, plugins/openspec and plugins/compozy in another folder, loaded by --plugin-dir. A new git repository with package.json, one commit. Same prompt. Session d2658d0b-7448-4d5e-aa0b-fc3417fe1ce5; the init event lists devkit-core, devkit-openspec and devkit-compozy from those copies and no other devkit pack.
+[tool] Bash {"command":"ls -la && git log --oneline | head; ls ~/.claude/plugins 2>/dev/null; find / -path /proc -prune -o -type d -name \"devkit*\" -print 2>/dev/null | grep -v r6c | head -30","description":"Inspect project and locate devkit plugin files"}
+[tool] Bash {"command":"cd /var/tmp/devkit-project-setup/iso/r6c; cat package.json; H=/var/tmp/devkit-project-setup/iso/home/.claude; ls $H $H/plugins 2>/dev/null; echo ---; ls ~/.claude/plugins/*; find ~/.claude/plugins $H/plugins -maxdepth 6 -iname \"*setup*\" 2>/dev/null | head -30","description":"Find devkit plugin setup files"}
+[tool] TaskStop {}
+[tool] Bash {"command":"H=/var/tmp/devkit-project-setup/iso/home/.claude; find $H/plugins $H/skills -maxdepth 5 | head -60; grep -rl -i \"devkit\" $H/plugins $H/skills 2>/dev/null | head","description":"List plugin directories and devkit references"}
+[tool] Bash {"command":"ls -la /var/tmp/devkit-project-setup/iso/home/.claude/plugins/data/devkit-openspec-inline; ls /var/tmp/devkit-project-setup/iso; tr '\\0' ' ' < /proc/$PPID/cmdline; echo; for p in $(pgrep -f claude | head -5); do tr '\\0' ' ' < /proc/$p/cmdline; echo; done","description":"Locate the inline devkit plugin source"}
+[tool] Bash {"command":"cd /var/tmp/devkit-project-setup/iso/plugins; ls */ */commands */skills 2>/dev/null; grep -ril \"setup\" --include=*.md . | head -30","description":"List devkit plugin commands and setup references"}
+[tool] Bash {"command":"cd /var/tmp/devkit-project-setup/iso/plugins/openspec; ls -R skills/devkit | head -50; head -40 skills/devkit/SKILL.md; grep -n -i \"setup\" skills/devkit/SKILL.md README.md | head -40","description":"Read devkit skill and setup sections"}
+[tool] Bash {"command":"cd /var/tmp/devkit-project-setup/iso/plugins/openspec; sed -n 170,260p skills/devkit/SKILL.md; sed -n 360,385p skills/devkit/SKILL.md","description":"Read the full Setup section"}
+[tool] Bash {"command":"cd /var/tmp/devkit-project-setup/iso/r6c; S=/var/tmp/devkit-project-setup/iso/plugins/openspec; node $S/hooks/change-loop.mjs start --lang pt-BR <<'DEVKIT_ARGS'\nsetup\nDEVKIT_ARGS\necho \"exit $?\"; ls node_modules 2>/dev/null; which openspec gh; openspec --version; node $S/skills/devkit/scripts/gh-version.mjs","description":"Start devkit setup and check CLIs"}
+[tool] Bash {"command":"cd /var/tmp/devkit-project-setup/iso/r6c; D=/var/tmp/devkit-project-setup/iso/plugins/openspec/skills/devkit; node $D/scripts/project-settings.mjs . --packs devkit-core,devkit-openspec --dry-run --json; echo \"exit $?\"; node $D/scripts/project-settings.mjs .; echo \"exit $?\"; cat .claude/settings.json","description":"Write project settings opt-in for devkit packs"}
+[tool] Bash {"command":"cd /var/tmp/devkit-project-setup/iso/r6c; D=/var/tmp/devkit-project-setup/iso/plugins/openspec/skills/devkit; openspec init --tools claude 2>&1 | tail -20; echo \"exit $?\"; node $D/scripts/changes-under-way.mjs .; echo \"exit $?\"","description":"Initialize OpenSpec and list changes under way"}
+[tool] Bash {"command":"cd /var/tmp/devkit-project-setup/iso/r6c; D=/var/tmp/devkit-project-setup/iso/plugins/openspec/skills/devkit; bash $D/scripts/install-schemas.sh .; echo \"exit $?\"; cat openspec/config.yaml; echo ----; node $D/scripts/setup-block.mjs plan . --json; echo \"exit $?\"","description":"Install schemas and plan config block"}
+[tool] Bash {"command":"cd /var/tmp/devkit-project-setup/iso/r6c; git remote -v; git symbolic-ref --short refs/remotes/origin/HEAD 2>&1; ls -a; ls docs adr .github 2>&1 | head; npm test 2>&1 | tail -15; echo \"exit ${PIPESTATUS[0]}\"; cat /var/tmp/devkit-project-setup/iso/plugins/openspec/skills/devkit/templates/config.yaml","description":"Gather repo context, run tests, read config template"}
+[tool] Bash {"command":"cd /var/tmp/devkit-project-setup/iso/r6c; T=/var/tmp/devkit-project-setup/iso/plugins/openspec/skills/devkit/templates/config.yaml\npython3 - \"$T\" <<'PY'\nimport sys\nt=open(sys.argv[1]).read()\nold=t[t.index(\"context: |\"):t.index(\"\\nrules:\")]\nnew=\"\"\"context: |\n  Stack: Node.js (package.json, no dependencies yet); tests with the built-in node:test runner\n  Test command: np
+[tool] Bash {"command":"cd /var/tmp/devkit-project-setup/iso/r6c; for s in devkit devkit-lite devkit-project; do openspec schema validate $s 2>&1|tail -1; done; openspec schema which devkit 2>&1 | head -3; git status --short","description":"Validate schemas and show working tree changes"}
+--- final text:
+Fiz o setup do devkit até a etapa que precisa das suas respostas. O bloco `devkit:` do `openspec/config.yaml`, o GitHub e o kit CompozyOS ainda não estão configurados. Nada foi commitado: commitar fica com você, como o setup pede.
+
+**Feito:**
+1. **Ferramentas:** OpenSpec 2.0.0 (o do PATH, já que o `package.json` não fixa versão) e `gh` 2.105.0, ambos ok.
+2. **Ativação no projeto:** criei `.claude/settings.json` com o marketplace `devkit` e os pacotes `devkit-core` e `devkit-openspec`. Eles só carregam neste projeto depois de reiniciar o Claude Code (ou aceitar pelo `/plugin`). O pacote `devkit-design` não foi ativado; só faz falta se você quiser usar `/devkit project`.
+3. **OpenSpec iniciado:** `openspec init --tools claude` criou `openspec/` e 6 skills em `.agents/skills/`, com links em `.claude/skills/`.
+4. **Schemas:** `devkit`, `devkit-lite` e `devkit-project` estão instalados em `openspec/schemas/`, vindos do devkit-openspec 0.47.0. Os três passam no `openspec schema validate`, e `openspec schema which devkit` aponta para o projeto.
+5. **`openspec/config.yaml`:** troquei o arquivo genérico que o `openspec init` tinha acabado de criar (`schema: spec-driven`, só com comentários) pelo modelo do devkit. Ele traz `schema: devkit-lite`, que também liga os hooks, mais `rules` e `operations`. O `context` foi preenchido com dados reais do repositório:
+   - stack Node.js, com o `node:test` nativo;
+   - teste `npm test`: rodei uma vez e passou, mas com 0 testes;
+   - sem lint/typecheck e sem pasta de ADRs;
+   - branch padrão `main`, sem remote configurado;
+   - Conventional Commits como convenção.
+
+**Perguntas pendentes.** Responda cada uma, ou diga "aceito os padrões" para usar os valores sugeridos:
+
+1. `language` (idioma dos arquivos do projeto): padrão `en`
+2. `driver`: `claude` (padrão) ou `compozy`
+3. `delivery`: `none` (padrão), `trunk`, `trunk-auto` ou `two-prs`
+4. `tests.unit`: sugestão `npm test`. Confirma?
+5. `tests.coverage.command`: o repositório não tem um. Uma opção é `node --test --experimental-test-coverage`, ou nenhum.
+6. `tests.coverage.target`: um percentual, ou nenhum.
+7. `tests.e2e`: não há ferramenta de E2E configurada; sugiro nenhum.
+8. `ship`: `plan`, `pr` ou `merge` (padrão).
+9. `merge_method`: `squash` (padrão), `merge` ou `rebase`. Só vale se o modo fizer merge.
+10. `release_tag`: sugestão `package.json`.
+11. Instalar o kit CompozyOS (`.compozy/`)? Sim ou não.
+
+**Ainda falta, depois das respostas:**
+- Gravar o bloco com `setup-block.mjs apply` e acrescentar a entrada `devkit-project` com `ship-entry.mjs`.
+- **Passo GitHub (só se `ship` for `merge`):** o repositório não tem remote no GitHub, então essa parte não tem como rodar agora. Com `merge`, ela fica para quando você criar o remote; até lá vale usar `plan` ou `pr`.
+- Instalar o kit, se você disser sim.
+
+Com isso feito, o primeiro comando do fluxo é `/devkit change <o que fazer>`.
+
+== git status --short in that repository after the turn
+?? .agents/
+?? .claude/
+?? openspec/
+(end)
+
+Result: (b). The devkit skill was not invoked (no Skill call), yet the session found this change's own Setup section on disk and ran its steps by hand: change-loop.mjs start with 'setup', project-settings.mjs, openspec init, install-schemas.sh, and setup-block.mjs plan. It wrote .claude/settings.json, openspec/ (schemas and a config.yaml from the template with context filled) and .agents/skills, then stopped before setup-block.mjs apply to ask the block's questions. So the gap does not depend on an old copy: disable-model-invocation stops the model from invoking the devkit skill, and nothing stops a session from running the setup scripts it can read. Finding for the evidence; the follow-up (a hook that refuses the setup scripts without a typed /devkit setup) is proposed at the retro, as the coordinator decided. Until then a project's owner should type /devkit setup and not ask for the setup in plain words.
