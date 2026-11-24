@@ -11,7 +11,8 @@ split, D-13 documents and release. The implementer copies them and makes no desi
 
 Every gate is one backticked command, run as written; each `&&` part runs on its own, no part holds a
 `|`, and every gate exits 0 when its phase is done. Every gate runs with `GITHUB_HEAD_REF` and
-`GITHUB_BASE_REF` set, as a pull-request run on CI does. The whole suite runs once, in 3.4, as a
+`GITHUB_BASE_REF` set, as a pull-request run on CI does, except the suite part of 3.4, which since the
+merge of main d917ae0 is the delivery train's own text (see 3.4). The whole suite runs once, in 3.4, as a
 background command of the tool, never with a shell `&`. Test first: each phase's test task comes
 before its code tasks and its new tests fail on the phase's base (the check says how; a test file that
 imports an export or a module not written yet fails as a whole at load, before any of its tests runs). An existing
