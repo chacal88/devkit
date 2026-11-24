@@ -1,21 +1,21 @@
-<!-- devkit-stage evidence result=passed attempt=2 commit=5957a932f2757b84de0c140668aa11dfd0e106ad -->
-Commit: 5957a932f2757b84de0c140668aa11dfd0e106ad
+<!-- devkit-stage evidence result=passed attempt=3 commit=e09f2307b8b7119225f16b4c75b64582da6bb125 -->
+Commit: e09f2307b8b7119225f16b4c75b64582da6bb125
 
 # Evidence
 
-Change `project-slice-claim`, verified at `5957a93` (the tree was clean except this file: `git status --short` printed only `?? openspec/changes/project-slice-claim/evidence.md`). This replaces attempt 1 (verified at `27c6006`, `result=failed`).
-Outcome: **verified**. Attempt 1 found one defect: the spec delta omitted the scenario `The CompozyOS driver`, so `openspec validate project-slice-claim --strict` failed. The coordinator repaired it in `5957a93`, and the validate now passes (see `## Defect (attempt 1, repaired)`).
-**What changed since `27c6006`:** `git diff --name-only 27c6006 HEAD -- . ':!openspec'` printed nothing, so every file outside `openspec/` is byte-identical and the code under test is unchanged. The commit touches two files only: `openspec/changes/project-slice-claim/specs/project-definition/spec.md` (6 lines: the CompozyOS scenario and wording in the MODIFIED block) and `openspec/changes/project-slice-claim/proof/real-run.txt` (new, 415 lines; `cmp` reports it byte-identical to the verifier's transcript). So the AC proofs of attempt 1, run on the same code, stand, and the gates were re-run at `5957a93`.
+Change `project-slice-claim`, verified at `e09f230` (the tree was clean: `git status --short` printed nothing). This replaces attempt 2 (verified at `5957a93`, `result=passed`) and attempt 1 (verified at `27c6006`, `result=failed`).
+Outcome: **verified**. Attempt 1 found one defect: the spec delta omitted the scenario `The CompozyOS driver`, so `openspec validate project-slice-claim --strict` failed. The coordinator repaired it in `5957a93` (see `## Defect (attempt 1, repaired)`).
+**What changed since `27c6006`, the commit the real run was recorded at:** `git diff --stat 27c6006 HEAD -- plugins/openspec/hooks/project-loop.mjs plugins/openspec/hooks/change-loop.mjs` printed nothing, so both files are byte-identical: the code of this change is unchanged since `27c6006` apart from what `main` brought, and `main` brought nothing into those two files. The base merge `e09f230` (origin/main at `946e3e8`) and the commits since attempt 2 (`0b40457` review record, `9387745` the ADR number mapping in `decisions.md`, `66864c3` evidence attempt 2) changed outside `openspec/` only `CHANGELOG.md`, `docs/openspec-flow.md`, `plugins/openspec/hooks/deliver-check.mjs`, `plugins/openspec/hooks/deliver-check-archive.test.mjs` and `plugins/openspec/hooks/change-loop-compozy.test.mjs` (`git diff --stat 27c6006 HEAD -- . ':!openspec'`: 5 files, 78 insertions, 8 deletions), all from `main`'s `own-pr-archive-paths` and the train. Because the two files the real run exercises are unchanged, the real run was **not** repeated; `openspec/changes/project-slice-claim/proof/real-run.txt` stands as recorded at `27c6006`. The manifest still reads devkit-openspec `0.40.0`, the top `CHANGELOG.md` entry is `0.44.0`, the slice claim's.
 
 Who ran what, and with which limits:
 
-- The verifier ran every gate row below at `5957a93` with `TMPDIR=/var/tmp/devkit-project-slice-claim`; its logs are in
-  `/var/tmp/devkit-project-slice-claim/ev/` (at `5957a93`: `g16a2.log`, `check2.log`, `cat2.log`, `val2.log`, `g25a2.log`, `g26b.log`, `slice13b.log`; at `27c6006`: `broad.log`).
+- The verifier ran every gate row below at `e09f230` with `TMPDIR=/var/tmp/devkit-project-slice-claim`; its logs are in
+  `/var/tmp/devkit-project-slice-claim/ev/` (at `e09f230`: `g16a3.log`, `check3.log`, `cat3.log`, `val3.log`, `g25a3.log`, `g26c.log`, `slice13c.log`, `rm3.log`; at `27c6006`: `broad.log`).
 - The whole suite was **not** run by the verifier, as instructed. The conducting session ran it once at `776e605`
   (`/var/tmp/devkit-project-slice-claim/suite2.log`: 38 files, 2957 tests, 2949 pass, 5 fail, all five from the CI snippet of
   `docs/openspec-flow.md` naming v0.39.0 against the 0.40.0 manifest; fixed in `27c6006`; the five re-ran green filtered). The delivery
   train proves the whole suite again before merge. The verifier read the log's last line and nothing else of it.
-- **The real-run transcript** is `openspec/changes/project-slice-claim/proof/real-run.txt` in the change (415 lines, plain text, every case of design D-7; the verifier could not write it, the guard hook allows it only `evidence.md`, so the coordinator copied it from `/var/tmp/devkit-project-slice-claim/ev/real-run.txt`, byte-identical by `cmp`). The script that produced it is `/var/tmp/devkit-project-slice-claim/ev/real-run.sh`. The rows below quote its decisive lines. It was recorded at `27c6006`; the code is unchanged at `5957a93`.
+- **The real-run transcript** is `openspec/changes/project-slice-claim/proof/real-run.txt` in the change (415 lines, plain text, every case of design D-7; the verifier could not write it, the guard hook allows it only `evidence.md`, so the coordinator copied it from `/var/tmp/devkit-project-slice-claim/ev/real-run.txt`, byte-identical by `cmp`). The script that produced it is `/var/tmp/devkit-project-slice-claim/ev/real-run.sh`. The rows below quote its decisive lines. It was recorded at `27c6006`; `project-loop.mjs` and `change-loop.mjs` are unchanged at `e09f230`.
 - Real-run setup: five throwaway projects under `/var/tmp/devkit-project-slice-claim/proof-*-r2/` (`claim`, `race`, `reject`,
   `noorigin`, `board`), each a bare `origin.git`, a main checkout (git identity `proof-alpha`) and `clone-bravo` (identity `proof-bravo`),
   with the shipped `devkit-project` schema, `openspec/config.yaml` with `ship: devkit-project: merge`, a roadmap, and the design pack
@@ -34,19 +34,20 @@ weight" below), and those runs are what proves the behaviour.
 
 | Gate | Command | Result |
 |---|---|---|
-| 1.6 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^slice-claim" --test-name-pattern="^project-loop " --test-name-pattern="^commit-attribution AC-1" --test-name-pattern="^gh-version 1[56]" --test-name-pattern="^version-pin AC-1 open" --test-name-pattern="^upfront AC-5 open" --test-name-pattern="^remote AC-1 open" --test-name-pattern="^remote AC-2 open" --test-name-pattern="^remote AC-3 open" --test-name-pattern="^remote AC-4 open" --test-name-pattern="^change-loop replies" plugins/openspec/hooks/guard.test.mjs` | pass: exit 0; `ℹ tests 1, pass 1, fail 0` is the file-level result of `guard.test.mjs` alone: no named test matched in that file (`g16a2.log`). The real runs of the same patterns over the seven files are below: 197 tests, 197 pass |
-| 1.6 | `python3 scripts/check.py` | pass: exit 0, `all checks passed` (`check2.log`) |
-| 2.5 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^project-loop docs" --test-name-pattern="^upfront D-18 docs" --test-name-pattern="^slice-claim" plugins/openspec/hooks/guard.test.mjs` | pass: exit 0; again the file-level result only (`tests 1, pass 1`), no named test matched in `guard.test.mjs` (`g25a2.log`); the real runs are below |
-| 2.5 | `python3 scripts/check.py` | pass: exit 0, `all checks passed`, one run at this commit stands for the row of 1.6 too (`check2.log`) |
-| 2.5 | `python3 scripts/gen-catalog.py --check` | pass: exit 0, no output: the catalog is up to date (`cat2.log`) |
-| 2.5 | `openspec validate project-slice-claim --strict` | pass: exit 0, `Change 'project-slice-claim' is valid` (`val2.log`); at `27c6006` it failed, see `## Defect (attempt 1, repaired)` |
-| 2.6 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: exit 0, `ℹ tests 132, pass 132, fail 0, skipped 0`, `duration_ms 64350` (`g26b.log`). This command is `guard.test.mjs` alone, not the whole suite; the whole-suite proof is the conducting session's run named above |
+| 1.6 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^slice-claim" --test-name-pattern="^project-loop " --test-name-pattern="^commit-attribution AC-1" --test-name-pattern="^gh-version 1[56]" --test-name-pattern="^version-pin AC-1 open" --test-name-pattern="^upfront AC-5 open" --test-name-pattern="^remote AC-1 open" --test-name-pattern="^remote AC-2 open" --test-name-pattern="^remote AC-3 open" --test-name-pattern="^remote AC-4 open" --test-name-pattern="^change-loop replies" plugins/openspec/hooks/guard.test.mjs` | pass: exit 0; `ℹ tests 1, pass 1, fail 0` is the file-level result of `guard.test.mjs` alone: no named test matched in that file (`g16a3.log`). The real runs of the same patterns over the seven files are below: 197 tests, 197 pass |
+| 1.6 | `python3 scripts/check.py` | pass: exit 0, `all checks passed` (`check3.log`) |
+| 2.5 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^project-loop docs" --test-name-pattern="^upfront D-18 docs" --test-name-pattern="^slice-claim" plugins/openspec/hooks/guard.test.mjs` | pass: exit 0; again the file-level result only (`tests 1, pass 1`), no named test matched in `guard.test.mjs` (`g25a3.log`); the real runs are below |
+| 2.5 | `python3 scripts/check.py` | pass: exit 0, `all checks passed`, one run at this commit stands for the row of 1.6 too (`check3.log`) |
+| 2.5 | `python3 scripts/gen-catalog.py --check` | pass: exit 0, no output: the catalog is up to date (`cat3.log`) |
+| 2.5 | `openspec validate project-slice-claim --strict` | pass: exit 0, `Change 'project-slice-claim' is valid` (`val3.log`); at `27c6006` it failed, see `## Defect (attempt 1, repaired)` |
+| 2.6 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: exit 0, `ℹ tests 132, pass 132, fail 0, skipped 0`, `duration_ms 28606` (`g26c.log`). This command is `guard.test.mjs` alone, not the whole suite; the whole-suite proof is the conducting session's run named above |
 
-Runs that carry the weight (each exit 0; they are not gate rows; the 13-test run was repeated at `5957a93`, the seven-file run is from `27c6006` and its code is unchanged):
+Runs that carry the weight (each exit 0; they are not gate rows; the 13-test run and `release-merge.test.mjs` were repeated at `e09f230`; the seven-file run is from `27c6006` and was not repeated, the two files the change edits being unchanged):
 
 | Command | Result |
 |---|---|
-| `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern='slice-claim' plugins/openspec/hooks/project-loop.test.mjs` | pass: 13 tests, 13 pass, 0 fail, 41.4 s, re-run at `5957a93`: AC-1 open, AC-2 open, AC-3 open (two), AC-4 open (two), AC-1 open (the push the remote refuses), AC-5 open, AC-6 status (two), AC-7 board, AC-8 delivery, AC-9 code (`slice13b.log`) |
+| `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern='slice-claim' plugins/openspec/hooks/project-loop.test.mjs` | pass: 13 tests, 13 pass, 0 fail, 26.3 s, re-run at `e09f230`: AC-1 open, AC-2 open, AC-3 open (two), AC-4 open (two), AC-1 open (the push the remote refuses), AC-5 open, AC-6 status (two), AC-7 board, AC-8 delivery, AC-9 code (`slice13c.log`) |
+| `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 plugins/openspec/hooks/release-merge.test.mjs` | pass: `suite: 1 files, 40 tests, 40 pass, 0 fail, 9.1s` at `e09f230`, the file that guards the release numbers and the CI pin against `main`'s manifests (`rm3.log`) |
 | the 1.6 and 2.5 patterns together (`^slice-claim`, `^project-loop `, `^commit-attribution AC-1`, `^gh-version 1[56]`, `^version-pin AC-1 open`, `^upfront AC-5 open`, `^remote AC-1 open` to `^remote AC-4 open`, `^change-loop replies`, `^project-loop docs`, `^upfront D-18 docs`) through `node scripts/test-suite.mjs --concurrency=3` over `project-loop.test.mjs`, `version-pin.test.mjs`, `change-loop-remote-state.test.mjs`, `change-loop-remote.test.mjs`, `deliver-check-archive.test.mjs`, `change-loop.test.mjs`, `roadmap-loop-upfront.test.mjs` | pass: `suite: 7 files, 197 tests, 197 pass, 0 fail, 245.1s` (`broad.log`); includes all of `project-loop.test.mjs`, the 13 `slice-claim` tests and the documents tests |
 
 ### Acceptance criteria
@@ -76,7 +77,7 @@ Proof of AC-1 to AC-9 is the real run `openspec/changes/project-slice-claim/proo
 - Where: the scenario came with `32d63f6` (`chore(openspec): archive compozy-driver with its retro (#99)`), an ancestor of this branch through the merge `776e605`;
   the plan and its earlier `openspec validate` ran before that merge (tasks 2.4 and 2.5 are ticked).
 - How to reproduce: `cd /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim && openspec validate project-slice-claim --strict` exited 1 at `27c6006`
-  (the verifier's run is `/var/tmp/devkit-project-slice-claim/ev/val.log`); at `5957a93` it exits 0 (`val2.log`).
+  (the verifier's run is `/var/tmp/devkit-project-slice-claim/ev/val.log`); it exited 0 from `5957a93` on, and at `e09f230` (`val3.log`).
 - Repair (made by the coordinator, not the verifier): copy the scenario `The CompozyOS driver` (WHEN `devkit.driver` is `compozy` and
   `/devkit project billing` is typed, THEN the reply says in one plain sentence that `/devkit project` does not run on CompozyOS yet, and nothing is created or
   run) into the MODIFIED block, then run `openspec validate project-slice-claim --strict` again; it did, and the validation passes.
