@@ -1220,7 +1220,9 @@ const PREVIOUS_EN = `This change began under the previous script: its files carr
 
 let sampleCache = null;
 // `add-csv-export` (design D-7 and D-12): a devkit change written with the new script, every stage up to the
-// demonstration passed, the plan readiness at attempt 2, the code review failed at attempt 1.
+// demonstration passed, the plan readiness at attempt 2, the code review failed at attempt 1. Invariant (T-22, D-13): the readout of the approved
+// sample change reads as the owner approved it; layer: the readout; suite: flow-check. The change records `x-devkit-flow: 2`, as a change opened with
+// this release does: with no pin it follows flow 1 under the installed flow 2 and its readout gains the newer-flow line (D-17).
 export function sampleChange() {
   if (sampleCache) return sampleCache;
   const root = tmpFolder('devkit-flow-check-sample-');
@@ -1229,6 +1231,8 @@ export function sampleChange() {
   run(root, 'bash', INSTALL, '.');
   const c0 = commitAll(root, 'initial');
   run(root, 'openspec', 'new', 'change', 'add-csv-export', '--schema', 'devkit');
+  const opened = join(root, 'openspec', 'changes', 'add-csv-export', '.openspec.yaml');
+  writeFileSync(opened, `${readFileSync(opened, 'utf8')}x-devkit-flow: 2\n`);
   const head = (stage, result = 'passed', attempt = 1) => `<!-- devkit-stage ${stage} result=${result} attempt=${attempt} commit=${c0} -->\n`;
   const files = {
     'requirements.md': `${head('requirements')}# Requirements\n`,

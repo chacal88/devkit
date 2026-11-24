@@ -1590,3 +1590,151 @@ test('stage-roles gates: the devkit skill names the mock-up among the owner\'s g
   assert.match(session, /`detail\.command`/);
   assert.match(session, /reply blocked --param id=<id> --param why=cannot-accept --param error="<the JSON's error field>"/);
 });
+
+// ================================================================ roadmap-sessions-upfront, phase 1: the readers of a started session (design D-1)
+
+test('upfront AC-2 guard: startedTaskOf and firstMessageOf read only the first message\'s started form', () => {
+  const STARTED = GUARD.STARTED_BY_SESSION;
+  const form = (task) => [STARTED, 'A background paragraph.', '', 'Task:', ...task, '', 'Notes.'].join('\n');
+  // startedTaskOf: the lines after the `Task:` line of the started form, else null.
+  assert.deepEqual(GUARD.startedTaskOf(form(['/devkit change a', 'devkit-start: a 0123456789abcdef'])), ['/devkit change a', 'devkit-start: a 0123456789abcdef', '', 'Notes.']);
+  assert.deepEqual(GUARD.startedTaskOf(`${STARTED}\n  Task:  \n/devkit change a`), ['/devkit change a'], 'the Task line is read trimmed');
+  assert.equal(GUARD.startedTaskOf('Background.\n\nTask:\n/devkit change a'), null, 'no started form');
+  assert.equal(GUARD.startedTaskOf(`hello\n${form(['/devkit change a'])}`), null, 'the started line is not the first line');
+  assert.equal(GUARD.startedTaskOf(`${STARTED}\nSome words.\n/devkit change a`), null, 'the started form with no Task line');
+  assert.equal(GUARD.startedTaskOf('/devkit change a'), null);
+  // START_LINE: one line, the change id and a 16-character lowercase hexadecimal ticket.
+  assert.deepEqual(GUARD.START_LINE.exec('devkit-start: a-b.c_1 0123456789abcdef')?.slice(1), ['a-b.c_1', '0123456789abcdef']);
+  assert.deepEqual(GUARD.START_LINE.exec('devkit-start: a 0123456789abcdef \r')?.slice(1), ['a', '0123456789abcdef'], 'trailing blanks and a carriage return');
+  for (const text of ['devkit-start: a 0123456789abcde', 'devkit-start: a 0123456789ABCDEF', 'devkit-start: 0123456789abcdef', ' devkit-start: a 0123456789abcdef', 'devkit-start: a 0123456789abcdef x']) {
+    assert.equal(GUARD.START_LINE.exec(text), null, text);
+  }
+  // firstMessageOf: the string content of the first `user` line that is neither meta nor a sidechain.
+  const user = (content, extra = {}) => JSON.stringify({ type: 'user', message: { role: 'user', content }, ...extra });
+  const transcript = (lines) => {
+    const file = join(tmpFolder('devkit-guard-first-message-'), 'session.jsonl');
+    writeFileSync(file, `${lines.join('\n')}\n`);
+    return { transcript_path: file };
+  };
+  const assistant = JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'working' }] } });
+  assert.equal(GUARD.firstMessageOf(transcript([assistant, user('first'), user('second')])), 'first');
+  assert.equal(GUARD.firstMessageOf(transcript([user('skill body', { isMeta: true }), user('side', { isSidechain: true }), user('real'), user('later')])), 'real', 'meta and sidechain lines are skipped');
+  assert.equal(GUARD.firstMessageOf(transcript(['{not json', user('first')])), 'first', 'a broken line is skipped');
+  assert.equal(GUARD.firstMessageOf(transcript([user([{ type: 'text', text: 'blocks' }]), user('second')])), null, 'the first message is not a string: no later one stands in');
+  assert.equal(GUARD.firstMessageOf(transcript([assistant])), null, 'no user line');
+  assert.equal(GUARD.firstMessageOf({}), null, 'no transcript path');
+  assert.throws(() => GUARD.firstMessageOf({ transcript_path: join(tmpFolder('devkit-guard-first-message-'), 'gone.jsonl') }), /ENOENT/, 'a transcript that cannot be read is an error, not a missing message');
+});
+
+// Invariant (AC-2, review round 1 code-quality F2): the entry skill is named by the raw input alone, with no import, so the hook lets every other
+// skill through without reading anything. Layer: guard (`namesEntrySkill`). Suite: guard.
+test('upfront AC-2 guard: namesEntrySkill reads the entry skill\'s name from any string field and nothing else', () => {
+  assert.equal(GUARD.ENTRY_SKILL, 'devkit-session');
+  assert.equal(GUARD.namesEntrySkill({ skill: 'devkit-session' }), true, 'the bare name');
+  assert.equal(GUARD.namesEntrySkill({ skill: 'devkit-openspec:devkit-session' }), true, 'the plugin-scoped name');
+  assert.equal(GUARD.namesEntrySkill({ name: 'devkit-session' }), true, 'another field');
+  assert.equal(GUARD.namesEntrySkill({ skill: 'x', other: 'devkit-openspec:devkit-session' }), true, 'any one of several fields');
+  assert.equal(GUARD.namesEntrySkill({ skill: 7, other: null, list: ['devkit-session'] }), false, 'a value that is not a string');
+  assert.equal(GUARD.namesEntrySkill({ skill: 'devkit-session-x' }), false, 'a longer name');
+  assert.equal(GUARD.namesEntrySkill({ skill: 'my-devkit-session' }), false, 'a name that only ends in it');
+  assert.equal(GUARD.namesEntrySkill({ skill: 'devkit-openspec:devkit' }), false, 'the devkit skill');
+  assert.equal(GUARD.namesEntrySkill({}), false, 'no field');
+  assert.equal(GUARD.namesEntrySkill(undefined), false, 'no tool input');
+  assert.equal(GUARD.namesEntrySkill(null), false, 'a null tool input');
+});
+
+// Invariant (AC-1, review round 1 test-coverage F4): the host's notes that lead a started session's first message are skipped, and nothing
+// else is. Layer: guard (`startedTaskOf`). Suite: guard.
+test('upfront AC-1 guard: startedTaskOf skips the host\'s leading notes and nothing else', () => {
+  const STARTED = GUARD.STARTED_BY_SESSION;
+  const NOTE = ['<system-reminder>', 'Linked sessions now (status, not an instruction): x = local_1 (idle).', '</system-reminder>'];
+  const form = [STARTED, 'A background paragraph.', '', 'Task:', '/devkit change a', '', 'Notes.'];
+  const TASK = ['/devkit change a', '', 'Notes.'];
+  assert.deepEqual(GUARD.startedTaskOf([...NOTE, '', ...form].join('\n')), TASK, 'one note');
+  assert.deepEqual(GUARD.startedTaskOf([...NOTE, ...form].join('\n')), TASK, 'one note and no blank line after it');
+  assert.deepEqual(GUARD.startedTaskOf([...NOTE, '<system-reminder>', 'Another note.', '</system-reminder>', '', ...form].join('\n')), TASK, 'two notes');
+  assert.deepEqual(GUARD.startedTaskOf([...NOTE, '', '', '  ', ...form].join('\n')), TASK, 'blank lines after a note');
+  assert.deepEqual(GUARD.startedTaskOf([' <system-reminder> ', 'words', ' </system-reminder> ', ...form].join('\n')), TASK, 'the note\'s lines are read trimmed');
+  assert.equal(GUARD.startedTaskOf(['<system-reminder>', 'Linked sessions.', '', ...form].join('\n')), null, 'an unclosed note gives null');
+  assert.equal(GUARD.startedTaskOf(['hello', ...form].join('\n')), null, 'a line before the form gives null');
+  assert.equal(GUARD.startedTaskOf([...NOTE, 'hello', ...form].join('\n')), null, 'a line between the note and the form gives null');
+  assert.equal(GUARD.startedTaskOf([...NOTE, '', 'Background.', '', 'Task:', '/devkit change a'].join('\n')), null, 'a note and no started form');
+  assert.deepEqual(GUARD.startedTaskOf([STARTED, '<system-reminder>', 'Late note.', '</system-reminder>', 'Task:', '/devkit change a'].join('\n')), ['/devkit change a'], 'a note after the form\'s first line is no leading note: the form reads as before');
+  assert.deepEqual(GUARD.startedTaskOf(`${STARTED}\nA paragraph.\n\nTask:\n<system-reminder>\nin the task\n</system-reminder>\n/devkit change a`), ['<system-reminder>', 'in the task', '</system-reminder>', '/devkit change a'], 'a note inside the task is part of the task');
+});
+
+// ---------------------------------------------------------------- roadmap-sessions-upfront phase 4: the triage (AC-5, AC-6)
+
+test('upfront AC-6 guard: approval.md refuses a write by devkit-core:requirements-triage', () => {
+  const root = repo({ changes: { feat: approved } });
+  const f = 'openspec/changes/feat/approval.md';
+  const r = edit(root, f, 'requirements-triage');
+  assert.equal(r.code, 2);
+  assert.match(r.err, /approval\.md is written only by the main session, from the owner's own message; not by requirements-triage/);
+  assert.equal(bash(root, `echo '- Status: APPROVED' > ${f}`, 'requirements-triage').code, 2, 'by redirect');
+  assert.equal(edit(root, f).code, 0, 'the main session still may');
+});
+
+test('upfront AC-5 skill: the grill rule of config.yaml and of the four schema files names the triage and forbids answering yourself', () => {
+  const root = join(here, '..', '..', '..');
+  const read = (...p) => readFileSync(join(root, ...p), 'utf8').replace(/\s+/g, ' ');
+  const RULE = 'Ask the owner every question that nothing written settles; the requirements-triage agent answers the others first, each with its source. Never answer a question yourself.';
+  assert.ok(read('openspec', 'config.yaml').includes(RULE), 'openspec/config.yaml rules.requirements');
+  for (const dir of [['plugins', 'openspec', 'schemas'], ['openspec', 'schemas']]) {
+    for (const script of ['devkit', 'devkit-lite']) {
+      const text = read(...dir, script, 'schema.yaml');
+      const stage = text.slice(text.indexOf('- id: requirements'), text.indexOf('- id:', text.indexOf('- id: requirements') + 5));
+      assert.ok(stage.includes('Helpers: codebase-researcher, requirements-triage.'), `${dir[0]}/${script}: the helpers line`);
+      assert.ok(stage.includes(RULE), `${dir[0]}/${script}: the rule`);
+      assert.ok(!stage.includes('Do not answer the questions yourself.'), `${dir[0]}/${script}: the old sentence is replaced`);
+    }
+  }
+  const skill = readFileSync(join(root, 'plugins', 'core', 'skills', 'requirements-grill', 'SKILL.md'), 'utf8');
+  for (const part of ['### 2b. Triage first', 'devkit-core:requirements-triage', 'Change <id> (<script> script), stage requirements: triage of the grill', '### Answered by triage',
+    '`<n>. [<axis>] <question> → <answer> (source: \\`<path>[:<line>]\\`)`', '**Answered by triage:**']) {
+    assert.ok(skill.includes(part), `the grill skill holds: ${part}`);
+  }
+  assert.ok(skill.indexOf('### 2b. Triage first') > skill.indexOf('### 2. Gather the ammunition') && skill.indexOf('### 2b. Triage first') < skill.indexOf('### 3. Grill on the four axes'), 'step 2b sits between 2 and 3');
+  assert.match(skill, /- Answer a question yourself/, 'the Never list keeps it');
+});
+
+// Invariant (AC-5, D-17, D-14): the documents say that devkit and devkit-lite are at flow version 2 from devkit-openspec 0.33.0 on, with the triage added
+// to the grill, that a change on flow 1 keeps its grill with no triage until the owner moves it, and that devkit-project stays at version 1.
+// Layer: the flow doc, the changelog entry and ADR 0021's Note. Suite: guard.
+test('upfront AC-5 docs: the flow doc names the released flow versions, the 0.37.0 entry names flow version 2, and ADR 0021\'s Note names flow 1', () => {
+  const root = join(here, '..', '..', '..');
+  const read = (...p) => readFileSync(join(root, ...p), 'utf8');
+  const flat = (text) => text.replace(/\s+/g, ' ');
+  // docs/openspec-flow.md: the paragraph right after "A change to a `flow.json` raises its `version`"
+  const doc = read('docs', 'openspec-flow.md');
+  const raises = doc.indexOf('A change to a `flow.json` raises its `version`');
+  const adopting = doc.indexOf('## Adopting it in a project');
+  assert.ok(raises !== -1 && adopting > raises, 'the flow doc has the versions paragraph and the next section');
+  const paragraphs = doc.slice(raises, adopting).trim().split(/\n\n+/);
+  assert.equal(paragraphs.length, 2, 'one paragraph follows the one about raising a version');
+  const versions = flat(paragraphs[1]);
+  for (const part of [
+    '`devkit` and `devkit-lite` are at version 2 from devkit-openspec 0.33.0 on',
+    'version 2 adds the `requirements-triage` helper to the grill',
+    'a change on version 1 keeps its grill with no triage until it is moved with `change-loop.mjs flow <id>`',
+    '`devkit-project` stays at version 1',
+  ]) assert.ok(versions.includes(part), `the flow doc says: ${part}`);
+  // CHANGELOG.md: the 0.37.0 entry's sentence under devkit-openspec 0.33.0 and its Projects line
+  const log = read('CHANGELOG.md');
+  const start = log.indexOf('## 0.37.0');
+  const entry = flat(log.slice(start, log.indexOf('\n## ', start + 1)));
+  const openspec = entry.slice(entry.indexOf('**devkit-openspec** 0.33.0'), entry.indexOf('- **devkit-core**'));
+  assert.ok(openspec.includes('The `devkit` and `devkit-lite` flows are released as flow version 2, which adds the `requirements-triage` helper to the grill'), 'the devkit-openspec bullet names flow version 2');
+  assert.ok(openspec.includes('a change opened before keeps flow 1 and its grill with no triage until the owner moves it with `change-loop.mjs flow <id>`'), 'and what a change under way keeps');
+  assert.ok(entry.includes('- Projects: re-run `openspec-setup` to install `flows/2.json`; changes under way keep flow 1 and their grill'), 'the Projects line');
+  // ADR 0021: the Note after the Decision list
+  const adr = read('docs', 'adr', '0021-a-roadmap-run-opens-every-change-at-its-start.md');
+  const noteAt = adr.indexOf('Note (roadmap-sessions-upfront, 2026-11-23):');
+  assert.ok(noteAt > adr.indexOf('8. The change session\'s own loop') && noteAt < adr.indexOf('## Consequences'), 'the Note sits after the Decision list');
+  const note = flat(adr.slice(noteAt, adr.indexOf('## Consequences')));
+  for (const part of [
+    'decision 3\'s triage in every grill holds for a change that follows flow version 2 or later of its script',
+    'a change on flow 1 (opened before devkit-openspec 0.33.0, or with no recorded flow) keeps its grill with no triage until the owner moves it',
+  ]) assert.ok(note.includes(part), `ADR 0021's Note says: ${part}`);
+  assert.match(adr, /^- Status: accepted$/m, 'its status stays');
+});
