@@ -126,24 +126,24 @@ its URL placeholder and the paragraph below it, which names the tag twice) to `v
 
 ## 1. The predicate, its tests and its doc (AC-1 to AC-6)
 
-- [ ] 1.1 Write the six tests of H-3 in `plugins/openspec/hooks/deliver-check.test.mjs`, run them on
+- [x] 1.1 Write the six tests of H-3 in `plugins/openspec/hooks/deliver-check.test.mjs`, run them on
   the unchanged code with
   `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="field-fixes 4 own archive" plugins/openspec/hooks/deliver-check.test.mjs`
   and save the output, as printed, to `openspec/changes/own-pr-archive-paths/proof/red-1.txt`.
   Check: the file shows tests 2, 3, 5 and 6 failing and tests 1 and 4 passing, as the last column of
   H-3 says; a test that fails for another reason (a typo, a missing fixture) is fixed before 1.2.
-- [ ] 1.2 Narrow the files rule of `isOwnPr` in `plugins/openspec/hooks/deliver-check.mjs` and
+- [x] 1.2 Narrow the files rule of `isOwnPr` in `plugins/openspec/hooks/deliver-check.mjs` and
   replace its comment, as H-1 says. Check: the run of 1.1 passes all six tests, and
   `git diff -U0 -- plugins/openspec/hooks/deliver-check.mjs` shows changed lines only between the
   comment above `isOwnPr` and its closing brace (plus the helper, if written apart, right next to it).
-- [ ] 1.3 Reword the title and the last assertion message of the existing `isOwnPr` test as H-3 says,
+- [x] 1.3 Reword the title and the last assertion message of the existing `isOwnPr` test as H-3 says,
   with nothing else in it changed. Check:
   `git diff -U0 -- plugins/openspec/hooks/deliver-check.test.mjs` shows, outside the six new tests,
   only those two lines changed; the test passes under the gate's filter.
-- [ ] 1.4 Write the H-2 sentence into the "Finding the change PR" paragraph of
+- [x] 1.4 Write the H-2 sentence into the "Finding the change PR" paragraph of
   `docs/openspec-flow.md`. Check: `grep -c "and no file under .openspec/changes/archive/.\." docs/openspec-flow.md`
   prints 0 and `grep -c "and no file under its own archive folder" docs/openspec-flow.md` prints 1.
-- [ ] 1.5 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="field-fixes 4" --test-name-pattern="findChangePr" plugins/openspec/hooks/deliver-check.test.mjs && python3 scripts/check.py` green; covers AC-1 to AC-5 at the predicate and through `findChangePr`, and AC-6 for every `field-fixes 4` and `findChangePr` test.
+- [x] 1.5 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="field-fixes 4" --test-name-pattern="findChangePr" plugins/openspec/hooks/deliver-check.test.mjs && python3 scripts/check.py` green; covers AC-1 to AC-5 at the predicate and through `findChangePr`, and AC-6 for every `field-fixes 4` and `findChangePr` test.
 
 ## 2. Release and the last checks (AC-6)
 

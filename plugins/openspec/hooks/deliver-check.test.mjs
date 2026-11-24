@@ -4900,14 +4900,52 @@ test('field-fixes 4 delivered: isArchiveHead is true for every change\'s archive
   for (const name of ['ship/foo', 'fix/archive-foo', 'feat/archive', 'archived-foo', '']) assert.equal(DC.isArchiveHead(name), false, name);
 });
 
-test('field-fixes 4 delivered: isOwnPr needs a file of the change folder, no archive folder and no archive head', () => {
+test('field-fixes 4 delivered: isOwnPr needs a file of the change folder, no file of its own archive folder and no archive head', () => {
   assert.equal(typeof DC.isOwnPr, 'function');
   const own = (head, files) => DC.isOwnPr('foo', { headRefName: head }, files);
   assert.equal(own('calm-badger', ['openspec/changes/foo/tasks.md']), true);
   assert.equal(own('ship/foo', ['src/a.ts']), false, 'a head naming the change is not proof');
   assert.equal(own('ship/foo', ['openspec/changes/foo-two/tasks.md']), false, 'another change whose id starts the same');
   assert.equal(own('chore/archive-bar', ['openspec/changes/foo/tasks.md']), false, 'an archive head');
-  assert.equal(own('ship/foo', ['openspec/changes/foo/tasks.md', 'openspec/changes/archive/2026-11-09-foo/retro.md']), false, 'it brings an archive folder');
+  assert.equal(own('ship/foo', ['openspec/changes/foo/tasks.md', 'openspec/changes/archive/2026-11-09-foo/retro.md']), false, 'it brings its own archive folder');
+});
+
+test('field-fixes 4 own archive 1: the change\'s own archive folder refuses its pull request', () => {
+  const own = (id, head, files) => DC.isOwnPr(id, { headRefName: head }, files);
+  const tasks = 'openspec/changes/foo/tasks.md';
+  assert.equal(own('foo', 'ship/foo', [tasks, 'openspec/changes/archive/2026-11-09-foo/retro.md']), false);
+  assert.equal(own('foo', 'ship/foo', [tasks, 'openspec/changes/archive/2026-11-09-foo/specs/cap/spec.md']), false);
+});
+
+test('field-fixes 4 own archive 2: another change\'s archived files do not refuse its pull request', () => {
+  const own = (id, head, files) => DC.isOwnPr(id, { headRefName: head }, files);
+  const files = ['openspec/changes/foo/tasks.md', 'openspec/changes/archive/2026-11-09-bar/retro.md'];
+  assert.equal(own('foo', 'ship/foo', files), true);
+  assert.equal(own('foo', 'calm-badger', [...files, 'openspec/changes/archive/2026-11-01-baz/design.md']), true);
+});
+
+test('field-fixes 4 own archive 3: an id that starts another change\'s id is not confused with it', () => {
+  const own = (id, head, files) => DC.isOwnPr(id, { headRefName: head }, files);
+  assert.equal(own('foo', 'ship/foo', ['openspec/changes/foo/tasks.md', 'openspec/changes/archive/2026-11-09-foo-two/retro.md']), true);
+  assert.equal(own('foo-two', 'ship/foo-two', ['openspec/changes/foo-two/tasks.md', 'openspec/changes/archive/2026-11-09-foo/retro.md']), true);
+  assert.equal(own('foo-two', 'ship/foo-two', ['openspec/changes/foo-two/tasks.md', 'openspec/changes/archive/2026-11-09-foo-two/retro.md']), false);
+});
+
+test('field-fixes 4 own archive 4: an archive head is refused whatever its files', () => {
+  const own = (id, head, files) => DC.isOwnPr(id, { headRefName: head }, files);
+  for (const head of ['chore/archive-bar', 'archive-bar']) {
+    assert.equal(own('foo', head, ['openspec/changes/foo/tasks.md']), false, head);
+    assert.equal(own('foo', head, ['openspec/changes/foo/tasks.md', 'openspec/changes/archive/2026-11-09-bar/retro.md']), false, head);
+  }
+});
+
+test('field-fixes 4 own archive 5: a path in no change\'s archive folder does not refuse its pull request', () => {
+  const own = (id, head, files) => DC.isOwnPr(id, { headRefName: head }, files);
+  for (const extra of ['openspec/changes/archive/README.md', 'openspec/changes/archive/2026-11-09-foo', 'openspec/changes/archive/foo/retro.md']) {
+    assert.equal(own('foo', 'ship/foo', ['openspec/changes/foo/tasks.md', extra]), true, extra);
+  }
+  assert.equal(own('a.b', 'ship/a.b', ['openspec/changes/a.b/tasks.md', 'openspec/changes/archive/2026-11-09-axb/retro.md']), true, 'the id is no pattern');
+  assert.equal(own('a.b', 'ship/a.b', ['openspec/changes/a.b/tasks.md', 'openspec/changes/archive/2026-11-09-a.b/retro.md']), false);
 });
 
 test('field-fixes 4 delivered: prFiles reads the files of a pull request by number, paginated, and a failure is an error', () => {
@@ -4976,6 +5014,16 @@ test('field-fixes 4 delivered: a files read that fails is an error, never a sile
   const t = findRepo([AUTO]);
   t.gh.set(PR_FILES_KEY(5), { exit: 1, stderr: 'gh: boom\n' });
   assert.deepEqual(t.find('main'), { error: 'gh: boom' });
+});
+
+test('field-fixes 4 own archive 6: findChangePr finds the change\'s own merged pull request that also edits another change\'s archive', () => {
+  const pr = { ...AUTO, number: 11, headRefName: 'calm-badger', body: '' };
+  const t = ownRepo([pr], { 11: [FOLDER_TASKS, 'openspec/changes/archive/2026-11-09-bar/retro.md'] });
+  const found = t.find('main');
+  assert.equal(found.pr?.number, 11, JSON.stringify(found));
+  assert.equal(found.via, 'list');
+  const own = ownRepo([pr], { 11: [FOLDER_TASKS, 'openspec/changes/archive/2026-11-09-auto-merge/retro.md'] });
+  assert.deepEqual(own.find('main'), { none: true }, 'its own archive folder still refuses it');
 });
 
 // ---- the delivery through the collector and the next step
