@@ -28,6 +28,9 @@
 // `<os.tmpdir()>/devkit-stop/<session_id>[-<agent_id>].json` and let the same key through the next time.
 // With a token budget set (`budget:` in the `devkit:` block), `next` counts the session's spend and holds a hand-off at the cap:
 // the action becomes an end waiting for the owner (change-budget).
+// Every action at a stage carries the `model` of its stage (stage-models), and `next` hands a stage whose subagent returned
+// `Outcome: failure` once more on the next model up, or ends the run blocked: the retry is read from the session's subagent
+// transcripts on a `next` called with `--after` (the call after a stage agent returns); a `next` with no `--after` reads none.
 // No dependencies.
 
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -35,7 +38,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { hostname, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, isChangeId, readRoadmap, readValue, isDecisionRecord, parseDevkitBlock, deliverySettings, releaseTagSetting, trainSetting } from './guard.mjs';
+import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, handOffKey, handOffsOf, typedSince, isChangeId, readRoadmap, readValue, isDecisionRecord, parseDevkitBlock, deliverySettings, budgetValue, releaseTagSetting, trainSetting, SPEND_MESSAGES } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, readTestSettings } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
@@ -58,16 +61,44 @@ export class LoopRefusal extends LoopUsageError {
 export const DRIVERS = ['claude', 'compozy', 'script'];
 const LANGUAGE_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
 
-// The token budget a `budget:` value gives (change-budget D-1): null when absent or empty, { cap } for a whole number above
-// zero that is a safe integer, else { invalid: raw }.
-export function budgetValue(raw) {
-  if (raw === undefined || raw === '') return null;
-  if (!/^\d+$/.test(raw)) return { invalid: raw };
-  const n = Number(raw);
-  return n > 0 && Number.isSafeInteger(n) ? { cap: n } : { invalid: raw };
-}
+// The token budget a `budget:` value gives (change-budget D-1) is read by `guard.mjs#budgetValue`; every caller keeps importing it from here.
+export { budgetValue };
 const BUDGET_ACCEPTED = '1, 2, 3, …';
 const RELEASE_TAG_ACCEPTED = 'a path from the repository root to a JSON file, such as package.json';
+
+// ---------------------------------------------------------------- the model of each stage (stage-models D-1)
+
+// The stages that have a model, in flow order: the stage ids of the `devkit` and `devkit-lite` scripts but `open`, which are the
+// `stage` field of every action `next` prints (the archive steps are steps of the retro stage).
+export const MODEL_STAGES = Object.freeze([
+  'requirements', 'mockup', 'decisions', 'proposal', 'specs', 'design', 'tasks', 'readiness', 'approval',
+  'implementation', 'unit-tests', 'e2e-tests', 'evidence', 'review', 'delivery', 'retro',
+]);
+
+// The built-in model of each stage (ADR 0023 decision 1); no default is a 1M variant, which is an explicit opt-in.
+export const DEFAULT_MODELS = Object.freeze({
+  requirements: 'opus', mockup: 'sonnet', decisions: 'opus', proposal: 'opus', specs: 'opus', design: 'opus', tasks: 'opus',
+  readiness: 'sonnet', approval: 'sonnet', implementation: 'sonnet', 'unit-tests': 'haiku', 'e2e-tests': 'sonnet',
+  evidence: 'sonnet', review: 'sonnet', delivery: 'haiku', retro: 'sonnet',
+});
+
+// The stages a change session performs itself, not through a stage subagent, in flow order (ADR 0023 decision 4): the grill, the
+// owner's approval, the review round, the delivery steps and the retro. Only the step-down floor reads this list.
+export const SESSION_RUN_STAGES = Object.freeze(['requirements', 'approval', 'review', 'delivery', 'retro']);
+
+// The values a model can take, cheapest first; `haiku` has no 1M variant.
+export const MODEL_VALUES = Object.freeze(['haiku', 'sonnet', 'sonnet[1m]', 'opus', 'opus[1m]']);
+
+// The place of a value in that order, -1 for anything else.
+export const modelRank = (value) => MODEL_VALUES.indexOf(value);
+// True when both values are known and `a` is the cheaper one.
+export const cheaper = (a, b) => modelRank(a) >= 0 && modelRank(b) >= 0 && modelRank(a) < modelRank(b);
+// The strongest known value of a list, null when none is known.
+export const strongest = (values) => values.filter((v) => modelRank(v) >= 0).reduce((top, v) => (top === null || modelRank(v) > modelRank(top) ? v : top), null);
+// A value without its 1M suffix: the family an Agent call names.
+export const familyOf = (value) => String(value).replace(/\[1m\]$/, '');
+// The next family up, keeping the 1M suffix; null on Opus.
+export const oneUp = (value) => ({ haiku: 'sonnet', sonnet: 'opus', 'sonnet[1m]': 'opus[1m]' })[value] ?? null;
 
 // The text of a settings file; a missing file is '' and any other read error a LoopUsageError.
 function settingsText(file, label) {
@@ -81,9 +112,9 @@ function settingsText(file, label) {
 // `delivery: { model, base, testBranch }` when a delivery model is set and `missing: [{ setting }]` when two pull requests
 // are chosen without a name (delivery-models D-1), and `train: { suite, problem }` only when the delivery train is set or refused
 // (delivery-train D-1). No block, no file or a missing key gives the defaults (`claude`, `en`);
-// other keys of the block are ignored, except an invalid `budget` and the tests' coverage target, whose bad values are
-// listed in `unknown` after the two above (flow-check's `readTestSettings`), then an invalid `release_tag` (release-tags D-1);
-// a valid one sets `releaseTag`, the path of the JSON file the release is read from, and only then.
+// other keys of the block are ignored, except an invalid `budget`, the `models:` table's problems (`modelProblems`) and the tests'
+// coverage target, whose bad values are listed in `unknown` after the two above (flow-check's `readTestSettings`), then an invalid
+// `release_tag` (release-tags D-1); a valid one sets `releaseTag`, the path of the JSON file the release is read from, and only then.
 export function readDevkitSettings(root) {
   const block = parseDevkitBlock(settingsText(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml'));
   const driver = block.driver || 'claude';
@@ -93,6 +124,7 @@ export function readDevkitSettings(root) {
   if (!LANGUAGE_TAG.test(language)) unknown.push({ setting: 'language', value: language, accepted: 'a language tag such as en or pt-BR' });
   const budget = budgetValue(block.budget);
   if (budget?.invalid !== undefined) unknown.push({ setting: 'budget', value: budget.invalid, accepted: BUDGET_ACCEPTED });
+  unknown.push(...modelProblems(block.models));
   unknown.push(...readTestSettings(root).unknown);
   const releaseTag = releaseTagSetting(block);
   if (releaseTag.problem) unknown.push({ setting: releaseTag.problem.setting, value: releaseTag.problem.value, accepted: RELEASE_TAG_ACCEPTED });
@@ -126,6 +158,32 @@ export function budgetOf(root, dir, lang) {
   if (mine) return { cap: mine.cap, from: 'change', file };
   if (project) return { cap: project.cap, from: 'project', file };
   return null;
+}
+
+// The problems of a parsed `models:` table, in map order (stage-models D-2): a key that is no stage of the table (the inline value
+// of `models: <value>` for the key ''), and a non-empty value that is no model. An unknown stage gives its own problem only.
+export function modelProblems(map) {
+  const problems = [];
+  for (const [stage, value] of map ?? []) {
+    if (!MODEL_STAGES.includes(stage)) problems.push({ setting: 'model-stage', value: stage === '' ? value : stage, accepted: MODEL_STAGES.join(', ') });
+    else if (value !== undefined && !MODEL_VALUES.includes(value)) problems.push({ setting: 'model-value', value: `${stage}: ${value}`, accepted: MODEL_VALUES.join(', ') });
+  }
+  return problems;
+}
+
+// The model of every stage of the change in `dir`, a plain object over MODEL_STAGES (stage-models D-2): the change's non-empty
+// value, else the project's, else the default. With `strict` (the change's own loop) the first problem of the change's table, else
+// of the project's, is a LoopRefusal with the settings reply; without it a table with a problem is ignored whole, so a typing error
+// in one change stops no lock and no other change.
+export function modelsOf(root, dir, { strict = false, lang = 'en' } = {}) {
+  const read = (file, label) => parseDevkitBlock(settingsText(file, label)).models;
+  const tables = [read(join(dir, '.openspec.yaml'), '.openspec.yaml'), read(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml')].map((map) => ({ map, problems: modelProblems(map) }));
+  if (strict) {
+    const bad = tables.find((t) => t.problems.length)?.problems[0];
+    if (bad) throw new LoopRefusal('setting-unknown', render(lang, 'setting-unknown', bad));
+  }
+  const usable = tables.filter((t) => !t.problems.length).map((t) => t.map);
+  return Object.fromEntries(MODEL_STAGES.map((stage) => [stage, usable.map((map) => map.get(stage)).find((v) => v) ?? DEFAULT_MODELS[stage]]));
 }
 
 // The person's language: `en`, and `pt-BR` for anything else (an unsubstituted placeholder included).
@@ -358,6 +416,8 @@ export const MESSAGES = {
     'setting.delivery-test-branch': 'test branch',
     'setting.delivery-train': 'delivery train',
     'setting.budget': 'budget',
+    'setting.model-stage': 'stage named in the model table',
+    'setting.model-value': 'model of a stage',
     'setting.coverage-target': 'coverage target',
     'setting.release-tag': 'release file',
     'project-opened': 'I opened the slice {id} in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval.',
@@ -409,6 +469,7 @@ export const MESSAGES = {
     'blocked-why.branch-conflict': 'pull request #{number} conflicts with {base}: resolve the conflict on the slice\'s branch, then call /devkit project {id} again',
     'blocked-why.archive-refused': 'the slice cannot be archived yet: {list} not settled',
     'blocked-why.undeclared-stage': 'the flow asked for {stage}, which this project script does not declare',
+    ...SPEND_MESSAGES.en,
   },
   'pt-BR': {
     'verb-not-built': '/devkit {verb} ainda não existe: chega na rodada {round}. Nada foi feito.',
@@ -629,6 +690,8 @@ export const MESSAGES = {
     'setting.delivery-test-branch': 'a branch de teste',
     'setting.delivery-train': 'trem de entrega',
     'setting.budget': 'budget',
+    'setting.model-stage': 'etapa citada na tabela de modelos',
+    'setting.model-value': 'modelo de uma etapa',
     'setting.coverage-target': 'meta de cobertura',
     'setting.release-tag': 'arquivo da versão',
     'project-opened': 'Abri a fatia {id} no próprio worktree. Começamos pelo negócio: faço uma pergunta de cada vez, e cada fase termina com a sua aprovação.',
@@ -680,6 +743,7 @@ export const MESSAGES = {
     'blocked-why.branch-conflict': 'o pull request #{number} tem conflito com {base}: resolva o conflito no branch da fatia e chame /devkit project {id} de novo',
     'blocked-why.archive-refused': 'a fatia ainda não pode ser arquivada: {list} não resolvidas',
     'blocked-why.undeclared-stage': 'o fluxo pediu {stage}, que este roteiro de projeto não declara',
+    ...SPEND_MESSAGES['pt-BR'],
   },
 };
 
@@ -1061,7 +1125,9 @@ function triageUnsourcedOf(dir) {
 // hasProposal, flags (the grill's classification), archiving, row
 // (conduct-check's deliveryRow result, `{ error }` when it threw, null when not read), place (the place facts of D-9, { machine, places,
 // taken, held }, null when the change records no places), budget ({ cap, file, spent } with `spent`
-// null when it could not be read; null or absent when no cap applies) }.
+// null when it could not be read; null or absent when no cap applies), models (the model of each stage, `modelsOf`'s result: every
+// action at a stage with a row carries its `model`; absent, none does), handOffs (the session's stage subagents of the current run,
+// `handOffsOf`'s result: a hand-off whose newest run failed is handed once more a model up; null or absent when none was read) }.
 // Returns the action of the design's JSON; pure.
 export function decide(facts) {
   const { ctx, flow, report } = facts;
@@ -1072,7 +1138,8 @@ export function decide(facts) {
   const base = { version: 1, change: ctx.id, script: ctx.script, root: ctx.root, branch: ctx.branch, filesLanguage: ctx.filesLanguage };
   const stageFields = (id) => {
     const s = stageById(id);
-    return { stage: s ? id : null, stageTitle: s ? s.title[lang] : null, role: s?.role ?? null, skills: s?.skills ?? [] };
+    const model = s ? facts.models?.[id] : undefined; // the stage's model (stage-models D-3): none for a stage with no row, or when no table is given
+    return { stage: s ? id : null, stageTitle: s ? s.title[lang] : null, role: s?.role ?? null, skills: s?.skills ?? [], ...(model ? { model } : {}) };
   };
   const finish = (state, why, key, params, stageId, detail) => ({
     ...base, kind: 'end', ...stageFields(stageId), end: { state, why }, params: { id: ctx.id, ...params }, ...(detail ? { detail } : {}), reply: say(key, params),
@@ -1115,10 +1182,26 @@ export function decide(facts) {
   // when the row names none, and for the plan stages, which have no row.
   const agent = (stage, role, step, what, detail, named) => {
     const id = named ?? AGENT[role];
-    return hold(guard({
+    const action = {
       ...base, kind: 'agent', ...stageFields(stage), agent: id, ...(step ? { step } : {}), ...(detail ? { detail } : {}),
       brief: withAttribution(id, brief(stage, what, detail)), progressKey: key(stage, step),
-    }));
+    };
+    const again = retried(action);
+    return again ? hold(again) : hold(guard(action));
+  };
+  // The retry (stage-models D-5), before `guard` so the progress key the session passes after a failure gives the retry and not a
+  // no-progress end: null when the newest run of this brief did not fail; the same hand-off a model up, marked, after one failure
+  // that was not on Opus; else the end blocked, after a second failure in a row or a failure on Opus.
+  const retried = (action) => {
+    const handKey = handOffKey(action.brief);
+    const runs = handKey === null ? [] : (facts.handOffs ?? []).filter((r) => r.key === handKey);
+    let failures = 0;
+    while (failures < runs.length && runs[runs.length - 1 - failures].failed) failures += 1;
+    if (failures === 0) return null;
+    const from = runs[runs.length - 1].family ?? (action.model ? familyOf(action.model) : null);
+    const up = oneUp(from);
+    if (failures === 1 && up !== null) return { ...action, model: action.model?.endsWith('[1m]') ? `${up}[1m]` : up, retry: { failedOn: from, attempt: 2 } };
+    return blocked('role-failed', { stage: titleOf(action.stage) }, action.stage);
   };
   const sessionAction = (stage, step, detail, extra = {}) => hold(guard({
     ...base, kind: 'session', ...stageFields(stage), step, ...(detail ? { detail } : {}), ...extra, progressKey: key(stage, step),
@@ -1322,7 +1405,7 @@ export function isPlanStage(start, id, action) {
 
 // The next action of change `id`, read from the files, git and GitHub of its checkout. Errors (an unknown change, an
 // unreadable setting, no openspec CLI) are thrown; a delivery checker that throws becomes the `unreadable` end.
-export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, claims, budget = false } = {}) {
+export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, claims, budget = false, strictModels = false, retry = false, handOffs } = {}) {
   const clean = cleanOf(env);
   const start = findRoot(cwd);
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
@@ -1330,6 +1413,8 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
   const settings = readDevkitSettings(found.root);
   const filesLanguage = settings.unknown.some((u) => u.setting === 'language') ? 'en' : settings.language;
   const dir = locateChange(found.root, id)?.dir ?? join(found.root, 'openspec', 'changes', id);
+  // The model of each stage: refused when it is bad in the change's own loop (`next`), ignored when bad everywhere else (stage-models D-2).
+  const models = modelsOf(found.root, dir, { strict: strictModels, lang: normalizeLang(lang) });
   // The token budget is read only when the caller asks (`next`, and `session-next` of a change session): the locks, `wait` and the roadmap never count (change-budget D-4).
   let budgetFact = null;
   if (budget) {
@@ -1338,6 +1423,14 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
       const path = sessionTranscript(env);
       budgetFact = { cap: cap.cap, file: cap.file, spent: path ? spentOf(path, id)?.spent ?? null : null };
     }
+  }
+  // The stage hand-offs of the current run, read only when the caller hands a list or asks to retry (`next`): a lock, `wait` and the
+  // board read none (stage-models D-5).
+  let handOffsFact = null;
+  if (handOffs) handOffsFact = handOffs;
+  else if (retry) {
+    const path = sessionTranscript(env);
+    if (path) handOffsFact = handOffsOf(path, typedSince(path));
   }
   const run = openspec ?? makeOpenspec(found.root, clean);
   const { facts, flow } = collectFlow(found.root, id, { env: clean, openspec: run, ...(gh ? { gh } : {}) });
@@ -1375,6 +1468,8 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     row,
     place,
     budget: budgetFact,
+    models,
+    handOffs: handOffsFact,
   });
   // The icon of the action's stage, its state and the change session's title for it (change-state D-1, D-5); the title only when the state has one.
   action.icon = stageIcon(action);
@@ -2467,7 +2562,7 @@ const END_OF_KEY = { blocked: 'blocked', 'waiting-pr-decision': 'waiting-for-own
 function runNext(args, { env, cwd, openspec, gh }) {
   const opts = parseArgs(args, { values: ['--change', '--lang', '--after'] });
   if (!opts.change || opts.positional.length) throw new LoopUsageError(USAGE);
-  const action = nextAction(cwd, opts.change, { env, lang: opts.lang, after: opts.after ?? null, openspec, gh, budget: true });
+  const action = nextAction(cwd, opts.change, { env, lang: opts.lang, after: opts.after ?? null, openspec, gh, budget: true, strictModels: true, retry: opts.after !== undefined });
   return { code: exitCodeOf(action), stdout: loopOutput(opts.change, action), stderr: '' };
 }
 

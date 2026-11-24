@@ -21,13 +21,17 @@
 //   declared   - { <id>: { state: 'blocked' | 'waiting-for-owner', why, params } } the ends the session declared,
 //   announced  - { <id>: <event key> }, starting - [ids], held, asking - the run's bookkeeping,
 //   after      - { <id>: <progress key> } the stages that just came back (their `actions` were read with that key), and the
-//                `session-start` and `session-refused` keys of a change session the host started or refused,
+//                `session-start`, `session-found` and `session-refused` keys of a change session the host started, found running or refused,
+//                and the `session-model` and `session-model-refused` keys of a switch of its model done or refused,
 //   tickets, occupied, queued, waits, cron, check, waitsFor, unpushed - a run that opens every change at its start (ADR 0021): the start tickets, the places held, the
 //                changes waiting for one, the wait loops, whether the host offers a session cron, the periodic check ({ id } or { refused }), { <id>: the dependency a
 //                plan waits for } and { <id>: 'grill' | 'plan' } what is not on origin yet,
 //   changeSessions, startedSessions, coordinator, turn - a run with a session per change (ADR 0014): whether each change runs in a session
-//                of its own, { <id>: { at } } the change sessions started, the coordinating session's id and what started this turn
-//                (`typed` for a message the owner typed, else `event`),
+//                of its own, { <id>: { at, model?, refused? } } the change sessions started with the model each runs on (stage-models D-6),
+//                the coordinating session's id and what started this turn (`typed` for a message the owner typed, else `event`),
+//   stageModels - { <id>: { stage, models, stages, root } } for each change session recorded with a model (and the one just reported started):
+//                the stage its change is at, the table of its stage models, its script's stage order and its checkout (`collectRoadmap`'s
+//                `models` option); `stepDownOf` turns it into the one switch a session may get, down only,
 //   wheres     - { <id>: where it stopped } and phaseTotals - { <id>: phases of tasks.md } for the lines that name them,
 //   unfinished - [{ id, where }] every unfinished change, for the board's "outside the roadmap".
 
@@ -38,13 +42,14 @@ import { loadavg as osLoadavg, cpus as osCpus } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
-import { findRoot, readRoadmap, changeFlow, changeSchemaAt, readFlow, roadmapRunOf, runOf, isChangeId, firstMessageOf, startedTaskOf, parseStageHeader, START_LINE, ENTRY_SKILL, namesEntrySkill } from './guard.mjs';
-import { collectFlow, computeFlow, makeOpenspec } from './flow-check.mjs';
+import { findRoot, readRoadmap, changeFlow, changeSchemaAt, readFlow, roadmapRunOf, runOf, isChangeId, firstMessageOf, startedTaskOf, parseStageHeader, START_LINE, ENTRY_SKILL, namesEntrySkill, sessionTranscript, handOffsOf, typedSince, STAGE_OF } from './guard.mjs';
+import { collectFlow, computeFlow, makeOpenspec, spendBlock } from './flow-check.mjs';
 import { locateChange, readPhases } from './deliver-check.mjs';
 import {
   render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, sessionTitle, changeState, runFactsOf, PLAN_NOT_HELD, partOfStage, isPlanStage,
   HOOKS_DIR, PACKS, locate, cleanOf, runFilePath, readRun, emptyRun, OUTLIVES, isObject, GATE_OF_WHY, gateOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile, HELD_TEXT,
   loopOutput, exitCodeOf, mainRoot, defaultBase, tryGit, stopDecision, hasTriageSection, remoteClaims, thisMachine, MACHINE_NAME,
+  modelsOf, MODEL_STAGES, MODEL_VALUES, SESSION_RUN_STAGES, cheaper, strongest,
 } from './change-loop.mjs';
 
 // The run file's reader and the gate of an owner wait live in change-loop.mjs (change-state D-2); the callers of this module keep importing them from here.
@@ -201,7 +206,7 @@ function entriesOf(f) {
     const d = f.declared?.[id];
     // A change in a session of its own (ADR 0014): recorded as started, or just reported started by this call.
     const claimed = Boolean(f.tickets?.[id]?.claimedBy); // a session that claimed the run's ticket is the change's own
-    if (f.changeSessions && !d && (f.startedSessions?.[id] || f.after?.[id] === 'session-start' || claimed)) { entries.push({ id, state: 'own', action, line }); continue; }
+    if (f.changeSessions && !d && (f.startedSessions?.[id] || isSessionStart(f.after?.[id]) || claimed)) { entries.push({ id, state: 'own', action, line }); continue; }
     if (inflight[id]) { entries.push({ id, state: 'running', inflight: inflight[id], action, line }); continue; }
     if (d) {
       if (d.state === 'waiting-for-owner') {
@@ -260,6 +265,7 @@ function sessionStartOf(e, f, lang) {
       initiation: 'user_asked', context: 'fresh', title, name: sessionName(e.id), cwd: a.root, use_worktree: false,
       prompt: `/devkit-openspec:devkit change ${e.id}`,
       background: sessionBackground({ id: e.id, root: a.root, branch: a.branch, coordinator: f.coordinator, lang }),
+      ...(a.model ? { model: a.model } : {}), // the model of the stage the change is at (stage-models D-6)
     },
   };
 }
@@ -281,6 +287,22 @@ function remoteSessionStartOf(e, machine, f, lang) {
   };
 }
 const requestOf = (line) => [line.text, line.notes].filter(Boolean).join('\n') || line.id;
+
+// The model a change session is switched to, or null for no switch (ADR 0023 decision 4 and the owner's floor of 2026-11-23, stage-models
+// D-6). The one place that says whether a session is switched and to what. `current` is the model the run recorded for the session,
+// `stage` the stage its change is at, `models` the table of the change, `stages` its script's stage order and `refused` the switch the
+// host refused. A session never steps below the strongest model among the stage it is at and the session-run stages still ahead
+// (the stage itself included; every stage of the script when `stage` is not one of them), and it only ever steps down.
+export function stepDownOf({ current, stage, models, stages, refused }) {
+  if (typeof stage !== 'string' || !MODEL_VALUES.includes(models?.[stage])) return null;
+  const at = stages.indexOf(stage);
+  const ahead = (at < 0 ? stages : stages.slice(at)).filter((s) => SESSION_RUN_STAGES.includes(s));
+  const floor = strongest([models[stage], ...ahead.map((s) => models[s])]);
+  return cheaper(floor, current) && refused !== floor ? floor : null;
+}
+
+// The model the start of a change session carries, from the stage its change is at: the table's model of that stage, when it is one.
+const startModelOf = (sm) => (MODEL_VALUES.includes(sm?.models?.[sm.stage]) ? sm.models[sm.stage] : undefined);
 
 // The periodic check of a run (D-9): about every thirty minutes, at minutes the host's other schedules rarely use, with a prompt that is no typed command.
 const CHECK_CRON = '13,43 * * * *';
@@ -363,6 +385,25 @@ export function decideRoadmap(f) {
   for (const l of starts) actions.push({ change: l.id, kind: 'start', request: requestOf(l), progressKey: 'start', ...placement.get(l.id) });
   if (holdNow && !f.holding) actions.push({ change: ready[0].id, kind: 'hold', load: f.load, limit: f.limit, progressKey: 'hold' });
 
+  // The switch of a change session's model (stage-models D-6), after the withholding so that it is carried out on any turn: down only,
+  // never while stopping, never for a session reported started in this call or recorded with no model. A reported switch or refusal of it
+  // is what the run records; the target is the one the facts give now.
+  const sessionModels = [];
+  const modelsRefused = [];
+  if (sessionMode) {
+    for (const e of entries) {
+      const sm = f.stageModels?.[e.id];
+      const record = f.startedSessions?.[e.id];
+      if (e.state !== 'own' || !sm || !record?.model || isSessionStart(f.after?.[e.id])) continue;
+      const to = stepDownOf({ ...sm, current: record.model, refused: record.refused });
+      if (to === null) continue;
+      const key = f.after?.[e.id];
+      if (key === 'session-model') sessionModels.push({ id: e.id, model: to });
+      else if (key === 'session-model-refused') modelsRefused.push({ id: e.id, model: to });
+      else if (!stopping) actions.push({ change: e.id, kind: 'session-model', cwd: sm.root, model: to, progressKey: 'session-model' });
+    }
+  }
+
   // The starts handed and not yet open stay in `starting`; a change that is open now was started.
   const opened = new Set(entries.filter((e) => e.line.cls === 'open').map((e) => e.id));
   const startedNow = (f.starting ?? []).filter((id) => opened.has(id));
@@ -389,7 +430,7 @@ export function decideRoadmap(f) {
   // In a run with a session per change the started and resumed lines are one line per change session just started.
   const begun = sessionMode ? [] : entries.filter((e) => startedNow.includes(e.id) && e.line.cls === 'open' && announced[e.id] !== 'started');
   const resumes = sessionMode ? [] : entries.filter((e) => e.line.cls === 'open' && e.state !== 'archived' && announced[e.id] === undefined && !begun.includes(e));
-  const sessionsStarted = sessionMode ? entries.filter((e) => e.state === 'own' && f.after?.[e.id] === 'session-start') : [];
+  const sessionsStarted = sessionMode ? entries.filter((e) => e.state === 'own' && isSessionStart(f.after?.[e.id])) : [];
   const sessionsNew = sessionsStarted.filter((e) => announced[e.id] !== 'session');
   let counted = open.length - begun.length - resumes.length - sessionsNew.length;
   for (const e of begun) emit(e.id, 'started', 'roadmap-started', { id: e.id, open: ++counted, places });
@@ -493,7 +534,8 @@ export function decideRoadmap(f) {
     state: {
       asking: head?.id ?? null, announced, starting, held: holdNow, clearInflight: Object.keys(f.after ?? {}).filter((id) => f.inflight?.[id]),
       clearDeclared: f.lines.filter((l) => l.cls === 'elsewhere' && f.declared?.[l.id]).map((l) => l.id),
-      sessionsStarted: [...sessionsStarted, ...remoteStarted].map((e) => e.id), turn: mayStart ? 'typed' : 'event',
+      sessionsStarted: [...sessionsStarted, ...remoteStarted].map((e) => ({ id: e.id, model: f.after?.[e.id] === 'session-start' ? startModelOf(f.stageModels?.[e.id]) : undefined })),
+      sessionModels, modelsRefused, turn: mayStart ? 'typed' : 'event',
       openLines: f.lines.filter((l) => l.cls === 'open' || l.cls === 'elsewhere').map((l) => l.id), elsewhere: remote.map((e) => e.id),
       archivedLines: f.lines.filter((l) => ARCHIVED_CLASSES.includes(l.cls)).map((l) => l.id),
       placed: Object.fromEntries(handed.map((e) => [e.id, e.machine])),
@@ -660,9 +702,12 @@ export function updateRun(file, change, { sleep } = {}) {
 
 // ---------------------------------------------------------------- the facts of a run (D-4, D-7)
 
-// The `--after` keys of a step the session carried out that is no stage: a change session the host started or refused (ADR 0014), the push of a grill or a
-// plan, and the archive of a change's session or its refusal (ADR 0021): no stage came back.
-const SESSION_KEYS = ['session-start', 'session-refused', 'push', 'session-archived', 'session-archive-later'];
+// The `--after` keys of a step the session carried out that is no stage: a change session the host started, found running or refused, a switch of its
+// model done or refused (ADR 0014, stage-models D-6), the push of a grill or a plan, and the archive of a change's session or its refusal (ADR 0021):
+// no stage came back.
+const SESSION_KEYS = ['session-start', 'session-found', 'session-model', 'session-model-refused', 'session-refused', 'push', 'session-archived', 'session-archive-later'];
+// A change session the host just started or found already running: the change runs in a session of its own either way.
+const isSessionStart = (key) => key === 'session-start' || key === 'session-found';
 
 // The title of `stage` in the language of the person, from the change's own script; the id when it cannot be read.
 export function stageTitleOf(found, stage, lang) {
@@ -672,14 +717,34 @@ export function stageTitleOf(found, stage, lang) {
   } catch { return stage; }
 }
 
+// What the switch of a change session's model reads of the change `found` (an item of `unfinished`): { stage, models, stages, root }, the
+// stage its change is at (`null` when the action names none), its table of stage models (lenient: a bad table is ignored whole), its
+// script's stage order (every stage of the table when the script cannot be read) and its checkout. Null when the action cannot be read.
+function stageModelsOf(start, found, { env, lang, openspec, gh }) {
+  try {
+    const action = nextAction(start, found.id, { env, lang, openspec, gh });
+    const dir = locateChange(found.root, found.id)?.dir ?? join(found.root, 'openspec', 'changes', found.id);
+    let stages = null;
+    try { stages = changeFlow(found.root, dir).flow?.stages.map((s) => s.id) ?? null; } catch { /* the table's own order answers */ }
+    return { stage: action.stage ?? null, models: modelsOf(found.root, dir, { strict: false }), stages: stages ?? [...MODEL_STAGES], root: action.root };
+  } catch (e) {
+    if (e instanceof LoopUsageError) return null;
+    throw e;
+  }
+}
+
 // Every fact `decideRoadmap` and `boardOf` need, read from the roadmap, the checkouts, the run file and the load. `after` is
 // { <id>: <progress key> }; `wheres` is `new` (the open changes never announced), `open` (every open change) or `board` (the
 // unfinished changes that are not on the roadmap); `readFlying` also reads the action of a change in flight (the board shows it); `readOwn` (the default) reads
 // the action of every open change in a session of its own too, the Stop hook leaving that to the decisions that follow (D-3), unless machines are listed
 // (the ones waiting for a place are told, remote-worker D-10).
+// `retry` (`run` and `next` only: a lock and the board pass none) reads the session's stage hand-offs once for every change when the
+// coordinating session hands the stages, so a failed one is handed again a model up (stage-models D-5). `models` (`run` and `next` only)
+// reads, for each change session recorded with a model and the one just reported started, the stage its change is at, its table and its
+// script's stage order, so that `decideRoadmap` can switch the session down (`stageModels`, stage-models D-6).
 export function collectRoadmap(cwd, {
   env = process.env, lang = 'pt-BR', load = 0, limit = DEFAULT_LIMIT, openspec, gh, after = {}, wheres = 'new', readFlying = false, readOwn = true, turn,
-  machines = [], machinesText = '', probe = true, ssh, claimsGh,
+  machines = [], machinesText = '', probe = true, ssh, claimsGh, retry = false, models = false,
 } = {}) {
   const l = normalizeLang(lang);
   const start = findRoot(cwd);
@@ -699,7 +764,7 @@ export function collectRoadmap(cwd, {
     tickets: run.tickets, occupied: run.occupied, queued: run.queued, waits: run.waits, cron: run.cron, check: run.check,
   };
   // A change in a session of its own: recorded as started, just reported started, or whose session claimed the run's ticket (D-1, D-3).
-  const ownOf = (id) => Boolean(run.changeSessions && (run.startedSessions[id] || after[id] === 'session-start' || run.tickets[id]?.claimedBy));
+  const ownOf = (id) => Boolean(run.changeSessions && (run.startedSessions[id] || isSessionStart(after[id]) || run.tickets[id]?.claimedBy));
   if (rounds === null) return { ...common, hasRoadmap: false, lines: [], unfinished: list.map((u) => ({ id: u.id, where: whereFor(u) })) };
 
   const archived = archivedOnDefault(start, { env, gh });
@@ -716,16 +781,29 @@ export function collectRoadmap(cwd, {
   // First every open line, to read each one's action (a change in flight or declared is not read: N1 and N2 come first), then
   // the classes again with the changes on the previous script known.
   const actions = {};
+  const stageModels = {};
   const previous = new Set();
+  let handOffs;
+  if (retry && !run.changeSessions) {
+    const path = sessionTranscript(env);
+    handOffs = path ? handOffsOf(path, typedSince(path)) : undefined;
+  }
   for (const line of classifyLines(rounds, { archived, open, previous, declared: run.declared, elsewhere })) {
     if (line.cls !== 'open' || run.declared[line.id]) continue;
     if (run.changeSessions) {
       // The action of a change in a session of its own is read for its gates (D-3) and, for the Stop hook, left unread unless machines are listed (the ones
-      // waiting for a place are told, remote-worker D-10); every other open change is read.
-      if (ownOf(line.id) && !readFlying && !readOwn && machines.length === 0) continue;
+      // waiting for a place are told, remote-worker D-10); every other open change is read. The stage and the models of a change session recorded with a
+      // model are read for the switch of its model (stage-models D-6).
+      if (ownOf(line.id) && !readFlying) {
+        if (models && (run.startedSessions[line.id]?.model || after[line.id] === 'session-start')) {
+          const read = stageModelsOf(start, byId.get(line.id), { env, lang: l, openspec, gh });
+          if (read) stageModels[line.id] = read;
+        }
+        if (!readOwn && machines.length === 0) continue;
+      }
     } else if (run.inflight[line.id] && !(line.id in after) && !readFlying) continue;
     const progress = SESSION_KEYS.includes(after[line.id]) ? null : (after[line.id] ?? null); // the session keys are no progress key of a stage
-    const action = nextAction(start, line.id, { env, lang: l, after: progress, openspec, gh });
+    const action = nextAction(start, line.id, { env, lang: l, after: progress, openspec, gh, ...(handOffs ? { handOffs } : {}) });
     if (isPrevious(action)) previous.add(line.id); else actions[line.id] = action;
   }
   const lines = classifyLines(rounds, { archived, open, previous, declared: run.declared, elsewhere });
@@ -755,7 +833,7 @@ export function collectRoadmap(cwd, {
     }
   }
   return {
-    ...common, hasRoadmap: true, lines, actions, machines: asked, thisMachine: thisMachine(), machinesText, placed: run.placed, claims: Object.fromEntries(read.claims), claimsReadable: !read.origin || read.readable,
+    ...common, hasRoadmap: true, lines, actions, ...(models ? { stageModels } : {}), machines: asked, thisMachine: thisMachine(), machinesText, placed: run.placed, claims: Object.fromEntries(read.claims), claimsReadable: !read.origin || read.readable,
     inflight: run.inflight, declared: run.declared, announced: run.announced, starting: run.starting,
     held: run.held, asking: run.asking, after, wheres: wheresMap, phaseTotals, unfinished: list.map((u) => ({ id: u.id, where: wheresMap[u.id] ?? '' })),
     waitsFor, unpushed,
@@ -770,7 +848,6 @@ export function collectRoadmap(cwd, {
 // { decision, why, change, reason }, takes `run` (the guard's `roadmapRunOf`, read again when absent) and lets everything through on
 // any error of its own, an unreadable run file included. The two stop locks refuse once per state (change-loop's record).
 const BRIEF_OF = /^Change ([A-Za-z0-9][\w.-]*) \(/;
-const STAGE_OF = /^Change \S+ \([^)]*\), stage ([\w-]+):/;
 const OFFLINE_GH = () => ({ status: 1, stdout: '', stderr: 'offline' });
 
 // The run file of the repository, which must exist and hold a JSON object: a lock does not guess over a file it cannot read.
@@ -1316,7 +1393,10 @@ function decide(start, facts, ctx) {
     for (const id of decision.state.clearInflight) delete run.inflight[id];
     for (const id of decision.state.clearDeclared) delete run.declared[id]; // a line open on another machine is no cannot-open end (remote-worker D-5)
     // The change sessions reported started are recorded; a change whose line is neither open nor archived leaves the record (D-3, D-9).
-    for (const id of decision.state.sessionsStarted) run.startedSessions[id] = { at: new Date().toISOString() };
+    for (const { id, model } of decision.state.sessionsStarted) run.startedSessions[id] = { at: new Date().toISOString(), ...(model ? { model } : {}) };
+    // A switch of a session's model reported done is its new model; one reported refused is remembered, so it is not returned again (stage-models D-6).
+    for (const { id, model } of decision.state.sessionModels) if (run.startedSessions[id]) { run.startedSessions[id].model = model; delete run.startedSessions[id].refused; }
+    for (const { id, model } of decision.state.modelsRefused) if (run.startedSessions[id]) run.startedSessions[id].refused = model;
     // The changes opened for another machine are recorded; both records leave with the line, unless the claims could not be read (then
     // no line reads as open elsewhere, and nothing is forgotten).
     for (const [id, machine] of Object.entries(decision.state.placed)) run.placed[id] = { machine, at: new Date().toISOString() };
@@ -1381,7 +1461,7 @@ function runCmd(args, ctx) {
     run.declared = {};
     return run;
   }, { sleep: ctx.lockSleep });
-  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, wheres: word.kind === 'stop' ? 'open' : 'new', turn: 'typed', machines: listed.machines, machinesText: listed.text, ssh: ctx.ssh }); // `run` is a message the owner typed
+  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, wheres: word.kind === 'stop' ? 'open' : 'new', turn: 'typed', machines: listed.machines, machinesText: listed.text, ssh: ctx.ssh, retry: true, models: true }); // `run` is a message the owner typed
   const decision = decide(start, facts, ctx);
   const say = (key, params) => render(lang, key, params);
   let preface = '';
@@ -1430,7 +1510,7 @@ function nextCmd(args, ctx) {
   if (!hasRoadmapFile(start)) return plain(render(lang, 'roadmap-none'));
   const run = recordFlags(start, opts, ctx);
   const stopping = run.stopping;
-  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, after, wheres: stopping ? 'open' : 'new', turn, machines: listed.machines, machinesText: listed.text, ssh: ctx.ssh });
+  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, after, wheres: stopping ? 'open' : 'new', turn, machines: listed.machines, machinesText: listed.text, ssh: ctx.ssh, retry: true, models: true });
   facts.startAnyway = Boolean(opts.flag['--start-anyway']);
   const decision = decide(start, facts, ctx);
   return { code: 0, stdout: `${decisionText(decision)}${decisionJson(decision)}`, stderr: '' };
@@ -1482,7 +1562,15 @@ function statusCmd(args, ctx) {
   if (listed.reply) return listed.reply;
   const { lang, limit, load } = settingsOf(ctx, opts);
   const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, wheres: 'board', readFlying: true, machines: listed.machines, ssh: ctx.ssh });
-  return plain(boardOf(facts));
+  // After the board, the spend of each change it lists as open that counted a token (stage-models D-7); with none, the board as it was.
+  const start = rootOf(ctx.cwd);
+  const open = facts.hasRoadmap === false ? facts.unfinished.map((u) => u.id) : entriesOf(facts).entries.filter((e) => e.state !== 'archived').map((e) => e.id);
+  const blocks = [];
+  for (const id of open) {
+    const lines = spendBlock(locate(start, id).root, id, { lang, env: ctx.env });
+    if (lines.length) blocks.push([id, ...lines.map((line) => `  ${line}`)].join('\n'));
+  }
+  return plain(blocks.length ? `${boardOf(facts)}\n\n${blocks.join('\n')}` : boardOf(facts));
 }
 
 // The draft (D-9): written only when `openspec/roadmap.md` is absent, never committed, naming the changes it left out.
