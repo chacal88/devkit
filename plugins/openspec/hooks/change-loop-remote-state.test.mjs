@@ -1269,6 +1269,7 @@ test('change-state AC-1 command: one change prints its state, reason, stage and 
     change: 'feat', state: 'waiting-for-owner', reason: { code: 'waiting-approval', text: 'your approval of the plan' },
     stage: 'approval', stageTitle: 'Owner\'s approval', phase: null, stageIcon: '📝', stateIcon: '🙋', title: '🙋 📝 feat',
     script: 'devkit', root: realpathSync(root), branch: 'main',
+    stages: ['open', 'requirements', 'proposal', 'specs', 'design', 'tasks', 'readiness', 'approval', 'implementation', 'evidence', 'review', 'delivery', 'retro'],
   }] }, null, 2)}\n`);
   const pt = entryOf(stateCmd(root, ['--change', 'feat'], cleanEnv, {}) && main(['state', '--change', 'feat', '--lang', 'pt-BR'], { cwd: root, env: cleanEnv }));
   assert.deepEqual([pt.state, pt.reason.code, pt.stage, pt.stateIcon, pt.title], ['waiting-for-owner', 'waiting-approval', 'approval', '🙋', '🙋 📝 feat']);
@@ -1368,7 +1369,7 @@ test('change-state AC-2 command: nothing in play prints an empty list', () => {
 
 // ---------------------------------------------------------------- change-state AC-3, AC-5: the command against next
 
-const NEXT_ONLY = ['change', 'script', 'root', 'branch'];
+const NEXT_ONLY = ['change', 'script', 'root', 'branch', 'stages'];
 const lessIdentity = (entry) => Object.fromEntries(Object.entries(entry).filter(([k]) => !NEXT_ONLY.includes(k)));
 const silentDelivery = () => {
   const d = deliveredChange();
@@ -1604,7 +1605,7 @@ test('unlocated 1: state lists an unplaced change blocked and every other change
   assert.deepEqual(list[0], before[0], 'a reads as before');
   assert.deepEqual(list[1], {
     change: 'x', state: 'blocked', reason: { code: 'wrong-branch', text: wrongBranchText('en') }, stage: null, stageTitle: null, phase: null,
-    stageIcon: null, stateIcon: '⛔', title: '⛔ x', script: null, root: side, branch: 'side',
+    stageIcon: null, stateIcon: '⛔', title: '⛔ x', script: null, root: side, branch: 'side', stages: null,
   });
 });
 

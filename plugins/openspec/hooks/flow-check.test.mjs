@@ -9,7 +9,7 @@ import { tmpFolder } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import * as FC from './flow-check.mjs';
-import { parseStageHeader, readFlow, pendingTasks, FlowUsageError, collectFlow, computeFlow, renderText, TEXT, reasonText } from './flow-check.mjs';
+import { parseStageHeader, readFlow, pendingTasks, FlowUsageError, collectFlow, computeFlow, renderText, TEXT, reasonText, notApplicableOf, appliedStages } from './flow-check.mjs';
 import { makeGh } from './deliver-check.mjs';
 import { gitRepo, put, commitAll, git, fakeGh, openspecStub, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, roundRepo } from './test-fixtures.mjs';
 import { collectState, nextStep, approvalState } from './deliver-check.mjs';
@@ -2088,6 +2088,74 @@ test('review-openspec-fix 20: the stage readout keeps the fix after a commit of 
   const r = liveReport(root);
   assert.equal(r.next.stage, 'implementation');
   assert.equal(r.next.reasonCode, 'fix-after-failure');
+});
+
+// ---------------------------------------------------------------- run-status-bar: the stages that apply (design D-4)
+
+const stageDecl = (id, flow = FLOW_DEVKIT) => flow.stages.find((s) => s.id === id);
+
+// Invariant (H-1, checker, flow-check.test.mjs): a skipped stage is not applicable, whether or not it has a file.
+test('run-status-bar AC-3 helper: notApplicableOf gives skipped for a skipped stage, file or not', () => {
+  assert.equal(notApplicableOf(stageDecl('specs'), synth({}, { skipped: ['specs'] })), 'skipped', 'with a file');
+  assert.equal(notApplicableOf(stageDecl('specs'), synth({ specs: null }, { skipped: ['specs'] })), 'skipped', 'with no file');
+  assert.equal(notApplicableOf(stageDecl('specs'), synth({ specs: null }, { skipped: ['design'] })), null, 'another stage skipped');
+});
+
+// Invariant (H-2): a stage with no file whose notAfter stage already has one was passed by.
+test('run-status-bar AC-3 helper: notApplicableOf gives past-point for a stage with no file whose notAfter file exists', () => {
+  const past = synth({ mockup: null }, { flags: ['ui'] });
+  assert.equal(notApplicableOf(stageDecl('mockup'), past), 'past-point', 'the proposal exists, the ui flag holds: the point wins');
+  assert.equal(notApplicableOf(stageDecl('mockup'), synth({ mockup: null, proposal: null }, { flags: ['ui'] })), null, 'the proposal is not written yet');
+});
+
+// Invariant (H-3): a flag stage with no file applies only when its flag is listed.
+test('run-status-bar AC-3 helper: notApplicableOf gives flag-absent for a flag the flags lack and null when they hold it', () => {
+  const open = { mockup: null, proposal: null };
+  assert.equal(notApplicableOf(stageDecl('mockup'), synth(open, { flags: ['contract'] })), 'flag-absent');
+  assert.equal(notApplicableOf(stageDecl('mockup'), synth(open, { flags: [] })), 'flag-absent', 'no flags at all');
+  assert.equal(notApplicableOf(stageDecl('mockup'), synth(open, { flags: ['ui'] })), null);
+});
+
+// Invariant (H-4): a setting stage with no file applies only when its setting is set.
+test('run-status-bar AC-3 helper: notApplicableOf gives setting-absent for a setting not set and null when set', () => {
+  const open = { 'unit-tests': null, evidence: null };
+  assert.equal(notApplicableOf(stageDecl('unit-tests'), synth(open, { settings: {} })), 'setting-absent');
+  assert.equal(notApplicableOf(stageDecl('unit-tests'), synth(open, { settings: { 'tests.e2e': 'npm run e2e' } })), 'setting-absent', 'another setting');
+  assert.equal(notApplicableOf(stageDecl('unit-tests'), synth(open, { settings: { 'tests.unit': 'npm test' } })), null);
+});
+
+// Invariant (H-5): a role the flow does not ship has no stage to apply.
+test('run-status-bar AC-3 helper: notApplicableOf gives role-not-shipped for shipped false', () => {
+  const flow = unshippedFlow(['decisions']);
+  assert.equal(notApplicableOf(stageDecl('decisions', flow), synth({ decisions: null })), 'role-not-shipped');
+  assert.equal(notApplicableOf(stageDecl('decisions'), synth({ decisions: null, proposal: null })), null, 'the shipped declaration, the proposal not written');
+});
+
+// Invariant (H-6): only a skip reaches a stage that has a file.
+test('run-status-bar AC-3 helper: notApplicableOf gives null for a stage with a file, whatever its condition', () => {
+  assert.equal(notApplicableOf(stageDecl('mockup'), synth({}, { flags: [] })), null, 'a flag stage, flag absent');
+  assert.equal(notApplicableOf(stageDecl('unit-tests'), synth({}, { settings: {} })), null, 'a setting stage, setting absent');
+  assert.equal(notApplicableOf(stageDecl('decisions'), synth({})), null, 'a stage past its point');
+  assert.equal(notApplicableOf(stageDecl('decisions', unshippedFlow(['decisions'])), synth({})), null, 'a role not shipped');
+});
+
+// Invariant (H-7): the list is the flow's, in its order, less the stages the rules flag; a header's own not-applicable stays.
+test('run-status-bar AC-3 helper: appliedStages keeps flow order, drops exactly the stages flagged, keeps a header not-applicable stage', () => {
+  const flow = unshippedFlow(['readiness']);
+  const facts = synth({ mockup: null, decisions: null, readiness: null, 'unit-tests': null, 'e2e-tests': null, design: { result: 'not-applicable' } },
+    { skipped: ['specs'], flags: [], settings: {} });
+  assert.deepEqual(appliedStages(facts, flow),
+    ['open', 'requirements', 'proposal', 'design', 'tasks', 'approval', 'implementation', 'evidence', 'review', 'delivery', 'retro']);
+  const all = synth({}, { flags: ['ui'], settings: { 'tests.unit': 'npm test', 'tests.e2e': 'npm run e2e' } });
+  assert.deepEqual(appliedStages(all, FLOW_DEVKIT), FLOW_DEVKIT.stages.map((s) => s.id), 'nothing flagged: the whole flow');
+});
+
+// Invariant (H-8): no flow is read for an archived change, no declaration or a previous-script change.
+test('run-status-bar AC-3 helper: appliedStages is null for an archived change, no flow and a previous-script change', () => {
+  assert.equal(appliedStages(synth({}, { archived: true }), FLOW_DEVKIT), null, 'archived');
+  assert.equal(appliedStages(synth(), null), null, 'no flow');
+  assert.equal(appliedStages(synth({ requirements: { header: null } }), FLOW_DEVKIT), null, 'previous script');
+  assert.notEqual(appliedStages(synth(), FLOW_DEVKIT), null, 'a current change');
 });
 
 // ---------------------------------------------------------------- stage-ceiling-consecutive: the ceiling counts failures in a row
