@@ -222,15 +222,16 @@ lacks one.
 ### Requirement: The removed setup skills are named nowhere
 No reply of the scripts, hook message, skill, document or capability spec SHALL name either of the
 two removed setup skills. Each SHALL name `/devkit setup`. Decision records, past `CHANGELOG.md`
-entries, change folders, the test fixture that holds an old project's configuration and the test
-fixtures that hold a document's bytes at a past commit SHALL keep their text as history.
+entries, change folders, train records, the test fixture that holds an old project's configuration
+and the test fixtures that hold a document's bytes at a past commit SHALL keep their text as
+history.
 
 #### Scenario: The replies
 - **WHEN** every reply key of the change loop is rendered in `en` and in `pt-BR`
 - **THEN** none names either of the two removed setup skills, and the reply for a project not set up names `/devkit setup`
 
 #### Scenario: The files of the repository
-- **WHEN** the repository's files are read outside `docs/adr/`, `openspec/changes/`, `CHANGELOG.md`, the old-project fixture and the past-commit fixtures, with this change's spec deltas applied to the capability specs
+- **WHEN** the repository's files are read outside `docs/adr/`, `openspec/changes/`, `openspec/trains/`, `CHANGELOG.md`, the old-project fixture and the past-commit fixtures, with this change's spec deltas applied to the capability specs
 - **THEN** none names either of the two removed setup skills, and neither skill folder exists
 
 ### Requirement: A project set up with the old skills keeps working

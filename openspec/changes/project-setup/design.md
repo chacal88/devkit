@@ -5,14 +5,17 @@ Change: `project-setup` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / t
 (motivation: `proposal.md`; requirements: `requirements.md`; decision record:
 `docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md`, called "the record" below). Base:
 the branch `project-setup` after its last merge of `origin/main` (at this revision the merge
-`6569874`, which brought `c663f21`: the delivery train on in this repository, trains 1 to 4 with
-`own-pr-archive-paths`, `release-merge-leftovers` and `archive-release-pin`, and the archives of
-`compozy-driver`, `delivery-train`, `stage-models`, `suite-speed` and `stale-only-on-own-files`),
-re-read on 2026-11-24 with no fetch. The first draft was written against `origin/main` at
-`c1ac8c4`, the previous revision against `f81f53b` (`cf34ff2`); every fact below was re-read on the
-merged tree. `main` keeps moving, so this design cites functions, files, headings and
-test names by name and gives no line number: a test is found by its name (`grep -rn`), and the
-tests are the contract.
+`f1dcefa`, which brought `c09860c`: the delivery train on in this repository; trains 1 to 4 with
+`own-pr-archive-paths`, `release-merge-leftovers` and `archive-release-pin`; trains 5 to 9 with
+`post-merge-validate` (the loop's `merge-check` step), `loop-place-and-evidence`,
+`project-slice-claim`, `state-skips-unlocated`, `jira-entry-followups` and
+`stage-ceiling-consecutive`; the train records `openspec/trains/1.md` to `9.md`; and the archives of
+`compozy-driver`, `delivery-train`, `stage-models`, `suite-speed`, `stale-only-on-own-files` and
+`loop-place-and-evidence`), re-read on 2026-11-24 with no fetch. The first draft was written against
+`origin/main` at `c1ac8c4`, later revisions against `f81f53b` (`cf34ff2`) and `6569874`
+(`c663f21`); every fact below was re-read on the merged tree. `main` keeps moving, so this design
+cites functions, files, headings and test names by name and gives no line number: a test is found
+by its name (`grep -rn`), and the tests are the contract.
 
 ## Context
 
@@ -39,9 +42,9 @@ tests are the contract.
   and the three requirements it added name `compozy-setup` (D-12, step 4). The siblings' versions are
   read again at every later merge (D-12) and are not quoted here. This change's record takes the
   next free number on `origin/main` at the last merge before review; its file name carries that
-  number today (0031: `origin/main` at `c663f21` holds 0025, 0026, 0027 and 0030, and the open
-  changes `forced-merge-path` and `project-slice-claim` claim 0028 and 0029 on their branches), and
-  every reference to it names the file.
+  number today (0031: `origin/main` at `c09860c` holds 0025, 0026, 0027, 0029 (`project-slice-claim`)
+  and 0030, and the open change `forced-merge-path` claims 0028 on its branch), and every reference
+  to it names the file.
 - `suite-speed` (archived; record `0026-the-devkit-test-suite-runs-by-file-in-parallel.md`)
   replaced the test command. The suite is `node scripts/test-suite.mjs [--test-name-pattern=<re>]
   [<test file>...]`: it runs every `*.test.mjs` of the folders listed in `SUITE_FOLDERS`, each file in
@@ -71,7 +74,7 @@ tests are the contract.
 - `stage-models` (archived) added the `models:` table and `stage-models.test.mjs`. It
   names neither old skill and touches no file this plan edits beyond what D-13 lists; the setup asks
   no `models` key (requirements, Out of scope).
-- What the merge of `c663f21` brought beside the archives, and what it means here:
+- What the merges of `c663f21` and `c09860c` brought beside the archives, and what it means here:
   - The delivery train is on in this repository: `openspec/config.yaml` sets `devkit.delivery`
     (`model: trunk-auto`, `train: "node scripts/test-suite.mjs && python3 scripts/check.py"`) next
     to its `ship:` map, all `merge` (ADR 0022). A reviewed change boards and leaves on a train; the
@@ -90,11 +93,31 @@ tests are the contract.
     and `openspec-flow.after.txt` hold the bytes of `docs/openspec-flow.md` at a past commit, the
     sentence "The openspec-setup script resolves the tag" included; `archive-release-pin 1` and
     `archive-release-pin 6` (`deliver-check-archive.test.mjs`) read them as they are (D-9).
+  - The train records `openspec/trains/<n>.md` (one per departure, written by `train-loop.mjs`) hold
+    each train's suite output, so `openspec/trains/7.md` names the test paths under
+    `plugins/compozy/skills/compozy-setup/scripts/` and `plugins/openspec/skills/openspec-setup/scripts/`,
+    and every record of a train that leaves before this change's will. They are history, like
+    `openspec/changes/` and `CHANGELOG.md`: N-10 skips the folder and no record is edited (D-9,
+    point 1).
+  - `post-merge-validate` (merged by trains 5 to 9, not archived) gave the loop a `merge-check` step: after
+    every merge of the base, before the evidence and any push, the session runs `openspec validate
+    <id> --type change --strict` once for that merge, and a red check goes to the planner as a merge
+    defect (`docs/openspec-flow.md`, "The loop"). Its spec delta ADDS requirements to
+    `change-coordination` and modifies neither requirement this change MODIFIES (D-12, step 7). The
+    Workflow follow-up of `tasks.md` names the step.
+  - `project-slice-claim` took ADR 0029. It, `post-merge-validate`, `loop-place-and-evidence`
+    (archived), `state-skips-unlocated`, `jira-entry-followups` and `stage-ceiling-consecutive`
+    edited files this plan also edits (`change-loop.mjs`, `project-loop.mjs`, `guard.mjs`, the
+    `devkit` and `ship-change` skills, `docs/openspec-flow.md`, `plugins/openspec/README.md` and
+    several suites of D-13), but none of the texts, functions, headings or tests this plan changes:
+    their skill edits are in the `## Loop` section and the `commit` and `review` rows. No source or
+    test line they added names an old skill; the train records are the only new files that do.
   - `CONTRIBUTING.md` asks every test file to stay under about 300 s in the suite's summary; on the
-    last recorded full run (`openspec/changes/archive-release-pin/proof/full-suite.txt`)
-    `change-loop.test.mjs` already took 371 s and `guard.test.mjs` 67 s (Risks).
-  - No code claim of this design moved: `startMode`'s verb list, `projectGate`, the reply keys of
-    D-8, `readDevkitSettings`, `trainSetting`, `deliveryConfig` and `MODEL_SHIP`, the pointer and
+    recorded full runs `change-loop.test.mjs` took 371 s
+    (`openspec/changes/archive-release-pin/proof/full-suite.txt`) and 338.9 s (train 7's record), and
+    `guard.test.mjs` 67 s and 48.2 s (Risks).
+  - No code claim of this design moved at either merge: `startMode`'s verb list, `projectGate`, the
+    reply keys of D-8, `readDevkitSettings`, `trainSetting`, `deliveryConfig` and `MODEL_SHIP`, the pointer and
     both strips, `FIX['kit-missing']`, `SUITE_FOLDERS` and the skill's headings read as before.
     `flow-check.mjs` gained the own-files staleness only; its `schema-without-declaration` text is
     unchanged.
@@ -475,15 +498,19 @@ a comment, stay (T-5).
 
 ### D-9 What "named nowhere" covers (AC-2)
 
-Decision records (`docs/adr/`), past `CHANGELOG.md` entries and change folders (`openspec/changes/`,
-the archive included) keep their text: they are history. The record says so of ADR 0019's Context.
+Decision records (`docs/adr/`), past `CHANGELOG.md` entries, change folders (`openspec/changes/`,
+the archive included) and train records (`openspec/trains/`) keep their text: they are history.
+The record says so of ADR 0019's Context.
 The new `CHANGELOG.md` entry names the removed skills to say they are removed. ADR 0004 keeps its
 Decision text and gets a Note (D-11). Everything else is checked by one test, N-10. It walks the
 repository's working tree, never git history (config rule "Test history"), and fails on any line
 holding `openspec-setup` or `compozy-setup`, naming the file and the line. What it skips, and why:
 
 1. History, by folder or file: `.git/`, `node_modules/`, `docs/adr/`, `openspec/changes/` (the
-   archive included) and `CHANGELOG.md`.
+   archive included), `openspec/trains/` and `CHANGELOG.md`. A train record holds the suite output
+   of its departure, test paths included (`openspec/trains/7.md` names the setup and kit tests under
+   the two removed folders), and the train loop writes one per departure; rewriting one would falsify
+   what that train ran.
 2. Two fixture folders that hold the bytes of a past commit, by path:
    `plugins/openspec/skills/devkit/scripts/fixtures/old-setup/` (N-15's: the bytes an old project
    holds; the template of `c1ac8c4` names `openspec-setup` in its comment on `merge` by design) and
@@ -616,16 +643,18 @@ for the kit (a folder under `skills/` is read as a skill, and `scripts/check.py`
 
 `compozy-driver` merged into `main` first (the owner's order; requirements, assumption 4), and
 `main` was merged into `project-setup` with `delivery-train` and `stage-models`, then with
-`suite-speed`, then with trains 1 to 4, which also brought the archives of all four. `main` keeps
-moving; the plan's base is the branch's last merge of `origin/main`.
+`suite-speed`, then with trains 1 to 4, which also brought the archives of all four, then with
+trains 5 to 9 (`post-merge-validate`, `loop-place-and-evidence`, `project-slice-claim`,
+`state-skips-unlocated`, `jira-entry-followups`, `stage-ceiling-consecutive` and the train records).
+`main` keeps moving; the plan's base is the branch's last merge of `origin/main`.
 
-1. That merge is done (at this revision `6569874`, which brought `c663f21`). Task 1.1 confirms it
-   with an ancestor check on the fixed commit `c663f21`, never on the moving `origin/main` ref, so a
+1. That merge is done (at this revision `f1dcefa`, which brought `c09860c`). Task 1.1 confirms it
+   with an ancestor check on the fixed commit `c09860c`, never on the moving `origin/main` ref, so a
    later move of `main` cannot turn it red; it runs no merge. Task 1.2 re-reads, on the base, every
    file this design names from the four siblings and from the trains, and fixes this plan where a
    name or path moved. The siblings' record numbers and versions are read by file and are not
    quoted in the plan. This change's record keeps the rule of D-11: the next free number on
-   `origin/main` at the last merge before review. Gate 1.4 checks that `c663f21` is in the branch,
+   `origin/main` at the last merge before review. Gate 1.4 checks that `c09860c` is in the branch,
    that the archives of `compozy-driver` and `delivery-train` are on it, that `DRIVER_ROUND` holds no
    `compozy`, that `plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs` and
    `scripts/test-suite.mjs` exist. A red part means `main` moved under the plan, and the change
@@ -645,10 +674,10 @@ moving; the plan's base is the branch's last merge of `origin/main`.
    merge of `main` and rewrites a block from the canonical text where it moved.
 5. Its record took its number at its merge (`0024-compozy-runs-the-short-loop.md`), and the later
    siblings took 0025 (`stale-only-on-own-files`), 0026 (`suite-speed`), 0027 and 0030
-   (`archive-release-pin`); the open changes `forced-merge-path` and `project-slice-claim` claim
-   0028 and 0029 on their branches. This change's record takes the next free number on
-   `origin/main` at the last merge before review (D-11); 0031, the number its file name carries, is
-   the lowest one neither on `origin/main` at `c663f21` nor claimed.
+   (`archive-release-pin`) and 0029 (`project-slice-claim`); the open change `forced-merge-path`
+   claims 0028 on its branch. This change's record takes the next free number on `origin/main` at
+   the last merge before review (D-11); 0031, the number its file name carries, is the lowest one
+   neither on `origin/main` at `c09860c` nor claimed.
 6. Any later merge of `main` (the one before the last verify and review included) becomes the
    branch's last merge of `origin/main`. It repeats step 1's re-read for these files (the project's
    rule: merge the base before the final review; under the own-files rule a merge that brings none
@@ -658,24 +687,34 @@ moving; the plan's base is the branch's last merge of `origin/main`.
    `test -f plugins/openspec/hooks/compozy-driver.mjs && test -f plugins/compozy/kit/scripts/gen-agents.mjs && test -f scripts/test-suite.mjs && test ! -e plugins/compozy/skills/compozy-setup && test ! -e plugins/openspec/skills/openspec-setup && grep -q "const DRIVER_ROUND = { script: 22 };" plugins/openspec/hooks/change-loop.mjs && grep -q "plugins/openspec/skills/devkit/scripts" scripts/test-suite.mjs && grep -q "plugins/compozy/kit/scripts" scripts/test-suite.mjs`.
    A red part means `main` moved under the plan: the change stops for the owner. The plan's checks
    name fixed commits or paths, never the position of `origin/main`, so they hold after each merge.
+   The loop's `merge-check` step (`post-merge-validate`) then runs `openspec validate project-setup
+   --type change --strict` on that merge before the evidence; a red check is a merge defect the
+   planner fixes in the plan files, copying into the delta any scenario `main` added to a
+   requirement this change MODIFIES (tasks 6.5, 6.6).
 7. `delivery-train`'s archive wrote the canonical `change-coordination` requirement "The devkit
    command reads its verb" that this change MODIFIES. This change's block is that canonical text
    with `setup` added (the verb sentence with all six verbs, the two train scenarios, the
    unknown-verb scenario listing six commands in the order of D-7, and this change's two setup
-   scenarios); no sentence of the canonical block is dropped or reworded. Read on `6569874`, the
+   scenarios); no sentence of the canonical block is dropped or reworded. Read on `f1dcefa`, the
    canonical block equals the delta's block minus `setup`, and so does "The command runs only in a
    project set up for devkit" minus the `/devkit setup` wording. Task 6.6 re-reads both canonical
    requirements at each later merge: where one moved, the block is written again from the canonical
    text plus `setup`, with no other change. `stage-models`'s archived `change-coordination` delta
-   MODIFIED another requirement ("Every end of a run is marked in the session's record"), so it
-   does not overlap.
+   MODIFIED another requirement ("Every end of a run is marked in the session's record"), and
+   `post-merge-validate`'s delta (merged, not archived) only ADDS requirements to
+   `change-coordination` (the `merge-check` step), so neither overlaps.
 
 ### D-13 Existing tests this change touches
 
 Every row was found by grepping the test files of the suite's folders on the base (this branch after
-its last merge of `origin/main`, `6569874`) for `openspec-setup`, `compozy-setup`,
+its last merge of `origin/main`, `f1dcefa`) for `openspec-setup`, `compozy-setup`,
 `skills/devkit/SKILL.md`, the old reply texts, the verb lists and the skill sentences. The merge of
-`c663f21` added no test that names an old skill and moved no row: it changed
+`c09860c` (trains 5 to 9) added no test or source line that names an old skill and removed no test
+of a row; it edited several suites of the rows below (among them `change-loop.test.mjs`,
+`change-loop-compozy.test.mjs`, `project-loop.test.mjs`, `deliver-check*.test.mjs`,
+`flow-check.test.mjs`, `version-pin.test.mjs` and `roadmap-loop-upfront.test.mjs`), and every test name of the rows below was found again by name
+(some at other lines). The earlier merge of `c663f21` added no such test and moved no row either: it
+changed
 `change-loop-compozy.test.mjs` (the skill sentence `release-merge-conflict 16` quotes now reads
 "`verify` and `review` for what the merge made stale", outside the Setup text; the literal pin lines
 of `change-loop docs: the design records the answers` were replaced by the manifest read),
@@ -743,6 +782,11 @@ the kit tests import it from their new depth (D-10). `archive-release-pin 1` and
 `archive-release-pin 6` (`deliver-check-archive.test.mjs`) read the `c561553` fixtures, which keep
 their bytes (D-9, point 2). `change-loop docs: the design records the answers` needs no edit for the
 release: it reads the pin from the manifest, and D-15 moves the pins of `docs/openspec-flow.md`.
+`release-tags 3: ship-change has the tag-release row, its report line and its never line`
+(`release-tags.test.mjs`) reads the ship-change skill, whose tag-release row, report line and never
+line D-7 leaves as they are; task 5.4 runs it with the other suites that read that skill
+(`change-loop-remote-state.test.mjs` among them, whose `commit-attribution AC-1 T20` reads only the
+skill's `## Attribution` section).
 
 New tests. Every name starts `setup AC-<n> <area>: `. Each fails on the base, except N-6, N-7 and
 N-16, which pin behaviour that already holds, and N-19, which passes once task 4.1's two files
@@ -800,13 +844,17 @@ The tests use `test-tmp.mjs` for every folder, the file's shared env constant th
 ### D-14 The real run (AC-10)
 
 Done by the session that conducts this change, never by `tdd-implementer`. The runs happen in
-scratch projects under `/private/tmp/` (macOS: TMPDIR under `/private/tmp`), outside this
-repository. Each uses Claude Code with `--plugin-dir` for this worktree's `plugins/core`,
+scratch projects under the session's TMPDIR (on the Linux worker that runs this change,
+`/var/tmp/devkit-project-setup`), outside this repository; no step depends on one operating
+system's paths. Each uses Claude Code with `--plugin-dir` for this worktree's `plugins/core`,
 `plugins/openspec` and `plugins/compozy`. Each typed command is a `claude -p "/devkit setup"`
 session; each answer is a `claude -p --resume <session id> "<answer>"` turn, because a `-p` session
 has no AskUserQuestion and the skill then says the question and ends the turn. Each run's
 transcript lines and the commands' outputs are saved to
-`openspec/changes/project-setup/proof/<run>.txt`.
+`openspec/changes/project-setup/proof/<run>.txt`. The six files R-1 to R-6 are committed before the
+evidence stage and cited in `evidence.md` before the first review round (`CLAUDE.md`: the real-run
+proof is in `evidence.md` before the first review round; only a line the round itself produces is
+added after it).
 
 | Run | Case | Project | What the file shows |
 |---|---|---|---|
@@ -848,9 +896,11 @@ version, which the next install corrects.
 ## Risks / Trade-offs
 
 - [A sibling merges into `main` after the plan and moves or splits a file this plan names] → D-12,
-  step 6: every merge of `main` is followed by the re-read and the grep of D-13; the plan names
-  functions and tests by name, never by line, and its checks name fixed commits, never the position
-  of `origin/main`.
+  step 6: every merge of `main` is followed by the re-read, the grep of D-13 and the loop's
+  `merge-check` step; the plan names functions and tests by name, never by line, and its checks name
+  fixed commits, never the position of `origin/main`.
+- [A new kind of history file names the old skills (as the train records did)] → D-9 lists it with
+  the history and N-10 skips its folder; task 1.2's re-read greps every file a merge added.
 - [The kit installer is not found on an owner's machine (devkit-compozy not installed, or 0.4.0)] →
   the reply names the pack and the locations (K-3, K-4); the kit is opt-in (the record, Consequences).
 - [A re-run asks the optional keys the owner left unset again (coverage, E2E, delivery, kit)] →
@@ -906,21 +956,21 @@ later merge, or the real runs needing host workarounds).
 | Moves, the suite's folder list, path fixes, regenerated agents, `.compozy/`, CI (D-10, T-3 to T-5, T-23, T-28, T-31) | 4.5 | Migration | MEDIUM |
 | The `## Setup` section, `## Start` on every driver, `## Never`, ship-change, N-10 to N-17, T-29, T-30 (hint) | 5.5 | Core | MEDIUM |
 | Documents, ADRs, Purpose edits, the two delta re-reads (6.5, 6.6), catalog, changelog, versions and the flow page's CI pins | 4 | Documentation | LOW |
-| Whole suite runs and fixes | 2 | Testing | MEDIUM |
+| Touched-file suite runs (gates 2.9 and 7.8) and fixes | 2 | Testing | MEDIUM |
 | Real runs R-1 to R-6 | 2.5 | Testing | MEDIUM |
 
 | Risk | Probability | Impact | Mitigation |
 |---|---|---|---|
 | `compozy-driver` not merged, or merged with `compozy` still not built | LOW | HIGH | gate 1.4 stops the change before any code; the owner decides |
-| A later merge of `main` moves a canonical `compozy-kit-setup` block this delta MODIFIES | LOW | MEDIUM | the six blocks are copied whole from the canonical text on `6569874` (D-12, step 4); task 6.5 re-reads them at each later merge and rewrites a moved block from the canonical text |
+| A later merge of `main` moves a canonical `compozy-kit-setup` block this delta MODIFIES | LOW | MEDIUM | the six blocks are copied whole from the canonical text on `f1dcefa` (D-12, step 4); the loop's `merge-check` step validates the delta after every merge; task 6.5 re-reads them at each later merge and rewrites a moved block from the canonical text |
 | A sibling archived after this plan MODIFIES "The devkit command reads its verb" again, and this change's archive drops its text | LOW | HIGH | this change's block is the canonical text plus `setup` (D-12, step 7); task 6.6 re-reads the canonical requirement at each later merge and rewrites the block from it |
 | A sibling's copy of a mechanism this plan changes is missed (as `train-loop.mjs`'s pointer strip was) | LOW | MEDIUM | one helper `withoutSetupPointer` for every strip (D-8); N-10 fails on any old name left in a script; task 1.2's re-read greps every file the siblings added |
-| A pinned text missed by the grep | MEDIUM | LOW | the whole suite in gates 2.9 and 7.8; N-10 fails on any old name left |
+| A pinned text missed by the grep | MEDIUM | LOW | gates 2.9 and 7.8 run every test file this change touches (the touched-file list of `tasks.md`), with `--concurrency=2`; the train's departure runs the whole suite, which is the whole-suite proof; N-10 fails on any old name left |
 | The moved or new setup tests drop out of the suite while every gate stays green (`SUITE_FOLDERS` reads a missing folder as empty) | MEDIUM | HIGH | T-31 moves the folder list with the files in task 2.3; every phase gate names its test files as arguments, which the script refuses with exit 2 when they are not in its folders; N-19 pins the two new files in the suite's list |
 | Regenerated agents drift from `.compozy/` | LOW | MEDIUM | `gen-agents.mjs --check` and `adoption.test.mjs` in the gates |
 | The host's `-p` mode cannot run a typed skill with answers by `--resume` | LOW | MEDIUM | D-14: an interactive session run instead, recorded the same way |
-| `change-loop.test.mjs` grows further above the 300 s per file that `CONTRIBUTING.md` asks (371 s on the last recorded full run) | MEDIUM | LOW | the start tests it gains (N-1 to N-5, N-8, N-16) call `startMode` in a scratch folder, about a second each; a split of the file is its own change, as `CONTRIBUTING.md` describes it (by section heading, no test renamed), and is not widened into this one; the evidence names the file's time |
-| The suite's long run on a full machine | MEDIUM | LOW | the whole suite (`node scripts/test-suite.mjs`) runs only in gates 2.9 and 7.8, as a background command of the tool; the phase gates name their files |
+| `change-loop.test.mjs` grows further above the 300 s per file that `CONTRIBUTING.md` asks (371 s on `archive-release-pin`'s recorded run, 338.9 s in train 7's record) | MEDIUM | LOW | the start tests it gains (N-1 to N-5, N-8, N-16) call `startMode` in a scratch folder, about a second each; a split of the file is its own change, as `CONTRIBUTING.md` describes it (by section heading, no test renamed), and is not widened into this one; the evidence names the file's time |
+| The suite's long run on a full machine | MEDIUM | LOW | no gate of this change runs the whole suite: every gate names its test files and passes `--concurrency=2`; gates 2.9 and 7.8, the longest (the touched-file list), run as a background command of the tool; the whole suite runs once, at the train's departure |
 | A re-run edits `openspec/config.yaml` outside the block | LOW | HIGH | `fill` (D-3) decides it in a script, B-15 tests it, N-17 pins step 5's sentence, R-2 compares the bytes |
 | A later merge of `main` takes the number this change's record carries today | LOW | LOW | every link to the record names its file; the record's number is the next free number on `origin/main` at the last merge before review, and the loop's renumber step at that merge moves every link (D-11, task 6.7) |
 
@@ -937,9 +987,13 @@ Assumptions (where the plan breaks if reality differs):
 - The base holds `delivery-train` merged and archived: the verb `train`, the `## Train` section
   right after `## Waiting on GitHub`, `train-loop.mjs`, and its text in the canonical
   `change-coordination` requirement this change MODIFIES (D-12, step 7; task 6.6).
-- This repository keeps the delivery train on (`devkit.delivery` in `openspec/config.yaml`) and the
-  pin test reads the manifest (ADR 0030), as on `c663f21`: D-15's release and the Workflow
-  follow-up of `tasks.md` follow both.
+- This repository keeps the delivery train on (`devkit.delivery` in `openspec/config.yaml`, whose
+  `train` command runs the whole suite at each departure) and the pin test reads the manifest
+  (ADR 0030), as on `c09860c`: D-15's release, the touched-file gates and the Workflow follow-up of
+  `tasks.md` follow all three.
+- The loop gives the `merge-check` step after each merge of the base (`post-merge-validate`, as on
+  `c09860c`; `docs/openspec-flow.md`, "The loop"): D-12 step 6 and the Workflow follow-up rely on it
+  to validate the delta at the last merge before review.
 - `--plugin-dir` places packs as siblings named by folder (`plugins/openspec`, `plugins/compozy`),
   as earlier live checks used it (`openspec/changes/archive/2026-11-22-project-phases/tasks.md`,
   task 5.2).
@@ -952,6 +1006,9 @@ archived (the verb `train`, D-7, D-8; its canonical text for task 6.6); `stage-m
 overlap, D-12 step 7); `suite-speed` archived (the suite command and `SUITE_FOLDERS`, D-10, T-31);
 `archive-release-pin` merged on train 4 (the pin test reads the manifest, D-15; not archived, and
 nothing here waits on its archive); `stale-only-on-own-files` archived (the own-files rule, D-12
-step 6); the archived
+step 6); `post-merge-validate` merged by trains 5 to 9 (the loop's `merge-check` step after a merge of
+the base, D-12 step 6; not archived, and nothing here waits on its archive; its delta only ADDS to
+`change-coordination`); `project-slice-claim` merged (it took ADR 0029, D-12 step 5); the train
+records `openspec/trains/<n>.md` (history, D-9); the archived
 `delivery-models` (the delivery keys and `MODEL_SHIP`), `change-version-pin` (the pin this step
 leaves) and `gh-version-check` (step 1's `gh` line).

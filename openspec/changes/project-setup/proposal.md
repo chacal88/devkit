@@ -44,7 +44,8 @@ install the kit when the owner wants it.
   `train-loop.mjs` (its copy of the pointer strip), `compozy-driver.mjs`, `changes-under-way.mjs`,
   `ship-change`, the READMEs, `CONTRIBUTING.md`,
   `CLAUDE.md`, the docs, the two capability specs and the generated catalog. Decision records,
-  past `CHANGELOG.md` entries and archived changes stay as written.
+  past `CHANGELOG.md` entries, change folders (archived changes included) and train records
+  (`openspec/trains/<n>.md`) stay as written.
 - No checker code is copied into a project. The step names the devkit-openspec version the schemas
   come from, and the version the CI pin points at in `merge` mode. It names each pack the project
   uses that is not enabled in `.claude/settings.json`.
@@ -76,8 +77,9 @@ Copied from `requirements.md`, with their ids.
 
 How `design.md` reads three of them: "the behaviour `compozy-setup` has today" (AC-6) is the
 installer's behaviour; the old skill's `design:` step is not carried (Out of scope; D-6). "Names
-them" (AC-2) excludes decision records, past `CHANGELOG.md` entries and change folders, which are
-history (the record's Context; D-9). "Records the plugin version" (AC-5) uses the pins that exist, with
+them" (AC-2) excludes decision records, past `CHANGELOG.md` entries, change folders and train
+records (`openspec/trains/`, whose suite output names the old test paths), which are history (the
+record's Context; D-9). "Records the plugin version" (AC-5) uses the pins that exist, with
 no new key (requirements, second assumption; D-5).
 
 ## Capabilities
@@ -138,7 +140,10 @@ None.
   (CONTRIBUTING).
 - Dependencies: `compozy-driver` (round 21), `delivery-train`, `stage-models` and `suite-speed`,
   merged and archived on `main` (`openspec/changes/archive/2026-11-24-<id>/`) and merged into this
-  branch; the plan's base is the branch's last merge of `origin/main` (`design.md` D-12). With
+  branch; the plan's base is the branch's last merge of `origin/main`, at this revision `f1dcefa`,
+  which brought `c09860c` (trains 5 to 9; `design.md` D-12). From those trains, `post-merge-validate`
+  gives the loop's `merge-check` step after each merge of the base, `project-slice-claim` took
+  ADR 0029, and the train records `openspec/trains/<n>.md` are history (D-9). With
   `compozy-driver` archived, the `compozy-kit-setup` delta already holds the MODIFIED blocks of the
   three requirements it added; with `delivery-train` archived, the `change-coordination` block is the
   canonical text plus `setup`. Tasks 6.5 and 6.6 re-check both at each later merge. `suite-speed`
@@ -159,7 +164,14 @@ None.
   the one this change answers.
 
 Exit criteria: `openspec validate project-setup --type change --strict` (the bare form is ambiguous:
-a change and a capability share the name); the whole suite `node scripts/test-suite.mjs` with
-`GITHUB_HEAD_REF` and `GITHUB_BASE_REF` set, which lists the moved setup and kit tests and the new
-ones; `python3 scripts/check.py`; `python3 scripts/gen-catalog.py --check`; `claude plugin validate .`;
-`node plugins/compozy/kit/scripts/gen-agents.mjs --check`; the real-run proof files of AC-10.
+a change and a capability share the name); `node scripts/test-suite.mjs --concurrency=2` with
+`GITHUB_HEAD_REF` and `GITHUB_BASE_REF` set, on every test file the change touches (the moved setup
+tests `changes-under-way`, `gh-version`, `github-setup`, `install-schemas`, `project-settings` and
+`ship-entry`; the moved kit tests `install-kit`, `adoption`, `gen-agents`, `devkit-kit` and
+`loop-templates`; the new `setup-block` and `kit-installer`; and the hooks suites `design.md` D-13
+names, those that read the ship-change skill included, as `tasks.md` gate 7.8 lists them), which the script refuses with exit 2 when a file is not
+in its folders; the whole suite runs at the delivery train's departure (`devkit.delivery.train` in
+`openspec/config.yaml`), and that run is the whole-suite proof; `python3 scripts/check.py`;
+`python3 scripts/gen-catalog.py --check`; `claude plugin validate .`;
+`node plugins/compozy/kit/scripts/gen-agents.mjs --check`; the real-run proof files of AC-10, cited
+in `evidence.md` before the first review round.
