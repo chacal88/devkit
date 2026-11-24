@@ -94,7 +94,7 @@ scratch file in the tree, and end every task with `git status --short`.
 
 ## 3. Release and the whole suite (AC-1 to AC-7)
 
-- [ ] 3.1 Release (`CONTRIBUTING.md`, step 5). Run `git fetch origin main`, then take the next
+- [x] 3.1 Release (`CONTRIBUTING.md`, step 5). Run `git fetch origin main`, then take the next
   minor version of devkit-openspec and of the marketplace after `origin/main`'s at the last merge
   before review. If `jira-entry-followups` or another sibling merged meanwhile, merge `origin/main`
   first and take the versions above its own. Bump devkit-openspec in
@@ -118,7 +118,7 @@ scratch file in the tree, and end every task with `git status --short`.
   records the answers", "the pin in docs/openspec-flow.md is the commit sha of v + the
   devkit-openspec version, …" and "AC-8 release-ready: …" (the last two in `deliver-check.test.mjs`)
   pass.
-- [ ] 3.2 Check that nothing outside the plan changed. Check:
+- [x] 3.2 Check that nothing outside the plan changed. Check:
   `git diff --stat $(git merge-base origin/main HEAD) -- plugins/openspec/hooks/change-loop.mjs plugins/openspec/hooks/roadmap-loop.mjs plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/conduct-check.mjs plugins/openspec/hooks/flow-check.mjs plugins/openspec/hooks/guard.mjs plugins/openspec/schemas openspec/schemas plugins/core plugins/panel plugins/openspec/skills/devkit`
   prints nothing (AC-7: the place wait and the held session keep their code and tests).
 - [ ] 3.3 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate loop-place-and-evidence --strict`

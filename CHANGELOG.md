@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.43.0 — the change folder is committed before the review round
+
+- **devkit-openspec** 0.39.0: `deliver-check` hands the `commit` step before a review round while anything under the
+  change folder is uncommitted, the `ship-change` rows `commit` and `review` say so, and the CI snippet now pins
+  `v0.39.0`.
+
 ## 0.42.0 — the test suite runs by file, in parallel
 
 - **Repository** (`scripts/test-suite.mjs`, `CLAUDE.md`, `CONTRIBUTING.md`, `openspec/config.yaml`): one command,
