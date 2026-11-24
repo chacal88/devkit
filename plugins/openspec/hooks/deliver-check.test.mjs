@@ -18,7 +18,7 @@ import {
   here, review, reviews, withReviews, base, head, mergeHistory, mergeMain, onlyOpenspec, s7, gateRow, ev, acRow, changeFiles, callGh, PR_FIELDS,
   prJson, OLD_FLAG, versionsOf, conversation, tick, devkitRepo, readinessHash, approvalMd, planRepo, reviewAt, fullEvidence, PR_BODY, driveToReady,
   readyRepo, committedChange, itemsOf, bothEvidenceCurrent, MERGE_FIELDS, noMergeCall, mergeReady, presetArchiveReads,
-  ciGate, changeFilesOf, CI_ENV, OWN_REVIEWERS, ownLines, ownReviews, ownEvidence, ownUnrelated, ownFilesRepo, ownBrings,
+  ciGate, changeFilesOf, CI_ENV, OWN_REVIEWERS, ownLines, ownReviews, ownEvidence, ownUnrelated, ownMergeMain, ownFilesRepo, ownBrings,
 } from './deliver-check-fixtures.mjs';
 
 test('test helpers: commits work without a global git identity and return the head sha', () => {
@@ -2451,6 +2451,26 @@ test('own-files AC-6 rule: a rejected verdict is stale after an exempt merge; th
   assert.match(whys['security-reviewer'], /^[0-9a-f]{7} is behind [0-9a-f]{7}, which touches /);
   assert.deepEqual(Object.fromEntries(Object.entries(whys).filter(([n]) => n !== 'security-reviewer')), Object.fromEntries(OWN_REVIEWERS.filter((n) => n !== 'security-reviewer').map((n) => [n, null])));
 });
+
+// jira-entry-followups AC-4: an approved verdict that still lists an undisposed finding follows the rejected verdict's
+// rule, so the own-files exemption of a merge of the base does not apply to it (deliver-check.mjs, readReviews: `own`).
+for (const [label, line, stale] of [
+  ['an undisposed [important] finding', '- [important] x\n', true],
+  ['an undisposed [blocking] finding', '- [blocking] x\n', true],
+  ['a refuted finding', '- [important] x · refuted: the test shows it\n', false],
+  ['a nit only', '- [nit] x\n', false],
+]) {
+  test(`jira-entry-followups AC-4 own-files: an approved verdict with ${label} is ${stale ? 'stale' : 'current'} after an exempt merge`, () => {
+    const { root, R } = ownFilesRepo({ merge: null });
+    put(root, { 'openspec/changes/feat/reviews/code-quality-reviewer.md': `${review('approved', R)}${line}` });
+    commitAll(root, 'finding in the record');
+    ownMergeMain(root);
+    const whys = reviewWhys(root, ownFacts(root));
+    if (stale) assert.match(whys['code-quality-reviewer'], /^[0-9a-f]{7} is behind [0-9a-f]{7}, which touches /);
+    else assert.equal(whys['code-quality-reviewer'], null);
+    for (const n of OWN_REVIEWERS.filter((x) => x !== 'code-quality-reviewer')) assert.equal(whys[n], null, `${n} (no finding) stays current`);
+  });
+}
 
 test('own-files AC-6 rule: a test-only commit after an exempt merge keeps the four test-spared reviewers current', () => {
   const { root, R } = ownFilesRepo();
