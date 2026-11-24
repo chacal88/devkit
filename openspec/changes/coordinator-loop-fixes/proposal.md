@@ -1,4 +1,4 @@
-<!-- devkit-stage proposal result=passed attempt=5 commit=6e683aa3e98ecc40a3cdece58e1394082910e54e -->
+<!-- devkit-stage proposal result=passed attempt=6 commit=d3da0e9857f5afb2922fb68337ee2548fb4c6d50 -->
 # Proposal
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -42,8 +42,8 @@ Each item in one line; the how is in `design.md`.
 - A delivered change on a branch advanced into the base goes to the retro with no new evidence or review (D-21).
 - A change's own `budget` and `models:` move to an `x-devkit:` block of its `.openspec.yaml`, which the strict
   validation accepts; a `devkit:` block there is still read (D-22, the change's settings ADR; ADR 0023 gets a Note).
-- `openspec/config.yaml` gains the rule that no test pins the tick of a live roadmap line, and the three tests
-  that do follow it (D-23).
+- `openspec/config.yaml` gains the rule that no test pins the tick of a live roadmap line, and the two tests
+  that still do follow it; the third, `post-merge-validate 3`, is fixed on main since train 10 (D-23).
 - Documents: ADR 0011's Note, `docs/openspec-flow.md`, `docs/coordination-design.md`, `docs/compozy-kit.md`, both
   schemas' review gate and tasks instruction, `openspec/config.yaml`'s ADR list (D-12); the nits of AC-14 (D-13).
 - Non-goals: everything under "Dropped" in `requirements.md`; the `fresh-base-check` half of item 21;
