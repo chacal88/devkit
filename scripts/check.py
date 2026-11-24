@@ -6,6 +6,7 @@
 - the panel's copies of the checkers' grammar (plugins/panel/hooks/grammar.ts) match the checkers' literals;
 - every `plugin install` line names its scope: `--scope project` everywhere, and `--scope user`
   only in docs/migrate-to-project-scope.md (ADR 0004);
+- no test of the suite is skipped (`skip`, `only` or `todo`; plugins/compozy is exempt: its skips guard a missing `compozy` program, ADR 0026);
 - every released flow version of the openspec schemas stays: `flow.json` equals `flows/<its version>.json`, and each
   `flows/<n>.json` matches its digest in scripts/released-flows.json, so a flow change raises its version.
 
@@ -135,6 +136,27 @@ def check_awaited_subtests():
                 problems.append(f"{f.relative_to(ROOT)}:{n}: subtest `t.test(` is not awaited; write `await t.test(` in an async parent")
 
 
+SKIPPED_TEST = (
+    re.compile(r"\b(?:test|it|describe|suite|t)\.(?P<kind>skip|only|todo)\s*\("),
+    re.compile(r"^\s*(?:await\s+)?(?:test|it|describe|suite|t\.test)\s*\(.*[{,]\s*(?P<kind>skip|only|todo)\s*:"),
+)
+
+
+def check_no_skipped_tests():
+    # The suite runs every test (ADR 0026): a skipped, only or todo test is a test that does not run.
+    # In plugins/compozy skip and todo pass: its tests skip themselves when the `compozy` program is not installed. `only` is
+    # refused there too. An options object split over several lines is not seen.
+    for f in sorted(ROOT.glob("plugins/**/*.test.mjs")):
+        parts = f.relative_to(ROOT).parts
+        if SKIP_DIRS.intersection(parts):
+            continue
+        exempt = {"skip", "todo"} if parts[1] == "compozy" else set()
+        for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+            hits = (rx.search(line) for rx in SKIPPED_TEST)
+            if any(hit and hit.group("kind") not in exempt for hit in hits):
+                problems.append(f"{f.relative_to(ROOT)}:{n}: a test is skipped (skip, only or todo); the suite runs every test")
+
+
 PANEL_GRAMMAR = ("plugins", "panel", "hooks", "grammar.ts")
 OPENSPEC_HOOKS = ("plugins", "openspec", "hooks")
 
@@ -259,6 +281,7 @@ def main():
     check_changelog()
     check_panel_parity()
     check_awaited_subtests()
+    check_no_skipped_tests()
     check_flow_versions()
     print("\n".join(problems) or "all checks passed")
     sys.exit(1 if problems else 0)
