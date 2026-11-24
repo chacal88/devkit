@@ -34,7 +34,7 @@ file in the tree; end every task with `git status --short`.
 
 ## 1. The claim at a slice's open and the readout's machine line (AC-1 to AC-9)
 
-- [ ] 1.1 Write this phase's tests first (design D-7; spec `project-definition` MODIFIED "The project
+- [x] 1.1 Write this phase's tests first (design D-7; spec `project-definition` MODIFIED "The project
   command opens a slice", "The slice readout shows the five stages" and "A slice is not a change of
   the other commands"), in `plugins/openspec/hooks/project-loop.test.mjs`: the helper `otherClone(t)`
   beside `loopProject`, and the thirteen `slice-claim` tests of D-7's table (AC-1 to AC-9, including
@@ -44,23 +44,23 @@ file in the tree; end every task with `git status --short`.
   `openspec/changes/project-slice-claim/proof/red-1.txt`. Check: the file shows the tests D-7 marks
   "yes" failing for a missing behaviour (not a syntax error) and the regression guards (AC-3, AC-5,
   AC-6 second test, AC-7) passing. This red run is a task, not a gate: it exits non-zero.
-- [ ] 1.2 Add the git identity lines of D-6 to `plugins/openspec/hooks/project-loop.test.mjs` (the
+- [x] 1.2 Add the git identity lines of D-6 to `plugins/openspec/hooks/project-loop.test.mjs` (the
   `IDENT` constant and the `??=` loop of `change-loop.test.mjs` lines 3908 and 3909, before `ENV`).
   Invariant: a test that opens a slice with an `origin` can commit in a run of this file alone; layer:
   the test fixtures; suite: project-loop. Check: `git diff` shows no assertion changed.
-- [ ] 1.3 In `plugins/openspec/hooks/project-loop.mjs`, `openSlice` passes `claim: { machine:
+- [x] 1.3 In `plugins/openspec/hooks/project-loop.mjs`, `openSlice` passes `claim: { machine:
   thisMachine(), places: null }`, `lockSleep` and `beforePush` to `openCheckout`, and imports
   `thisMachine` from `./change-loop.mjs` (design D-1); the command line is unchanged; no comment
   added to `project-loop.mjs` names `force-with-lease`, `x-devkit-machine`, `chore(openspec): open`,
   `writeClaimKeys` or `claimOnOrigin` (the AC-9 test reads comments too, D-7). Check: the
   `slice-claim AC-1` tests (the claim and the refused push), `AC-2`, `AC-4` and `AC-9` pass;
   `git diff --stat` lists no change to `openCheckout` in `plugins/openspec/hooks/change-loop.mjs`.
-- [ ] 1.4 In `plugins/openspec/hooks/change-loop.mjs#MESSAGES`, add `slice-machine` beside
+- [x] 1.4 In `plugins/openspec/hooks/change-loop.mjs#MESSAGES`, add `slice-machine` beside
   `slice-title` in both languages with the texts of design D-3 (`Machine: {machine}`, `Máquina:
   {machine}`). Check: `change-loop replies: no internal term in either language`
   (`change-loop.test.mjs`) and `project-loop start: every new message key renders in both languages
   with no internal term` (`project-loop.test.mjs`) pass unchanged (D-6 T-7).
-- [ ] 1.5 In `plugins/openspec/hooks/project-loop.mjs`, `readFacts` returns `folder: located.dir` in
+- [x] 1.5 In `plugins/openspec/hooks/project-loop.mjs`, `readFacts` returns `folder: located.dir` in
   `common`, and `statusText` appends the `slice-machine` line after the title through the helper
   `claimMachineOf(dir)` over `parseClaim` (imported from `./change-loop.mjs`), as design D-3 gives it,
   with no line for an absent, unreadable or malformed value; no comment it adds names the five strings
@@ -70,7 +70,7 @@ file in the tree; end every task with `git status --short`.
   machine of its claim when it has one, then one line per stage, and nothing after the five while a
   stage is open"; layer: the readout; suite: project-loop; the edit is exactly D-6 T-1's. Check: both
   `slice-claim AC-6` tests and T-1 pass; T-2 passes unchanged.
-- [ ] 1.6 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^slice-claim" --test-name-pattern="^project-loop " --test-name-pattern="^commit-attribution AC-1" --test-name-pattern="^gh-version 1[56]" --test-name-pattern="^version-pin AC-1 open" --test-name-pattern="^upfront AC-5 open" --test-name-pattern="^remote AC-1 open" --test-name-pattern="^remote AC-2 open" --test-name-pattern="^remote AC-3 open" --test-name-pattern="^remote AC-4 open" --test-name-pattern="^change-loop replies" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py`
+- [x] 1.6 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^slice-claim" --test-name-pattern="^project-loop " --test-name-pattern="^commit-attribution AC-1" --test-name-pattern="^gh-version 1[56]" --test-name-pattern="^version-pin AC-1 open" --test-name-pattern="^upfront AC-5 open" --test-name-pattern="^remote AC-1 open" --test-name-pattern="^remote AC-2 open" --test-name-pattern="^remote AC-3 open" --test-name-pattern="^remote AC-4 open" --test-name-pattern="^change-loop replies" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py`
   green, a background command; it runs every test of `project-loop.test.mjs` (each one that opens a
   slice now claims it) and the change-path tests of D-6; covers AC-1 to AC-9 by tests, with D-6 T-1
   to T-8.

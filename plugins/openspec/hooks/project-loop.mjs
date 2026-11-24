@@ -28,6 +28,7 @@ import { mergeSetup, makeGh } from './merge-setup.mjs';
 import {
   LoopUsageError, LoopRefusal, render, normalizeLang, projectGate, readDevkitSettings, locate, cleanOf, checkoutsOf, activeIds, isSliceDir,
   COMMIT_AGENT, withAttribution, knownChange, archivedDates, mainRoot, defaultBase, tryGit, NAME, openCheckout, whereOf, waitLoop, readStdin, stagePhrase, filesLanguageOf, filesLanguageName,
+  thisMachine, parseClaim,
 } from './change-loop.mjs';
 
 export const HOOKS_DIR = dirname(fileURLToPath(import.meta.url));
@@ -303,7 +304,7 @@ function readFacts(cwd, slice, { env, lang, after, openspec, gh }) {
   const ctx = { slice, root, branch: known.branch, lang: normalizeLang(lang), filesLanguage: filesLanguageOf(settings), base, ship: config.ship, method: config.mergeMethod };
   const roadmapState = (dir) => readRecord(join(dir, 'roadmap.md'))?.result;
   const noRounds = roadmapState(located.dir) === 'not-applicable';
-  const common = { ctx, after, noRounds, kind, flow: null, fingerprint: '' };
+  const common = { ctx, after, noRounds, kind, flow: null, fingerprint: '', folder: located.dir };
   if (kind === 'default') return common;
 
   const head = headOf(root);
@@ -434,7 +435,7 @@ export function startProject(cwd, text, { lang = 'pt-BR', env = process.env, ope
 }
 
 // `open <slice>`: the worktree, the branch and the change on the project script; refusals are LoopRefusal (exit 3, nothing created).
-export function openSlice(cwd, id, { lang = 'pt-BR', env = process.env, openspec } = {}) {
+export function openSlice(cwd, id, { lang = 'pt-BR', env = process.env, openspec, lockSleep, beforePush } = {}) {
   const l = normalizeLang(lang);
   const refuse = (key, params = {}) => new LoopRefusal(key, render(l, key, params));
   if (!NAME.test(id) || id === 'archive') throw refuse('name-invalid', { id });
@@ -442,7 +443,10 @@ export function openSlice(cwd, id, { lang = 'pt-BR', env = process.env, openspec
   const settings = start ? readDevkitSettings(start) : { driver: 'claude', language: 'en', unknown: [] };
   const gate = projectGate(start, settings);
   if (gate) throw refuse(gate.key, gate.params);
-  const { worktree, base } = openCheckout(cwd, id, { script: SCRIPT, lang: l, env, openspec });
+  const { worktree, base } = openCheckout(cwd, id, {
+    script: SCRIPT, lang: l, env, openspec, lockSleep, beforePush,
+    claim: { machine: thisMachine(), places: null },
+  });
   return { version: 1, slice: id, worktree, branch: id, base, reply: render(l, 'project-opened', { id }) };
 }
 
@@ -587,6 +591,8 @@ export function statusText(cwd, slice, { lang = 'pt-BR', env = process.env, open
   const say = (key, params = {}) => render(l, key, params);
   const flow = facts.flow ?? readStatusFlow(cwd);
   const lines = [say('slice-title', { id: slice })];
+  const machine = claimMachineOf(facts.folder);
+  if (machine) lines.push(say('slice-machine', { machine }));
   const names = Object.fromEntries((flow?.stages ?? []).map((s) => [s.id, inSentence(s.title.en)]));
   const states = SETTLED_STAGES.map((id) => {
     if (facts.kind === 'active') return facts.report.stages.find((s) => s.id === id);
@@ -603,6 +609,11 @@ export function statusText(cwd, slice, { lang = 'pt-BR', env = process.env, open
   if (!ready) lines.push(afterFive(facts, { say, cwd, slice, lang: l, env, openspec, gh }));
   return `${lines.join('\n')}\n`;
 }
+
+// The machine named by the slice's `.openspec.yaml`; null when the file is absent, unreadable or names none.
+const claimMachineOf = (dir) => {
+  try { return parseClaim(readFileSync(join(dir, '.openspec.yaml'), 'utf8')).machine; } catch { return null; }
+};
 
 const archivedFolderOf = (cwd, slice) => {
   const start = findRoot(cwd);
