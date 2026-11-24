@@ -76,7 +76,7 @@ scratch file in the tree, and end every task with `git status --short`.
 
 ## 2. The review round marks the Commit line from git (AC-1, AC-2)
 
-- [ ] 2.1 Add `treeState` and the `tree` subcommand to
+- [x] 2.1 Add `treeState` and the `tree` subcommand to
   `plugins/core/skills/review-change/scripts/review-round.mjs` (D-1), with the CLI header comment.
   Write in `plugins/core/skills/review-change/scripts/review-round.test.mjs`
   `jira-entry-followups AC-1 review-round tree lists no openspec path` and
@@ -86,7 +86,7 @@ scratch file in the tree, and end every task with `git status --short`.
   `jira-entry-followups AC-2 review-round tree resolves a relative root` (spec `review-round`, "The
   round reads the uncommitted paths from git", every scenario about `tree`). Check: the four pass;
   before the subcommand exists they fail with `review usage:`.
-- [ ] 2.2 Change the rules section of
+- [x] 2.2 Change the rules section of
   `plugins/core/skills/review-change/scripts/review-round.workflow.js` (D-1): `validateArgs` requires
   `dirty`, `STAGE1_SCHEMA` and `validateStage1` drop `uncommitted`, `outcomeOf` reads `args.dirty`,
   `reviewerPrompt` loses the key and gains the sentence. In the same task change, in
@@ -96,7 +96,7 @@ scratch file in the tree, and end every task with `git status --short`.
   D-10 for `validateArgs` (with each CLI command), the reviewer's own flag, the stage-1 prompt and the
   Workflow script (through the file's `AsyncFunction` harness). Check: those pass and every other
   test of `review-round.test.mjs` passes.
-- [ ] 2.3 Write in `plugins/openspec/hooks/deliver-check.test.mjs`
+- [x] 2.3 Write in `plugins/openspec/hooks/deliver-check.test.mjs`
   `jira-entry-followups AC-1 the round's tree rule is the delivery check's`,
   `jira-entry-followups AC-1 a round with only openspec files uncommitted writes plain Commit lines
   that deliver-check reads as current` and `jira-entry-followups AC-2 a round with a product file
@@ -104,7 +104,7 @@ scratch file in the tree, and end every task with `git status --short`.
   `../../core/skills/review-change/scripts/review-round.mjs` and running its CLI with `spawnSync`.
   Check: the three pass; with `.claude/` removed from the untracked rule of `treeState` in the
   working tree the parity test fails (put the line back by hand).
-- [ ] 2.4 Docs of D-1: the `Build \`args\` first` sentence of
+- [x] 2.4 Docs of D-1: the `Build \`args\` first` sentence of
   `plugins/core/skills/review-change/SKILL.md`, the `review` row of
   `plugins/openspec/skills/ship-change/SKILL.md`, and the review-round section of
   `docs/openspec-flow.md` (the `Commit:` marker comes from `review-round.mjs tree`). Write
@@ -112,7 +112,7 @@ scratch file in the tree, and end every task with `git status --short`.
   review-round.mjs tree` in `review-round.test.mjs`. Check: it passes, `review-writer-prompt AC-4
   text the review skill and the ship-change review row fill args.head from git rev-parse HEAD`
   passes unchanged, and `python3 scripts/check.py` passes.
-- [ ] 2.5 The real-run proof of D-1, every case it declares, after 2.4 so it runs on the final skill
+- [x] 2.5 The real-run proof of D-1, every case it declares, after 2.4 so it runs on the final skill
   text: on a scratch clone of this worktree (outside the repository, under `$TMPDIR`; the clone
   holds only committed files, so copy this worktree's uncommitted change files into it first), with this worktree's `review-round.mjs` and
   `review-round.workflow.js`, run the session's own part (`review-round.mjs tree` on the clone, its
@@ -128,7 +128,7 @@ scratch file in the tree, and end every task with `git status --short`.
   the four with `src/a.mjs` dirty have `Commit: <head> (uncommitted changes)` and a reviews item
   naming the verdicts recorded with uncommitted changes, whatever the stage-1 answer said; the
   scratch clone is removed.
-- [ ] 2.9 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/core/skills/review-change/scripts/review-round.test.mjs plugins/openspec/hooks/deliver-check.test.mjs && python3 scripts/check.py` green; covers AC-1 and AC-2.
+- [x] 2.9 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/core/skills/review-change/scripts/review-round.test.mjs plugins/openspec/hooks/deliver-check.test.mjs && python3 scripts/check.py` green; covers AC-1 and AC-2.
 
 ## 3. The flow reader refuses a newer flow clearly (AC-5, AC-6)
 

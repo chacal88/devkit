@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { tmpFolder } from './test-tmp.mjs';
 import {
@@ -23,7 +23,7 @@ const SHA2 = 'b'.repeat(40);
 const bench = (...names) => names.map((reviewer) => ({ reviewer, previous: null, range: null }));
 const baseArgs = (over = {}) => ({
   change: 'demo', changeDir: 'openspec/changes/demo', round: 1, path: 'workflow', range: 'origin/main..HEAD',
-  structural: 'PASS', preamble: '', bench: bench('code-quality-reviewer'), head: SHA, ...over,
+  structural: 'PASS', preamble: '', bench: bench('code-quality-reviewer'), head: SHA, dirty: [], ...over,
 });
 const finding = (over = {}) => ({ id: 'F1', severity: 'important', location: 'a.mjs:1', text: 'a thing is wrong', disposition: null, ...over });
 const stage1Of = (reviewer, findings, over = {}) => ({
@@ -177,7 +177,7 @@ test('review round: validateStage1 gives ids F1.. to findings without one and ma
 test('review round: validateStage1 rejects a malformed return with the review input invalid prefix', () => {
   const good = stage1Of('adr-reviewer', [finding()]);
   const bad = [
-    null, 'text', [], { ...good, declined: 'no' }, { ...good, commit: 'abc' }, { ...good, uncommitted: 1 }, { ...good, heading: '' },
+    null, 'text', [], { ...good, declined: 'no' }, { ...good, commit: 'abc' }, { ...good, heading: '' },
     { ...good, findings: 'x' }, { ...good, sections: null }, { ...good, findings: [finding({ severity: 'huge' })] },
     { ...good, findings: [finding({ text: '  ' })] }, { ...good, findings: [finding(), finding()] },
     { ...good, findings: [finding({ disposition: 'maybe later' })] },
@@ -221,8 +221,8 @@ test('review round: verifierPrompt holds only its finding, the range and the wor
 });
 
 test('review round: writerPrompt holds every line verbatim and the commit line', () => {
-  const args = baseArgs();
-  const s = validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding(), finding({ id: 'F2', severity: 'nit', text: 'a nit' })], { uncommitted: true }), SHA);
+  const args = baseArgs({ dirty: ['src/a.mjs'] });
+  const s = validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding(), finding({ id: 'F2', severity: 'nit', text: 'a nit' })]), SHA);
   const o = outcomeOf(args, s, { F1: [refute('e1'), refute('e2'), keep()] });
   const p = writerPrompt(args, o);
   for (const line of o.lines) assert.ok(p.includes(line), line);
@@ -535,10 +535,10 @@ test('review round: workflow rejects invalid args with the review input invalid 
 
 const scratch = tmpFolder('devkit-review-round-cli-');
 let seq = 0;
-function cli(sub, input, { raw = false } = {}) {
+function cli(sub, input, { raw = false, cwd, env } = {}) {
   const file = join(scratch, `in-${seq += 1}.json`);
   writeFileSync(file, raw ? input : JSON.stringify(input));
-  const r = spawnSync(process.execPath, [CLI, sub, '--input', file], { encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [CLI, sub, '--input', file], { encoding: 'utf8', cwd, env });
   let json = null;
   try { json = JSON.parse(r.stdout); } catch { /* not JSON */ }
   return { status: r.status, stdout: r.stdout, stderr: r.stderr, json };
@@ -1130,4 +1130,187 @@ test('review-writer-prompt AC-1 text the review skill agents path sends the jobs
   const flow = readRoot('docs/openspec-flow.md');
   assert.match(flow, /no `Verdict:` or `Commit:` line after line 2/);
   assert.match(flow, /git rev-parse HEAD/);
+});
+
+// ---- jira-entry-followups: the round reads the uncommitted paths from git (AC-1, AC-2) ----
+
+// Commits must not depend on a global git identity.
+const GIT_ENV = {
+  ...process.env,
+  GIT_AUTHOR_NAME: 'devkit test', GIT_AUTHOR_EMAIL: 'test@devkit.invalid',
+  GIT_COMMITTER_NAME: 'devkit test', GIT_COMMITTER_EMAIL: 'test@devkit.invalid',
+  GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null',
+};
+const gitIn = (root, ...args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', env: GIT_ENV, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+const putFiles = (root, files) => {
+  for (const [f, body] of Object.entries(files)) {
+    mkdirSync(dirname(join(root, f)), { recursive: true });
+    writeFileSync(join(root, f), body);
+  }
+};
+// A git worktree with one commit holding `files` (repo-relative path -> content).
+function treeRepo(files) {
+  const root = tmpFolder('devkit-review-round-tree-');
+  gitIn(root, 'init', '-q', '-b', 'main');
+  putFiles(root, files);
+  gitIn(root, 'add', '-A');
+  gitIn(root, 'commit', '-q', '-m', 'initial');
+  return root;
+}
+const CHANGE = 'openspec/changes/demo';
+const treeFiles = () => ({
+  [`${CHANGE}/evidence.md`]: 'e\n', [`${CHANGE}/design.md`]: 'd\n', 'src/a.mjs': 'a\n', 'src/b.mjs': 'b\n', 'src/old.mjs': 'o\n', '.claude/settings.json': '{}\n',
+});
+
+test('jira-entry-followups AC-1 review-round tree lists no openspec path', () => {
+  const root = treeRepo(treeFiles());
+  putFiles(root, { [`${CHANGE}/evidence.md`]: 'e2\n', [`${CHANGE}/design.md`]: 'd2\n', [`${CHANGE}/notes.md`]: 'new\n' });
+  const r = cli('tree', { root });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(r.json, { head: gitIn(root, 'rev-parse', 'HEAD'), dirty: [] });
+  assert.match(r.json.head, /^[0-9a-f]{40}$/);
+});
+
+test('jira-entry-followups AC-2 review-round tree lists every path that counts', () => {
+  const root = treeRepo(treeFiles());
+  putFiles(root, { 'src/a.mjs': 'a2\n', 'src/b.mjs': 'b2\n', 'src/new.mjs': 'n\n', '.claude/settings.json': '{"x":1}\n', [`${CHANGE}/evidence.md`]: 'e2\n' });
+  gitIn(root, 'add', 'src/b.mjs');
+  gitIn(root, 'mv', 'src/old.mjs', 'openspec/moved.mjs');
+  const r = cli('tree', { root });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual([...r.json.dirty].sort(), ['.claude/settings.json', 'src/a.mjs', 'src/b.mjs', 'src/new.mjs', 'src/old.mjs']);
+  assert.ok(r.json.dirty.every((p) => !p.startsWith('openspec/')), 'no openspec path');
+  // neg: an untracked path under .claude/ alone does not count
+  const only = treeRepo(treeFiles());
+  putFiles(only, { '.claude/worktrees/x/a.txt': 'x\n' });
+  assert.deepEqual(cli('tree', { root: only }).json.dirty, []);
+});
+
+test('jira-entry-followups AC-2 review-round tree refuses a root it cannot read', () => {
+  const noRoot = 'review input invalid: root must be a path\n';
+  for (const input of [{}, { root: 7 }, { root: '' }]) {
+    const r = cli('tree', input);
+    assert.equal(r.status, 3, JSON.stringify(input));
+    assert.equal(r.stderr, noRoot, JSON.stringify(input));
+    assert.equal(r.stdout, '', JSON.stringify(input));
+  }
+  // a folder under a ceiling, so no git repository above it is found
+  const env = { ...GIT_ENV, GIT_CEILING_DIRECTORIES: dirname(scratch) };
+  const noGit = tmpFolder('devkit-review-round-nogit-');
+  const noCommit = tmpFolder('devkit-review-round-nocommit-');
+  gitIn(noCommit, 'init', '-q', '-b', 'main');
+  for (const root of [noGit, noCommit]) {
+    const r = cli('tree', { root }, { env });
+    assert.equal(r.status, 3, root);
+    assert.equal(r.stderr, `review input invalid: ${root} is not a git worktree with a commit\n`, root);
+    assert.equal(r.stdout, '', root);
+  }
+});
+
+test('jira-entry-followups AC-2 review-round tree resolves a relative root', () => {
+  const root = treeRepo(treeFiles());
+  putFiles(root, { 'src/a.mjs': 'a2\n' });
+  const absolute = cli('tree', { root });
+  const relative = cli('tree', { root: '.' }, { cwd: root });
+  assert.equal(relative.status, 0, relative.stderr);
+  assert.deepEqual(relative.json, absolute.json);
+  assert.deepEqual(relative.json.dirty, ['src/a.mjs']);
+});
+
+const dirtyMessage = /^Error: review input invalid: args\.dirty must be a list of paths$/;
+const line2Of = (prompt) => prompt.split('\n').find((l) => l.startsWith('line 2:'));
+
+test('jira-entry-followups AC-1 validateArgs refuses args without a dirty list', () => {
+  assert.deepEqual(validateArgs(baseArgs({ dirty: ['src/a.mjs', 'src/b.mjs'] })).dirty, ['src/a.mjs', 'src/b.mjs']);
+  assert.deepEqual(validateArgs(baseArgs()).dirty, []);
+  const noDirty = baseArgs();
+  delete noDirty.dirty;
+  const wrong = [undefined, null, 'src/a.mjs', {}, 7, ['src/a.mjs', ''], ['  '], [7], [null]];
+  for (const dirty of wrong) assert.throws(() => validateArgs({ ...noDirty, dirty }), dirtyMessage, JSON.stringify(dirty));
+  assert.throws(() => validateArgs(noDirty), dirtyMessage, 'missing');
+  const inputs = {
+    stage1: (args) => ({ args }),
+    verify: (args) => ({ args, stage1: { [cq]: stage1Of(cq, []) } }),
+    outcomes: (args) => ({ args, stage1: { [cq]: stage1Of(cq, []) }, votes: {} }),
+    consolidate: (args) => ({ args, outcomes: [], failed: [] }),
+  };
+  for (const [sub, build] of Object.entries(inputs)) {
+    assert.equal(cli(sub, build(baseArgs())).status, 0, `${sub} with dirty`);
+    for (const dirty of [undefined, 'src/a.mjs', ['']]) {
+      const r = cli(sub, build({ ...noDirty, dirty }));
+      assert.equal(r.status, 3, `${sub} ${JSON.stringify(dirty)}`);
+      assert.equal(r.stderr, 'review input invalid: args.dirty must be a list of paths\n', sub);
+      assert.equal(r.stdout, '', sub);
+    }
+  }
+});
+
+test('jira-entry-followups AC-1 a reviewer\'s uncommitted flag changes nothing', () => {
+  assert.ok(!STAGE1_SCHEMA.required.includes('uncommitted'));
+  assert.ok(!('uncommitted' in STAGE1_SCHEMA.properties));
+  for (const flag of [true, 1]) {
+    const s = validateStage1(cq, stage1Of(cq, [], { uncommitted: flag }), SHA);
+    assert.ok(!('uncommitted' in s), `the key ${flag} is not copied`);
+    const o = outcomeOf(baseArgs(), s, {});
+    assert.equal(o.uncommitted, false);
+    assert.equal(line2Of(writerPrompt(baseArgs(), o)), `line 2: Commit: ${SHA}`);
+    const r = cli('outcomes', { args: baseArgs(), stage1: { [cq]: stage1Of(cq, [], { uncommitted: flag }) }, votes: {} });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(line2Of(r.json.jobs[0].prompt), `line 2: Commit: ${SHA}`);
+  }
+  // neg: an answer without the key is read the same, and the round's list alone marks the line
+  const without = stage1Of(cq, []);
+  delete without.uncommitted;
+  const marked = outcomeOf(baseArgs({ dirty: ['src/a.mjs'] }), validateStage1(cq, without, SHA), {});
+  assert.equal(marked.uncommitted, true);
+  assert.equal(line2Of(writerPrompt(baseArgs({ dirty: ['src/a.mjs'] }), marked)), `line 2: Commit: ${SHA} (uncommitted changes)`);
+});
+
+test('jira-entry-followups AC-2 a dirty list marks line 2 of the writer prompt on both paths, whatever the answer says', async () => {
+  for (const flag of [false, true]) {
+    const args = baseArgs({ dirty: ['src/a.mjs'] });
+    const stage1 = stage1Of(cq, [], { uncommitted: flag });
+    const h = harness({ respond: responder({ stage1: { [cq]: stage1 } }) });
+    await h.run(args);
+    assert.equal(line2Of(h.calls.find((c) => c.phase === 'write').prompt), `line 2: Commit: ${SHA} (uncommitted changes)`, `workflow ${flag}`);
+    const r = cli('outcomes', { args: { ...args, path: 'agents' }, stage1: { [cq]: stage1 }, votes: {} });
+    assert.equal(line2Of(r.json.jobs[0].prompt), `line 2: Commit: ${SHA} (uncommitted changes)`, `cli ${flag}`);
+    const file = writeVerdictFile(r.json.outcomes[0], { commit: `Commit: ${SHA} (uncommitted changes)` });
+    assert.equal(cli('check-file', { file, outcome: r.json.outcomes[0] }).status, 0, `check-file ${flag}`);
+    assert.equal(cli('check-file', { file: writeVerdictFile(r.json.outcomes[0]), outcome: r.json.outcomes[0] }).status, 2, `a plain line is refused ${flag}`);
+  }
+});
+
+test('jira-entry-followups AC-1 the stage-1 prompt asks no uncommitted flag and states the rule', () => {
+  const p = reviewerPrompt(baseArgs(), bench(cq)[0]);
+  const shape = p.split('\n').find((l) => l.startsWith('End your reply with one fenced json block'));
+  assert.ok(shape);
+  assert.doesNotMatch(shape, /uncommitted/);
+  const rule = 'The round writes your Commit line itself, from git: it adds (uncommitted changes) only when a path outside openspec/ is uncommitted (an untracked path under .claude/ does not count); report nothing about it.';
+  assert.ok(p.includes(rule), p);
+  assert.ok(p.indexOf('git rev-parse HEAD') < p.indexOf(rule), 'after the git rev-parse HEAD sentence');
+  assert.equal(p.split('uncommitted:').length, 1, 'no uncommitted: key anywhere');
+});
+
+test('jira-entry-followups AC-1 the Workflow script refuses args without dirty', async () => {
+  const noDirty = baseArgs();
+  delete noDirty.dirty;
+  const h = harness({ respond: responder({ stage1: { [cq]: stage1Of(cq, []) } }) });
+  await assert.rejects(h.run(noDirty), dirtyMessage);
+  assert.equal(h.calls.length, 0, 'no agent started');
+});
+
+test('jira-entry-followups docs: the review skill and the ship-change review row fill args.dirty from review-round.mjs tree', () => {
+  const skill = readRoot('plugins/core/skills/review-change/SKILL.md');
+  const argsLine = skill.split('\n').find((l) => l.startsWith('Build `args` first'));
+  assert.ok(argsLine);
+  assert.match(argsLine, /\{ change, changeDir, round, path, range, head, dirty, structural: "PASS"/);
+  assert.match(argsLine, /`node <skill-dir>\/scripts\/review-round\.mjs tree --input <json>` with `\{ root \}`/);
+  assert.match(argsLine, /prints it as `head`, with `dirty`, the uncommitted paths outside `openspec\/` that mark every verdict's `Commit:` line/);
+  const row = readRoot('plugins/openspec/skills/ship-change/SKILL.md').split('\n').find((l) => l.startsWith('| `review` |'));
+  assert.ok(row);
+  assert.match(row, /and `args\.dirty`, both as the review skill's `review-round\.mjs tree` prints them/);
+  const flow = readRoot('docs/openspec-flow.md');
+  assert.match(flow, /`review-round\.mjs tree`[^.]*`args`/);
+  assert.match(flow, /\(uncommitted changes\)` only when `dirty` is not empty/);
 });
