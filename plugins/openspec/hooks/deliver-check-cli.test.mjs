@@ -698,7 +698,7 @@ test('loop-evidence 16: the ship-change review row leaves the commit to the loop
   assert.ok(!review.includes('Commit every modified or untracked file under the change folder first'), 'the review row no longer commits by prose');
   assert.ok(review.includes('The loop hands the `commit` step first while anything under the change folder is uncommitted'), 'the review row names the loop\'s commit step');
   const commit = row('commit');
-  assert.ok(commit.includes('`next.paths` lists only the paths outside `openspec/`, and may be empty'), 'the commit row allows empty paths');
+  assert.ok(commit.includes('`next.paths` may be empty: before a review round the loop hands `commit` with no paths while only the change folder is uncommitted'), 'the commit row allows empty paths');
   assert.ok(commit.includes('are still staged from `git status`'), 'the commit row still stages the folder from git status');
 });
 

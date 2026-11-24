@@ -1,8 +1,63 @@
 # Changelog
 
-## 0.47.1 — post-merge-validate's roadmap test accepts the ticked line
+## 0.49.2 — post-merge-validate's roadmap test accepts the ticked line
 
-- **devkit-openspec** 0.42.1: the test `post-merge-validate 3` no longer asserts that the change's roadmap line stays unticked, so the archive, which ticks it, passes it (post-merge-validate retro, proposal 5). Test only.
+- **devkit-openspec** 0.44.2: the test `post-merge-validate 3` no longer asserts that the change's roadmap line stays unticked, so the archive, which ticks it, passes it (post-merge-validate retro, proposal 5). Test only.
+
+## 0.49.1 — a stage's ceiling counts failures in a row
+
+- **devkit-openspec** 0.42.1: `flow-check` blocks a stage with `ceiling-reached` only after its failures in a row reach
+  the stage's ceiling. They are counted from the stage file's history in git since the file last carried `passed`;
+  `attempt` is unchanged, there is no new header field and the flow version does not change. A stage that passed between
+  failures starts again from zero. The readout and the replies of `change-loop` and `project-loop` say "failures in a row"
+  (`failures` joins the reason params). It also delivers the roadmap line `evidence-attempts-by-failure` (fused).
+- **Docs**: `docs/openspec-flow.md`, `plugins/openspec/README.md` and `docs/coordination-design.md` describe the count;
+  the CI snippet pins `v0.42.1`.
+
+## 0.49.0 — the jira-entry retro's fixes
+
+- **devkit-openspec** 0.43.0:
+  - `deliver-check` hands `commit` for a plan fix that touches only the change folder, then `review` at round 2:
+    `next` no longer answers `fix-review` again after such a fix. A rejected verdict, or an approved one that
+    still lists an undisposed `[blocking]` or `[important]` finding, goes stale after a commit of the plan files
+    (outside its review record), as the rejected one already did.
+  - `readFlowFile` compares a `flow.json`'s `version` with the newest the script reads before it checks the
+    stage keys: a newer file is refused with the file's version, the newest the script reads and the update to
+    make (and the release, when the file carries `readerRelease`), not as "malformed: unknown key". The shipped
+    flow files are unchanged.
+  - `write-back ask` compares the pull request number as `next` does; `change-loop.mjs reply` reads a
+    parameter from standard input with `--stdin <name>`, and the devkit skill passes the connector's error
+    through the quoted heredoc and not `--param error=`; the `task-taken` check of `open --task` runs inside the
+    open lock. The CI snippet now pins `v0.43.0`, the release's tag.
+- **devkit-core** 0.16.0: the review round takes the `Commit:` line's marker from git (`review-round.mjs tree`,
+  `args.dirty`), not from the reviewer: `(uncommitted changes)` appears only when a path outside `openspec/` is
+  uncommitted, the delivery check's own rule, so a tree dirty only in the change folder records plain verdicts.
+- Docs: the flow doc and `CONTRIBUTING.md` state the reader's refusal and the `readerRelease` step of a new flow
+  version; the review-change skill and the ship-change `review` row fill `args.dirty` from `review-round.mjs tree`.
+
+## 0.48.1 — the state command and the board list a change they cannot place
+
+- **devkit-openspec** 0.42.1: `change-loop.mjs state` (with or without `--change`), `/devkit status` and the roadmap
+  decision no longer exit 3 on a change whose active folder is only in a checkout the main checkout does not read
+  (a worktree on a branch that is neither `<id>` nor `chore/archive-<id>`): it is listed `blocked` with the reason
+  `wrong-branch`, under Blocked on the board, with the checkout that holds it; when that folder is the stale copy of a
+  change archived on the default branch it is listed `archived`; an id nothing knows still exits 3. `locate` reads a
+  change in the worktree on `chore/archive-<id>`, else the worktree on branch `<id>`, else the checkout it is called
+  from when that checkout holds the change's active folder and the main checkout holds none, else the main checkout.
+  The CI snippet now pins `v0.42.1`, the release's tag.
+
+## 0.48.0 — a project slice is claimed when it opens
+
+- **devkit-openspec** 0.43.0: with an origin remote, `/devkit project <slice>` now claims the slice
+  when it opens, as a change's open does: the open commits the slice's folder with the machine's name
+  and pushes its branch by a push that only creates it, so a slice already open on another machine is
+  refused, naming that machine, before any phase starts
+  ([ADR 0029](docs/adr/0029-a-project-slice-is-claimed-on-github-when-it-opens.md)). The slice's
+  readout shows the machine of its claim under its title; the board and `/devkit status` still list
+  no slice. A slice's branch is public from its open, and a remote that refuses the new branch now
+  fails the open. With no origin remote the open is unchanged, and so is the delivery.
+- Docs: ADR 0029, with Notes in ADRs 0015 and 0020; the flow doc, the coordination design and the
+  pack's README say it.
 
 ## 0.47.0 — the change folder is committed before the review round
 

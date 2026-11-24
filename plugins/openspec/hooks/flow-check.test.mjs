@@ -442,7 +442,7 @@ test('flow-check stages: a failed header does not pass its stage', () => {
   const r = walk({ review: { result: 'failed' }, retro: null });
   assert.equal(stageOf(r, 'review').state, 'failed');
   assert.equal(stageOf(r, 'review').reasonCode, 'header-failed');
-  assert.deepEqual(stageOf(r, 'review').params, { attempt: 1, ceiling: 2 });
+  assert.deepEqual(stageOf(r, 'review').params, { attempt: 1, failures: 1, ceiling: 2 });
   assert.equal(r.next.stage, 'implementation');
   assert.equal(r.next.reasonCode, 'fix-after-failure');
   assert.equal(r.end, null);
@@ -537,7 +537,7 @@ test('flow-check stages: a failed stage past its ceiling ends blocked', () => {
   assert.equal(r.end.state, 'blocked');
   assert.equal(r.end.stage, 'review');
   assert.equal(r.end.reasonCode, 'ceiling-reached');
-  assert.deepEqual(r.end.params, { stage: 'review', attempt: 2, ceiling: 2 });
+  assert.deepEqual(r.end.params, { stage: 'review', attempt: 2, failures: 2, ceiling: 2 });
   assert.equal(walk({ review: { result: 'failed', attempt: 1 } }).end, null);
 });
 
@@ -546,7 +546,7 @@ test('flow-check stages: a failed stage offers its fix, then itself after the fi
   const before = walk(failed);
   assert.equal(before.next.stage, 'implementation');
   assert.equal(before.next.reasonCode, 'fix-after-failure');
-  assert.deepEqual(before.next.params, { failed: 'review', attempt: 1, ceiling: 2 });
+  assert.deepEqual(before.next.params, { failed: 'review', attempt: 1, failures: 1, ceiling: 2 });
   const after = walk(failed, { staleness: (sha) => (sha === 'c111111' ? 'c111111 is behind c222222' : null) });
   assert.equal(stageOf(after, 'review').state, 'failed');
   assert.equal(after.next.stage, 'review');
@@ -1200,13 +1200,13 @@ const SAMPLE_PT = `Change add-csv-export (roteiro devkit)
 12  Testes unitários        não se aplica: a change já tinha passado da etapa demonstração quando esta etapa chegou
 13  Testes E2E              não se aplica: a change já tinha passado da etapa demonstração quando esta etapa chegou
 14  Demonstração            passou
-15  Revisão de código       falhou na tentativa 1 de 2
+15  Revisão de código       falhou na tentativa 1; falhas seguidas: 1 de 2
 16  Entrega                 bloqueada: espera a etapa 15
 17  Retro e arquivo         bloqueada: espera a etapa 16
 
 Próxima etapa: 11 Implementação
 Quem executa: tdd-implementer
-Por quê: a revisão de código falhou na tentativa 1 de 2 e nada mudou no código desde então; a correção vem antes de uma nova revisão.
+Por quê: a revisão de código falhou na tentativa 1 (falhas seguidas: 1 de 2) e nada mudou no código desde então; a correção vem antes de uma nova revisão.
 `;
 const SAMPLE_EN = `Change add-csv-export (devkit script)
 
@@ -1224,13 +1224,13 @@ const SAMPLE_EN = `Change add-csv-export (devkit script)
 12  Unit tests              does not apply: the change was already past the demonstration when this stage arrived
 13  E2E tests               does not apply: the change was already past the demonstration when this stage arrived
 14  Demonstration           passed
-15  Code review             failed at attempt 1 of 2
+15  Code review             failed at attempt 1; failures in a row: 1 of 2
 16  Delivery                blocked: waits for stage 15
 17  Retro and archive       blocked: waits for stage 16
 
 Next stage: 11 Implementation
 Who runs it: tdd-implementer
-Why: the code review failed at attempt 1 of 2 and the code has not changed since; the fix comes before another review.
+Why: the code review failed at attempt 1 (failures in a row: 1 of 2) and the code has not changed since; the fix comes before another review.
 `;
 const PREVIOUS_PT = `Esta change começou no roteiro anterior: os arquivos dela não têm o cabeçalho de etapa. O fluxo de hoje a termina (ship-change, guiado pelo deliver-check). Este comando não para nada.
 `;
@@ -1300,9 +1300,9 @@ test('flow-check readout: both languages cover every reason code', () => {
   const P = {
     passed: { attempt: 2 }, 'not-applicable': {}, skipped: {}, 'role-not-shipped': { role: 'screen-designer' }, 'no-file': { file: 'x.md' },
     'no-header': { file: 'x.md' }, 'bad-header': { file: 'x.md' }, 'header-other-stage': { file: 'x.md', found: 'review' }, 'not-judged': { file: 'x.md' },
-    'header-failed': { attempt: 1, ceiling: 2 }, 'stale-code': { why: 'abc1234 is behind def5678' }, 'stale-plan': { by: 'proposal' },
+    'header-failed': { attempt: 1, failures: 1, ceiling: 2 }, 'stale-code': { why: 'abc1234 is behind def5678' }, 'stale-plan': { by: 'proposal' },
     'tasks-pending': { count: 2, ids: ['1.1', '1.2'] }, uncommitted: { paths: ['src/a.ts'] }, 'tasks-done': { done: 6, total: 6 }, 'waits-for': { n: 15 },
-    'fix-after-failure': { failed: 'review', attempt: 1, ceiling: 2 }, 'rerun-after-fix': { stage: 'review' }, 'ceiling-reached': { stage: 'review', attempt: 2, ceiling: 2 },
+    'fix-after-failure': { failed: 'review', attempt: 1, failures: 1, ceiling: 2 }, 'rerun-after-fix': { stage: 'review' }, 'ceiling-reached': { stage: 'review', attempt: 2, failures: 2, ceiling: 2 },
     'no-progress': { stage: 'review' }, 'owner-pending': { stage: 'review' }, 'approval-stale': { stage: 'review' }, 'unshipped-role-pending': { stage: 'review' },
     'no-role': { stage: 'review', role: 'owner' },
     // The five codes of stage-roles (T-4): every reason code is said in both languages.
@@ -2011,6 +2011,24 @@ test('review-writer-prompt AC-8 every reviewer current under a current header le
   assert.equal(stageOf(liveReport(root), 'review').state, 'passed');
 });
 
+test('jira-entry-followups AC-4 the stage readout offers the review again after an approved verdict\'s finding is fixed in the plan', () => {
+  const root = liveChange();
+  const a = git(root, 'rev-parse', 'HEAD');
+  put(root, {
+    'openspec/changes/feat/reviews/code-quality-reviewer.md': reviewFile(a),
+    'openspec/changes/feat/reviews/test-coverage-reviewer.md': `${reviewFile(a)}- [important] x\n`,
+  });
+  commitAll(root, 'reviewers');
+  assert.equal(stageOf(liveReport(root), 'review').state, 'passed', 'control: the approved verdict is current');
+  const design = join(root, 'openspec', 'changes', 'feat', 'design.md');
+  writeFileSync(design, `${readFileSync(design, 'utf8')}\nfixed\n`);
+  commitAll(root, 'plan fix');
+  const review = stageOf(liveReport(root), 'review');
+  assert.equal(review.state, 'stale');
+  assert.equal(review.reasonCode, 'stale-reviewers');
+  assert.deepEqual(review.params.names, ['test-coverage-reviewer']);
+});
+
 test('review-writer-prompt AC-8 the review stage without a staleReviewers fact keeps today\'s result', () => {
   assert.equal(stageOf(walk({}), 'review').state, 'passed');
   const named = walk({ retro: null }, { staleReviewers: () => ['spec-reviewer', 'adr-reviewer'] });
@@ -2070,4 +2088,192 @@ test('review-openspec-fix 20: the stage readout keeps the fix after a commit of 
   const r = liveReport(root);
   assert.equal(r.next.stage, 'implementation');
   assert.equal(r.next.reasonCode, 'fix-after-failure');
+});
+
+// ---------------------------------------------------------------- stage-ceiling-consecutive: the ceiling counts failures in a row
+
+// A committed devkit change `feat` whose `stage` file is in no commit before the first take (liveChange commits every
+// stage passed at attempt 1, which would reset every count), then one take per entry of `takes`: a result, or
+// { result, attempt, commit, commitIt }. A take is written with attempt `i + 1` and the head as its commit unless it
+// says otherwise, and committed unless `commitIt` is false. With `merges`, the change is on branch `feat` and main
+// moves a product file and is merged (a real merge commit) before every take after the first.
+function takesChange(stage, takes, { merges = false } = {}) {
+  const root = liveChange({ skip: [stage] });
+  if (merges) {
+    git(root, 'branch', 'main-moves');
+    git(root, 'checkout', '-q', '-b', 'feat');
+  }
+  takes.forEach((take, i) => {
+    const t = typeof take === 'string' ? { result: take } : take;
+    if (merges && i > 0) {
+      git(root, 'checkout', '-q', 'main-moves');
+      put(root, { [`src/main-${i}.ts`]: `export const moved${i} = ${i};\n` });
+      commitAll(root, `main moves ${i}`);
+      git(root, 'checkout', '-q', 'feat');
+      git(root, 'merge', '--no-ff', '--no-edit', '-q', 'main-moves');
+    }
+    put(root, { [`openspec/changes/feat/${stage}.md`]: `<!-- devkit-stage ${stage} result=${t.result} attempt=${t.attempt ?? i + 1} commit=${t.commit ?? git(root, 'rev-parse', 'HEAD')} -->\n# ${stage}\n` });
+    if (t.commitIt ?? true) commitAll(root, `take ${i + 1}`);
+  });
+  return root;
+}
+
+// A shallow clone of `root` (the checkout CI starts from), `depth` commits deep.
+function shallowClone(root, depth) {
+  const parent = tmpFolder('devkit-flow-check-clone-');
+  run(parent, 'git', 'clone', '-q', '--depth', String(depth), `file://${root}`, 'clone');
+  return join(parent, 'clone');
+}
+
+const EVIDENCE_FILE = 'openspec/changes/feat/evidence.md';
+const failedHeader = (attempt, commit, stage = 'evidence') => ({ stage, result: 'failed', attempt, commit });
+const passedHeader = (attempt, commit, stage = 'evidence') => ({ stage, result: 'passed', attempt, commit });
+
+test('stage-ceiling-consecutive AC-1: a failure after two passed takes is offered its fix', () => {
+  const root = takesChange('evidence', ['passed', 'passed', 'failed']);
+  assert.deepEqual(FC.stageHistory(root, EVIDENCE_FILE).map((h) => [h.result, h.attempt]), [['failed', 3], ['passed', 2], ['passed', 1]], 'newest first');
+  const r = liveReport(root);
+  assert.equal(r.end, null);
+  assert.equal(r.next.stage, 'implementation');
+  assert.equal(r.next.reasonCode, 'fix-after-failure');
+  assert.deepEqual(r.next.params, { failed: 'evidence', attempt: 3, failures: 1, ceiling: 3 });
+  assert.deepEqual(stageOf(r, 'evidence').params, { attempt: 3, failures: 1, ceiling: 3 });
+});
+
+test('stage-ceiling-consecutive AC-2: failures in a row still end blocked', () => {
+  const evidence = liveReport(takesChange('evidence', ['failed', 'failed', 'failed']));
+  assert.equal(evidence.next, null);
+  assert.equal(evidence.end.state, 'blocked');
+  assert.equal(evidence.end.reasonCode, 'ceiling-reached');
+  assert.deepEqual(evidence.end.params, { stage: 'evidence', attempt: 3, failures: 3, ceiling: 3 });
+  const review = liveReport(takesChange('review', ['failed', 'failed']));
+  assert.equal(review.end.reasonCode, 'ceiling-reached');
+  assert.deepEqual(review.end.params, { stage: 'review', attempt: 2, failures: 2, ceiling: 2 });
+  // H-6: the review stage restarts its round at 1 after a pass, and the count does not subtract attempts.
+  const restarted = liveReport(takesChange('review', [{ result: 'passed', attempt: 1 }, { result: 'failed', attempt: 1 }, { result: 'failed', attempt: 2 }]));
+  assert.equal(restarted.end.reasonCode, 'ceiling-reached');
+  assert.deepEqual(restarted.end.params, { stage: 'review', attempt: 2, failures: 2, ceiling: 2 });
+});
+
+test('stage-ceiling-consecutive AC-3: a pass between failures resets the count', () => {
+  const between = liveReport(takesChange('evidence', ['failed', 'passed', 'failed']));
+  assert.equal(between.end, null);
+  assert.equal(between.next.reasonCode, 'fix-after-failure');
+  assert.equal(between.next.params.failures, 1);
+  const passed = liveReport(takesChange('evidence', ['failed', 'failed', 'passed']));
+  assert.equal(stageOf(passed, 'evidence').state, 'passed');
+  assert.notEqual(passed.next?.stage, 'evidence');
+  assert.notEqual(passed.end?.stage, 'evidence');
+  const after = liveReport(takesChange('evidence', ['failed', 'failed', 'passed', 'failed']));
+  assert.equal(after.end, null);
+  assert.equal(after.next.params.failures, 1);
+});
+
+test('stage-ceiling-consecutive AC-4: history that cannot be read keeps the attempt', async (t) => {
+  await t.test('stage-ceiling-consecutive AC-4 F-1: a folder that is not a repository reads as no history', () => {
+    assert.deepEqual(FC.stageHistory(tmpFolder('devkit-flow-check-norepo-'), EVIDENCE_FILE), []);
+  });
+  await t.test('stage-ceiling-consecutive AC-4 F-2: no git on PATH reads as no history', () => {
+    const root = takesChange('evidence', ['passed', 'passed', 'failed']);
+    assert.equal(FC.stageHistory(root, EVIDENCE_FILE).length, 3, 'with git, the same folder has a history');
+    assert.deepEqual(FC.stageHistory(root, EVIDENCE_FILE, { ...process.env, PATH: tmpFolder('devkit-flow-check-nopath-') }), []);
+  });
+  await t.test('stage-ceiling-consecutive AC-4 F-3: a depth-1 clone gives today\'s rule', () => {
+    const r = liveReport(shallowClone(takesChange('evidence', ['passed', 'passed', 'failed']), 1));
+    assert.equal(r.end.reasonCode, 'ceiling-reached');
+    assert.equal(r.end.params.failures, 3);
+  });
+  await t.test('stage-ceiling-consecutive AC-4 F-4: a stage file never committed gives today\'s rule', () => {
+    const r = liveReport(takesChange('evidence', [{ result: 'passed', commitIt: false }, { result: 'passed', commitIt: false }, { result: 'failed', commitIt: false }]));
+    assert.equal(r.end.reasonCode, 'ceiling-reached');
+    assert.equal(r.end.params.failures, 3);
+  });
+  await t.test('stage-ceiling-consecutive AC-4 no history fact: the walk blocks exactly when attempt reaches the ceiling', () => {
+    for (const attempt of [1, 2, 3]) {
+      const r = walk({ evidence: { result: 'failed', attempt } });
+      if (attempt >= 3) {
+        assert.equal(r.end.reasonCode, 'ceiling-reached', `attempt ${attempt}`);
+        assert.equal(r.end.params.failures, attempt);
+      } else {
+        assert.equal(r.end, null, `attempt ${attempt}`);
+        assert.equal(r.next.params.failures, attempt);
+      }
+    }
+  });
+});
+
+test('stage-ceiling-consecutive AC-4: what the history shows is counted', async (t) => {
+  await t.test('stage-ceiling-consecutive AC-4 H-3: a depth-2 clone shows the last pass', () => {
+    const r = liveReport(shallowClone(takesChange('evidence', ['passed', 'passed', 'failed']), 2));
+    assert.equal(r.end, null);
+    assert.equal(r.next.params.failures, 1);
+  });
+  await t.test('stage-ceiling-consecutive AC-4 H-4: a pass whose commit is not in the history still counts as a pass', () => {
+    const r = liveReport(takesChange('evidence', ['passed', { result: 'passed', commit: SHA40 }, 'failed']));
+    assert.equal(r.end, null);
+    assert.equal(r.next.params.failures, 1);
+  });
+  await t.test('stage-ceiling-consecutive AC-4 H-5: a take overwritten without a commit is not counted', () => {
+    const r = liveReport(takesChange('evidence', ['passed', { result: 'failed', commitIt: false }, 'failed']));
+    assert.equal(r.end, null);
+    assert.equal(r.next.params.failures, 1);
+  });
+});
+
+test('stage-ceiling-consecutive AC-7: takes retaken after merges of main do not count', () => {
+  const one = liveReport(takesChange('evidence', ['passed', 'passed', 'failed'], { merges: true }));
+  assert.equal(one.next.params.failures, 1);
+  const three = liveReport(takesChange('evidence', ['passed', 'passed', 'passed', 'failed'], { merges: true }));
+  assert.equal(three.end, null);
+  assert.equal(three.next.reasonCode, 'fix-after-failure');
+  assert.equal(three.next.params.failures, 1);
+});
+
+test('stage-ceiling-consecutive: failuresInARow counts the distinct failed headers since the last pass', () => {
+  const count = FC.failuresInARow;
+  // Headers that are null, malformed or of another stage, and not-applicable or pending ones, neither stop the walk nor count.
+  const noise = [null, { malformed: true }, failedHeader(5, 'cOther0', 'review'), passedHeader(1, 'cOther1', 'review'),
+    { stage: 'evidence', result: 'not-applicable', attempt: 1, commit: 'cNa0000' }, { stage: 'evidence', result: 'pending', attempt: 1, commit: 'cPend00' }];
+  assert.equal(count(failedHeader(1, 'c111111'), [...noise, failedHeader(2, 'c222222'), passedHeader(1, 'c000000')]), 2);
+  // The first passed header stops the walk, whatever its attempt.
+  assert.equal(count(failedHeader(1, 'c111111'), [passedHeader(2, 'c222222')]), 1);
+  assert.equal(count(failedHeader(1, 'c111111'), [passedHeader(2, 'c222222'), failedHeader(1, 'c000000')]), 1);
+  // A restarted round: no attempt is subtracted.
+  assert.equal(count(failedHeader(2, 'c222222'), [failedHeader(1, 'c111111'), passedHeader(1, 'c000000')]), 2);
+  // The current header repeated, and one failed header carried by two commits, count once.
+  assert.equal(count(failedHeader(3, 'c333333'), [failedHeader(3, 'c333333'), passedHeader(2, 'c222222')]), 1);
+  assert.equal(count(failedHeader(3, 'c333333'), [failedHeader(3, 'c333333'), failedHeader(3, 'c333333'), passedHeader(2, 'c222222')]), 1);
+  // With no passed header the count is the larger of the attempt and the distinct failed headers.
+  assert.equal(count(failedHeader(3, 'c333333'), []), 3);
+  assert.equal(count(failedHeader(1, 'c111111'), [failedHeader(2, 'c222222'), failedHeader(1, 'c000000')]), 3);
+});
+
+test('stage-ceiling-consecutive: the history is read only for a failed stage with a numeric ceiling', () => {
+  const spy = () => { const calls = []; return { calls, history: (path) => { calls.push(path); return []; } }; };
+  const none = spy();
+  walk({}, { history: none.history });
+  assert.deepEqual(none.calls, [], 'every stage passed');
+  const owner = spy();
+  walk({ mockup: { result: 'failed', attempt: 2 }, proposal: null, specs: null, design: null, tasks: null, readiness: null, approval: null }, { history: owner.history });
+  assert.deepEqual(owner.calls, [], 'a mock-up sent back has the owner as its ceiling');
+  const failed = spy();
+  walk({ evidence: { result: 'failed' } }, { history: failed.history });
+  assert.deepEqual(failed.calls, ['evidence.md']);
+});
+
+test('stage-ceiling-consecutive AC-6: the readout says the failures in a row in both languages', () => {
+  const root = takesChange('evidence', ['passed', 'passed', 'failed']);
+  const report = liveReport(root);
+  const flow = readFlow(root, 'devkit');
+  const en = renderText(report, flow, 'en');
+  assert.match(en, /Demonstration {2,}failed at attempt 3; failures in a row: 1 of 3\n/);
+  assert.match(en, /\nWhy: the demonstration failed at attempt 3 \(failures in a row: 1 of 3\) and the code has not changed since; the fix comes before another review\.\n$/);
+  const pt = renderText(report, flow, 'pt-BR');
+  assert.match(pt, /Demonstração {2,}falhou na tentativa 3; falhas seguidas: 1 de 3\n/);
+  assert.match(pt, /\nPor quê: a demonstração falhou na tentativa 3 \(falhas seguidas: 1 de 3\) e nada mudou no código desde então; a correção vem antes de uma nova revisão\.\n$/);
+  const blockedRoot = takesChange('review', ['failed', 'failed']);
+  const blocked = liveReport(blockedRoot);
+  const blockedFlow = readFlow(blockedRoot, 'devkit');
+  assert.match(renderText(blocked, blockedFlow, 'en'), /\nEnd: blocked\. The code review failed at attempt 2; its failures in a row \(2\) reached its ceiling of 2\.\n$/);
+  assert.match(renderText(blocked, blockedFlow, 'pt-BR'), /\nFim: bloqueada\. A etapa revisão de código falhou na tentativa 2; as falhas seguidas \(2\) chegaram ao limite de 2\.\n$/);
 });

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpFolder } from './test-tmp.mjs';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import {
   gitRepo, put, commitAll, git, sandbox, readCounter, roundRepo, cleanEnvLoop as cleanEnv, FLOWS, stageOf, nextOf, endOf, reportOf, rowOf, run,
   planChange, actionOf, SESSION, stored, typedLine, toolResultLine, runLine, transcriptOf, stopInput,
@@ -16,6 +16,7 @@ import { readDevkitSettings, MESSAGES, render, main, LoopUsageError } from './ch
 import {
   LOOP, TDD, COMMIT, PLANNER, configRepo, shape, says, buildRep, build, next, parsed, deliveredChange, startRun, body, snapshot, devkitRepo, openRun,
   freshProject, WAIT, waited, skillBodyLine, hook, PLAN_UP_TO_TASKS, approvedChange, REPO_ROOT, readRepo, skillText, LANG_FLAG, section, IDENT, pmvFacts, pmvRec,
+  addChange, runTranscript, archiveGh, archivedFolder, archiveOnOrigin, withCreated,
 } from './change-loop-fixtures.mjs';
 import { TASK_REQUIREMENTS, recordFile, asked, usageLine, budgetEnv } from './change-loop-remote-fixtures.mjs';
 
@@ -86,6 +87,33 @@ test('jira-entry AC-6 write-back ask on an archived change asks nothing', () => 
   const d = taskDelivery();
   git(d.wt, 'branch', '-m', 'chore/archive-feat');
   assert.equal(body(askBack(d)).why, 'archived', 'on the archive branch');
+});
+
+test('jira-entry-followups AC-7 write-back ask by key and number', () => {
+  const recordText = (c) => readFileSync(recordFile(c.t), 'utf8');
+  const recordOf = (c) => JSON.parse(recordText(c));
+  const c = taskDelivery();
+  assert.equal(body(askBack(c)).ask, true, 'the first ask for pull request 12');
+  const first = recordText(c);
+  // The same key and number: asked, the record as it was.
+  assert.deepEqual(body(askBack(c)), { version: 1, change: 'feat', key: 'PROJ-482', ask: false, why: 'asked' });
+  assert.equal(recordText(c), first, 'the record is unchanged');
+  // The same key, a recreated pull request: asked again, and the record holds the new number.
+  const again = body(askBack(c, { number: 15, url: 'https://github.com/o/r/pull/15', transitions: TRANSITIONS }));
+  assert.equal(again.ask, true, 'number 15 is a new question');
+  assert.equal(again.question, render('en', 'write-back-ask', { id: 'feat', key: 'PROJ-482', number: 15, choices: again.choices.map((x) => x.label).join('; ') }));
+  assert.deepEqual([recordOf(c).key, recordOf(c).number, recordOf(c).url, recordOf(c).answer], ['PROJ-482', 15, 'https://github.com/o/r/pull/15', null]);
+  assert.deepEqual(body(askBack(c, { number: 15, url: 'https://github.com/o/r/pull/15', transitions: TRANSITIONS })).why, 'asked', 'and asked once more for 15');
+  // A record of another key, the same number: asked, and the record holds the change's key.
+  writeFileSync(recordFile(c.t), `${JSON.stringify({ ...recordOf(c), key: 'PROJ-1', number: 12 })}\n`);
+  assert.equal(body(askBack(c)).ask, true, 'another key asks');
+  assert.deepEqual([recordOf(c).key, recordOf(c).number], ['PROJ-482', 12]);
+  // A damaged record, or one of another version: asked, nothing written.
+  for (const damaged of ['{ not json', JSON.stringify({ version: 2, key: 'PROJ-482', number: 99 })]) {
+    writeFileSync(recordFile(c.t), damaged);
+    assert.deepEqual(body(askBack(c, { number: 15, url: PR_URL, transitions: TRANSITIONS })), { version: 1, change: 'feat', key: 'PROJ-482', ask: false, why: 'asked' }, damaged);
+    assert.equal(recordText(c), damaged, 'a damaged record is left as it was');
+  }
 });
 
 // ---- write-back answer
@@ -226,13 +254,85 @@ test("jira-entry AC-7 skill: Jira is written only through write-back answer on t
   assert.match(wb, /change-loop\.mjs write-back answer <id> --choice <choice> --lang \$\{user_config\.language\}/);
   assert.match(wb, /`write: true`/);
   assert.match(wb, /`write: false`/);
-  assert.match(wb, /reply write-back-failed --param key=<KEY> --param error="<message>"/);
-  assert.match(wb, /not retried/);
+  assert.match(wb, /On a connector failure, run the call below with the connector's error message on standard input, through the quoted heredoc and its terminator rule, and say what it prints; the write is not retried\./);
+  assert.ok(wb.includes([
+    '```',
+    "node <skill-dir>/../../hooks/change-loop.mjs reply write-back-failed --param key=<KEY> --stdin error --lang ${user_config.language} <<'DEVKIT_ARGS'",
+    "<the connector's error message>",
+    'DEVKIT_ARGS',
+    '```',
+  ].join('\n')), 'the failed-write call passes the error through the quoted heredoc');
+  assert.doesNotMatch(wb, /--param error=/, 'no error on the command line');
   const never = md.slice(md.indexOf('## Never'));
   assert.match(never, /Write to Jira except from `write-back answer` on the owner's own message/);
   assert.match(never, /Ask the write-back question with AskUserQuestion/);
   assert.match(never, /Copy a comment, subtask, linked task or attachment of a task into the change/);
   assert.match(never, /Keep a Jira token or a Jira setting in the project/);
+});
+
+// ---- reply --stdin: the connector's error reaches the reply as it is (jira-entry-followups D-5)
+
+const FAILED_CALL = ['reply', 'write-back-failed', '--param', 'key=PROJ-482', '--stdin', 'error', '--lang', 'en'];
+const failedReply = (error) => `${render('en', 'write-back-failed', { key: 'PROJ-482', error })}\n`;
+
+test('jira-entry-followups AC-8 reply --stdin passes the error byte for byte', () => {
+  const error = 'it said "no" and \'never\'\n$(rm -rf x) and `touch y` and $HOME and ${x} and $& and $1';
+  const r = main(FAILED_CALL, { stdin: `${error}\n` });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(r.stdout, failedReply(error));
+  assert.ok(r.stdout.includes(error), 'the error is in the reply, the inner line break included');
+  assert.ok(r.stdout.includes('PROJ-482'), 'the reply names the task');
+});
+
+test('jira-entry-followups AC-8 reply --stdin refuses an empty input, a duplicate name, a bad name and no name', () => {
+  const cases = [
+    { name: 'empty', args: FAILED_CALL, stdin: '', message: 'reply --stdin error needs the text on standard input' },
+    { name: 'a line break only', args: FAILED_CALL, stdin: '\n', message: 'reply --stdin error needs the text on standard input' },
+    { name: 'a CRLF only', args: FAILED_CALL, stdin: '\r\n', message: 'reply --stdin error needs the text on standard input' },
+    { name: 'the same parameter twice', args: ['reply', 'write-back-failed', '--param', 'key=PROJ-482', '--param', 'error=x', '--stdin', 'error', '--lang', 'en'], stdin: 'text', message: '--param error and --stdin error name the same parameter' },
+    { name: 'the same parameter twice, with an empty input', args: ['reply', 'write-back-failed', '--param', 'key=PROJ-482', '--param', 'error=x', '--stdin', 'error', '--lang', 'en'], stdin: '', message: '--param error and --stdin error name the same parameter' },
+    { name: 'a capital letter', args: ['reply', 'write-back-failed', '--param', 'key=PROJ-482', '--stdin', 'Error', '--lang', 'en'], stdin: 'text', message: '--stdin needs a parameter name of letters, starting with a lower-case one' },
+    { name: 'a digit first, with an empty input', args: ['reply', 'write-back-failed', '--param', 'key=PROJ-482', '--stdin', '1x', '--lang', 'en'], stdin: '', message: '--stdin needs a parameter name of letters, starting with a lower-case one' },
+    { name: 'no name', args: ['reply', 'write-back-failed', '--param', 'key=PROJ-482', '--lang', 'en', '--stdin'], stdin: 'text', message: '--stdin needs a value' },
+  ];
+  for (const c of cases) {
+    const r = main(c.args, { stdin: c.stdin });
+    assert.equal(r.code, 3, `${c.name}: ${r.stdout}${r.stderr}`);
+    assert.ok(r.stderr.includes(c.message), `${c.name}: stderr names the refusal, got ${r.stderr}`);
+    assert.equal(r.stdout.includes('Jira did not accept'), false, `${c.name}: no reply is printed`);
+    assert.equal(r.stdout.startsWith('devkit-'), false, c.name);
+  }
+});
+
+test('jira-entry-followups AC-8 reply --stdin removes one final line break, \\r\\n or \\n', () => {
+  for (const [stdin, error] of [['a\r\nb\r\n', 'a\r\nb'], ['a\n\n', 'a\n'], ['a\nb\n', 'a\nb'], ['a', 'a'], ['a\r', 'a\r'], ['a\r\n\r\n', 'a\r\n']]) {
+    const r = main(FAILED_CALL, { stdin });
+    assert.equal(r.code, 0, JSON.stringify(stdin));
+    assert.equal(r.stdout, failedReply(error), JSON.stringify(stdin));
+  }
+});
+
+test('jira-entry-followups AC-8 reply without --stdin reads no standard input', async () => {
+  const child = spawn(process.execPath, [LOOP, 'reply', 'write-back-failed', '--param', 'key=PROJ-482', '--param', 'error=x', '--lang', 'en'], { stdio: ['pipe', 'pipe', 'pipe'], env: cleanEnv });
+  let out = '';
+  child.stdout.on('data', (d) => { out += d; });
+  // The input is left open and empty: a read of it would wait up to 10 s. The guard is 4 s.
+  const result = await new Promise((resolve) => {
+    const timer = setTimeout(() => { child.kill(); resolve('waited'); }, 4000);
+    child.on('close', (code) => { clearTimeout(timer); resolve(code); });
+  });
+  assert.equal(result, 0, 'it exits at once, it does not wait on standard input');
+  assert.equal(out, failedReply('x'));
+});
+
+test('jira-entry-followups AC-8 a spawned reply --stdin reads the error from a heredoc', () => {
+  const dir = tmpFolder('devkit-reply-stdin-');
+  const error = 'it said "no" and \'never\'\n$(rm -rf x) $(touch x) and `touch y` and $HOME';
+  const script = `node '${LOOP}' reply write-back-failed --param key=PROJ-482 --stdin error --lang en <<'DEVKIT_ARGS'\n${error}\nDEVKIT_ARGS\n`;
+  const r = spawnSync('bash', ['-c', script], { cwd: dir, encoding: 'utf8', env: cleanEnv });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(r.stdout, failedReply(error));
+  assert.deepEqual(readdirSync(dir), [], 'no command of the error ran: no file x or y appeared');
 });
 
 test('jira-entry AC-4 grill skill: a request copied from a task is asked only what it leaves open', () => {
@@ -831,7 +931,7 @@ test('change-state AC-3 state: each blocked reason decide gives is the reason, w
       assert.equal(s.stateIcon, '⛔');
     });
   }
-  assert.equal(stateOf(cases.ceiling).reason.text, 'the plan readiness failed 3 times, which is its limit');
+  assert.equal(stateOf(cases.ceiling).reason.text, 'the plan readiness reached its limit of failures in a row (3)');
   assert.equal(stateOf(cases['pr-closed']).reason.text, 'pull request #12 was closed without merging');
   assert.equal(stateOf(cases.unreadable).reason.text, 'the change cannot be read (boom)');
 });
@@ -940,7 +1040,7 @@ test('change-state AC-4 state: S1 to S8 each give their state', async (t) => {
   await t.test('S1 a session per change and a declared end: the declared end', () => {
     const blockedEnd = { state: 'blocked', why: 'ceiling', params: { stage: 'Plan readiness', attempt: 3 } };
     const s = stateOf(plan, F({ sessionMode: true, started: true, declared: blockedEnd, inflight: { kind: 'agent', stage: 'design' } }));
-    assert.deepEqual([s.state, reasonOf(s), s.reason.text, s.stage], ['blocked', 'ceiling', 'the plan readiness failed 3 times, which is its limit', 'proposal']);
+    assert.deepEqual([s.state, reasonOf(s), s.reason.text, s.stage], ['blocked', 'ceiling', 'the plan readiness reached its limit of failures in a row (3)', 'proposal']);
     const waits = stateOf(null, F({ sessionMode: true, declared: { state: 'waiting-for-owner', why: 'waiting-pr-decision', params: {} } }), { id: 'x' });
     assert.deepEqual([waits.state, reasonOf(waits), waits.reason.text, waits.stage], ['waiting-for-owner', 'waiting-pr-decision', 'a decision only you can take', null]);
     const named = stateOf(null, F({ sessionMode: true, declared: { state: 'waiting-for-owner', why: 'waiting-pr-decision', params: { gate: 'merge' } } }), { id: 'x' });
@@ -1383,6 +1483,211 @@ test('change-state AC-4 command: a change off the roadmap gets no ready reason i
   assert.deepEqual([e.state, e.reason.code, e.title], ['waiting-for-owner', 'waiting-approval', '🙋 📝 feat']);
 });
 
+// ---------------------------------------------------------------- state-skips-unlocated: locate, the helper and the state command (phase 1)
+
+// The setup of this section (design D-7): change `x`'s active folder only in a worktree on branch `side`, nothing of `x` in the main
+// checkout; `a` is an ordinary open change of the main checkout when `changes` holds it. Layers: `locate` (the caller's step), the
+// helper `unplacedAction`, the state command, `next` and the change run's stop lock; suite: change-loop.
+const roundOf = (changes = {}) => roundRepo({ roadmap: roadmapOfIds('a'), config: 'schema: devkit\n', changes });
+const withSide = (t) => {
+  const side = t.addWt('side');
+  addChange(side, 'x', ['requirements', 'decisions'], { commit: false, flow: 2 });
+  return side;
+};
+const mainPlace = (t) => ({ root: changeLoopModule.mainRoot(t.main), branch: 'main' });
+const wrongBranchText = (lang) => render(lang, 'blocked-why.wrong-branch');
+
+test('unlocated 1: locate from a worktree on another branch that holds the active folder reads it there', () => {
+  const t = roundOf();
+  const side = withSide(t);
+  assert.deepEqual(changeLoopModule.locate(side, 'x'), { root: side, branch: 'side' });
+});
+
+test('unlocated 1: locate: the archive worktree wins over the caller\'s', () => {
+  const t = roundOf();
+  const side = withSide(t);
+  const archive = t.addWt('arch', { branch: 'chore/archive-x' });
+  assert.deepEqual(changeLoopModule.locate(side, 'x'), { root: archive, branch: 'chore/archive-x' });
+});
+
+test('unlocated 1: locate: the worktree on branch x wins over the caller\'s', () => {
+  const t = roundOf();
+  const side = withSide(t);
+  const own = t.addWt('x');
+  assert.deepEqual(changeLoopModule.locate(side, 'x'), { root: own, branch: 'x' });
+});
+
+test('unlocated 1: locate from the main checkout is unchanged', () => {
+  const t = roundOf();
+  assert.deepEqual(changeLoopModule.locate(t.main, 'x'), mainPlace(t), 'with no folder of x anywhere');
+  withSide(t);
+  assert.deepEqual(changeLoopModule.locate(t.main, 'x'), mainPlace(t), 'with x in a worktree on another branch');
+});
+
+test('unlocated 1: locate from the change\'s own worktree is unchanged', () => {
+  const t = roundOf();
+  const own = t.addWt('x');
+  addChange(own, 'x', ['requirements', 'decisions'], { commit: false, flow: 2 });
+  assert.deepEqual(changeLoopModule.locate(own, 'x'), { root: own, branch: 'x' });
+});
+
+test('unlocated 1: locate: a caller holding only an archived folder reads the main checkout', () => {
+  const t = roundOf();
+  const side = t.addWt('side');
+  put(side, archivedFolder('2026-11-20', 'x'));
+  assert.deepEqual(changeLoopModule.locate(side, 'x'), mainPlace(t));
+});
+
+test('unlocated 1: locate: a main checkout holding a folder of x keeps it', async (t) => {
+  await t.test('the main checkout holds x active', () => {
+    const r = roundOf();
+    addChange(r.main, 'x', ['requirements', 'decisions'], { commit: false, flow: 2 });
+    const side = withSide(r);
+    assert.deepEqual(changeLoopModule.locate(side, 'x'), mainPlace(r));
+  });
+  await t.test('the main checkout holds x archived', () => {
+    const r = roundOf();
+    put(r.main, archivedFolder('2026-11-20', 'x'));
+    const side = withSide(r);
+    assert.deepEqual(changeLoopModule.locate(side, 'x'), mainPlace(r));
+  });
+});
+
+test('unlocated 1: locate: a caller with no folder of x reads the main checkout', () => {
+  const t = roundOf();
+  const side = t.addWt('side');
+  assert.deepEqual(changeLoopModule.locate(side, 'x'), mainPlace(t));
+});
+
+test('unlocated 1: unplacedAction gives null for a change the loop can place', async (t) => {
+  await t.test('the main checkout holds the folder', () => {
+    const r = roundOf();
+    addChange(r.main, 'x', ['requirements', 'decisions'], { commit: false, flow: 2 });
+    assert.equal(changeLoopModule.unplacedAction(r.main, 'x'), null);
+  });
+  await t.test('a worktree on branch x holds the folder', () => {
+    const r = roundOf();
+    const own = r.addWt('x');
+    addChange(own, 'x', ['requirements', 'decisions'], { commit: false, flow: 2 });
+    assert.equal(changeLoopModule.unplacedAction(r.main, 'x'), null);
+  });
+  await t.test('a worktree on chore/archive-x whose folder is not moved yet, with the folder in another checkout', () => {
+    const r = roundOf();
+    r.addWt('arch', { branch: 'chore/archive-x' });
+    withSide(r);
+    assert.equal(changeLoopModule.unplacedAction(r.main, 'x'), null);
+  });
+});
+
+test('unlocated 1: unplacedAction gives null for an id no checkout holds', () => {
+  const t = roundOf();
+  withSide(t);
+  assert.equal(changeLoopModule.unplacedAction(t.main, 'nope'), null);
+});
+
+test('unlocated 1: unplacedAction gives the blocked stand-in with the holder\'s root and branch', () => {
+  const t = roundOf();
+  const side = withSide(t);
+  assert.deepEqual(changeLoopModule.unplacedAction(t.main, 'x'), {
+    kind: 'end', change: 'x', script: null, root: side, branch: 'side', stage: null, stageTitle: null,
+    end: { state: 'blocked', why: 'wrong-branch' }, params: { id: 'x' },
+  });
+});
+
+test('unlocated 1: state lists an unplaced change blocked and every other change as before', () => {
+  const t = roundOf({ a: OPEN });
+  const before = entriesOfRun(stateCmd(t.main, [], cleanEnv, { gh: noGh }));
+  assert.deepEqual(before.map((e) => e.change), ['a']);
+  const side = withSide(t);
+  const list = entriesOfRun(stateCmd(t.main, [], cleanEnv, { gh: noGh }));
+  assert.deepEqual(list.map((e) => e.change), ['a', 'x']);
+  assert.deepEqual(list[0], before[0], 'a reads as before');
+  assert.deepEqual(list[1], {
+    change: 'x', state: 'blocked', reason: { code: 'wrong-branch', text: wrongBranchText('en') }, stage: null, stageTitle: null, phase: null,
+    stageIcon: null, stateIcon: '⛔', title: '⛔ x', script: null, root: side, branch: 'side',
+  });
+});
+
+test('unlocated 1: state in Brazilian Portuguese gives the same code and the pt-BR phrase', () => {
+  const t = roundOf({ a: OPEN });
+  const side = withSide(t);
+  const list = entriesOfRun(main(['state', '--lang', 'pt-BR'], { cwd: t.main, env: cleanEnv, gh: noGh }));
+  const x = list.find((e) => e.change === 'x');
+  assert.deepEqual([x.state, x.reason.code, x.root, x.branch, x.title], ['blocked', 'wrong-branch', side, 'side', '⛔ x']);
+  assert.equal(x.reason.text, wrongBranchText('pt-BR'));
+  assert.notEqual(x.reason.text, wrongBranchText('en'));
+});
+
+test('unlocated 1: state --change x prints the list\'s entry', () => {
+  const t = roundOf({ a: OPEN });
+  withSide(t);
+  const listed = entriesOfRun(stateCmd(t.main, [], cleanEnv, { gh: noGh })).find((e) => e.change === 'x');
+  const one = entryOf(stateCmd(t.main, ['--change', 'x'], cleanEnv, { gh: noGh }));
+  assert.equal(one.state, 'blocked');
+  assert.deepEqual(one, listed);
+});
+
+test('unlocated 1: state --change nope in the unplaced setup still exits 3', () => {
+  const t = roundOf({ a: OPEN });
+  withSide(t);
+  const r = stateCmd(t.main, ['--change', 'nope'], cleanEnv, { gh: noGh });
+  assert.equal(r.code, 3);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.reply, render('en', 'request-unreadable'));
+  assert.match(out.error, /no change named nope/);
+  assert.equal(out.changes, undefined, 'no state is printed');
+});
+
+test('unlocated 1: next --change x from the worktree on another branch gives x\'s action', () => {
+  const t = roundOf();
+  const side = withSide(t);
+  const r = main(['next', '--change', 'x', '--lang', 'en'], { cwd: side, env: cleanEnv });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const { action } = parsed(r);
+  assert.deepEqual([action.change, action.root, action.stage], ['x', side, 'proposal']);
+});
+
+test('unlocated 1: the change run\'s stop lock in that worktree refuses for x\'s ready stage', () => {
+  const t = roundOf();
+  const side = withSide(t);
+  const r = hook('stop', stopInput(side, runTranscript('x')), { TMPDIR: sandbox() });
+  assert.equal(r.code, 2, r.err);
+  assert.match(r.err, /the change x has the stage proposal ready/);
+});
+
+test('unlocated 1: state follows the run file first for an unplaced change', async (t) => {
+  const r = roundOf({ a: OPEN });
+  const side = withSide(r);
+  await t.test('a declared end of x wins over the stand-in', () => {
+    writeRunFile(r.main, { declared: { x: { state: 'blocked', why: 'tests-red', params: { phase: 1 } } } });
+    const x = entriesOfRun(stateCmd(r.main, [], cleanEnv, { gh: noGh })).find((e) => e.change === 'x');
+    assert.deepEqual([x.state, x.reason.code, x.root, x.branch], ['blocked', 'tests-red', side, 'side']);
+    assert.equal(x.reason.text, render('en', 'blocked-why.tests-red', { phase: 1 }));
+    assert.notEqual(x.reason.code, 'wrong-branch');
+  });
+  await t.test('a stage of x in flight reads as running', () => {
+    writeRunFile(r.main, { inflight: { x: { kind: 'agent', stage: 'design', agentType: 'change-planner', at: new Date().toISOString() } } });
+    const x = entriesOfRun(stateCmd(r.main, [], cleanEnv, { gh: noGh })).find((e) => e.change === 'x');
+    assert.deepEqual([x.state, x.reason, x.stage], ['running', null, 'design']);
+  });
+});
+
+test('unlocated 1: state --change of a change archived on origin with a stale copy in a worktree on another branch reads archived', async (t) => {
+  const r = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
+  const old = r.addWt('old-wt');
+  addChange(old, 'foo', ['requirements'], { commit: false });
+  archiveOnOrigin(r, 'foo');
+  await t.test('the stale copy records no creation day', () => {
+    const e = entryOf(stateCmd(r.main, ['--change', 'foo'], cleanEnv, { gh: archiveGh([]) }));
+    assert.deepEqual([e.state, e.reason, e.title, e.root, e.branch], ['archived', null, '📦 foo', null, null]);
+  });
+  await t.test('a new change that reuses the id, created after the archive, is blocked', () => {
+    withCreated(old, 'foo', '2026-11-21');
+    const e = entryOf(stateCmd(r.main, ['--change', 'foo'], cleanEnv, { gh: archiveGh([]) }));
+    assert.deepEqual([e.state, e.reason?.code, e.branch], ['blocked', 'wrong-branch', 'old-wt']);
+  });
+});
+
 test('change-state ADR 0017: the documents follow', () => {
   const name = '0017-a-change-state-is-derived-in-one-place.md';
   const adr = readRepo('docs', 'adr', name);
@@ -1419,6 +1724,16 @@ test('change-state ADR 0017: the documents follow', () => {
   const part = flow.slice(a, flow.indexOf('\n\n', a)).replace(/\s+/g, ' ');
   assert.ok(part.includes('ADR 0017'), 'the paragraph cites ADR 0017');
   assert.doesNotMatch(flow, /\(ready, waits for a place\)/);
+});
+
+test('unlocated 3: the state paragraph of docs/openspec-flow.md names the unplaced change and the locate order', () => {
+  const flow = readRepo('docs', 'openspec-flow.md');
+  const a = flow.indexOf("**A change's state.**");
+  assert.ok(a >= 0, 'the state paragraph exists');
+  const part = flow.slice(a, flow.indexOf('\n\n', a)).replace(/\s+/g, ' ');
+  for (const phrase of ['wrong-branch', 'chore/archive-<id>', 'the checkout it is called from']) {
+    assert.ok(part.includes(phrase), `the state paragraph names ${phrase}`);
+  }
 });
 
 // ================================================================ commit-attribution (D-7, T1 to T20)

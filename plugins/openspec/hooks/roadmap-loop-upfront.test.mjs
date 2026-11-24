@@ -17,8 +17,8 @@ import * as loopModule from './roadmap-loop.mjs';
 import { classifyLines, decideRoadmap, boardOf } from './roadmap-loop.mjs';
 import {
   HERE, sessionAct, githubAct, blockedAct, archivedAct, FLYING, say, changesOf, rowAt, inFlight, picture, GUARD, LK_SESSION, lkSandbox, lkAssistant,
-  lkRun, lkStopInput, lkAgentInput, BRIEF, PLANNER_TYPE, lkProject, LK_ENV, lkOpts, withTmp, recordOf, nothingRecorded, agentOf, lkHook, skillMd,
-  sessionSkillMd, sectionOf, deadPid, lockFileOf, AT, START_FIELDS, sessionWorld, UP_SESSION, UP_TICKET, upTickets, upEntry, entryOf, labelOf, sd,
+  lkRun, lkStopInput, lkAgentInput, BRIEF, PLANNER_TYPE, lkProject, LK_PLAN, LK_ENV, lkOpts, withTmp, recordOf, nothingRecorded, agentOf, lkHook, skillMd,
+  sessionSkillMd, sectionOf, deadPid, lockFileOf, AT, START_FIELDS, sessionWorld, stopOf, UP_SESSION, UP_TICKET, upTickets, upEntry, entryOf, labelOf, sd,
   implAct, upChange, approve, doSessionNext, upBase, sessionNextOf, upStopInput, AT2, JOB, gateLine, upPushed, pushesOf, PUSH_OPTS,
 } from './roadmap-loop-fixtures.mjs';
 
@@ -326,12 +326,14 @@ test('upfront AC-4 lock agent: a helper of the requirements stage is read from t
   const folder = join(root, 'openspec', 'schemas', 'devkit');
   const kept = JSON.parse(readFileSync(join(folder, 'flow.json'), 'utf8'));
   assert.deepEqual(kept.stages.find((s) => s.id === 'requirements').helpers, ['codebase-researcher', 'requirements-triage'], 'the fixture flow names both helpers');
-  const newer = { ...kept, version: kept.version + 1, stages: kept.stages.map((s) => (s.id === 'requirements' ? { ...s, helpers: ['requirements-triage'] } : s)) };
+  // The installed flow is the shipped version (the newest the reader reads); a is pinned to the one before it, which still names the researcher.
+  const pinned = { ...kept, version: kept.version - 1 };
+  const changed = { ...kept, stages: kept.stages.map((s) => (s.id === 'requirements' ? { ...s, helpers: ['requirements-triage'] } : s)) };
   put(root, {
-    'openspec/schemas/devkit/flow.json': JSON.stringify(newer),
-    [`openspec/schemas/devkit/flows/${kept.version}.json`]: JSON.stringify(kept),
-    [`openspec/schemas/devkit/flows/${newer.version}.json`]: JSON.stringify(newer),
-    'openspec/changes/a/.openspec.yaml': `schema: devkit\nx-devkit-flow: ${kept.version}\n`,
+    'openspec/schemas/devkit/flow.json': JSON.stringify(changed),
+    [`openspec/schemas/devkit/flows/${pinned.version}.json`]: JSON.stringify(pinned),
+    [`openspec/schemas/devkit/flows/${changed.version}.json`]: JSON.stringify(changed),
+    'openspec/changes/a/.openspec.yaml': `schema: devkit\nx-devkit-flow: ${pinned.version}\n`,
   });
   commitAll(root, 'a newer flow is installed, a follows the one it opened with');
   putRun(root, { places: 1, changeSessions: true });
@@ -347,12 +349,13 @@ test('upfront partOfStage: the part of a stage is read from the flow the change 
   const folder = join(root, 'openspec', 'schemas', 'devkit');
   const kept = JSON.parse(readFileSync(join(folder, 'flow.json'), 'utf8'));
   assert.equal(kept.stages.find((s) => s.id === 'design').part, 'plan', 'the fixture flow puts design in the plan part');
-  const newer = { ...kept, version: kept.version + 1, stages: kept.stages.map((s) => (s.id === 'design' ? { ...s, part: 'build' } : s)) };
+  const pinned = { ...kept, version: kept.version - 1 };
+  const changed = { ...kept, stages: kept.stages.map((s) => (s.id === 'design' ? { ...s, part: 'build' } : s)) };
   put(root, {
-    'openspec/schemas/devkit/flow.json': JSON.stringify(newer),
-    [`openspec/schemas/devkit/flows/${kept.version}.json`]: JSON.stringify(kept),
-    [`openspec/schemas/devkit/flows/${newer.version}.json`]: JSON.stringify(newer),
-    'openspec/changes/a/.openspec.yaml': `schema: devkit\nx-devkit-flow: ${kept.version}\n`,
+    'openspec/schemas/devkit/flow.json': JSON.stringify(changed),
+    [`openspec/schemas/devkit/flows/${pinned.version}.json`]: JSON.stringify(pinned),
+    [`openspec/schemas/devkit/flows/${changed.version}.json`]: JSON.stringify(changed),
+    'openspec/changes/a/.openspec.yaml': `schema: devkit\nx-devkit-flow: ${pinned.version}\n`,
   });
   commitAll(root, 'a newer flow is installed, a follows the one it opened with');
   assert.equal(changeLoopModule.partOfStage({ root }, 'a', 'design'), 'plan', 'a follows the flow it opened with');
@@ -975,6 +978,115 @@ test('change-state AC-6 status and state agree: each open roadmap change\'s bloc
   const BLOCK_OF = { 'waiting-for-owner': 'owner', blocked: 'blocked', running: 'running', 'waiting-on-github': 'running' };
   const states = Object.fromEntries(JSON.parse(r.stdout).changes.map((e) => [e.change, BLOCK_OF[e.state]]));
   assert.deepEqual(states, Object.fromEntries(Object.entries(board).map(([id, [block]]) => [id, block])));
+});
+
+// ---------------------------------------------------------------- state-skips-unlocated: the board (phase 2, design D-4, D-7)
+
+// The setup of this section (design D-7): change `x`'s active folder only in a worktree on branch `side`, nothing of `x` in the main
+// checkout; `a` is an ordinary open change of the main checkout. Layers: the board, the roadmap decision and the roadmap stop lock, over
+// `collectRoadmap`; suite: roadmap-loop. Every phrase comes from `render`, never a literal.
+const unplacedProject = ({ lines = ['[ ] a', '[ ] x'], changes = { a: {} }, branch = 'side' } = {}) => {
+  const root = lkProject(lines, changes);
+  const wt = join(root, '.claude', 'worktrees', branch);
+  git(root, 'worktree', 'add', '-q', '-b', branch, wt);
+  const c0 = git(wt, 'rev-parse', 'HEAD');
+  put(wt, {
+    'openspec/changes/x/.openspec.yaml': 'schema: devkit\n',
+    ...Object.fromEntries(['requirements', 'decisions'].map((stage) => [`openspec/changes/x/${LK_PLAN[stage]}`, `<!-- devkit-stage ${stage} result=passed attempt=1 commit=${c0} -->\n# ${stage}\n`])),
+  });
+  return { root, side: realpathSync(wt) };
+};
+const wrongBranchText = (lang) => render(lang, 'blocked-why.wrong-branch');
+const BLOCK_OF_STATE = { 'waiting-for-owner': 'owner', blocked: 'blocked', running: 'running', 'waiting-on-github': 'running' };
+const stateEntriesOf = (root, lang = 'en') => {
+  const r = changeMain(['state', '--lang', lang], { cwd: root, env: cleanEnv, gh: OFFLINE });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  return Object.fromEntries(JSON.parse(r.stdout).changes.map((e) => [e.change, e]));
+};
+const boardOfRoot = (root, lang = 'en') => {
+  const r = cmd(root, ['status', '--lang', lang, '--load-limit', '80']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  return r.stdout;
+};
+
+test('unlocated 2: the board lists an unplaced roadmap line under Blocked and the others as before', () => {
+  const { root } = unplacedProject();
+  const before = placedOn(boardOfRoot(lkProject(['[ ] a', '[ ] x'], { a: {} })));
+  const board = placedOn(boardOfRoot(root));
+  assert.deepEqual(board.x, ['blocked', wrongBranchText('en')]);
+  assert.deepEqual(board.a, before.a, 'a reads as on the same project without the worktree');
+  assert.notEqual(board.a[0], 'blocked');
+});
+
+test('unlocated 2: the board in Brazilian Portuguese', () => {
+  const { root } = unplacedProject();
+  const text = boardOfRoot(root, 'pt-BR');
+  assert.ok(text.split('\n').includes(render('pt-BR', 'status-blocked')), text);
+  assert.deepEqual(placedOn(text, 'pt-BR').x, ['blocked', wrongBranchText('pt-BR')]);
+  assert.notEqual(wrongBranchText('pt-BR'), wrongBranchText('en'));
+});
+
+test('unlocated 2: the board and the state command agree on every open roadmap change, and on x\'s words', () => {
+  const { root } = unplacedProject();
+  const board = placedOn(boardOfRoot(root));
+  const states = stateEntriesOf(root);
+  assert.deepEqual(Object.keys(board).sort(), ['a', 'x']);
+  for (const id of ['a', 'x']) assert.equal(board[id][0], BLOCK_OF_STATE[states[id].state], `${id}: the block is the state's`);
+  assert.equal(board.x[1], states.x.reason.text, 'x\'s words are the state\'s reason text');
+});
+
+test('unlocated 2: a roadmap decision says once that x stopped and hands a\'s stage', () => {
+  const { root } = unplacedProject();
+  putRun(root, { places: 2 });
+  const first = doNext(root);
+  assert.equal(first.code, 0, first.stdout + first.stderr);
+  const stopped = say('roadmap-blocked-others', { id: 'x', why: 'wrong-branch' });
+  assert.deepEqual(events(first.stdout).filter((l) => l === stopped), [stopped], 'x\'s stop is said once, with the others going on');
+  assert.deepEqual(jsonOf(first.stdout).actions.map((x) => [x.change, x.kind]), [['a', 'agent']]);
+  const second = doNext(root);
+  assert.equal(second.code, 0, second.stdout + second.stderr);
+  assert.deepEqual(events(second.stdout), [], 'a second decision repeats no line');
+});
+
+test('unlocated 2: the roadmap stop lock refuses for a\'s ready stage with x unplaced', () => {
+  const { root } = unplacedProject();
+  putRun(root, { places: 2 });
+  const { d } = stopOf(root, lkRun(2));
+  assert.deepEqual([d.decision, d.change], ['refuse', 'a'], d.reason ?? d.why);
+  assert.match(d.reason, /the change a has the stage proposal ready/);
+});
+
+test('unlocated 2: the roadmap stop lock lets the stop through when x is the only open line', () => {
+  const { root } = unplacedProject({ lines: ['[ ] x'], changes: {} });
+  putRun(root, { places: 1 });
+  const { d } = stopOf(root, lkRun(1));
+  assert.deepEqual([d.decision, d.why], ['allow', 'nothing-ready'], d.reason ?? d.why);
+});
+
+test('unlocated 2: a placed roadmap line reads as before', () => {
+  const { root } = unplacedProject({ branch: 'x' });
+  const board = placedOn(boardOfRoot(root));
+  const s = changeLoopModule.changeState(changeLoopModule.nextAction(root, 'x', { env: cleanEnv, lang: 'en', gh: OFFLINE }), null, { lang: 'en' });
+  assert.notEqual(board.x[0], 'blocked', 'x is placed: its worktree is on the branch x');
+  assert.deepEqual(board.x, [BLOCK_OF_STATE[s.state], render('en', 'running.stage', { title: s.stageTitle })]);
+});
+
+test('unlocated 2: the board follows the run file first for an unplaced line, as the state command does', async (t) => {
+  const { root } = unplacedProject();
+  await t.test('a declared end of x wins over the stand-in', () => {
+    putRun(root, { places: 2, declared: { x: { state: 'blocked', why: 'tests-red', params: { phase: 1 } } } });
+    const row = placedOn(boardOfRoot(root)).x;
+    const s = stateEntriesOf(root).x;
+    assert.deepEqual(row, ['blocked', render('en', 'blocked-why.tests-red', { phase: 1 })]);
+    assert.deepEqual([s.state, s.reason.code, row[1]], ['blocked', 'tests-red', s.reason.text]);
+  });
+  await t.test('a stage of x in flight reads as running', () => {
+    putRun(root, { places: 2, inflight: { x: inFlight('design') } });
+    const row = placedOn(boardOfRoot(root)).x;
+    const s = stateEntriesOf(root).x;
+    assert.deepEqual([s.state, s.stage], ['running', 'design']);
+    assert.deepEqual(row, [BLOCK_OF_STATE[s.state], render('en', 'running.stage', { title: s.stageTitle })]);
+  });
 });
 
 test('change-state AC-7 start: a change session starts with its state\'s title', () => {
