@@ -35,7 +35,7 @@ domain=process type=bug flags=[contract] (strict-assumed: the reason params that
 - AC-5 `header-and-attempt-unchanged`: `attempt` keeps the value each writer gives it today (one more on each rewrite; the round for the `review` stage), and the header's fields, the agents' instructions and the `flow.json` files are unchanged.
 - AC-6 `the-readout-says-failures-in-a-row`: the blocked reason and the failed stage's line say how many failures in a row, in English and in pt-BR.
 - AC-7 `retaken-takes-do-not-count`: an evidence header `result=passed attempt=2` made stale by a merge of main, rewritten as `result=failed attempt=3` after passed attempts 1 and 2, is one failure; a delivery that retakes the evidence after each of three merges of main and fails once is not blocked.
-- AC-8 `roadmap-ticks-both`: at archive both `stage-ceiling-consecutive` and `evidence-attempts-by-failure` are ticked in `openspec/roadmap.md`, and the line of the second says it was delivered by this change.
+- AC-8 `roadmap-ticks-both`: the line of `evidence-attempts-by-failure` in `openspec/roadmap.md` says it was delivered by this change, and the archive follow-up in `tasks.md` ticks both that line and the line of `stage-ceiling-consecutive`.
 - AC-9 `pinned-in-flow-check-test`: the cases of AC-1 to AC-4 and AC-7 are tests in `plugins/openspec/hooks/flow-check.test.mjs`, each red on today's code.
 
 ## Out of scope
