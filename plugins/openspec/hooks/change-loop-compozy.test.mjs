@@ -173,7 +173,13 @@ test('change-loop skill: an end the session declares goes through reply, and the
   const loop = section(md, '## Loop', '## Owner gates');
   assert.match(loop, /a second line `devkit-end: <id> <state>` follows/);
   assert.match(loop, /never show one to the owner/);
-  assert.match(loop, /An end the session declares itself \(a red gate, a pull-request decision left to the owner\) goes through `reply`/);
+  const declared = loop.split('\n').find((l) => l.startsWith('An end the session declares itself'));
+  assert.ok(declared, 'the paragraph on the ends the session declares');
+  assert.match(declared, /^An end the session declares itself \([^)]*\) goes through `reply`/);
+  for (const key of ['blocked', 'waiting-pr-decision', 'waiting-pause', 'waiting-owner-decision']) assert.ok(declared.includes(`\`${key}\``), `the reply key ${key}`);
+  assert.match(declared, /goes through `change-loop\.mjs declare`/);
+  assert.match(declared, /prints the action that follows/);
+  assert.match(declared, /the main session only/);
   assert.match(loop, /only the lines after it are shown to the owner/);
   for (const key of ['reply blocked --param id=<id> --param why=tests-red', 'reply waiting-pr-decision --param id=<id>']) assert.ok(loop.includes(key), key);
   assert.ok(!loop.includes('why=role-failed'), 'a failed agent is the loop\'s end, not the session\'s');

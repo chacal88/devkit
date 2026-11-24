@@ -2600,3 +2600,48 @@ test('own-files AC-7 own: ownFiles leaves out release files, keeps the change fo
   git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
   assert.equal(DC.ownFiles(root, 'feat', ownFacts(root)), null, 'the head is in the base');
 });
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: the record of declared steps (D-1)
+// Invariant: readDeclared reads openspec/changes/<id>/declared.json by D-1's parser decisions: a missing file is no step and no
+// error, an unreadable or misshapen file is no step and an error, an entry of an unknown key is skipped. Layer: deliver-check's
+// reader, called directly. Suite: deliver-check.
+
+const declaredDir = (body) => {
+  const dir = tmpFolder('devkit-declared-');
+  if (body !== undefined) writeFileSync(join(dir, 'declared.json'), body);
+  return dir;
+};
+
+test('coordinator-loop-fixes AC-1 T13 readDeclared: a missing file gives no steps and no error', () => {
+  assert.deepEqual(DC.readDeclared?.(declaredDir()), { steps: [], error: null });
+});
+
+test('coordinator-loop-fixes AC-1 T14 readDeclared: an empty file gives no steps and an error', () => {
+  const r = DC.readDeclared?.(declaredDir(''));
+  assert.deepEqual(r?.steps, []);
+  assert.equal(typeof r?.error, 'string');
+  assert.ok(r.error.length > 0);
+});
+
+test('coordinator-loop-fixes AC-1 T15 readDeclared: unparsable JSON, a non-object, version 2 and a non-array steps each give an error', () => {
+  const bodies = {
+    'unparsable JSON': '{"version": 1, "steps": [',
+    'a non-object': '[1, 2]',
+    'version 2': JSON.stringify({ version: 2, steps: [] }),
+    'a non-array steps': JSON.stringify({ version: 1, steps: { key: 'gate-red' } }),
+  };
+  for (const [label, body] of Object.entries(bodies)) {
+    const r = DC.readDeclared?.(declaredDir(body));
+    assert.deepEqual(r?.steps, [], label);
+    assert.equal(typeof r?.error, 'string', label);
+    assert.ok(r.error.length > 0, label);
+  }
+});
+
+test('coordinator-loop-fixes AC-1 T16 readDeclared: an entry with an unknown key is skipped, the others kept', () => {
+  const red = { key: 'gate-red', phase: 2, at: '2026-11-24T10:00:00.000Z' };
+  const round = { key: 'review-round', scope: 'review', round: 3, words: 'one more round', at: '2026-11-24T11:00:00.000Z' };
+  const body = JSON.stringify({ version: 1, steps: [red, { key: 'later-key', at: 'x' }, 'not an object', null, round] });
+  assert.deepEqual(DC.readDeclared?.(declaredDir(body)), { steps: [red, round], error: null });
+  assert.deepEqual(DC.RECORDED_KEYS, ['gate-red', 'review-round']);
+});

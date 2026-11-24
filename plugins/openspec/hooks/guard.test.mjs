@@ -1774,3 +1774,114 @@ test('upfront AC-5 docs: the flow doc names the released flow versions, the 0.37
   ]) assert.ok(note.includes(part), `ADR 0021's Note says: ${part}`);
   assert.match(adr, /^- Status: accepted$/m, 'its status stays');
 });
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: declared.json, the declare command and the end marker (D-1, D-2)
+// Invariant: openspec/changes/<id>/declared.json and the `change-loop.mjs declare` command are the main session's only, in any
+// change's folder (D-1, "Who writes it"); a subagent's edit, shell redirect or `node ... change-loop.mjs declare` is refused, the
+// main session's is let through, and a project with no devkit schema is not judged. Layer: guard's classify, writeViolation and
+// guardBash, through `guard edit` and `guard bash`. Suite: guard.
+
+const DECLARED_FILE = 'openspec/changes/feat/declared.json';
+const DECLARE_RE = /is written only by the main session, through change-loop\.mjs declare; not by tdd-implementer/;
+const DECLARE_CMD_RE = /change-loop\.mjs declare is run only by the main session .*; not by tdd-implementer/;
+const RECORD_BODY = '{"version":1,"steps":[]}';
+
+test('coordinator-loop-fixes AC-1 T18 a subagent write of the active change\'s declared.json is refused, by edit and by shell redirect', () => {
+  const root = repo({ changes: { feat: approved } });
+  const byEdit = edit(root, DECLARED_FILE, 'tdd-implementer');
+  assert.equal(byEdit.code, 2, byEdit.err);
+  assert.match(byEdit.err, DECLARE_RE);
+  assert.ok(byEdit.err.includes(DECLARED_FILE), byEdit.err);
+  const byRedirect = bash(root, `echo '${RECORD_BODY}' > ${DECLARED_FILE}`, 'tdd-implementer');
+  assert.equal(byRedirect.code, 2, byRedirect.err);
+  assert.match(byRedirect.err, DECLARE_RE);
+});
+
+test('coordinator-loop-fixes AC-1 T19 declared.json is a main-session gate, and the main session\'s write of it is allowed', () => {
+  const root = repo({ changes: { feat: approved } });
+  assert.deepEqual(classify(root, 'feat', DECLARED_FILE), { kind: 'gate', owner: '' });
+  assert.deepEqual(classify(root, null, 'openspec/changes/other/declared.json'), { kind: 'gate', owner: '' }, 'in any change folder');
+  assert.equal(edit(root, DECLARED_FILE).code, 0, 'by Write');
+  assert.equal(bash(root, `echo '${RECORD_BODY}' > ${DECLARED_FILE}`).code, 0, 'by redirect');
+});
+
+// Invariant: an end line sets the run's `ended` only when it names the run's change (D-2). Layer: guard's runOf on given events. Suite: guard.
+const typedChange = { typed: { name: 'devkit', args: 'change add the feature' } };
+const printed = (text) => ({ texts: [text], stdout: text });
+
+test('coordinator-loop-fixes AC-2 T20 runOf: an end line naming the run\'s change sets ended', () => {
+  const own = [typedChange, printed('devkit-run: feat\n{"version":1}'), printed('devkit-end: feat waiting-for-owner\nThe change feat is paused.')];
+  const r = GUARD.runOf(null, own);
+  assert.equal(r?.change, 'feat');
+  assert.equal(r?.ended, 'waiting-for-owner');
+  const later = GUARD.runOf(null, [...own, printed('devkit-end: other blocked\nThe change other stopped.')]);
+  assert.equal(later?.ended, 'waiting-for-owner', 'a later end of another change leaves it as it was');
+});
+
+test('coordinator-loop-fixes AC-2 T21 runOf: an end line naming another change leaves ended null', () => {
+  const r = GUARD.runOf(null, [typedChange, printed('devkit-run: feat\n{"version":1}'), printed('devkit-end: other blocked\nThe change other stopped.')]);
+  assert.equal(r?.change, 'feat');
+  assert.equal(r?.ended, null);
+});
+
+const DECLARE_LINE = 'node plugins/openspec/hooks/change-loop.mjs declare feat review-round --param words=x';
+const QUOTED_LINE = 'node "$CLAUDE_PLUGIN_ROOT/hooks/change-loop.mjs" declare feat gate-red --param phase=1';
+
+test('coordinator-loop-fixes AC-1 T98 guardBash: a subagent running change-loop.mjs declare is refused, naming the main session', () => {
+  const root = repo({ changes: { feat: approved } });
+  const r = bash(root, DECLARE_LINE, 'tdd-implementer');
+  assert.equal(r.code, 2, r.err);
+  assert.match(r.err, DECLARE_CMD_RE);
+});
+
+test('coordinator-loop-fixes AC-1 T99 guardBash: a quoted plugin path and a cd before the call are refused too', () => {
+  const root = repo({ changes: { feat: approved } });
+  const scratch = tmpFolder('devkit-guard-scratch-');
+  for (const command of [QUOTED_LINE, `cd ${scratch} && ${DECLARE_LINE}`, `cd ${scratch} && ${QUOTED_LINE}`]) {
+    const r = bash(root, command, 'tdd-implementer');
+    assert.equal(r.code, 2, `${command}: ${r.err}`);
+    assert.match(r.err, DECLARE_CMD_RE, command);
+  }
+});
+
+test('coordinator-loop-fixes AC-1 T100 guardBash: the main session\'s declare commands are allowed', () => {
+  const root = repo({ changes: { feat: approved } });
+  for (const command of [DECLARE_LINE, QUOTED_LINE]) {
+    const r = bash(root, command);
+    assert.equal(r.code, 0, `${command}: ${r.err}`);
+  }
+});
+
+test('coordinator-loop-fixes AC-1 T101 guardBash: a subagent running next or reply of change-loop.mjs is allowed', () => {
+  const root = repo({ changes: { feat: approved } });
+  for (const command of ['node plugins/openspec/hooks/change-loop.mjs next feat --lang en', 'node plugins/openspec/hooks/change-loop.mjs reply waiting-pause --param id=feat']) {
+    const r = bash(root, command, 'tdd-implementer');
+    assert.equal(r.code, 0, `${command}: ${r.err}`);
+  }
+});
+
+test('coordinator-loop-fixes AC-1 T102 guardBash: a commit message and a heredoc body naming the declare command are allowed', () => {
+  const root = repo({ changes: { feat: approved } });
+  const commit = bash(root, 'git commit -m "add the declare verb to change-loop.mjs"', 'tdd-implementer');
+  assert.equal(commit.code, 0, commit.err);
+  const heredoc = bash(root, `cat > openspec/changes/feat/notes.md <<'EOF'\n${DECLARE_LINE}\nEOF`, 'tdd-implementer');
+  assert.equal(heredoc.code, 0, heredoc.err);
+});
+
+test('coordinator-loop-fixes AC-1 T103 guardBash: in a project with no devkit schema a subagent\'s declare command is allowed', () => {
+  const root = repo({ changes: { feat: approved } });
+  writeFileSync(join(root, 'openspec', 'config.yaml'), 'schema: spec-driven\n');
+  const r = bash(root, DECLARE_LINE, 'tdd-implementer');
+  assert.equal(r.code, 0, r.err);
+});
+
+test('coordinator-loop-fixes AC-1 T104 another change\'s declared.json is refused to a subagent, and declareViolation lets the main session through', () => {
+  const root = repo({ changes: { feat: approved, other: approved }, branch: 'feat' });
+  const f = 'openspec/changes/other/declared.json';
+  const r = edit(root, f, 'tdd-implementer');
+  assert.equal(r.code, 2, r.err);
+  assert.match(r.err, DECLARE_RE);
+  assert.equal(bash(root, `echo '${RECORD_BODY}' > ${f}`, 'tdd-implementer').code, 2, 'by redirect');
+  assert.equal(GUARD.declareViolation?.(DECLARE_LINE, ''), null);
+  assert.equal(typeof GUARD.declareViolation?.(DECLARE_LINE, 'tdd-implementer'), 'string');
+});

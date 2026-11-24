@@ -80,7 +80,7 @@ every task with `git status --short`.
   contradicts the plan stops the phase, reported, without a guess. A failing test the base added is reported as a row for
   D-15 and one plan revision. Check: `git merge-base --is-ancestor origin/main HEAD` exits 0 and `python3 scripts/check.py` passes.
 
-- [ ] 1.1 Create `plugins/openspec/hooks/change-loop-declared.test.mjs` (D-16: its header comment, imports from the
+- [x] 1.1 Create `plugins/openspec/hooks/change-loop-declared.test.mjs` (D-16: its header comment, imports from the
   fixtures modules only) and write T1 to T9, T11 to T16, T18 to T23, T98 to T104 and T114 of D-16 in it,
   `deliver-check.test.mjs` and `guard.test.mjs`, and the D-15 updates of "roadmap-loop replies: every owner wait has
   a gate" (`roadmap-loop.test.mjs`), "change-loop skill: an end the session declares goes through reply, and the
