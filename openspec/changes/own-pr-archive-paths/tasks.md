@@ -124,6 +124,16 @@ pull request after its merge instead of asking to open it again. The CI snippet 
 `v<version>`. In `docs/openspec-flow.md` move every `v0.33.0` of the CI pin (the snippet's comment,
 its URL placeholder and the paragraph below it, which names the tag twice) to `v<version>`.
 
+Plan amendment (found in phase 2, settled by the session while the owner slept; 2026-11-24): the pin
+also lives in `plugins/openspec/hooks/change-loop.test.mjs`, in the test `change-loop docs: the design
+records the answers` (invariant: the CI snippet pins the current release; layer: the docs; suite:
+`change-loop.test.mjs`). With the release, that test's `assert.match(flow, /v0\.33\.0/, …)` becomes
+`/v0\.<new>/`, its message names `own-pr-archive-paths: <version>`, a `doesNotMatch(flow, /v0\.33\.0/, 'no
+pin left on main\'s release before it (roadmap-sessions-upfront)')` joins the neighbouring lines, and the
+invariant comment above gains `own-pr-archive-paths moves it to <version> (release <marketplace
+version>), above roadmap-sessions-upfront's 0.33.0 (release 0.37.0)`. Nothing else in that test
+changes. Every earlier release moved these lines the same way.
+
 ## 1. The predicate, its tests and its doc (AC-1 to AC-6)
 
 - [x] 1.1 Write the six tests of H-3 in `plugins/openspec/hooks/deliver-check.test.mjs`, run them on
@@ -147,15 +157,15 @@ its URL placeholder and the paragraph below it, which names the tag twice) to `v
 
 ## 2. Release and the last checks (AC-6)
 
-- [ ] 2.1 Release, as H-4 says, with the next patch versions after `origin/main`'s at the last merge
+- [x] 2.1 Release, as H-4 says (the amendment included: the pin in `change-loop.test.mjs` moves too), with the next patch versions after `origin/main`'s at the last merge
   before review (`CONTRIBUTING.md`, step 5). Check: `python3 scripts/gen-catalog.py --check` passes,
   `grep -c "v0.33.0" docs/openspec-flow.md` prints 0 when the version moved from 0.33.0, and the two
   pin tests (`the pin in docs/openspec-flow.md is the commit sha of v + the devkit-openspec version, …`
   and `AC-8 release-ready: …`) pass under the gate of 2.3.
-- [ ] 2.2 Check that nothing outside the plan changed. Check:
+- [x] 2.2 Check that nothing outside the plan changed. Check:
   `git diff --stat $(git merge-base origin/main HEAD) -- plugins/openspec/hooks/change-loop.mjs plugins/openspec/hooks/flow-check.mjs plugins/openspec/hooks/guard.mjs plugins/openspec/hooks/roadmap-loop.mjs plugins/openspec/hooks/project-loop.mjs plugins/openspec/schemas openspec/schemas openspec/specs plugins/panel`
   prints nothing.
-- [ ] 2.3 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="field-fixes 4" --test-name-pattern="findChangePr" --test-name-pattern="the pin in docs/openspec-flow.md" --test-name-pattern="AC-8 release-ready" plugins/openspec/hooks/deliver-check.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate .` green; covers AC-1 to AC-6 on the released tree.
+- [ ] 2.3 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="field-fixes 4" --test-name-pattern="findChangePr" --test-name-pattern="the pin in docs/openspec-flow.md" --test-name-pattern="AC-8 release-ready" --test-name-pattern="change-loop docs: the design records the answers" plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate .` green; covers AC-1 to AC-6 on the released tree.
 
 ## Workflow follow-up
 
