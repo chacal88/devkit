@@ -1250,6 +1250,8 @@ test('flow-check readout: both languages cover every reason code', () => {
     'auto-merge-on': { number: 12, waiting: 'GitHub to merge' }, 'enable-auto-merge': { number: 12 }, 'pr-closed': { number: 12 }, 'tasks-left-after-merge': { number: 12, tasks: '3.1, 3.2' },
     'no-test-pr': {}, 'owner-merges-test-branch': { number: 13, branch: 'develop', base: 'main' }, 'owner-merges-base': { number: 12, base: 'main' },
     'stale-reviewers': { names: ['spec-reviewer'] },
+    // The delivery train (delivery-train D-2): a change that boards, rides a train or was taken off one.
+    boarded: {}, 'on-train': { number: 40 }, 'left-train': { train: 4, number: 40 }, 'disable-auto-merge': { number: 12 },
   };
   assert.deepEqual(Object.keys(P).sort(), en, 'the table below names every code');
   for (const code of en) {

@@ -96,14 +96,22 @@ export function plainValue(raw) {
   return text.replace(/(^|\s)#.*$/, '').trim();
 }
 
-const DELIVERY_KEYS = ['model', 'base', 'test_branch'];
+// True when the raw value starts with a quote and has no second quote of the same kind.
+function unclosedQuote(raw) {
+  const text = raw.replace(/\r$/, '').trim();
+  const quote = text[0];
+  return (quote === '"' || quote === "'") && text.indexOf(quote, 1) === -1;
+}
+
+const DELIVERY_KEYS = ['model', 'base', 'test_branch', 'train'];
 
 // The `devkit:` block of openspec/config.yaml, read with one level of nesting (delivery-models D-1, D-11):
-// { driver, language, budget, release_tag, delivery: { model, base, test_branch }, models } (`budget` from change-budget, `release_tag`
-// from release-tags D-1, `models` from stage-models D-2). `models` is a Map from each key written under a `models:` line to its
+// { driver, language, budget, release_tag, delivery: { model, base, test_branch, train, trainUnclosed? }, models } (`budget` from change-budget,
+// `release_tag` from release-tags D-1, `models` from stage-models D-2). `models` is a Map from each key written under a `models:` line to its
 // value, in file order, a later duplicate winning; an inline value (`models: opus`) is recorded under the key ''. A value that is
 // not set, or empty, is undefined; a key nested under `delivery:` or `models:` never sets `driver`, `language`, `budget` or
-// `release_tag`; an entry nested deeper than the table is ignored; other keys of the block are ignored.
+// `release_tag`; an entry nested deeper than the table is ignored; other keys of the block are ignored. `trainUnclosed` is set
+// (delivery-train D-1) when the raw value of `train` opens a quote it never closes, which `plainValue` would read as the rest of the line.
 export function parseDevkitBlock(text) {
   const block = { driver: undefined, language: undefined, budget: undefined, release_tag: undefined, delivery: { model: undefined, base: undefined, test_branch: undefined }, models: new Map() };
   let inBlock = false;
@@ -121,7 +129,10 @@ export function parseDevkitBlock(text) {
     if (indent === null) indent = m[1].length;
     const value = plainValue(m[3]) || undefined;
     if (m[1].length > indent) {
-      if (inDelivery && DELIVERY_KEYS.includes(m[2])) block.delivery[m[2]] = value;
+      if (inDelivery && DELIVERY_KEYS.includes(m[2])) {
+        block.delivery[m[2]] = value;
+        if (m[2] === 'train') block.delivery.trainUnclosed = unclosedQuote(m[3]);
+      }
       if (inModels) {
         if (modelsIndent === null) modelsIndent = m[1].length;
         if (m[1].length === modelsIndent) block.models.set(m[2], value);
@@ -174,6 +185,24 @@ export function deliverySettings(block) {
 export function readDeliverySettings(root) {
   try { return deliverySettings(parseDevkitBlock(readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8'))); } catch {
     return deliverySettings(null);
+  }
+}
+
+// { suite, problem } from a parsed block: the table of delivery-train D-1. `suite` is the whole-suite command of the train
+// (the train is on) and `problem` is { kind: 'train-model', model } or { kind: 'unknown', setting, value }; both are null
+// without the key or with an empty value. The value is never split or run here.
+export function trainSetting(block) {
+  const { model, train, trainUnclosed } = block?.delivery ?? {};
+  if (!train) return { suite: null, problem: null };
+  if (trainUnclosed) return { suite: null, problem: { kind: 'unknown', setting: 'delivery-train', value: train } };
+  if (model === 'trunk' || model === 'trunk-auto') return { suite: train, problem: null };
+  return { suite: null, problem: { kind: 'train-model', model: model === 'two-prs' ? model : null } };
+}
+
+// The train setting of the project at `root`; no file, or one that cannot be read, is no train.
+export function readTrainSetting(root) {
+  try { return trainSetting(parseDevkitBlock(readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8'))); } catch {
+    return trainSetting(null);
   }
 }
 
@@ -1204,7 +1233,7 @@ const isDevkitVerb = (typed, verb) => /^(?:[\w-]+:)?devkit$/.test(typed.name) &&
 // The roadmap run a session is in, read from the transcript's events like `runOf` (design roadmap-coordinator D-11): { command, stopping }
 // when the newest typed slash command is `/devkit roadmap ...` (bare or plugin-scoped) and a tool result carrying a line
 // `devkit-roadmap: <n>` or `devkit-roadmap: stop` follows it; `stopping` is whether the newest such line says stop. A typed
-// `/devkit status` neither starts nor ends a run; any other typed slash command ends it. Pure: null when it cannot read the file.
+// `/devkit status` or `/devkit train` neither starts nor ends a run; any other typed slash command ends it. Pure: null when it cannot read the file.
 export function roadmapRunOf(input, events = transcriptEvents(input)) {
   if (!events) return null;
   const markers = (s) => [...String(s).matchAll(/^devkit-roadmap: (\d{1,2}|stop)[ \t]*\r?$/gm)].map((m) => m[1]);
@@ -1212,7 +1241,7 @@ export function roadmapRunOf(input, events = transcriptEvents(input)) {
   let stopping = null;
   for (const event of events) {
     if (event.typed) {
-      if (!isDevkitVerb(event.typed, 'status')) {
+      if (!isDevkitVerb(event.typed, 'status') && !isDevkitVerb(event.typed, 'train')) {
         command = isDevkitVerb(event.typed, 'roadmap') ? event.typed : null;
         stopping = null;
       }

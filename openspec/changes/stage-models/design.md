@@ -2,7 +2,7 @@
 # Design
 
 Change: `stage-models` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a (sources:
-`requirements.md`, `decisions.md`, ADR 0022, `proposal.md` and the four spec deltas of this change).
+`requirements.md`, `decisions.md`, ADR 0023, `proposal.md` and the four spec deltas of this change).
 
 ## Context
 
@@ -59,7 +59,7 @@ before any code of this change is written; a failed probe stops the change for a
 
 - One table, one resolver: every model the loop prints comes from `modelsOf` (D-2) and the ordering
   of D-1.
-- Nothing stored for the retry or the spend: both are read from the transcripts (ADR 0022 decisions
+- Nothing stored for the retry or the spend: both are read from the transcripts (ADR 0023 decisions
   5 and 6, ADR 0010 decision 3).
 - With no `models:` key and no failure, every action is what it is today plus its `model` field.
 
@@ -89,7 +89,7 @@ of the two flows' ids minus `open`, so a new stage cannot be left out.
 
 **Default.** `DEFAULT_MODELS` (new, exported, frozen):
 
-| Stage | Model | ADR 0022 decision 1 says |
+| Stage | Model | ADR 0023 decision 1 says |
 |---|---|---|
 | `requirements` | `opus` | the grill |
 | `decisions` | `opus` | the ADRs |
@@ -105,14 +105,14 @@ of the two flows' ids minus `open`, so a new stage cannot be left out.
 | `delivery` | `haiku` | the commit and pull-request hand-off |
 | `retro` | `sonnet` | coordinate |
 
-"Validation" (ADR 0022 decision 1, AC-1) has no stage of its own in either script: the
+"Validation" (ADR 0023 decision 1, AC-1) has no stage of its own in either script: the
 `openspec-validator` helper runs inside the plan stages and already declares `model: haiku`
 (`plugins/openspec/agents/openspec-validator.md`). AC-1's "validation" is met by that helper and
 gets no row; the test of AC-1 checks every row above.
 
 **Session-run stages.** `SESSION_RUN_STAGES` (new, exported, frozen, `change-loop.mjs`), in flow
 order: `requirements, approval, review, delivery, retro`. They are the stages a change session
-performs itself (ADR 0022 decision 4): the grill, the owner's approval (`accept-decisions` and the
+performs itself (ADR 0023 decision 4): the grill, the owner's approval (`accept-decisions` and the
 approval gate), the review round the session conducts, the delivery steps (the merge, the waits on
 GitHub, the release-conflict hand-off's follow-up) and the retro. Every other stage runs as a stage
 subagent. Only the step-down floor reads this list (D-6); it does not change the action of any stage.
@@ -317,7 +317,7 @@ against the stage's ceiling. No product code changes for it; the spec (`stage-mo
 stage subagent that could not finish is retried", scenarios "A failure with a written result=failed
 file", "A plan stage recorded as failed" and "A test stage recorded as failed at its ceiling"), a
 D-12 test that pins it, D-13's real run 3 that shows it with a real agent, D-13's stub text and the
-D-10 words state it. The narrowing is a reading of the owner's AC-10 and of ADR 0022 decision 5,
+D-10 words state it. The narrowing is a reading of the owner's AC-10 and of ADR 0023 decision 5,
 which the owner accepts at plan approval (`proposal.md`, the resolved criteria and readings).
 
 ## D-6 The roadmap: start model and step-down (AC-6, AC-7; spec `roadmap-coordination`)
@@ -327,7 +327,7 @@ ninth field). `a` is the change's current action, so a new change's start carrie
 The input already holds `context: 'fresh'`, the only context in which the host honours `model`
 (Context, checked 2026-11-23). The host honours it only when it is of the coordinating session's
 family or cheaper; a higher one is ignored and the session starts on the host's default. The loop
-does not read the coordinating session's model (it is the owner's, ADR 0022 decision 4) and always
+does not read the coordinating session's model (it is the owner's, ADR 0023 decision 4) and always
 sends the stage's model. The run records that model (below) whether or not the host honoured it.
 That record is safe for the step-down: a session that ignored the field runs on the host's default,
 which is not cheaper than the recorded model in any start observed (`opus[1m]`), so every switch the
@@ -378,7 +378,7 @@ decision). `roadmap-loop.mjs` imports `modelsOf`, `MODEL_STAGES`, `MODEL_VALUES`
 
 **The step-down rule, in one place.** `stepDownOf({ current, stage, models, stages, refused })`
 (new, exported, `roadmap-loop.mjs`, pure) is the only code that says whether a change session is
-switched and to what: it returns the model to switch to, or `null`. It builds ADR 0022 decision 4
+switched and to what: it returns the model to switch to, or `null`. It builds ADR 0023 decision 4
 with the owner's floor of 2026-11-23:
 
 1. `null` when `stage` is `null` or `models[stage]` is not a value of `MODEL_VALUES`.
@@ -405,7 +405,7 @@ session-run stages ahead" and "A stage above the session's model never switches 
 A stage whose model is above the session's current one is never a switch (`stepDownOf` returns only
 cheaper models): when it runs as a stage subagent, `decide` hands it on its model (D-3, AC-8); when it
 is a session-run stage, the session performs it on its current model. Because the floor holds every
-session-run stage ahead, that happens only where ADR 0022's Consequences accept it: a session whose
+session-run stage ahead, that happens only where ADR 0023's Consequences accept it: a session whose
 start model the host ignored (it runs on the host's default, which is not cheaper; D-6 "The start"),
 a session found already running (no known model, never switched), a refused switch, or a table that
 puts a stronger session-run stage after a weaker stage at which the session started (a change
@@ -432,7 +432,7 @@ The found-session branch of `session-start` reports `--after <id>=session-found`
 
 When the stage changes inside one turn of a change session, the coordinating session sees it at that
 session's next end-of-turn report (ADR 0014 decision 2); a switch then applies to the session's next
-turn. ADR 0022 decision 4 is met at that grain.
+turn. ADR 0023 decision 4 is met at that grain.
 
 ## D-7 The spend readout (AC-11, AC-12; spec `spend-readout`)
 
@@ -548,12 +548,12 @@ do not change.
 
 ## D-10 ADRs and documents
 
-- ADR 0022 (`docs/adr/0022-the-model-is-chosen-by-stage.md`) is the adr-author's and its
+- ADR 0023 (`docs/adr/0023-the-model-is-chosen-by-stage.md`) is the adr-author's and its
   decisions stay as they are. Its number is checked against `origin/main` before review (task 4.1).
   `origin/main` (local ref `b92e6b1`, not fetched) already holds another
   `docs/adr/0020-a-change-can-run-on-another-machine.md` and devkit-openspec 0.32.0, so tasks 4.1
   and 4.5 are redone at the delivery merge (this change's ADR takes the next free number, 0021 at
-  `b92e6b1` (0022 at the second delivery merge, tip `6999a04`), every reference in this change's files, `docs/`, `openspec/config.yaml` and
+  `b92e6b1` (0022 at the second delivery merge, tip `6999a04`; 0023 at the third, tip `eca590e`), every reference in this change's files, `docs/`, `openspec/config.yaml` and
   `CHANGELOG.md` follows, the release moves above `origin/main`'s), and the tests that hard-code
   `0020` (`ADR_FILE` and the `0020` assertions of `plugins/openspec/hooks/stage-models.test.mjs`)
   follow in the same commit; phase 5 is done on the current names first, so it stays one rename
@@ -562,11 +562,11 @@ do not change.
   addition is the clarifying Note of "The retry's reach and the 1M reach in words" below (task 5.3),
   in the form the Notes of ADR 0014 use; it changes no decision.
 - `docs/adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md`: header line
-  `- Amended by ADR 0022 (0022-the-model-is-chosen-by-stage.md)` and a Note
-  `Note (stage-models, 2026-11-23): ADR 0022 amends decision 1: ...` in the form of ADR 0014's own
+  `- Amended by ADR 0023 (0023-the-model-is-chosen-by-stage.md)` and a Note
+  `Note (stage-models, 2026-11-23): ADR 0023 amends decision 1: ...` in the form of ADR 0014's own
   `Note (change-state, 2026-11-22)`.
 - `openspec/config.yaml`: the comment above `devkit:` names the optional `models:` table; the
-  `ADRs:` line of `context` gains `0022 the model chosen by stage, sessions only step down and never
+  `ADRs:` line of `context` gains `0023 the model chosen by stage, sessions only step down and never
   below the stages they still run, a failed stage retried once a model up, amends 0014`.
 - `docs/openspec-flow.md`, section "The change coordinator": a paragraph **The model of each
   stage.** after **The token budget.** (the key, the override, the stage ids, the values, the
@@ -610,7 +610,7 @@ same, with these sentences (the implementer copies them):
   (a change session's start model, or a step-down to that value) and the retry's mapping on the
   action; it never reaches a stage agent, whose Agent call drops it, so a stage agent runs with the
   plain family's context window."
-- `docs/adr/0022-the-model-is-chosen-by-stage.md`: after decision 7 and before `## Consequences`,
+- `docs/adr/0023-the-model-is-chosen-by-stage.md`: after decision 7 and before `## Consequences`,
   a paragraph "Note (stage-models, 2026-11-23): decision 5's retry reaches a stage subagent
   that stops with `Outcome: failure` without writing its stage file. A subagent that writes its
   stage file with `result=failed`, as the `subagent-stop` hook asks of one that stops without it,
@@ -692,7 +692,7 @@ the change too.
 | Retry (D-5) | AC-10 a failure on `haiku` gives the same stage on `sonnet`, marked, with the same progress key, called with that key; AC-10 a failure on `sonnet[1m]` gives `opus[1m]`; AC-10 two failures in a row end blocked `role-failed`, exit 2, `devkit-end: <id> blocked`; AC-10 a failure on `opus` ends blocked; AC-10 a success between two failures gives one retry again; AC-10 a new typed `/devkit change` after two failures hands the table model; AC-10 a `/devkit status` typed between a failure and the next call keeps the retry; AC-10 another change's subagents between do not break the chain; AC-10 no transcript: the progress key ends for no progress (kept); AC-10 a `next` with no `--after` after a failed hand-off, with no budget set, reads neither the session transcript nor the subagent folder and hands the stage on its table model with no `retry` mark, while the same call with `--after` and the failed action's key reads them and hands the retry (task 2.3); AC-10 in a one-session roadmap run, `roadmap-loop.mjs next` after a failed hand-off returns the retry, and `collectRoadmap` reads the subagent folder once for every change; AC-10 the stop lock (`roadmapStopDecision`) and `roadmap-loop.mjs status` decide and print the same with and without a subagent folder holding a failed hand-off of the open change (they read no hand-off, B1), and with sessions per change `next` reads none either; AC-11 a retry at the cap is held by the budget, and `spentOf` counts the retry's tokens; AC-10 (review round 1, task 5.1, pins the code at `e057874`, so it passes there) a failure with a written `result=failed` file: a `devkit-lite` change at its unit tests, the unit-test hand-off on `haiku`, a subagent file of that brief on `claude-haiku-5-5` ending `Outcome: failure`, and `unit-tests.md` written with the header `<!-- devkit-stage unit-tests result=failed attempt=1 commit=<HEAD> -->`; `next --after <id>=<that action's progressKey>` exits 0 with no `devkit-end:` line and an `agent` action at stage `implementation`, agent `devkit-core:tdd-implementer`, step `fix-tests`, `model` `sonnet` (the implementation's default), no `retry` field and a brief other than the failed one; in the same test, the same world without `unit-tests.md` gives the retry on `sonnet` with `retry.failedOn` `haiku`, so the only difference is the written file; a `devkit` change at its `decisions` stage with no table (`featWith({ have: PLAN_OF.decisions })`, decisions on `opus`; `adr-author` is a role whose Output names `failure`, A-6) whose decisions subagent, on `claude-opus-5-5`, ended `Outcome: failure` after `decisions.md` was written with `<!-- devkit-stage decisions result=failed attempt=1 commit=<HEAD> -->` gives, exit 0 and no `devkit-end:` line, an `agent` action at `decisions`, agent `devkit-core:adr-author`, whose brief holds `revise the plan from its findings`, `model` `opus` and no `retry` field (spec scenario "A plan stage recorded as failed"); and the unit-test world with `unit-tests.md` at `result=failed attempt=3` (the stage's ceiling, 3) and its subagent ending `Outcome: failure` gives exit 2, `devkit-end: <id> blocked` with the ceiling's reason, and no `retry` field on any action (spec scenario "A test stage recorded as failed at its ceiling") |
 | Roadmap (D-6) | AC-6 a new change's `session-start` input holds `opus` and a resumed change at its implementation `sonnet`; AC-6 the start's `input` holds `context: 'fresh'` beside `model`; AC-6 `--after a=session-start` records the model, `--after a=session-found` records none; AC-6 after `--after a=session-found`, `a` is `own`: the same call and the next return no `session-start` for `a` and no stage action of `a`, and `roadmap-session-started` is announced for `a` once, as after `session-start`; AC-7 `stepDownOf` with every session-run stage on the same model as the stage, over every pair of `MODEL_VALUES` for the current model and that model, returns it only when it is cheaper and not the refused one; AC-7 `stepDownOf` with the default table over every stage of each script's order, from a session on `opus`, returns `sonnet` or `null` and never `haiku` (at `unit-tests` and at `delivery` it returns `sonnet`); AC-7 `stepDownOf` at `delivery` (`haiku`) with `retro: haiku` in the table, from a session on `sonnet`, returns `haiku`, and at `unit-tests` with `review: opus` from a session on `opus` returns `null`; AC-7 `stepDownOf` returns `null` for a `null` stage, and when the refused model equals the floor; AC-7 `stepDownOf` at `tasks` with `tasks: sonnet` and `approval: opus` in the table, from a session on `opus`, returns `sonnet` on the `devkit-lite` order (`approval` is not in that flow) and `null` on the `devkit` order (`approval` ahead); AC-7 at `implementation` on the `devkit` order with `approval: opus`, from `opus`, returns `sonnet` (`approval` is behind); AC-7 a session on `opus` with its change waiting at the approval gets one `session-model` to `sonnet` on an `event` turn; AC-7 a session on `sonnet` with its change at its unit tests or its delivery gets none; AC-7 a session on `sonnet` with its change at its retro and `retro: opus` in the project's table gets none (no upward switch); AC-7 equal or upward floors give none; AC-7 after `session-model` the record holds the target and no switch follows; AC-7 after `session-model-refused` the same target is not returned again; AC-7 none while stopping; AC-7 the stop lock's decision holds no switch; AC-6 an old `{ at }` entry reads back as `{ at }` |
 | Spend (D-7) | AC-12 the spec's "Known numbers" give 3210 and 1105, 4315 in all; AC-12 another change's run line and the lines before the first run line do not count; AC-11 a retry is listed with its families and tokens; AC-12 the total line with a cap and with none; AC-12 for every `SPEND_MESSAGES` row in both languages, `spendLines`'s own filling equals `render` of the row from `change-loop.mjs` with the same parameters, and a stage line reads `Stage Design: ...` and `Etapa Design: ...` (no doubled stage phrase); AC-12 `budgetValue` imported from `guard.mjs` and from `change-loop.mjs` is the same function; AC-12 `flow-check.mjs <id> --lang en` prints the block after the readout, and `--json` is unchanged; AC-12 `roadmap-loop.mjs status` prints one block for the change with tokens and none for the other; AC-12 neither writes a file (the repository's status and the run file unchanged); AC-12 with no transcript both outputs equal today's (kept) |
-| Skill and docs (D-9, D-10) | AC-5 the Loop's `agent` item says the `model` clause; AC-9 the change sections name no session-model tool; AC-7 the session-per-change part names `session-model`, `session-found`, `session-model-refused` and `set_session_model`; the flow doc's **The model of each stage.** paragraph names `models:`, `[1m]`, the retry, the step-down and its floor at the session-run stages; the ADR 0014 header and Note; the config's `ADRs:` line names 0022; AC-10 (review round 1, task 5.2) the flow document's **The model of each stage.** paragraph and ADR 0022, whitespace collapsed, each hold `without writing its stage file` and `result=failed`; AC-4 (task 5.2) the paragraph holds `never reaches a stage agent` and the ADR `never a stage subagent` |
+| Skill and docs (D-9, D-10) | AC-5 the Loop's `agent` item says the `model` clause; AC-9 the change sections name no session-model tool; AC-7 the session-per-change part names `session-model`, `session-found`, `session-model-refused` and `set_session_model`; the flow doc's **The model of each stage.** paragraph names `models:`, `[1m]`, the retry, the step-down and its floor at the session-run stages; the ADR 0014 header and Note; the config's `ADRs:` line names 0023; AC-10 (review round 1, task 5.2) the flow document's **The model of each stage.** paragraph and ADR 0023, whitespace collapsed, each hold `without writing its stage file` and `result=failed`; AC-4 (task 5.2) the paragraph holds `never reaches a stage agent` and the ADR `never a stage subagent` |
 
 ## D-13 The real-run proof (AC-13)
 
@@ -839,10 +839,10 @@ does not change.
 
 ## Decisions and ADRs
 
-No new ADR beyond `decisions.md`'s ADR 0022. Read, with their rejected alternatives: ADR 0010,
-0011, 0013, 0014, 0016, 0022.
+No new ADR beyond `decisions.md`'s ADR 0023. Read, with their rejected alternatives: ADR 0010,
+0011, 0013, 0014, 0016, 0023.
 
-- ADR 0022 decisions 1 to 6 are D-1 to D-7. Its "the exact key set ... is the plan's" is D-1.
+- ADR 0023 decisions 1 to 6 are D-1 to D-7. Its "the exact key set ... is the plan's" is D-1.
   Decision 4's step-down floor (the owner's choice of 2026-11-23, amended into the ADR by the
   adr-author) is `SESSION_RUN_STAGES` (D-1) and `stepDownOf` (D-6); its Consequences' accepted
   cases are D-6's last paragraph of "The step-down rule".
@@ -856,15 +856,15 @@ No new ADR beyond `decisions.md`'s ADR 0022. Read, with their rejected alternati
 - ADR 0013 rejected "the run's bookkeeping in the transcript only" for the run's state: the change
   session's model is bookkeeping in the run file (D-6), next to `startedSessions`, which ADR 0014
   decision 5 already lists.
-- ADR 0014 decision 1 is amended by ADR 0022 decision 4 (D-6); decision 2 (starts on typed turns
+- ADR 0014 decision 1 is amended by ADR 0023 decision 4 (D-6); decision 2 (starts on typed turns
   only) is unchanged: a switch is not a start.
 - ADR 0016 (stage roles write their own files): unchanged; a retry is the same role. A role that
   writes its file with `result=failed` has delivered its stage, so the retry, which is for an agent
   that could not finish, does not apply (D-5 "The retry's reach").
-- ADR 0022 decision 5 is read as D-5 "The retry's reach" says; review round 1 found the decision's
+- ADR 0023 decision 5 is read as D-5 "The retry's reach" says; review round 1 found the decision's
   words silent on the agent that writes `result=failed`, and the clarifying Note of D-10 (task 5.3)
   states the reading without changing a decision, with the clause that the Consequences'
-  mitigation "one retry a model up" reaches only an agent that cannot finish. ADR 0022 decision 2's
+  mitigation "one retry a model up" reaches only an agent that cannot finish. ADR 0023 decision 2's
   `[1m]` opt-in is read as reaching a session's own model and the retry's mapping, never a stage
   subagent (D-9, task 1.5), and the same Note states it. Both readings, and AC-10 as narrowed from
   the owner's `requirements.md` text, are listed in `proposal.md` among the criteria and readings
@@ -881,9 +881,9 @@ No new ADR beyond `decisions.md`'s ADR 0022. Read, with their rejected alternati
 | The session keeps declaring `role-failed`, and the loop only offers the retry | The session would have to know when a retry is due; the decision belongs to the loop (ADR 0010) |
 | `next` reads the hand-offs on every call (`runNext` passes `retry: true`, as first planned) | Reads a transcript on every `next` even with no budget, against the kept change-budget AC-4 test; every failure already comes back with `--after`; the owner chose `--after` only on 2026-11-23 (D-5) |
 | Reading the change session's model from its transcript instead of the run file | The newest message keeps the old model until the session's next turn, so every event turn would ask the same switch again |
-| The session-model switch kept to typed turns | A cheaper switch asks nothing (ADR 0022 Context), and most stage changes are seen on event turns |
+| The session-model switch kept to typed turns | A cheaper switch asks nothing (ADR 0023 Context), and most stage changes are seen on event turns |
 | Spend rendered twice, in flow-check's words and in the message table | Two texts for one block; `SPEND_MESSAGES` is one source spread into the table |
-| Step a change session down to each new stage's model, with no floor (ADR 0022 as first written) | The session would perform the review round, the delivery steps and the retro on Haiku, since it is never switched up; the owner chose the floor on 2026-11-23 |
+| Step a change session down to each new stage's model, with no floor (ADR 0023 as first written) | The session would perform the review round, the delivery steps and the retro on Haiku, since it is never switched up; the owner chose the floor on 2026-11-23 |
 | No session switch at all (a change session stays on its start model) | Keeps every change session on Opus after its grill, the spend the change exists to cut; the owner chose the floor |
 | The floor computed from every stage ahead, subagent stages included | Would hold a session on Opus through the plan for stages it only hands off, and the subagents already run on their own model (D-3) |
 | The session-run stages read from each flow's stage `role` (no agent) | `delivery` has an agent (`commit-and-pr`) and session steps (the merge, the waits); the ADR names the set, so one list states it |
@@ -897,16 +897,16 @@ No new ADR beyond `decisions.md`'s ADR 0022. Read, with their rejected alternati
   existed at all, the fallback was to start without it and switch down at once; the checked schema
   makes that unnecessary.
 - [The floor keeps a change session on Sonnet through its Haiku stages, so it saves less than a step
-  to Haiku would] → accepted by the owner's decision of 2026-11-23 (ADR 0022 decision 4 and
+  to Haiku would] → accepted by the owner's decision of 2026-11-23 (ADR 0023 decision 4 and
   Consequences): the grill, the approval, the review round, the delivery steps and the retro are not
   done on Haiku. The Haiku stages still run as Haiku subagents (D-3), and the readout shows the
   session's share (D-7).
 - [A session-run stage whose table model is above the session's, such as a project's `retro: opus`
   after a start at the implementation on Sonnet, is performed on the session's model] → accepted by
-  ADR 0022 Consequences (no upward switch, so no confirmation); it arises only from a table that puts
+  ADR 0023 Consequences (no upward switch, so no confirmation); it arises only from a table that puts
   a stronger session-run stage after a weaker start, a host-capped start, a found session or a
   refused switch (D-6).
-- [A session that ignores `model` runs every agent on its frontmatter model] → accepted by ADR 0022
+- [A session that ignores `model` runs every agent on its frontmatter model] → accepted by ADR 0023
   (a driver that ignores it runs as before); the readout shows it, and a Troubleshooting row names it.
 - [The transcript's stored form changes] → one reader per form (D-4, D-7), fixtures copied from the
   observed form, ADR 0011's review trigger.
@@ -959,7 +959,7 @@ delivery merge, tasks 4.1 and 4.5 again (D-10).
 `plugins/openspec/hooks/roadmap-loop.test.mjs`, `plugins/openspec/hooks/flow-check.test.mjs`,
 `plugins/openspec/skills/devkit/SKILL.md`, `docs/openspec-flow.md`, `docs/coordination-design.md`,
 `docs/adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md`,
-`docs/adr/0022-the-model-is-chosen-by-stage.md` (the Note of task 5.3), `openspec/config.yaml`,
+`docs/adr/0023-the-model-is-chosen-by-stage.md` (the Note of task 5.3), `openspec/config.yaml`,
 `plugins/openspec/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `CHANGELOG.md`.
 Delete none.
 
@@ -978,7 +978,7 @@ Delete none.
 | Skill (D-9) and docs, ADR 0014 Note, config (D-10) | 1.5 | Documentation | LOW |
 | Real-run proof (D-13) | 2 | Integration | HIGH |
 | Release and the whole suite (D-14) | 0.5 | Integration | LOW |
-| The retry's reach, review round 1 (D-5, D-10, D-12, D-13): the pinning test, the doc test, the flow document, the ADR 0022 Note and the CHANGELOG, the whole suite again | 1.5 | Testing | LOW |
+| The retry's reach, review round 1 (D-5, D-10, D-12, D-13): the pinning test, the doc test, the flow document, the ADR 0023 Note and the CHANGELOG, the whole suite again | 1.5 | Testing | LOW |
 | Real run 3 of D-13, a stub test runner that obeys the hook (review round 5, task 5.4) | 0.5 | Integration | MEDIUM |
 | Tasks 4.1 and 4.5 redone at the delivery merge: the ADR renumbered, its references and `0020` tests, the release above `origin/main`'s (D-10) | 1 | Migration | MEDIUM |
 
@@ -990,7 +990,7 @@ Delete none.
 | The host default for an ignored start is cheaper than the recorded model, so a step-down would be upward and the host asks the user (A-1, A-2) | LOW × MEDIUM | Not observed (the first run's default was `opus[1m]`); a declined question is reported `session-model-refused` and never asked again (D-6) |
 | The switch tool's fields change after 2026-11-23 (A-2, checked) | LOW × MEDIUM | Only D-9's sentence names them; a failed call is reported `session-model-refused`, which only costs more |
 | The Agent tool takes no `model`, or not these values (A-3) | LOW × HIGH | Probed in task 1.1 before any code (one real Agent call, its subagent's `message.model`); a failed probe stops the change for a plan revision; run 1 of D-13 shows it again |
-| The floor's list of session-run stages drifts from what the session really performs (a stage moved to or from a subagent) | LOW × MEDIUM | One list, `SESSION_RUN_STAGES` (D-1), read only by `stepDownOf` (D-6); ADR 0022's review trigger names the move; a D-12 test ties the list to `MODEL_STAGES` |
+| The floor's list of session-run stages drifts from what the session really performs (a stage moved to or from a subagent) | LOW × MEDIUM | One list, `SESSION_RUN_STAGES` (D-1), read only by `stepDownOf` (D-6); ADR 0023's review trigger names the move; a D-12 test ties the list to `MODEL_STAGES` |
 | The floor reads a change's table or flow that the session's own loop reads differently | LOW × LOW | Both use `modelsOf` and `readFlow`; the roadmap's read is lenient, so a bad change table gives the project's or the default model, and an unreadable flow gives `MODEL_STAGES`, never a wrong cheaper floor below a session-run stage of the default flows |
 | A nested `claude -p` is refused inside the implementer | MEDIUM × LOW | The conducting session runs D-13 in Bash |
 | `-p` ends before background agents return (run 2) | MEDIUM × MEDIUM | The conducting session reruns it; D-13 says so |
@@ -1010,9 +1010,9 @@ Delete none.
 - A-2 (checked fact, 2026-11-23, same check): `mcp__ccd_session_mgmt__set_session_model` takes
   `session_id` (a `sessionId` of `list_sessions`) and `model`; it is refused for the calling
   session and asks the user before a switch to a more expensive model, none before a cheaper one
-  (Context; `requirements.md`, ADR 0022 Context).
+  (Context; `requirements.md`, ADR 0023 Context).
 - A-3: the Agent tool's `model` parameter takes `opus`, `sonnet` and `haiku` and overrides the
-  agent's frontmatter `model:` (ADR 0022 decision 3). Not yet checked; task 1.1 probes it before
+  agent's frontmatter `model:` (ADR 0023 decision 3). Not yet checked; task 1.1 probes it before
   any code, and its output is kept as `proof/probe-agent-model.jsonl`.
 - A-4: a subagent's file is `<session>/subagents/agent-*.jsonl`, its first `user` line holds the
   prompt and every `assistant` line `message.model` (observed 2026-11-23, Context).
@@ -1027,5 +1027,5 @@ Delete none.
   path (D-5 "The retry's reach").
 
 **Dependencies.** `change-budget` (archived 2026-11-23: `sessionTranscript`, `spentOf`, the
-`budget` cap); `roadmap-coordinator-followups` (archived 2026-11-22: sessions per change); ADR 0022
+`budget` cap); `roadmap-coordinator-followups` (archived 2026-11-22: sessions per change); ADR 0023
 (`decisions.md`), ADR 0010, 0011, 0013, 0014 as cited.

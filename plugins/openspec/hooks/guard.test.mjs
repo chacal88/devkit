@@ -19,6 +19,7 @@ import './jira-task.test.mjs'; // jira-entry: the Jira key, the task and the wri
 import './roadmap-loop.test.mjs'; // roadmap-coordinator: the roadmap loop, its commands and its locks
 import './delivery-models.test.mjs'; // delivery-models: the delivery model per project, its settings and opening
 import './stage-models.test.mjs'; // stage-models: the model of each stage, its table, its retry and its spend readout
+import './delivery-train.test.mjs'; // delivery-train: reviewed changes leave together on a delivery train
 import './release-tags.test.mjs'; // release-tags: the release_tag setting and the tag-release step
 import './project-loop.test.mjs'; // project-phases: the devkit-project schema, the slice loop, the slice contract
 import './version-pin.test.mjs'; // change-version-pin: the flow a change opened with

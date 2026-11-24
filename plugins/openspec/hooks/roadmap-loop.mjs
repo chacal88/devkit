@@ -288,7 +288,7 @@ function remoteSessionStartOf(e, machine, f, lang) {
 }
 const requestOf = (line) => [line.text, line.notes].filter(Boolean).join('\n') || line.id;
 
-// The model a change session is switched to, or null for no switch (ADR 0022 decision 4 and the owner's floor of 2026-11-23, stage-models
+// The model a change session is switched to, or null for no switch (ADR 0023 decision 4 and the owner's floor of 2026-11-23, stage-models
 // D-6). The one place that says whether a session is switched and to what. `current` is the model the run recorded for the session,
 // `stage` the stage its change is at, `models` the table of the change, `stages` its script's stage order and `refused` the switch the
 // host refused. A session never steps below the strongest model among the stage it is at and the session-run stages still ahead
