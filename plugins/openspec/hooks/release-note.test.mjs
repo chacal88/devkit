@@ -437,6 +437,39 @@ test('release-note AC-7 citation: once the cited ADR landed on the base, the ste
   assert.ok(r.out.citations.includes('docs/y.md'));
 });
 
+// Found by the real-run proof (task 6.2, P-1): the step rewrites the citations in every tracked text outside openspec/changes/, CHANGELOG.md
+// included, so a changelog body that cites an ADR is written numbered and the state must read it so.
+test('release-note AC-2 state: a changelog body that cites the change\'s own ADR is assigned after the step, and the step runs again after the base moved', () => {
+  const root = noteRepo({ note: note('packs:', '- devkit-openspec: minor', '', '## the rule lands', '', '- **devkit-openspec**: the rule (ADR [feat])') });
+  const first = assignIn(root);
+  assert.equal(first.code, 0, first.text);
+  assert.match(readIn(root, 'CHANGELOG.md'), /- \*\*devkit-openspec\*\* 1\.1\.0: the rule \(ADR 0002\)\n/);
+  assert.deepEqual([stateOf(root).kind, stateOf(root).paths], ['assigned', []]);
+  baseReleases(root, { 'docs/adr/0002-other.md': '# ADR 0002: other\n' });
+  const again = assignIn(root);
+  assert.equal(again.code, 0, again.text);
+  assert.match(readIn(root, 'CHANGELOG.md'), /the rule \(ADR 0003\)\n/);
+  assert.deepEqual([stateOf(root).kind, stateOf(root).current], ['assigned', true]);
+});
+
+test('release-note AC-2 state: a changelog body that cites another change\'s landed ADR is assigned after the step', () => {
+  const root = noteRepo({ note: note('packs:', '- devkit-openspec: minor', '', '## the rule lands', '', '- **devkit-openspec**: amends ADR [other]') });
+  baseReleases(root, { 'docs/adr/0002-other.md': '# ADR 0002: other\n' });
+  const r = assignIn(root);
+  assert.equal(r.code, 0, r.text);
+  assert.match(readIn(root, 'CHANGELOG.md'), /amends ADR 0002\n/);
+  assert.deepEqual([stateOf(root).kind, stateOf(root).current], ['assigned', true]);
+});
+
+test('release-note AC-7 citation: a changelog body that cites another change\'s ADR that has not landed is refused naming the slug', () => {
+  const root = noteRepo({ note: note('packs:', '- devkit-openspec: minor', '', '## the rule lands', '', '- **devkit-openspec**: amends ADR [other]') });
+  const oldHead = headOf(root);
+  const r = assignIn(root);
+  assert.equal(r.code, 2, r.text);
+  assert.match(r.out.error, /^ADR \[other\] is cited but has not landed on main/);
+  assert.equal(headOf(root), oldHead);
+});
+
 test('release-note AC-8 consumer: the release file gets the note\'s bump and CHANGELOG.md the entry above its newest', () => {
   const root = noteRepo({ config: CONSUMER, files: { 'package.json': pkgJson('1.4.0'), 'CHANGELOG.md': '# Changelog\n\n## 1.4.0 — old\n\n- x\n' }, adr: false, note: CONSUMER_NOTE });
   const oldHead = headOf(root);

@@ -203,27 +203,27 @@ invariant, layer and suite in the commit message. Leave no backup or scratch fil
 
 ## 6. Real-run proof of every case
 
-- [ ] 6.1 Write the seed and case scripts of D-16 under `$TMPDIR/devkit-proof-release-at-merge` (a
+- [x] 6.1 Write the seed and case scripts of D-16 under `$TMPDIR/devkit-proof-release-at-merge` (a
   private `TMPDIR`; never `/tmp` on this machine), each repository with a bare `origin`, the release
   files of a two-pack marketplace, `docs/openspec-flow.md` pin lines, `devkit.release_tag`, and the
   `gh` stub D-16 describes. Done when the seed builds and `proof/real-run.md` opens with how it was
   built.
-- [ ] 6.2 Run P-1 (single merge, the session's own part of the step included) and the single-merge
+- [x] 6.2 Run P-1 (single merge, the session's own part of the step included) and the single-merge
   half of P-12, appending each command and its output to `proof/real-run.md`. Done when the records
   stay current after the step, the next step is `enable-auto-merge`, the second `assign-release`
   meets no conflict and `tag-release` is asked (AC-4, AC-5, AC-13).
-- [ ] 6.3 Run P-2 (a train of two noted changes through `train-loop.mjs depart`) and the train half
+- [x] 6.3 Run P-2 (a train of two noted changes through `train-loop.mjs depart`) and the train half
   of P-12. Done when the train holds both numbers in boarding order, `deliver-check --ci` passes on
   it, both heads are unchanged and `tag-release` is asked for the train's merge (AC-3, AC-5, AC-13).
-- [ ] 6.4 Run P-3 (an old-rule change). Done when `--base`, `renumber-adr` and the mixed join behave
+- [x] 6.4 Run P-3 (an old-rule change). Done when `--base`, `renumber-adr` and the mixed join behave
   as before this change (AC-10).
-- [ ] 6.5 Run P-4 and P-5 (consumer projects with and without the key, each variant). Done when the
+- [x] 6.5 Run P-4 and P-5 (consumer projects with and without the key, each variant). Done when the
   release file and `CHANGELOG.md` follow AC-8 and no new step, refusal or file appears in AC-9's
   cases.
-- [ ] 6.6 Run P-6 to P-11 (each refusal and each malformed field; in P-8 the session writes
+- [x] 6.6 Run P-6 to P-11 (each refusal and each malformed field; in P-8 the session writes
   `approval.md` from `next.release`). Done when each refusal reads as D-8 says and each case's fix
   lets the run go on (AC-1, AC-2, AC-6, AC-7, AC-11, AC-12).
-- [ ] 6.7 Gate: `python3 scripts/check.py && openspec validate release-at-merge --strict && grep -q "^## P-1 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## P-12 " openspec/changes/release-at-merge/proof/real-run.md` green, the scratch folder removed; covers AC-15 for the cases of D-16's first table.
+- [x] 6.7 Gate: `python3 scripts/check.py && openspec validate release-at-merge --strict && grep -q "^## P-1 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## P-12 " openspec/changes/release-at-merge/proof/real-run.md` green, the scratch folder removed; covers AC-15 for the cases of D-16's first table.
 
 ## 7. The conducting session's part: the real agents on every variant
 

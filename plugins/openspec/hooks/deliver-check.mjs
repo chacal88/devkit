@@ -1926,27 +1926,33 @@ export function maskRelease(text, path, map = { adrs: [], file: null }) {
 }
 
 // true when `path` differs between revisions `before` and `after` only in release lines (D-5): CHANGELOG.md and docs/catalog.md; a path whose
-// two texts mask equal; an ADR added under its number whose text masks equal to its unnumbered text before; that unnumbered path deleted
-// when its numbered form is added. `ctx` is { file, adrsAt(rev) }, which `releaseEdit` memoizes per revision.
+// two texts mask equal; an ADR added under its number whose text masks equal to the form of the same record that left (its unnumbered
+// path, or its former number when the step ran again after the base numbered another record); that form deleted when the numbered one is
+// added. Each side is masked with the records it holds (`ctx.adrsAt` of that revision), so a renumbered record reads as itself on both sides
+// and a citation moved to another record's number does not. `ctx` is { file, adrsAt(rev) }, which `releaseEdit` memoizes per revision.
 export function releaseOnlyEdit(root, before, after, path, ctx = releaseContext(root)) {
   if (!before || !after) return false;
   if (path === CHANGELOG || path === 'docs/catalog.md') return true;
   const reader = repoReader(root);
-  const map = { adrs: ctx.adrsAt(after), file: ctx.file };
-  const was = reader.file(before, path);
-  const now = reader.file(after, path);
-  if (was !== null && now !== null) return maskRelease(was, path, map) === maskRelease(now, path, map);
-  const [, folder, number, slug] = /^(.+)\/(\d{4})-(.+)\.md$/.exec(path) ?? [];
-  if (was === null && now !== null && folder && ADR_DIRS.includes(folder)) {
-    const unnumbered = reader.file(before, `${folder}/${slug}.md`);
-    return unnumbered !== null && maskRelease(unnumbered, `${folder}/${slug}.md`, map) === maskRelease(now, path, map);
+  const was = { rev: before, map: { adrs: ctx.adrsAt(before), file: ctx.file } };
+  const now = { rev: after, map: { adrs: ctx.adrsAt(after), file: ctx.file } };
+  const masked = (side, p) => { const text = reader.file(side.rev, p); return text === null ? null : maskRelease(text, p, side.map); };
+  const wasText = masked(was, path);
+  const nowText = masked(now, path);
+  if (wasText !== null && nowText !== null) return wasText === nowText;
+  const folder = path.slice(0, path.lastIndexOf('/'));
+  if (!ADR_DIRS.includes(folder)) return false;
+  const name = path.slice(folder.length + 1);
+  const slug = /^\d{4}-(.+)\.md$/.exec(name)?.[1] ?? name.replace(/\.md$/, '');
+  // The forms of the record `slug` a side holds in the folder: `<slug>.md` and each `<NNNN>-<slug>.md`.
+  const forms = (side) => reader.dir(side.rev, folder).filter((n) => n === `${slug}.md` || new RegExp(`^\\d{4}-${esc(slug)}\\.md$`).test(n)).map((n) => `${folder}/${n}`);
+  const numbered = (p) => /^\d{4}-/.test(p.slice(folder.length + 1));
+  if (wasText === null && nowText !== null) {
+    if (!numbered(path)) return false;
+    const left = forms(was).filter((p) => p !== path && reader.file(after, p) === null);
+    return left.length === 1 && masked(was, left[0]) === nowText;
   }
-  if (was !== null && now === null && ADR_DIRS.includes(path.slice(0, path.lastIndexOf('/')))) {
-    const folderOf = path.slice(0, path.lastIndexOf('/'));
-    const named = path.slice(folderOf.length + 1).replace(/\.md$/, '');
-    const added = map.adrs.find((a) => a.slug === named && reader.file(after, `${folderOf}/${a.number}-${named}.md`) !== null && reader.file(before, `${folderOf}/${a.number}-${named}.md`) === null);
-    return added !== undefined;
-  }
+  if (wasText !== null && nowText === null) return forms(now).filter((p) => p !== path && numbered(p) && reader.file(before, p) === null).length === 1;
   return false;
 }
 
@@ -1992,12 +1998,13 @@ function adrValue(root, reader, head, adr) {
   return `other:${unnumbered ? adr.from : ''}${numbered.join(',')}`;
 }
 
-// The `ADR [<x>]` citations of the branch's changed files for a slug `x` that is not `own`: { cited, unlanded }; a citation is unlanded when
-// no `<dir>/<NNNN>-<x>.md` is on `tip`.
-function citationsOf(root, reader, { mergeBase, head, tip, own }) {
+// The `ADR [<x>]` citations of the branch's changed files and of the note's changelog title and body (the step writes them into
+// CHANGELOG.md) for a slug `x` that is not `own`: { cited, unlanded }; a citation is unlanded when no `<dir>/<NNNN>-<x>.md` is on `tip`.
+function citationsOf(root, reader, { mergeBase, head, tip, own, noteText = '' }) {
   const changed = spawnSync('git', ['-C', root, 'diff', '--name-only', '-z', '--no-renames', mergeBase, head], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).stdout.split('\0').filter((p) => p && !p.startsWith('openspec/changes/'));
   const cited = [];
-  for (const path of changed) for (const m of (reader.file(head, path) ?? '').matchAll(/ADR \[([A-Za-z0-9][A-Za-z0-9._-]*)\]/g)) if (!own.has(m[1]) && !cited.includes(m[1])) cited.push(m[1]);
+  const texts = [...changed.map((path) => reader.file(head, path) ?? ''), noteText];
+  for (const text of texts) for (const m of text.matchAll(/ADR \[([A-Za-z0-9][A-Za-z0-9._-]*)\]/g)) if (!own.has(m[1]) && !cited.includes(m[1])) cited.push(m[1]);
   const landed = (slug) => ADR_DIRS.some((dir) => reader.dir(tip, dir).some((n) => new RegExp(`^\\d{4}-${esc(slug)}\\.md$`).test(n)));
   return { cited, unlanded: cited.filter((slug) => !landed(slug)) };
 }
@@ -2038,6 +2045,9 @@ export function releaseStateAt(root, { head: headRev, tip, base, note, file, adr
   const head = linesOf((path) => reader.file(headRev, path), packPaths, file);
   const before = linesOf(atMergeBase, packPaths, file);
   const after = linesOf((path) => computed.files[path] ?? atMergeBase(path), packPaths, file);
+  // The step rewrites the citations in CHANGELOG.md too (D-4), so the changelog is compared with the head's ADR numbers masked (D-5).
+  const numbers = { adrs: numberedAdrs(reader, headRev), file: null };
+  for (const lines of [head, before, after]) if (lines.has(CHANGELOG)) lines.set(CHANGELOG, maskRelease(lines.get(CHANGELOG), CHANGELOG, numbers));
   for (const adr of computed.adrs) {
     before.set(adr.from, 'unnumbered');
     after.set(adr.from, `numbered:${adr.to}`);
@@ -2055,7 +2065,7 @@ export function releaseStateAt(root, { head: headRev, tip, base, note, file, adr
   else if (asBefore) kind = 'unassigned';
   else { kind = 'hand'; paths = keys.filter((k) => eq(head, before, k) && !eq(head, after, k)); }
   const current = kind === 'assigned' && gitOk(root, ['merge-base', '--is-ancestor', tip, headRev]);
-  const citations = citationsOf(root, reader, { mergeBase, head: headRev, tip, own: new Set(computed.adrs.map((a) => a.slug)) });
+  const citations = citationsOf(root, reader, { mergeBase, head: headRev, tip, own: new Set(computed.adrs.map((a) => a.slug)), noteText: `${note.title ?? ''}\n${note.body ?? ''}` });
   return { kind, paths, current, base, citations, adrs: computed.adrs };
 }
 

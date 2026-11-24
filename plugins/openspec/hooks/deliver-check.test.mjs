@@ -13,7 +13,7 @@ import {
 } from './deliver-check.mjs';
 import * as DC from './deliver-check.mjs';
 import { findingLine, consolidate, outcomeOf, validateStage1 } from '../../core/skills/review-change/scripts/review-round.mjs';
-import { git, gitRepo, put, commitAll, proposalWith, fakeGh, tasksText, check, presetSetup, shipRepo, runCli } from './test-fixtures.mjs';
+import { git, gitRepo, put, commitAll, proposalWith, fakeGh, tasksText, check, presetSetup, shipRepo, runCli, GIT_ENV } from './test-fixtures.mjs';
 import {
   here, review, reviews, withReviews, base, head, mergeHistory, mergeMain, onlyOpenspec, s7, gateRow, ev, acRow, changeFiles, callGh, PR_FIELDS,
   prJson, OLD_FLAG, versionsOf, conversation, tick, devkitRepo, readinessHash, approvalMd, planRepo, reviewAt, fullEvidence, PR_BODY, driveToReady,
@@ -2817,6 +2817,32 @@ test('release-note AC-4 staleness: a change with no note is judged as before, th
   stepCommit(root, { adr: false });
   assert.equal(recordsOf(root).tasks, 'stale');
   assert.equal(recordsOf(root).reviews.status, 'open');
+});
+
+// Found by the real-run proof (task 6.2, P-1): run again after the base numbered another record, the step's merge renumbers the change's
+// own record (0002 to 0003) and its citations; that is a release edit too, and the old number reads as the change's own record.
+test('release-note AC-4 staleness: the step run again after the base numbered another ADR renumbers the change\'s record and leaves the records current', () => {
+  const root = provedNote();
+  const step = () => spawnSync(STEP_COMMAND[0], STEP_COMMAND.slice(1), { cwd: root, encoding: 'utf8', env: { ...GIT_ENV, ...CI_ENV } });
+  const first = step();
+  assert.equal(first.status, 0, first.stderr + first.stdout);
+  assert.deepEqual([recordsOf(root).tasks, recordsOf(root).acceptance, recordsOf(root).reviews.status], ['current', 'current', 'met']);
+  baseReleases(root, { 'docs/adr/0002-other.md': '# ADR 0002: other\n' });
+  const again = step();
+  assert.equal(again.status, 0, again.stderr + again.stdout);
+  assert.equal(readFileSync(join(root, 'docs/x.md'), 'utf8'), 'See ADR 0003 for the rule.\n');
+  const after = recordsOf(root);
+  assert.deepEqual([after.tasks, after.acceptance, after.reviews.status], ['current', 'current', 'met'], tasksItem(root, 'feat', relFacts(root)).reason);
+});
+
+test('release-note AC-5 staleness: a citation of the change\'s own record moved to another record\'s number on the base merge still stales', () => {
+  const root = provedNote();
+  stepCommit(root);
+  baseReleases(root, { 'docs/adr/0003-other.md': '# ADR 0003: other\n' });
+  git(root, 'merge', '-q', '--no-ff', '--no-commit', 'main');
+  put(root, { 'docs/x.md': 'See ADR 0003 for the rule.\n' });
+  commitAll(root, 'merge main and cite the base\'s record');
+  assert.match(tasksItem(root, 'feat', relFacts(root)).reason, /touches docs\/x\.md/);
 });
 
 test('release-note AC-4 staleness: without the setting the same commit stales the records', () => {
