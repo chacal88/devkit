@@ -103,7 +103,7 @@ every task with `git status --short`.
   ends the run" (`roadmap-loop-upfront.test.mjs`):
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^change-loop repl" --test-name-pattern="^jira-entry-followups AC-8" --test-name-pattern="^change-state AC-3" --test-name-pattern="^upfront AC-8 skill" plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/roadmap-loop-upfront.test.mjs`
   passes.
-- [ ] 1.3 D-2 and the `declared.json` rule of D-1 in `plugins/openspec/hooks/guard.mjs` (`runMarkers`, `runOf`,
+- [x] 1.3 D-2 and the `declared.json` rule of D-1 in `plugins/openspec/hooks/guard.mjs` (`runMarkers`, `runOf`,
   `classify` for `declared.json` of any change, `writeViolation`'s message, `withoutHeredocs` split out of `sanitize`,
   `declareViolation` and its call in `guardBash`, the header comment). Check: T3 to T5, T18 to T23 and T98 to T104
   pass, and every "change-loop lock stop: T3a" test, "sanitize drops heredoc bodies and quoted text" and the three
