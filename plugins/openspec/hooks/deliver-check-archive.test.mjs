@@ -2,7 +2,7 @@
 // Run by `node scripts/test-suite.mjs`, in a process of its own; alone: `node scripts/test-suite.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFileSync, rmSync as fsRm, readFileSync, renameSync, cpSync } from 'node:fs';
+import { writeFileSync, appendFileSync, rmSync as fsRm, readFileSync, renameSync, existsSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { spawnSync } from 'node:child_process';
@@ -14,9 +14,11 @@ import {
 } from './deliver-check.mjs';
 import * as DC from './deliver-check.mjs';
 import { pendingTasks } from './flow-check.mjs';
+import { main as loopMain } from './change-loop.mjs';
+import { recordText, SUITE as TRAIN_SUITE } from './delivery-train-fixtures.mjs';
 import {
-  git, gitRepo, put, commitAll, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, tasksText, check, presetSetup, shipRepo, cli, runCli, mergedPr, archivePrJson,
-  ARCHIVE_LISTING, ACTIVE_ON_MAIN, ARCHIVE_PRS, ARCHIVED_DIR, NOT_FOUND, retroMd, retroPath, writeRetro, pm, proposal,
+  git, gitRepo, put, commitAll, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, tasksText, tasksFixture, check, presetSetup, shipRepo, cli, runCli, mergedPr, archivePrJson,
+  ARCHIVE_LISTING, ACTIVE_ON_MAIN, ARCHIVE_PRS, ARCHIVED_DIR, NOT_FOUND, retroMd, retroPath, writeRetro, pm, proposal, SET_LOOP, actionOf,
 } from './test-fixtures.mjs';
 import {
   here, review, reviews, withReviews, base, head, mergeHistory, mergeMain, onlyOpenspec, s7, acRow, changeFiles, callGh, prJson, OLD_FLAG, versionsOf,
@@ -936,6 +938,17 @@ test('format: ship-change archive rows name the commands and the owner-answer ru
   assert.match(skillRow(md, 'archived'), /archived/);
 });
 
+test('forced-merge-path 2: D2 the ship-change retro row names next.forced, Went wrong, items and the files\' language', () => {
+  const row = skillRow(shipSkill(), 'retro');
+  assert.match(row, /next\.forced/);
+  assert.match(row, /Went wrong/);
+  assert.match(row, /next\.forced\.items/);
+  assert.match(row, /files' language/);
+  assert.match(row, /filesLanguage/);
+  assert.match(row, /Merged by the owner with <count> items open:/);
+  assert.match(row, /tick no task and change no file but `retro\.md`/);
+});
+
 test('format: ship-change reused merge rows say next.number is the archive PR after the merge, and the enable command stays verbatim (3.1, AC-5)', () => {
   const md = shipSkill();
   assert.ok(md.includes('gh pr merge <next.number> --auto --<next.method> --match-head-commit <next.head>'));
@@ -1453,6 +1466,7 @@ test('field-fixes 4 delivered: with tasks left on the default branch the change\
   const t = pm();
   t.gh.prFiles(12, [FEAT_TASKS, 'src/a.ts']);
   t.gh.tasksOnDefault('feat', tasksText({ ticked: ['1.1'], unticked: ['3.1', '3.2'] }));
+  t.gh.set('pr-view-12', rollupFx([OKRUN('check'), OKRUN('devkit-reviews')])); // every required check was green: not an owner's forced merge
   const s = t.state();
   assert.ok(!s.archive, 'no archive facts: the change is not delivered');
   const n = nextStep(s);
@@ -1487,6 +1501,7 @@ test('field-fixes 4 delivered: on the change\'s branch with the work ticked and 
   t.gh.prFiles(12, [FEAT_TASKS, 'src/a.ts']);
   t.gh.tasksOnDefault('feat', tasksText({ ticked: ['1.1'], unticked: ['3.1'] }));
   t.gh.set('pr-list', { stdout: [] });
+  t.gh.set('pr-view-12', rollupFx([OKRUN('check'), OKRUN('devkit-reviews')])); // every required check was green: not an owner's forced merge
   const s = collectState(t.root, 'feat', { env: t.env });
   assert.ok(!s.archive);
   assert.equal(nextStep(s).step, 'open-pr');
@@ -1500,9 +1515,14 @@ test('field-fixes 4 delivered: a further open pull request on the same head afte
   t.gh.tasksOnDefault('feat', tasksText({ ticked: ['1.1'], unticked: ['3.1'] }));
   const further = prJson({ number: 15, state: 'OPEN', headRefOid: head(t.root), body: PR_BODY });
   t.gh.set('pr-list', { stdout: [further] });
+  // Merged #12 has a task left and a required check red: still no forced merge while a further pull request is open (it is not delivered).
+  t.gh.set('pr-view-12', rollupFx([OKRUN('check'), RUNOF('devkit-reviews', 'FAILURE')]));
   const s = collectState(t.root, 'feat', { env: t.env });
   assert.equal(s.pr.number, 15, 'the open pull request of the same head is the pull request');
   assert.notEqual(nextStep(s).step, 'open-pr');
+  assert.equal(s.forced, null);
+  assert.equal(s.unreadMerge, null);
+  assert.equal(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'view' && c[2] === '12'), false, 'no pr view 12 call: the rollup is not read');
 });
 
 test('field-fixes 4 delivered: with no open pull request on the head after a merge with tasks left, the answer names the merged one and the tasks', () => {
@@ -1515,6 +1535,7 @@ test('field-fixes 4 delivered: with no open pull request on the head after a mer
   const r = findChangePr(makeGh(t.root, t.env), t.root, 'feat', { ship: 'merge', branch: 'feat', env: t.env });
   assert.equal(r.none, true);
   assert.equal(r.mergedBefore, 12);
+  assert.equal(r.merged.number, 12, 'the merged pull request itself, so the delivery judges it without a second lookup');
   assert.deepEqual(r.tasks.unticked, ['3.1']);
 });
 
@@ -2231,6 +2252,865 @@ test('commit-attribution AC-1 T36 the ship-change Attribution section holds the 
     "The caller's lines win over your own environment's, as the owner's choice: write exactly these and no other Co-Authored-By line, attribution trailer or footer.",
     'Attribution (from the caller): none', 'verbatim', "never take the agent's"]) assert.ok(s.includes(part), part);
   assert.doesNotMatch(s, /Opus|Sonnet|Haiku|noreply/);
+});
+
+// ================================================================ forced-merge-path phase 1: an owner's forced merge (design D-1 to D-5, D-12)
+// The facts come from fakeGh keys only: the rollup is `pr-view-<n>`, the rules are presetSetup's, contents, compare and commits follow
+// the key rule of the fake (`/ { } ?` become `_`). No test reads this repository's git history.
+
+const FMP = 'forced-merge-path 1';
+const fmpRoute = (route) => `api-GET-${`repos/{owner}/{repo}/${route}`.replace(/[\/{}?]/g, '_')}`;
+const contentsKey = (path, ref) => fmpRoute(`contents/${path}?ref=${ref}`);
+const folderFx = (names) => ({ stdout: names.map((name) => ({ name, type: 'file' })) });
+const fileFx = (text) => tasksFixture(text);
+const OKRUN = (name) => ({ __typename: 'CheckRun', name, status: 'COMPLETED', conclusion: 'SUCCESS' });
+const RUNOF = (name, conclusion) => ({ __typename: 'CheckRun', name, status: 'COMPLETED', conclusion });
+const STATUS = (context, state) => ({ __typename: 'StatusContext', context, state });
+const rollupFx = (list) => ({ stdout: { statusCheckRollup: list } });
+const rule = (...contexts) => [{ type: 'required_status_checks', parameters: { required_status_checks: contexts.map((context) => ({ context })) } }];
+const STAGE = (result, sha, commit = sha) => `<!-- devkit-stage evidence result=${result} attempt=1 commit=${sha} -->\nCommit: ${commit}\n\n# Evidence\n`;
+const verdictText = (verdict, sha) => `Verdict: ${verdict}\nCommit: ${sha}\n\n# Review\n`;
+const BOOM = { exit: 1, stderr: 'gh: boom\n' };
+const RULES_KEY = 'api-GET-repos__owner___repo__rules_branches_main';
+const EVIDENCE_PATH = 'openspec/changes/feat/evidence.md';
+const REVIEWS_PATH = 'openspec/changes/feat/reviews';
+
+// The gate files of change `feat` at `head`: evidence undefined is a passed one recorded at `head`, null is not found, a string is
+// its text; `reviews` maps a reviewer to the file text (none: the folder is not found).
+function gatesAt(gh, head, { evidence, reviews = {} } = {}) {
+  gh.set(contentsKey(EVIDENCE_PATH, head), evidence === null ? NOT_FOUND : fileFx(evidence ?? STAGE('passed', head)));
+  const names = Object.keys(reviews);
+  gh.set(contentsKey(REVIEWS_PATH, head), names.length ? folderFx(names.map((n) => `${n}.md`)) : NOT_FOUND);
+  for (const [name, text] of Object.entries(reviews)) gh.set(contentsKey(`${REVIEWS_PATH}/${name}.md`, head), fileFx(text));
+}
+const approvedAt = (head) => ({ 'code-quality-reviewer': verdictText('approved', head), 'test-coverage-reviewer': verdictText('approved', head) });
+
+// What forcedMerge reads for a merged pull request `n`: its tasks on the default branch, its rollup and its gate files at `head`. The default
+// shape is PR 88's: task 9.6 left, `check` SUCCESS, `devkit-reviews` FAILURE, no evidence, one reviewer REJECTED.
+const PR88_HEAD = '8'.repeat(40);
+const pr88Gates = (head) => ({ evidence: null, reviews: { 'code-quality-reviewer': verdictText('rejected', head), 'test-coverage-reviewer': verdictText('approved', head) } });
+function forcedFixtures(t, { n = 12, head = 'b'.repeat(40), rollup = [OKRUN('check'), RUNOF('devkit-reviews', 'FAILURE')], ticked = ['1.1', '1.2'], unticked = ['9.6'], gates = pr88Gates(head) } = {}) {
+  t.gh.tasksOnDefault('feat', tasksText({ ticked, unticked }));
+  t.gh.set(`pr-view-${n}`, rollupFx(rollup));
+  gatesAt(t.gh, head, gates);
+  return t;
+}
+const PR88 = mergedPr({ number: 88, url: 'https://github.com/o/r/pull/88', headRefOid: PR88_HEAD });
+// PR 88's shape from a checkout on the default branch (the list arm), or on `branch`.
+const forcedPm = (opts = {}) => forcedFixtures(pm({ mergedPrs: [PR88], ...opts }), { n: 88, head: PR88_HEAD });
+const PR88_TEXTS = ['task 9.6', 'devkit-reviews (FAILURE)', 'evidence.md (missing)', 'reviews/code-quality-reviewer.md (verdict REJECTED)'];
+const PR88_REASON = `PR #88 merged by the owner with 4 items open: ${PR88_TEXTS.join('; ')}; run the retro`;
+const unreadReason = (n, error) => `cannot tell whether PR #${n} of feat was merged by the owner: ${error}`;
+
+// PR 88 merged, the checkout on the change's own branch `ship/feat`: GitHub still holds the branch (`pr view` finds it, no further pull
+// request is open), or deleted it (`pr view` finds none, `pr list --head` lists it merged).
+function forcedOnBranch({ n = 88, deleted = false, extra = '', ...fixtures } = {}) {
+  const t = shipRepo({ ship: 'merge' });
+  driveToReady(t);
+  // Settings that change what a ready change does (the train boards it) come after the drive.
+  if (extra) {
+    appendFileSync(join(t.root, 'openspec/config.yaml'), extra);
+    commitAll(t.root, 'settings');
+  }
+  const sha = head(t.root);
+  const merged = prJson({ number: n, url: `https://github.com/o/r/pull/${n}`, state: 'MERGED', headRefOid: sha, body: PR_BODY });
+  if (deleted) {
+    t.gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "ship/feat"\n' });
+    t.gh.set('pr-list', { stdout: [{ ...merged, headRefName: 'ship/feat', mergedAt: '2026-11-09T14:56:00Z' }] });
+  } else {
+    t.gh.set('pr-view', { stdout: merged });
+    t.gh.set('pr-list', { stdout: [] });
+  }
+  t.gh.prFiles(n, [FEAT_TASKS, 'src/a.ts']);
+  // The default branch still holds the change, and no archive pull request exists (the facts of the post-merge rows).
+  t.gh.set(ARCHIVE_LISTING, { stdout: [{ name: '2026-10-01-other' }] });
+  t.gh.set(ACTIVE_ON_MAIN, { stdout: { name: 'feat' } });
+  t.gh.set(ARCHIVE_PRS, { stdout: [] });
+  return forcedFixtures(t, { n, head: sha, gates: pr88Gates(sha), ...fixtures });
+}
+const stateOf = (t) => collectState(t.root, 'feat', { env: t.env });
+
+// ---- F: the forced signal (D-2)
+
+// A runner of fixtures for forcedChecks: the rules of the default branch, and the rollup of pull request 12 when given.
+function checksRepo({ rules, rollup } = {}) {
+  const t = findRepo([]);
+  presetSetup(t.gh, rules ? { rules } : {});
+  if (rollup !== undefined) t.gh.set('pr-view-12', rollupFx(rollup));
+  return t;
+}
+const forcedOf = (t) => DC.forcedChecks(t.run, 12, 'main');
+
+test(`${FMP}: F1 devkit-reviews FAILURE beside a green check is forced by devkit-reviews (FAILURE)`, () => {
+  const t = checksRepo({ rollup: [OKRUN('check'), RUNOF('devkit-reviews', 'FAILURE')] });
+  assert.deepEqual(forcedOf(t), { checks: [{ name: 'devkit-reviews', conclusion: 'FAILURE' }] });
+  assert.deepEqual(t.gh.calls().filter((c) => c[0] === 'pr'), [['pr', 'view', '12', '--json', 'statusCheckRollup']]);
+});
+
+test(`${FMP}: F2 check FAILURE alone is forced by check (FAILURE)`, () => {
+  const t = checksRepo({ rollup: [RUNOF('check', 'FAILURE'), OKRUN('devkit-reviews')] });
+  assert.deepEqual(forcedOf(t), { checks: [{ name: 'check', conclusion: 'FAILURE' }] });
+});
+
+test(`${FMP}: F3 a required check with no entry is absent`, () => {
+  assert.deepEqual(forcedOf(checksRepo({ rollup: [OKRUN('devkit-reviews')] })), { checks: [{ name: 'check', conclusion: 'absent' }] });
+});
+
+test(`${FMP}: F4 a required devkit-reviews with no entry is absent`, () => {
+  assert.deepEqual(forcedOf(checksRepo({ rollup: [OKRUN('check')] })), { checks: [{ name: 'devkit-reviews', conclusion: 'absent' }] });
+});
+
+test(`${FMP}: F5 every required check SUCCESS is not forced`, () => {
+  assert.deepEqual(forcedOf(checksRepo({ rollup: [OKRUN('check'), OKRUN('devkit-reviews'), RUNOF('lint', 'FAILURE')] })), { checks: [] }, 'a check no rule requires is not read');
+});
+
+test(`${FMP}: F6 devkit-reviews that no rule requires counts only when it reported and is not green`, () => {
+  const only = (rollup) => forcedOf(checksRepo({ rules: rule('check'), rollup }));
+  assert.deepEqual(only([OKRUN('check')]), { checks: [] }, 'absent');
+  assert.deepEqual(only([OKRUN('check'), RUNOF('devkit-reviews', 'FAILURE')]), { checks: [{ name: 'devkit-reviews', conclusion: 'FAILURE' }] }, 'reported FAILURE');
+  assert.deepEqual(only([OKRUN('check'), OKRUN('devkit-reviews')]), { checks: [] }, 'reported SUCCESS');
+});
+
+test(`${FMP}: F7 a status context entry is read like a check run of that name`, () => {
+  assert.deepEqual(forcedOf(checksRepo({ rollup: [STATUS('check', 'FAILURE'), OKRUN('devkit-reviews')] })), { checks: [{ name: 'check', conclusion: 'FAILURE' }] });
+  assert.deepEqual(forcedOf(checksRepo({ rollup: [STATUS('check', 'SUCCESS'), OKRUN('devkit-reviews')] })), { checks: [] });
+});
+
+test(`${FMP}: F8 two entries of one name are green only when both are SUCCESS`, () => {
+  const want = { checks: [{ name: 'check', conclusion: 'FAILURE' }] };
+  assert.deepEqual(forcedOf(checksRepo({ rollup: [OKRUN('check'), RUNOF('check', 'FAILURE'), OKRUN('devkit-reviews')] })), want);
+  assert.deepEqual(forcedOf(checksRepo({ rollup: [RUNOF('check', 'FAILURE'), OKRUN('check'), OKRUN('devkit-reviews')] })), want);
+});
+
+test(`${FMP}: F9 SKIPPED, NEUTRAL and an empty conclusion are not green`, () => {
+  assert.deepEqual(DC.notGreen([RUNOF('check', 'SKIPPED'), RUNOF('devkit-reviews', 'NEUTRAL')], ['check', 'devkit-reviews']),
+    [{ name: 'check', conclusion: 'SKIPPED' }, { name: 'devkit-reviews', conclusion: 'NEUTRAL' }]);
+  assert.deepEqual(DC.notGreen([RUNOF('check', null), OKRUN('devkit-reviews')], ['check', 'devkit-reviews']), [{ name: 'check', conclusion: 'PENDING' }]);
+  assert.deepEqual(DC.notGreen([], []), []);
+  assert.deepEqual(DC.notGreen([OKRUN('check')], ['check']), []);
+});
+
+test(`${FMP}: F9 notGreen lists the required checks in rule order, then devkit-reviews when no rule requires it`, () => {
+  const rollup = [RUNOF('devkit-reviews', 'FAILURE'), RUNOF('lint', 'FAILURE'), RUNOF('check', 'FAILURE'), OKRUN('build')];
+  assert.deepEqual(DC.notGreen(rollup, ['check', 'build']), [{ name: 'check', conclusion: 'FAILURE' }, { name: 'devkit-reviews', conclusion: 'FAILURE' }]);
+  assert.deepEqual(DC.notGreen(rollup, ['devkit-reviews', 'check']), [{ name: 'devkit-reviews', conclusion: 'FAILURE' }, { name: 'check', conclusion: 'FAILURE' }]);
+});
+
+test(`${FMP}: F10 forcedChecks answers an error for a missing rollup, a rules read that fails and a rollup read that fails`, () => {
+  const noField = checksRepo();
+  noField.gh.set('pr-view-12', { stdout: { number: 12 } });
+  assert.deepEqual(forcedOf(noField), { error: 'gh pr view 12 returned no statusCheckRollup' });
+  const notList = checksRepo();
+  notList.gh.set('pr-view-12', { stdout: { statusCheckRollup: null } });
+  assert.deepEqual(forcedOf(notList), { error: 'gh pr view 12 returned no statusCheckRollup' });
+  const noRules = checksRepo({ rollup: [OKRUN('check')] });
+  noRules.gh.set(RULES_KEY, BOOM);
+  assert.deepEqual(forcedOf(noRules), { error: 'gh: boom' });
+  const noView = checksRepo();
+  noView.gh.set('pr-view-12', BOOM);
+  assert.deepEqual(forcedOf(noView), { error: 'gh: boom' });
+});
+
+test(`${FMP}: F10 from the default branch a failed forced read blocks naming pull request 12 and reports no mergedLeft`, () => {
+  const variants = {
+    'a rollup answer without the field': [(t) => t.gh.set('pr-view-12', { stdout: { number: 12 } }), 'gh pr view 12 returned no statusCheckRollup'],
+    'a rules read that fails': [(t) => t.gh.set(RULES_KEY, BOOM), 'gh: boom'],
+    'a rollup read that fails': [(t) => t.gh.set('pr-view-12', BOOM), 'gh: boom'],
+  };
+  for (const [name, [break_, error]] of Object.entries(variants)) {
+    const t = forcedFixtures(pm());
+    break_(t);
+    const s = stateOf(t);
+    assert.deepEqual(s.unreadMerge, { number: 12, error }, name);
+    assert.equal(s.mergedLeft, null, name);
+    assert.equal(s.forced, null, name);
+    const n = nextStep(s);
+    assert.deepEqual([n.step, n.reason], ['blocked', unreadReason(12, error)], name);
+    assert.equal(n.number, 12, name);
+    assert.doesNotMatch(JSON.stringify(n), /undefined/, name);
+    assert.match(s.items[4].reason, new RegExp(`cannot read the PR: ${error.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), name);
+  }
+});
+
+test(`${FMP}: F11 on the change's own branch the same failed read blocks and never answers implement`, () => {
+  const t = forcedOnBranch();
+  t.gh.set('pr-view-88', BOOM);
+  const s = stateOf(t);
+  assert.deepEqual(s.unreadMerge, { number: 88, error: 'gh: boom' });
+  const n = nextStep(s);
+  assert.deepEqual([n.step, n.reason], ['blocked', unreadReason(88, 'gh: boom')]);
+});
+
+// ---- G: the open items at the merged head (D-3)
+
+const GHEAD = 'c'.repeat(40);
+const OLD = 'd'.repeat(40);
+const OLDER = 'e'.repeat(40);
+const gatesRepo = (gates) => {
+  const t = findRepo([]);
+  gatesAt(t.gh, GHEAD, gates);
+  return t;
+};
+const gatesOf = (t, head = GHEAD) => DC.gatesAtHead(t.run, 'feat', head);
+const compareKey = (a, b) => fmpRoute(`compare/${a}...${b}`);
+const compareFx = (status, files = []) => ({ stdout: { status, files: files.map((filename) => ({ filename })) } });
+const compareCalls = (t) => t.gh.calls().filter((c) => c[0] === 'api' && /\/compare\//.test(c[1]));
+
+test(`${FMP}: G0 a passed evidence and both required reviews approved at the head are no open gate`, () => {
+  assert.deepEqual(gatesOf(gatesRepo({ reviews: approvedAt(GHEAD) })), { gates: [] });
+});
+
+test(`${FMP}: G1 a missing evidence.md is one gate item`, () => {
+  assert.deepEqual(gatesOf(gatesRepo({ evidence: null, reviews: approvedAt(GHEAD) })), { gates: [{ file: 'evidence.md', why: 'missing' }] });
+});
+
+test(`${FMP}: G2 an evidence.md whose stage header result is failed is one gate item naming the result`, () => {
+  assert.deepEqual(gatesOf(gatesRepo({ evidence: STAGE('failed', GHEAD), reviews: approvedAt(GHEAD) })), { gates: [{ file: 'evidence.md', why: 'result failed' }] });
+});
+
+test(`${FMP}: G3 an evidence.md with no stage header, or a malformed one, is one gate item`, () => {
+  for (const evidence of [`Commit: ${GHEAD}\n\n# Evidence\n`, `<!-- devkit-stage evidence result=maybe -->\nCommit: ${GHEAD}\n`]) {
+    assert.deepEqual(gatesOf(gatesRepo({ evidence, reviews: approvedAt(GHEAD) })), { gates: [{ file: 'evidence.md', why: 'no stage header' }] }, evidence);
+  }
+});
+
+test(`${FMP}: G3 a passed evidence with no Commit line, or recorded with uncommitted changes, is one gate item`, () => {
+  const noLine = `<!-- devkit-stage evidence result=passed attempt=1 commit=${GHEAD} -->\n\n# Evidence\n`;
+  assert.deepEqual(gatesOf(gatesRepo({ evidence: noLine, reviews: approvedAt(GHEAD) })), { gates: [{ file: 'evidence.md', why: 'no Commit: line' }] });
+  const dirty = `<!-- devkit-stage evidence result=passed attempt=1 commit=${GHEAD} -->\nCommit: ${OLD} (uncommitted changes)\n\n# Evidence\n`;
+  assert.deepEqual(gatesOf(gatesRepo({ evidence: dirty, reviews: approvedAt(GHEAD) })), { gates: [{ file: 'evidence.md', why: `${OLD.slice(0, 7)} was recorded with uncommitted changes` }] });
+});
+
+test(`${FMP}: G4 an evidence Commit equal to the head, or that the head starts with, is current with no compare call`, () => {
+  const t = gatesRepo({ evidence: STAGE('passed', GHEAD), reviews: approvedAt(GHEAD) });
+  assert.deepEqual(gatesOf(t), { gates: [] });
+  const short = gatesRepo({ evidence: STAGE('passed', GHEAD, GHEAD.slice(0, 7)), reviews: approvedAt(GHEAD.slice(0, 7)) });
+  assert.deepEqual(gatesOf(short), { gates: [] });
+  assert.deepEqual([compareCalls(t), compareCalls(short)], [[], []]);
+});
+
+test(`${FMP}: G5 an older Commit behind only openspec/ files is current, and one compare answers every file recorded at that sha`, () => {
+  const t = gatesRepo({ evidence: STAGE('passed', GHEAD, OLD), reviews: approvedAt(OLD) });
+  t.gh.set(compareKey(OLD, GHEAD), compareFx('ahead', ['openspec/changes/feat/evidence.md', 'openspec/specs/x/spec.md']));
+  assert.deepEqual(gatesOf(t), { gates: [] });
+  assert.equal(compareCalls(t).length, 1, 'cached per sha within the run');
+  assert.deepEqual(compareCalls(t)[0], ['api', `repos/{owner}/{repo}/compare/${OLD}...${GHEAD}`]);
+  const same = gatesRepo({ evidence: STAGE('passed', GHEAD, OLD), reviews: approvedAt(OLD) });
+  same.gh.set(compareKey(OLD, GHEAD), compareFx('identical'));
+  assert.deepEqual(gatesOf(same), { gates: [] });
+});
+
+test(`${FMP}: G6 an older Commit behind a product file is stale and names the file`, () => {
+  const t = gatesRepo({ evidence: STAGE('passed', GHEAD, OLD), reviews: approvedAt(GHEAD) });
+  t.gh.set(compareKey(OLD, GHEAD), compareFx('ahead', ['openspec/changes/feat/tasks.md', 'src/a.ts']));
+  assert.deepEqual(gatesOf(t), { gates: [{ file: 'evidence.md', why: `${OLD.slice(0, 7)} is behind the merged head, which changes src/a.ts` }] });
+});
+
+test(`${FMP}: G7 a Commit that is not an ancestor of the head, one too far behind and one that does not resolve are stale`, () => {
+  const stale = (answer) => {
+    const t = gatesRepo({ evidence: STAGE('passed', GHEAD, OLD), reviews: approvedAt(GHEAD) });
+    t.gh.set(compareKey(OLD, GHEAD), answer);
+    return gatesOf(t).gates;
+  };
+  const why = (text) => [{ file: 'evidence.md', why: text }];
+  assert.deepEqual(stale(compareFx('diverged', ['src/a.ts'])), why(`${OLD.slice(0, 7)} is not an ancestor of the merged head`));
+  assert.deepEqual(stale(compareFx('behind')), why(`${OLD.slice(0, 7)} is not an ancestor of the merged head`));
+  const many = Array.from({ length: 300 }, (_, i) => `openspec/n${i}.md`);
+  assert.deepEqual(stale(compareFx('ahead', many)), why(`${OLD.slice(0, 7)} is too far behind the merged head to read`));
+  assert.deepEqual(stale(NOT_FOUND), why(`${OLD.slice(0, 7)} does not resolve to a commit`));
+});
+
+test(`${FMP}: G8 a missing required reviewer, a REJECTED one and an approved one behind a product file are three gate items; a test-spared reviewer behind a test file only is current`, () => {
+  const t = gatesRepo({
+    evidence: STAGE('passed', GHEAD),
+    reviews: {
+      'test-coverage-reviewer': verdictText('rejected', GHEAD),
+      'perf-reviewer': verdictText('approved', OLDER),
+      'spec-reviewer': verdictText('approved', OLD),
+    },
+  });
+  t.gh.set(compareKey(OLDER, GHEAD), compareFx('ahead', ['openspec/a.md', 'src/a.ts']));
+  t.gh.set(compareKey(OLD, GHEAD), compareFx('ahead', ['openspec/a.md', 'plugins/x/a.test.mjs']));
+  assert.deepEqual(gatesOf(t), {
+    gates: [
+      { file: 'reviews/code-quality-reviewer.md', why: 'missing' },
+      { file: 'reviews/test-coverage-reviewer.md', why: 'verdict REJECTED' },
+      { file: 'reviews/perf-reviewer.md', why: `${OLDER.slice(0, 7)} is behind the merged head, which changes src/a.ts` },
+    ],
+  });
+});
+
+test(`${FMP}: G8 a review with no Verdict line, a DECLINED one and a non-md entry`, () => {
+  const t = findRepo([]);
+  gatesAt(t.gh, GHEAD, { evidence: STAGE('passed', GHEAD), reviews: { 'code-quality-reviewer': `Commit: ${GHEAD}\n\n# Review\n`, 'test-coverage-reviewer': verdictText('declined', GHEAD) } });
+  t.gh.set(contentsKey(REVIEWS_PATH, GHEAD), { stdout: [{ name: 'code-quality-reviewer.md' }, { name: 'test-coverage-reviewer.md' }, { name: 'notes.txt' }] });
+  assert.deepEqual(gatesOf(t), { gates: [{ file: 'reviews/code-quality-reviewer.md', why: 'no verdict line' }] });
+});
+
+// One currency rule (jira-entry-followups D-2): an approved verdict that still lists an undisposed [blocking] / [important] finding is
+// current only through commits of the change's own review record, on the forced path as in readReviews.
+const FIX = 'f'.repeat(40);
+const withFinding = (disposition, commit = OLD) => `Verdict: approved\nCommit: ${commit}\n\n# Review\n\n- [important] the retro under-reports a gate${disposition}\n`;
+const openGateRepo = (text, files) => {
+  const t = gatesRepo({ evidence: STAGE('passed', GHEAD), reviews: { 'code-quality-reviewer': text, 'test-coverage-reviewer': verdictText('approved', GHEAD) } });
+  t.gh.set(compareKey(OLD, GHEAD), compareFx('ahead', files));
+  return t;
+};
+
+test(`${FMP}: G11 an approved verdict that lists an undisposed finding is stale behind a commit outside the review record, and the count includes it`, () => {
+  const t = openGateRepo(withFinding(''), ['openspec/changes/feat/tasks.md']);
+  assert.deepEqual(gatesOf(t), { gates: [{ file: 'reviews/code-quality-reviewer.md', why: `${OLD.slice(0, 7)} is behind the merged head, which changes openspec/changes/feat/tasks.md` }] });
+  const pr = { number: 12, url: 'https://github.com/o/r/pull/12', headRefOid: GHEAD };
+  const f = openGateRepo(withFinding(''), ['openspec/changes/feat/tasks.md']);
+  presetSetup(f.gh);
+  f.gh.set('pr-view-12', rollupFx([OKRUN('check'), RUNOF('devkit-reviews', 'FAILURE')]));
+  const got = DC.forcedMerge(f.run, 'feat', pr, { base: 'main', unticked: [] });
+  assert.equal(got.forced.count, 2);
+  assert.ok(got.forced.items.some((i) => i.kind === 'gate' && i.file === 'reviews/code-quality-reviewer.md'));
+  // Behind only the change's own review record, it is current.
+  assert.deepEqual(gatesOf(openGateRepo(withFinding(''), ['openspec/changes/feat/reviews/code-quality-reviewer.md'])), { gates: [] });
+});
+
+test(`${FMP}: G12 the same verdict with the finding disposed (fixed in a sha in history, or refuted) is current as before`, () => {
+  const fixed = openGateRepo(withFinding(` · fixed in ${FIX.slice(0, 12)}`), ['openspec/changes/feat/tasks.md']);
+  fixed.gh.set(compareKey(FIX.slice(0, 12), GHEAD), compareFx('ahead', ['src/a.ts']));
+  assert.deepEqual(gatesOf(fixed), { gates: [] });
+  const refuted = openGateRepo(withFinding(' · refuted: the rule is the same'), ['openspec/changes/feat/tasks.md']);
+  assert.deepEqual(gatesOf(refuted), { gates: [] });
+});
+
+test(`${FMP}: G13 a fixed-in sha that is behind, diverged from or unknown to the merged head leaves the finding undisposed`, () => {
+  const fixedIn = FIX.slice(0, 12);
+  const cases = [
+    ['behind', compareFx('behind', ['src/a.ts'])],
+    ['diverged', compareFx('diverged', ['src/a.ts'])],
+    ['a sha GitHub does not find (404)', NOT_FOUND],
+  ];
+  for (const [name, answer] of cases) {
+    const t = openGateRepo(withFinding(` · fixed in ${fixedIn}`), ['openspec/changes/feat/tasks.md']);
+    t.gh.set(compareKey(fixedIn, GHEAD), answer);
+    assert.deepEqual(gatesOf(t), { gates: [{ file: 'reviews/code-quality-reviewer.md', why: `${OLD.slice(0, 7)} is behind the merged head, which changes openspec/changes/feat/tasks.md` }] }, name);
+  }
+});
+
+test(`${FMP}: G14 a fixed-in sha whose compare fails with anything but a 404 blocks, quoting the error`, () => {
+  const fixedIn = FIX.slice(0, 12);
+  const t = openGateRepo(withFinding(` · fixed in ${fixedIn}`), ['openspec/changes/feat/tasks.md']);
+  t.gh.set(compareKey(fixedIn, GHEAD), BOOM);
+  assert.deepEqual(gatesOf(t), { error: 'gh: boom' });
+  // From the default branch the same unreadable compare blocks and never forces.
+  const f = forcedFixtures(pm(), { gates: { evidence: STAGE('passed', 'b'.repeat(40)), reviews: { 'code-quality-reviewer': withFinding(` · fixed in ${fixedIn}`, 'b'.repeat(40)), 'test-coverage-reviewer': verdictText('approved', 'b'.repeat(40)) } } });
+  f.gh.set(compareKey(fixedIn, 'b'.repeat(40)), BOOM);
+  const s = stateOf(f);
+  assert.deepEqual(s.unreadMerge, { number: 12, error: 'gh: boom' });
+  assert.equal(s.forced, null);
+  assert.deepEqual([nextStep(s).step, nextStep(s).reason], ['blocked', unreadReason(12, 'gh: boom')]);
+});
+
+test(`${FMP}: G9 gatesAtHead answers an error for a contents read that fails, a folder where a file is expected and a file where the folder is expected`, () => {
+  const short = GHEAD.slice(0, 7);
+  const base = () => gatesRepo({ reviews: approvedAt(GHEAD) });
+  const cases = [
+    ['a contents read that fails', (t) => t.gh.set(contentsKey(EVIDENCE_PATH, GHEAD), BOOM), 'gh: boom'],
+    ['a review read that fails', (t) => t.gh.set(contentsKey(`${REVIEWS_PATH}/code-quality-reviewer.md`, GHEAD), BOOM), 'gh: boom'],
+    ['a reviews listing that fails', (t) => t.gh.set(contentsKey(REVIEWS_PATH, GHEAD), BOOM), 'gh: boom'],
+    ['evidence answered as a folder', (t) => t.gh.set(contentsKey(EVIDENCE_PATH, GHEAD), { stdout: [{ name: 'x' }] }), `${EVIDENCE_PATH} at ${short} has no content`],
+    ['evidence with no content string', (t) => t.gh.set(contentsKey(EVIDENCE_PATH, GHEAD), { stdout: { name: 'evidence.md' } }), `${EVIDENCE_PATH} at ${short} has no content`],
+    ['a review answered as a folder', (t) => t.gh.set(contentsKey(`${REVIEWS_PATH}/code-quality-reviewer.md`, GHEAD), { stdout: [] }), `${REVIEWS_PATH}/code-quality-reviewer.md at ${short} has no content`],
+    ['reviews answered as a file', (t) => t.gh.set(contentsKey(REVIEWS_PATH, GHEAD), { stdout: { name: 'reviews', content: 'x' } }), `${REVIEWS_PATH} at ${short} is not a folder`],
+    ['a compare read that fails', (t) => { t.gh.set(contentsKey(EVIDENCE_PATH, GHEAD), fileFx(STAGE('passed', GHEAD, OLD))); t.gh.set(compareKey(OLD, GHEAD), BOOM); }, 'gh: boom'],
+    ['a compare answer with no file list', (t) => { t.gh.set(contentsKey(EVIDENCE_PATH, GHEAD), fileFx(STAGE('passed', GHEAD, OLD))); t.gh.set(compareKey(OLD, GHEAD), { stdout: { status: 'ahead' } }); }, `compare ${OLD.slice(0, 7)}...${short} has no file list`],
+    ['a compare answer that is not JSON', (t) => { t.gh.set(contentsKey(EVIDENCE_PATH, GHEAD), fileFx(STAGE('passed', GHEAD, OLD))); t.gh.set(compareKey(OLD, GHEAD), { stdout: 'not json' }); }, 'compare returned unreadable JSON'],
+  ];
+  for (const [name, break_, error] of cases) {
+    const t = base();
+    break_(t);
+    assert.deepEqual(gatesOf(t), { error }, name);
+  }
+});
+
+test(`${FMP}: G9 from the default branch an unreadable gate file blocks naming pull request 12 and never forces`, () => {
+  const t = forcedFixtures(pm());
+  t.gh.set(contentsKey(EVIDENCE_PATH, 'b'.repeat(40)), BOOM);
+  const s = stateOf(t);
+  assert.deepEqual(s.unreadMerge, { number: 12, error: 'gh: boom' });
+  assert.equal(s.forced, null);
+  const n = nextStep(s);
+  assert.deepEqual([n.step, n.reason], ['blocked', unreadReason(12, 'gh: boom')]);
+  const folder = forcedFixtures(pm());
+  folder.gh.set(contentsKey(EVIDENCE_PATH, 'b'.repeat(40)), { stdout: [{ name: 'x' }] });
+  assert.equal(nextStep(stateOf(folder)).step, 'blocked');
+});
+
+test(`${FMP}: G10 on the change's own branch an unreadable gate file blocks and never answers implement`, () => {
+  const t = forcedOnBranch();
+  t.gh.set(contentsKey(EVIDENCE_PATH, head(t.root)), BOOM);
+  const n = nextStep(stateOf(t));
+  assert.deepEqual([n.step, n.reason], ['blocked', unreadReason(88, 'gh: boom')]);
+});
+
+// ---- forcedMerge combines the two reads (D-3)
+
+test(`${FMP}: forcedMerge is not forced with every required check green, and forced lists tasks, then checks, then gates`, () => {
+  const t = findRepo([]);
+  presetSetup(t.gh);
+  t.gh.set('pr-view-12', rollupFx([OKRUN('check'), OKRUN('devkit-reviews')]));
+  const pr = { number: 12, url: 'https://github.com/o/r/pull/12', headRefOid: GHEAD };
+  assert.deepEqual(DC.forcedMerge(t.run, 'feat', pr, { base: 'main', unticked: ['9.6'] }), { forced: null });
+  assert.equal(t.gh.calls().some((c) => /contents/.test(c[1] ?? '')), false, 'no gate file is read when the merge is not forced');
+  t.gh.set('pr-view-12', rollupFx([OKRUN('check'), RUNOF('devkit-reviews', 'FAILURE')]));
+  gatesAt(t.gh, GHEAD, { evidence: null, reviews: approvedAt(GHEAD) });
+  const got = DC.forcedMerge(t.run, 'feat', pr, { base: 'main', unticked: ['9.6', '9.7'] });
+  assert.deepEqual(got.forced.items, [
+    { kind: 'task', id: '9.6', text: 'task 9.6' },
+    { kind: 'task', id: '9.7', text: 'task 9.7' },
+    { kind: 'check', name: 'devkit-reviews', conclusion: 'FAILURE', text: 'devkit-reviews (FAILURE)' },
+    { kind: 'gate', file: 'evidence.md', why: 'missing', text: 'evidence.md (missing)' },
+  ]);
+  assert.deepEqual([got.forced.number, got.forced.url, got.forced.head, got.forced.count], [12, pr.url, GHEAD, 4]);
+  t.gh.set('pr-view-12', BOOM);
+  assert.deepEqual(DC.forcedMerge(t.run, 'feat', pr, { base: 'main', unticked: ['9.6'] }), { error: 'gh: boom' });
+});
+
+// ---- E: a tasks read that fails keeps today's answer
+
+test(`${FMP}: E1 a tasks read that fails sets no unreadMerge and keeps item 5 blocked and today's step`, () => {
+  const t = pm();
+  t.gh.prFiles(12, [FEAT_TASKS]);
+  t.gh.set(TASKS_ON_KEY('feat'), BOOM);
+  const s = stateOf(t);
+  assert.equal(s.unreadMerge, null);
+  assert.equal(s.forced, null);
+  assert.equal(s.items[4].status, 'blocked');
+  assert.match(s.items[4].reason, /gh: boom/);
+  assert.equal(nextStep(s).step, 'stop-branch');
+  assert.equal(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'view' && c[2] === '12'), false, 'no forced read was reached');
+});
+
+// ---- N: the forced retro and the rows after it (D-4, D-5)
+
+test(`${FMP}: N1 PR 88 from the default branch answers the retro with its exact reason, count and items in order`, () => {
+  const t = forcedPm();
+  const n = t.next();
+  assert.equal(n.step, 'retro');
+  assert.equal(n.reason, PR88_REASON);
+  assert.deepEqual([n.number, n.base, n.forced.count, n.forced.number, n.forced.url], [88, 'main', 4, 88, PR88.url]);
+  assert.equal(n.forced.head, PR88_HEAD);
+  assert.deepEqual(n.forced.items.map((i) => i.kind), ['task', 'check', 'gate', 'gate']);
+  assert.deepEqual(n.forced.items.map((i) => i.text), PR88_TEXTS);
+  assert.deepEqual(n.forced.items[3], { kind: 'gate', file: 'reviews/code-quality-reviewer.md', why: 'verdict REJECTED', text: PR88_TEXTS[3] });
+  assert.equal(stateOf(t).mergedLeft, null);
+});
+
+// The report of a forced merge read from the change's own branch is the one N5 reads from the default branch: items 1 and 6 open, the rest met,
+// exit 1 and the summary that names the retro (D-4).
+function assertOpenItems1And6(t) {
+  const r = runCli(t, ['feat', '--json']);
+  assert.equal(r.code, 1, r.out + r.err);
+  const j = JSON.parse(r.out);
+  assert.deepEqual(j.items.map((i) => i.status), ['open', 'met', 'met', 'met', 'met', 'open', 'met', 'met']);
+  assert.equal(j.items[0].reason, 'not done at the merge: task 9.6; evidence.md (missing); reviews/code-quality-reviewer.md (verdict REJECTED)');
+  assert.equal(j.items[5].reason, 'not green at the merge: devkit-reviews (FAILURE)');
+  assert.deepEqual([j.met, j.summary, j.next.step, j.next.number], [6, 'merged: archive step retro', 'retro', 88]);
+}
+
+test(`${FMP}: N2 PR 88 on the change's own branch with no open pull request answers the retro, never implement`, () => {
+  const t = forcedOnBranch();
+  const n = nextStep(stateOf(t));
+  assert.equal(n.step, 'retro');
+  assert.match(n.reason, /^PR #88 merged by the owner with 4 items open: task 9\.6; devkit-reviews \(FAILURE\); /);
+  assert.deepEqual([n.number, n.forced.count], [88, 4]);
+  assertOpenItems1And6(t);
+});
+
+test(`${FMP}: N3 PR 88 from another change's branch answers the retro`, () => {
+  const t = forcedPm({ branch: 'ship/other' });
+  assert.equal(stateOf(t).branch, 'ship/other');
+  const n = t.next();
+  assert.equal(n.step, 'retro');
+  assert.equal(n.reason, PR88_REASON);
+});
+
+test(`${FMP}: N4 PR 88 found with its branch deleted, from its own branch, answers the retro`, () => {
+  const t = forcedOnBranch({ deleted: true });
+  const n = nextStep(stateOf(t));
+  assert.equal(n.step, 'retro');
+  assert.equal(n.number, 88);
+  assert.equal(n.forced.count, 4);
+  assert.ok(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'list' && c.includes('--head')), 'found by the head branch list');
+  assertOpenItems1And6(t);
+});
+
+test(`${FMP}: N5 a forced merge opens items 1 and 6 only, exits 1 and says merged: archive step retro`, () => {
+  const t = forcedPm();
+  const r = runCli(t, ['feat', '--json']);
+  assert.equal(r.code, 1, r.out + r.err);
+  const j = JSON.parse(r.out);
+  assert.deepEqual(j.items.map((i) => i.status), ['open', 'met', 'met', 'met', 'met', 'open', 'met', 'met']);
+  assert.equal(j.items[0].reason, 'not done at the merge: task 9.6; evidence.md (missing); reviews/code-quality-reviewer.md (verdict REJECTED)');
+  assert.deepEqual(j.items[0].details, { unticked: ['9.6'], missingGates: [], evidence: 'forced' });
+  assert.equal(j.items[5].reason, 'not green at the merge: devkit-reviews (FAILURE)');
+  assert.deepEqual(j.items[5].details, { required: true, failing: [], pending: [] });
+  assert.deepEqual([j.met, j.summary, j.next.step, j.next.number], [6, 'merged: archive step retro', 'retro', 88]);
+  assert.equal(j.next.forced.count, 4);
+});
+
+test(`${FMP}: N6 every task ticked with devkit-reviews FAILURE stays delivered with today's reason and reads no check`, () => {
+  const t = pm({ mergedPrs: [PR88] });
+  t.gh.tasksOnDefault('feat', tasksText({ ticked: ['1.1', '9.6'] }));
+  t.gh.set('pr-view-88', rollupFx([OKRUN('check'), RUNOF('devkit-reviews', 'FAILURE')]));
+  const s = stateOf(t);
+  assert.equal(s.forced, null);
+  assert.equal(s.unreadMerge, null);
+  const n = nextStep(s);
+  assert.deepEqual([n.step, n.reason, n.number], ['retro', 'the change PR is merged; run the retro', 88]);
+  assert.equal('forced' in n, false);
+  assert.equal(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'view' && c[2] === '88'), false, 'no pr view 88 call');
+});
+
+test(`${FMP}: N7 a forced merge that bumped the release with no tag asks tag-release before the retro`, () => {
+  const t = forcedFixtures(pm({ extra: 'devkit:\n  release_tag: release.json\n' }));
+  const merge = '1'.repeat(40);
+  const parent = '2'.repeat(40);
+  const json = (v) => ({ stdout: { type: 'file', encoding: 'base64', content: Buffer.from(JSON.stringify({ version: v })).toString('base64') } });
+  t.gh.set(fmpRoute('pulls/12'), { stdout: { number: 12, merged: true, base: { ref: 'main' }, merge_commit_sha: merge } });
+  t.gh.set(contentsKey('release.json', merge), json('1.3.0'));
+  t.gh.set(fmpRoute(`git/commits/${merge}`), { stdout: { parents: [{ sha: parent }] } });
+  t.gh.set(contentsKey('release.json', parent), json('1.2.0'));
+  t.gh.set(fmpRoute('git/ref/tags/v1.3.0'), NOT_FOUND);
+  const n = t.next();
+  assert.deepEqual([n.step, n.tag, n.number, n.merged], ['tag-release', 'v1.3.0', 12, 'change']);
+  t.gh.set(fmpRoute('git/ref/tags/v1.3.0'), { stdout: { ref: 'refs/tags/v1.3.0', object: { type: 'commit', sha: merge } } });
+  assert.equal(t.next().step, 'retro');
+  assert.equal(t.next().forced.count, 4);
+});
+
+test(`${FMP}: N8 a forced merge with every proposal answered archives, then ticks the roadmap, then opens the archive pull request`, () => {
+  const t = forcedFixtures(pm());
+  writeRetro(t, retroMd(proposal(['CONTRIBUTING.md'], { answer: 'approved' })));
+  const archive = t.next();
+  assert.equal(archive.step, 'archive');
+  assert.equal(archive.create, true);
+  const left = tasksText({ ticked: ['1.1'], unticked: ['9.6'] });
+  const unticked = onArchiveBranch({ files: { 'CONTRIBUTING.md': 'new\n', 'openspec/roadmap.md': '## Round 3\n- [ ] feat\n' } });
+  unticked.gh.tasksOnDefault('feat', left);
+  assert.equal(unticked.next().step, 'tick-roadmap');
+  assert.equal(unticked.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'view' && c[2] === '12'), false, 'an archived change reads no forced merge');
+  const done = onArchiveBranch();
+  done.gh.tasksOnDefault('feat', left);
+  assert.equal(done.next().step, 'open-archive-pr');
+});
+
+test(`${FMP}: N9 a forced merge whose retro has an unanswered proposal stops for the owner's answers`, () => {
+  const t = forcedFixtures(pm());
+  writeRetro(t, retroMd(proposal(['CONTRIBUTING.md'])));
+  const n = t.next();
+  assert.equal(n.step, 'stop-retro-answers');
+  assert.equal(n.proposals.length, 1);
+});
+
+test(`${FMP}: N10 a run on a forced merge leaves tasks.md, readiness.md, approval.md, evidence.md and reviews/ byte-identical`, () => {
+  const t = forcedPm();
+  const files = {
+    'openspec/changes/feat/readiness.md': '# Readiness\n\n- Status: APPROVED\n',
+    'openspec/changes/feat/approval.md': '# Approval\n\n- Status: APPROVED\n',
+    'openspec/changes/feat/evidence.md': STAGE('failed', PR88_HEAD),
+    'openspec/changes/feat/reviews/code-quality-reviewer.md': verdictText('rejected', PR88_HEAD),
+    'openspec/changes/feat/reviews/test-coverage-reviewer.md': verdictText('approved', PR88_HEAD),
+  };
+  put(t.root, files);
+  const read = () => Object.fromEntries(['openspec/changes/feat/tasks.md', ...Object.keys(files)].map((f) => [f, readFileSync(join(t.root, f), 'utf8')]));
+  const before = read();
+  const statusBefore = git(t.root, 'status', '--short');
+  const r = DC.main(['feat', '--json'], { ...t.env, DEVKIT_HOST: 'cli' }, t.root);
+  assert.equal(JSON.parse(r.stdout).next.step, 'retro');
+  assert.deepEqual(read(), before);
+  assert.equal(git(t.root, 'status', '--short'), statusBefore, 'nothing else was written');
+});
+
+// ---- L: finding the merged pull request (D-1)
+
+const cap = (extra = []) => [...Array.from({ length: 100 - extra.length }, (_, i) => ({ ...AUTO_ARCHIVE, number: 300 + i, headRefName: `chore/archive-n${i}` })), ...extra];
+const COMMITS_KEY = (id, base = 'main') => fmpRoute(`commits?sha=${base}&path=openspec/changes/${id}/tasks.md&per_page=10`);
+const PULLS_KEY = (sha) => fmpRoute(`commits/${sha}/pulls`);
+const restPr = (over = {}) => ({ number: 5, html_url: 'https://github.com/o/r/pull/5', state: 'closed', merged_at: '2026-11-09T14:56:00Z', base: { ref: 'main' }, head: { ref: 'calm-badger', sha: 'a'.repeat(40) }, ...over });
+const SHA1 = '1'.repeat(40);
+const SHA2 = '2'.repeat(40);
+const SHA3 = '3'.repeat(40);
+const commitCalls = (t) => t.gh.calls().filter((c) => c[0] === 'api' && /\/commits/.test(c[1] ?? ''));
+
+test(`${FMP}: L1 a full list of 100 with none of the change's own is searched by the commits that changed its tasks.md`, () => {
+  const t = findRepo(cap([AUTO_DOCS]));
+  t.gh.set(COMMITS_KEY('auto-merge'), { stdout: [{ sha: SHA1 }, { sha: SHA2 }] });
+  t.gh.set(PULLS_KEY(SHA1), { stdout: [restPr()] });
+  t.gh.prFiles(5, ['openspec/changes/auto-merge/tasks.md', 'src/a.ts']);
+  const found = t.find('main');
+  assert.equal(found.via, 'commit', JSON.stringify(found));
+  assert.deepEqual(found.pr, { number: 5, url: 'https://github.com/o/r/pull/5', state: 'MERGED', headRefOid: 'a'.repeat(40), headRefName: 'calm-badger', baseRefName: 'main', mergedAt: '2026-11-09T14:56:00Z' });
+  assert.deepEqual(commitCalls(t).map((c) => c[1]), [
+    'repos/{owner}/{repo}/commits?sha=main&path=openspec/changes/auto-merge/tasks.md&per_page=10',
+    `repos/{owner}/{repo}/commits/${SHA1}/pulls`,
+  ], 'the first commit that gives an own pull request ends the search');
+});
+
+test(`${FMP}: L1 the commit arm takes the default branch from the repository settings, and the configured base in two-prs`, () => {
+  const t = findRepo(cap());
+  t.gh.set('api-GET-repos__owner___repo_', { stdout: { default_branch: 'trunk' } });
+  t.gh.set(COMMITS_KEY('auto-merge', 'trunk'), { stdout: [{ sha: SHA1 }] });
+  t.gh.set(PULLS_KEY(SHA1), { stdout: [restPr({ base: { ref: 'trunk' } })] });
+  t.gh.prFiles(5, ['openspec/changes/auto-merge/tasks.md']);
+  assert.equal(t.find('main').via, 'commit');
+  const two = findRepo(cap());
+  two.gh.set(COMMITS_KEY('auto-merge', 'release'), { stdout: [{ sha: SHA1 }] });
+  two.gh.set(PULLS_KEY(SHA1), { stdout: [restPr({ base: { ref: 'release' } })] });
+  two.gh.prFiles(5, ['openspec/changes/auto-merge/tasks.md']);
+  assert.equal(two.find('main', { base: 'release' }).via, 'commit');
+});
+
+test(`${FMP}: L2 the commit arm skips an archive head, another base and an unmerged pull request, then answers none`, () => {
+  const t = findRepo(cap());
+  t.gh.set(COMMITS_KEY('auto-merge'), { stdout: [{ sha: SHA1 }, { sha: SHA2 }, { sha: SHA3 }] });
+  t.gh.set(PULLS_KEY(SHA1), { stdout: [
+    restPr({ number: 61, head: { ref: 'chore/archive-auto-merge', sha: 'a'.repeat(40) } }),
+    restPr({ number: 62, base: { ref: 'develop' } }),
+    restPr({ number: 63, merged_at: null, state: 'open' }),
+  ] });
+  t.gh.set(PULLS_KEY(SHA2), { stdout: [] });
+  t.gh.set(PULLS_KEY(SHA3), { stdout: [restPr({ number: 77 })] });
+  t.gh.prFiles(77, ['src/other.ts']);
+  assert.deepEqual(t.find('main'), { none: true });
+  assert.equal(t.gh.calls().some((c) => /pulls\/(61|62|63)\/files/.test(c[1] ?? '')), false, 'a skipped pull request is not read');
+  assert.equal(t.gh.calls().some((c) => /pulls\/77\/files/.test(c[1] ?? '')), true, 'a candidate is read for its files');
+});
+
+test(`${FMP}: L3 findChangePr answers an error naming the commit arm when either commit route fails`, () => {
+  const first = findRepo(cap());
+  first.gh.set(COMMITS_KEY('auto-merge'), BOOM);
+  assert.deepEqual(first.find('main'), { error: 'gh: boom', arm: 'commit' });
+  const second = findRepo(cap());
+  second.gh.set(COMMITS_KEY('auto-merge'), { stdout: [{ sha: SHA1 }] });
+  second.gh.set(PULLS_KEY(SHA1), BOOM);
+  assert.deepEqual(second.find('main'), { error: 'gh: boom', arm: 'commit' });
+  const notList = findRepo(cap());
+  notList.gh.set(COMMITS_KEY('auto-merge'), { stdout: { message: 'x' } });
+  assert.equal(notList.find('main').arm, 'commit');
+  const noBase = findRepo(cap());
+  noBase.gh.set('api-GET-repos__owner___repo_', BOOM);
+  assert.deepEqual(noBase.find('main'), { error: 'gh: boom', arm: 'commit' });
+});
+
+test(`${FMP}: L3 an unreadable commit arm blocks from the default branch and from another change's branch, and never answers stop-branch`, () => {
+  const prs = cap().map((p) => mergedPr({ number: p.number, headRefName: p.headRefName }));
+  for (const [branch, breakIt] of [
+    ['main', (t) => t.gh.set(COMMITS_KEY('feat'), BOOM)],
+    ['ship/other', (t) => { t.gh.set(COMMITS_KEY('feat'), { stdout: [{ sha: SHA1 }] }); t.gh.set(PULLS_KEY(SHA1), BOOM); }],
+  ]) {
+    const t = pm({ branch, mergedPrs: prs });
+    breakIt(t);
+    const s = stateOf(t);
+    assert.deepEqual(s.unreadMerge, { number: null, error: 'gh: boom' }, branch);
+    assert.equal(s.mergedLeft, null, branch);
+    const n = nextStep(s);
+    assert.deepEqual([n.step, n.reason], ['blocked', 'cannot find the merged pull request of feat: gh: boom'], branch);
+  }
+});
+
+// The commit arm's success path composed with the delivery: a full list of 100 merged pull requests, none the change's own (archive heads),
+// the change's branch deleted, and GitHub's commits of the default branch that changed its tasks.md lead to pull request 12 (head `b`*40).
+// `ticked`/`unticked` and the `rollup` of pull request 12 are the case's; the gate files at the head are PR 88's shape (evidence missing, one
+// reviewer REJECTED). Returns the repository on `branch`.
+function commitArmPm({ branch = 'main', ...fixtures } = {}) {
+  const prs = cap().map((p) => mergedPr({ number: p.number, headRefName: p.headRefName }));
+  const t = forcedFixtures(pm({ branch, mergedPrs: prs }), fixtures);
+  t.gh.set(COMMITS_KEY('feat'), { stdout: [{ sha: SHA1 }] });
+  t.gh.set(PULLS_KEY(SHA1), { stdout: [restPr({ number: 12, html_url: 'https://github.com/o/r/pull/12', head: { ref: 'ship/feat', sha: 'b'.repeat(40) } })] });
+  t.gh.prFiles(12, [FEAT_TASKS, 'src/a.ts']);
+  return t;
+}
+const viaOf = (t, branch) => DC.deliveryOf(makeGh(t.root, t.env), t.root, 'feat', { ship: 'merge', branch, env: t.env, mergeFields: true }).fetched.via;
+const commitRoutes = ['repos/{owner}/{repo}/commits?sha=main&path=openspec/changes/feat/tasks.md&per_page=10', `repos/{owner}/{repo}/commits/${SHA1}/pulls`];
+
+// Invariant: a pull request the commit arm found is judged like one the list arm finds: with a task left and a required check red it is the
+// owner's forced merge, named by its number and its real count. Layer: findChangePr's commit arm composed with deliveryOf, collectState and
+// nextStep (deliver-check). Suite: deliver-check-archive.
+test(`${FMP}: L5 a pull request found by the commit arm with a task left and devkit-reviews FAILURE answers the retro with the real count, from the default branch and another change's branch`, () => {
+  for (const branch of ['main', 'ship/other']) {
+    const t = commitArmPm({ branch });
+    const s = stateOf(t);
+    assert.equal(s.unreadMerge, null, branch);
+    assert.equal(s.mergedLeft, null, branch);
+    assert.deepEqual([s.forced?.number, s.forced?.url, s.forced?.head, s.forced?.count], [12, 'https://github.com/o/r/pull/12', 'b'.repeat(40), 4], branch);
+    const n = nextStep(s);
+    assert.deepEqual([n.step, n.number, n.forced.count], ['retro', 12, 4], branch);
+    assert.equal(n.reason, 'PR #12 merged by the owner with 4 items open: task 9.6; devkit-reviews (FAILURE); evidence.md (missing); reviews/code-quality-reviewer.md (verdict REJECTED); run the retro', branch);
+    assert.deepEqual(commitRoutes.filter((r) => commitCalls(t).some((c) => c[1] === r)), commitRoutes, `${branch}: the commit arm found it`);
+    assert.equal(viaOf(commitArmPm({ branch }), branch), 'commit', branch);
+  }
+});
+
+// Invariant: a pull request the commit arm found, with a task left and every required check green, is a partial merge: stop-branch, never a forced
+// merge, and its checks' gate files are not read. Layer and suite as L5.
+test(`${FMP}: L6 a pull request found by the commit arm with a task left and every required check green stops at the branch, with no forced fact`, () => {
+  const t = commitArmPm({ rollup: [OKRUN('check'), OKRUN('devkit-reviews')] });
+  const s = stateOf(t);
+  assert.equal(s.forced, null);
+  assert.equal(s.unreadMerge, null);
+  assert.deepEqual(s.mergedLeft, { number: 12, tasks: ['9.6'] });
+  const n = nextStep(s);
+  assert.deepEqual([n.step, n.number, n.tasks], ['stop-branch', 12, ['9.6']]);
+  assert.equal(n.reason, 'PR #12 of feat merged with tasks left (9.6); continue on branch feat and open a further pull request');
+  assert.equal('forced' in n, false);
+  assert.equal(commitCalls(t).some((c) => c[1] === commitRoutes[1]), true, 'the commit arm found it');
+  assert.equal(t.gh.calls().some((c) => c[0] === 'api' && /contents\/openspec\/changes\/feat\/(evidence\.md|reviews)/.test(c[1] ?? '')), false, 'no gate file read');
+  assert.equal(viaOf(commitArmPm({ rollup: [OKRUN('check'), OKRUN('devkit-reviews')] }), 'main'), 'commit');
+});
+
+// Invariant: a pull request the commit arm found, with every task ticked, is delivered whatever its checks said, with today's retro reason and
+// no read of its rollup. Layer and suite as L5.
+test(`${FMP}: L7 a pull request found by the commit arm with every task ticked is delivered, answers today's retro row and is never forced`, () => {
+  const t = commitArmPm({ ticked: ['1.1', '1.2', '9.6'], unticked: [] });
+  const s = stateOf(t);
+  assert.equal(s.forced, null);
+  assert.equal(s.unreadMerge, null);
+  assert.equal(s.mergedLeft, null);
+  const n = nextStep(s);
+  assert.deepEqual([n.step, n.reason, n.number], ['retro', 'the change PR is merged; run the retro', 12]);
+  assert.equal('forced' in n, false);
+  assert.equal(commitCalls(t).some((c) => c[1] === commitRoutes[1]), true, 'the commit arm found it');
+  assert.equal(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'view' && c[2] === '12'), false, 'no rollup read');
+  assert.equal(viaOf(commitArmPm({ ticked: ['1.1', '1.2', '9.6'], unticked: [] }), 'main'), 'commit');
+});
+
+test(`${FMP}: L4 a list of three with none of the change's own reads no commit`, () => {
+  const t = findRepo([AUTO_DOCS, AUTO_ARCHIVE, { ...AUTO_DOCS, number: 10 }]);
+  assert.deepEqual(t.find('main'), { none: true });
+  assert.deepEqual(commitCalls(t), []);
+  const own = findRepo(cap([AUTO]));
+  assert.equal(own.find('main').via, 'list', 'a full list that holds the change\'s own is not searched further');
+  assert.deepEqual(commitCalls(own), []);
+});
+
+// ---- R: the archive pull request's check never reads the archived tasks (D-9)
+
+test(`${FMP}: R1 the archive check passes with an archived tasks.md that has an unticked task and no evidence, and fails on an unanswered proposal`, () => {
+  const tasks = '## 9. Last\n- [x] 9.1 done\n- [ ] 9.6 left after the merge\n';
+  const root = archivePrRepo({ files: { 'openspec/changes/archive/2026-11-09-x/tasks.md': tasks } });
+  assert.equal(existsSync(join(root, 'openspec/changes/archive/2026-11-09-x/evidence.md')), false);
+  const ok = runCi(root, [], { GITHUB_BASE_REF: 'main' });
+  assert.equal(ok.code, 0, ok.out + ok.err);
+  assert.equal(ok.out.trimEnd().split('\n').at(-1), 'pass');
+  const open = archivePrRepo({ files: { 'openspec/changes/archive/2026-11-09-x/tasks.md': tasks }, retro: '## Proposed updates\n\n### `src/a.ts` (process-friction)\nSummary.\n' });
+  const bad = runCi(open, [], { GITHUB_BASE_REF: 'main' });
+  assert.equal(bad.code, 1, bad.out + bad.err);
+});
+
+// ---- T: an owner's forced merge in a project that runs the delivery train (ADR 0022; this repository sets devkit.delivery.train)
+
+// The settings of this repository: ship merge through the model trunk-auto, and the whole-suite command of the train.
+const TRAIN_CONFIG = `devkit:\n  delivery:\n    model: trunk-auto\n    train: "${TRAIN_SUITE}"\n`;
+const OWN_HEAD = 'b'.repeat(40);
+const TRAIN_HEAD = 'a'.repeat(40);
+const TRAIN_MERGE = '9'.repeat(40);
+const trainPr = { number: 40, url: 'https://github.com/o/r/pull/40', state: 'MERGED', headRefName: 'train/4', headRefOid: TRAIN_HEAD, mergedAt: '2026-11-09T15:00:00Z', mergeCommit: { oid: TRAIN_MERGE } };
+
+// A merged train, pull request 40 on `train/4`, whose record lists change `feat` at `head`, the head of its own pull request 12.
+function carriedByTrain(t, { head = OWN_HEAD } = {}) {
+  t.gh.set('pr-list-state-all', { stdout: [trainPr] });
+  t.gh.set(contentsKey('openspec/trains/4.md', TRAIN_HEAD), fileFx(recordText({ n: 4, boarded: [{ id: 'feat', number: 12, head }] })));
+  return t;
+}
+
+// Invariant: a project that sets the train still reads its own pull request's merge, and a merge no train carried with tasks left and a required
+// check not green is an owner's forced merge, never an implement or stop-branch. Layer: deliveryOf and nextStep (deliver-check). Suite: deliver-check-archive.
+test('forced-merge-path T1: a train project reads a merged own pull request with a task left and devkit-reviews FAILURE as a forced merge, from every checkout', () => {
+  const REASON = /^PR #12 merged by the owner with 4 items open: task 9\.6; devkit-reviews \(FAILURE\); evidence\.md \(missing\); reviews\/code-quality-reviewer\.md \(verdict REJECTED\); run the retro$/;
+  const cases = {
+    'the default branch': () => forcedFixtures(pm({ extra: TRAIN_CONFIG })),
+    "another change's branch": () => forcedFixtures(pm({ extra: TRAIN_CONFIG, branch: 'ship/other' })),
+    "the change's own branch": () => forcedOnBranch({ n: 12, extra: TRAIN_CONFIG }),
+  };
+  for (const [where, build] of Object.entries(cases)) {
+    const t = build();
+    const s = stateOf(t);
+    assert.equal(s.train?.suite, TRAIN_SUITE, `${where}: the train is on`);
+    assert.equal(s.train.carried, null, `${where}: no train carries the change`);
+    assert.equal(s.unreadMerge, null, where);
+    assert.equal(s.forced?.count, 4, where);
+    const n = nextStep(s);
+    assert.deepEqual([n.step, n.number, n.forced.count], ['retro', 12, 4], where);
+    assert.match(n.reason, REASON, where);
+    assert.ok(!['implement', 'stop-branch'].includes(n.step), where);
+    assert.ok(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'list' && c.includes('all')), `${where}: the train list was read`);
+  }
+});
+
+// Invariant: a merge carried by a merged train is the train's delivery, never a forced merge: `deliveryOf` reads no rollup for it, whatever the
+// required checks said on the change's own pull request. Layer: deliveryOf and nextStep (deliver-check). Suite: deliver-check-archive.
+test('forced-merge-path T2: a change a merged train carried is delivered with every task ticked, and is never forced with a task left', () => {
+  // Every task ticked: delivered by the train, the retro row of today, no forced read.
+  const done = carriedByTrain(pm({ extra: TRAIN_CONFIG }));
+  done.gh.set('pr-view-12', rollupFx([OKRUN('check'), RUNOF('devkit-reviews', 'FAILURE')]));
+  const delivered = stateOf(done);
+  assert.deepEqual(delivered.carriedBy, { n: 4, number: 40, mergeCommit: TRAIN_MERGE });
+  assert.equal(delivered.forced, null);
+  const retro = nextStep(delivered);
+  assert.deepEqual([retro.step, retro.reason, retro.number], ['retro', 'the change PR is merged; run the retro', 12]);
+  assert.equal('forced' in retro, false);
+  assert.equal(done.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'view' && c[2] === '12'), false, 'no rollup read');
+
+  // A task left: the train's merge is not forced, whether the checks are green or one of them failed on the change's own pull request.
+  const rollups = { 'checks green': [OKRUN('check'), OKRUN('devkit-reviews')], 'devkit-reviews FAILURE': [OKRUN('check'), RUNOF('devkit-reviews', 'FAILURE')] };
+  const answers = {};
+  for (const [name, rollup] of Object.entries(rollups)) {
+    const t = forcedFixtures(carriedByTrain(pm({ extra: TRAIN_CONFIG })), { rollup });
+    const s = stateOf(t);
+    const d = DC.deliveryOf(makeGh(t.root, t.env), t.root, 'feat', { ship: 'merge', branch: 'main', env: t.env, mergeFields: true, trainSuite: TRAIN_SUITE });
+    assert.equal(d.trainFacts.carried?.number, 40, `${name}: the train carries it`);
+    assert.deepEqual([d.delivered, d.forced, d.unreadMerge], [false, null, null], name);
+    assert.equal(s.forced, null, name);
+    assert.equal(s.unreadMerge, null, name);
+    const n = nextStep(s);
+    answers[name] = [n.step, n.reason];
+    assert.notEqual(n.step, 'retro', name);
+    assert.doesNotMatch(n.reason, /merged by the owner/, name);
+    assert.equal('forced' in n, false, name);
+    assert.equal(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'view' && c[2] === '12'), false, `${name}: no rollup read`);
+  }
+  assert.deepEqual(answers['devkit-reviews FAILURE'], answers['checks green'], 'the answer does not depend on the checks');
+  // The answer main's train path gives today for a merge with tasks left (field-fixes 4), unchanged.
+  assert.deepEqual(answers['checks green'], ['stop-branch', 'PR #12 of feat merged with tasks left (9.6); continue on branch feat and open a further pull request']);
+});
+
+// A train project on the default branch after a forced merge of pull request 12: the change's stage files are passed, its tasks.md holds the
+// task 9.6 the owner left, GitHub answers what forcedFixtures says.
+function forcedLoopProject() {
+  const t = forcedFixtures(pm({ extra: TRAIN_CONFIG }));
+  const c0 = head(t.root);
+  const stage = (id, body = `# ${id}\n`) => `<!-- devkit-stage ${id} result=passed attempt=1 commit=${c0} -->\n${body}`;
+  put(t.root, Object.fromEntries(Object.entries({
+    '.openspec.yaml': 'schema: devkit-lite\n',
+    'requirements.md': stage('requirements'),
+    'proposal.md': stage('proposal', proposalWithAcceptance()),
+    'specs/s/spec.md': stage('specs'),
+    'tasks.md': stage('tasks', '# Tasks\n\n- [x] 1.1 a\n- [x] 1.2 b\n- [ ] 9.6 left after the merge\n'),
+    'evidence.md': stage('evidence'),
+    'review.md': stage('review'),
+  }).map(([f, body]) => [`openspec/changes/feat/${f}`, body])));
+  commitAll(t.root, 'change files');
+  return t;
+}
+const proposalWithAcceptance = () => '# Proposal\n\n## Acceptance criteria\n\n- AC-1: something\n';
+
+// Invariant: the loop's `next` turns the forced retro row of a train project into the retro session step, whose reply tells the owner the
+// pull request and the count (forced-merge-path D-6). Layer: change-loop `next` over collectState and deliveryRow. Suite: deliver-check-archive.
+test('forced-merge-path T3: change-loop next in a train project answers the retro session step with the reply naming the pull request and the count', () => {
+  const t = forcedLoopProject();
+  const env = { ...t.env, ...SET_LOOP };
+  const r = loopMain(['next', '--change', 'feat', '--lang', 'en'], { cwd: t.root, env, gh: makeGh(t.root, env) });
+  const action = actionOf(r.stdout);
+  assert.deepEqual([r.code, action.kind, action.step, action.stage], [0, 'session', 'retro', 'retro'], r.stdout + r.stderr);
+  assert.equal(action.detail.forced.count, 4);
+  assert.match(action.reply, /pull request #12 of feat with 4 items still open/);
 });
 
 // ---- loop-place-and-evidence: the change folder is committed before a review round (spec change-delivery)

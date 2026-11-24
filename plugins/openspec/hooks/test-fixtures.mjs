@@ -378,7 +378,7 @@ export const TWO_PRS = 'devkit:\n  delivery:\n    model: two-prs\n    base: main
 //
 // The fake keeps its pull requests in a JSON file and reads heads live from the bare origin, so a push moves a pull request
 // as it does on GitHub. It answers the calls deliver-check makes (`pr list` with --head, --base and --state, `pr checks`,
-// `api graphql`, the repository, the contents and the files of a pull request, `run view`) and the writes the agents make
+// `api graphql`, the repository, the contents and the files of a pull request, the rules of a branch, `pr view <n>` for its check rollup, the compare of two commits, `run view`) and the writes the agents make
 // (`pr create`, `pr close`, `pr comment`, `pr merge`, `run rerun`). A merge is the test's hook (`__merge`): a merge commit or a squash made in the
 // origin. Per pull request it keeps an auto-merge method, a `mergeStateStatus` (default `CLEAN`) and `over`, fields that replace the ones the view
 // computes (delivery-train D-13); the argument log (`calls`) lists every call it received.
@@ -424,6 +424,7 @@ if (a === 'pr' && b === 'list') {
   out(state.prs.filter((p) => (!head || p.head === head) && (!base || p.base === base) && (st === 'all' || p.state === st.toUpperCase()))
     .sort((x, y) => y.number - x.number).slice(0, Number(opt('--limit') || 30)).map(view));
 }
+if (a === 'pr' && b === 'view' && /^\d+$/.test(args[2] || '')) { prOf(args[2]); out({ statusCheckRollup: (state.rollup || {})[args[2]] || [] }); }
 if (a === 'pr' && b === 'view') fail('no pull requests found for branch "x"');
 if (a === 'pr' && b === 'create') {
   const bodyFile = opt('--body-file');
@@ -454,7 +455,7 @@ if (a === 'run' && b === 'rerun') out('');
 if (a === 'api') {
   const route = args[1];
   if (route === 'graphql') out({ data: { viewer: { login: 'owner' }, repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] }, comments: { nodes: [] }, reviews: { nodes: [] } } } } });
-  if (/^repos\/\{owner\}\/\{repo\}\/rules\/branches\//.test(route)) out([{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'check' }, { context: 'devkit-reviews' }] } }]);
+  if (/^repos\/\{owner\}\/\{repo\}\/rules\/branches\//.test(route)) out(state.rules || [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'check' }, { context: 'devkit-reviews' }] } }]);
   if (/^repos\/\{owner\}\/\{repo\}\/branches\/.*\/protection\/required_status_checks$/.test(route)) fail('gh: Branch not protected (HTTP 404)');
   if (route === 'repos/{owner}/{repo}') out({ default_branch: state.defaultBranch, allow_auto_merge: true, allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: true });
   const files = /^repos\/\{owner\}\/\{repo\}\/pulls\/(\d+)\/files$/.exec(route);
@@ -467,6 +468,13 @@ if (a === 'api') {
     if (kind.status !== 0) fail('gh: Not Found (HTTP 404)');
     if (kind.stdout.trim() === 'tree') out(git('ls-tree', '--name-only', spec).stdout.split('\n').filter(Boolean).map((name) => ({ name })));
     out({ name: contents[1].split('/').pop(), encoding: 'base64', content: Buffer.from(git('show', spec).stdout).toString('base64') });
+  }
+  const compare = /^repos\/\{owner\}\/\{repo\}\/compare\/([0-9a-f]{40})\.\.\.([0-9a-f]{40})$/.exec(route);
+  if (compare) {
+    const [, from, to] = compare;
+    if (git('cat-file', '-e', from + '^{commit}').status !== 0 || git('cat-file', '-e', to + '^{commit}').status !== 0) fail('gh: Not Found (HTTP 404)');
+    const within = (x, y) => git('merge-base', '--is-ancestor', x, y).status === 0;
+    out({ status: from === to ? 'identical' : within(from, to) ? 'ahead' : within(to, from) ? 'behind' : 'diverged', files: git('diff', '--name-only', from, to).stdout.split('\n').filter(Boolean).map((filename) => ({ filename })) });
   }
 }
 fail('simGitHub: unhandled ' + args.join(' '), 99);
@@ -504,6 +512,8 @@ export function simGitHub({ origin, defaultBranch = 'main' }) {
     setAutoMerge: (n, method) => edit((s) => { s.prs.find((x) => x.number === n).autoMerge = method; }),
     setRun: (id, run) => edit((s) => { s.runs[id] = run; }),
     setDefaultBranch: (name) => edit((s) => { s.defaultBranch = name; }),
+    setRollup: (n, list) => edit((s) => { (s.rollup ||= {})[n] = list; }),
+    setRules: (rules) => edit((s) => { s.rules = rules; }),
   };
 }
 

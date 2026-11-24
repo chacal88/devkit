@@ -257,6 +257,7 @@ export const MESSAGES = {
     'waiting-approval-again': 'The plan of {id} changed after your approval, so it needs your approval again.',
     'waiting-mockup': 'The mock-up of {id} is drawn. Look at it and tell me whether you approve it or what to change; I go on as soon as you answer.',
     'waiting-retro': 'The retro of {id} has proposals for you: approve or reject each one, and I archive the change.',
+    'forced-merge': 'You merged pull request #{number} of {id} with {count} items still open. I write them into its retro, and then the change is archived.',
     'waiting-merge': 'Pull request #{number} of {id} is ready: in this project, merging it is up to you.',
     'waiting-archive-merge': 'The archive pull request #{number} of {id} is ready: in this project, merging it is up to you.',
     'waiting-merge-test-branch': 'Pull request #{number} of {id} to {branch} is ready: in this project, merging it is up to you. The pull request to {base} waits for it.',
@@ -559,6 +560,7 @@ export const MESSAGES = {
     'waiting-approval-again': 'O plano de {id} mudou depois da sua aprovação, então precisa ser aprovado de novo.',
     'waiting-mockup': 'O mock-up de {id} está desenhado. Veja e me diga se aprova ou o que mudar; eu sigo assim que você responder.',
     'waiting-retro': 'A retro de {id} tem propostas para você: aprove ou recuse cada uma, e eu arquivo a change.',
+    'forced-merge': 'Você fez o merge do pull request #{number} de {id} com {count} itens ainda abertos. Eu os registro na retro, e depois a change é arquivada.',
     'waiting-merge': 'O pull request #{number} de {id} está pronto: neste projeto, o merge é com você.',
     'waiting-archive-merge': 'O pull request de arquivo #{number} de {id} está pronto: neste projeto, o merge é com você.',
     'waiting-merge-test-branch': 'O pull request #{number} de {id} para {branch} está pronto: neste projeto, o merge é com você. O pull request para {base} espera por ele.',
@@ -1383,7 +1385,7 @@ export function decide(facts) {
   // -------- from the implementation to the archive: B0 to B17
   function buildPart() {
     if (endState === 'blocked') return blockedEnd(report.end);
-    const testStage = testStageStep();
+    const testStage = facts.row?.next?.forced ? null : testStageStep();
     if (testStage) return testStage;
     const row = facts.row;
     if (!row) return blocked('unknown-step', {}, currentId);
@@ -1426,7 +1428,11 @@ export function decide(facts) {
     }
     const detail = detailOf(row.next);
     if (spec.role) return agent(spec.stage, spec.role, step, step === 'rejoin-train' ? rejoinBrief(detail) : `step ${step} ${JSON.stringify(detail)}`, detail, row.next.agent);
-    if (spec.session) return sessionAction(spec.stage, step, detail);
+    if (spec.session) {
+      // An owner's forced merge (forced-merge-path D-6): the session tells the owner what it found, as the message that ends the turn.
+      const forced = row.next.forced;
+      return sessionAction(spec.stage, step, detail, forced ? { reply: say('forced-merge', { id: ctx.id, number: row.next.number, count: forced.count }) } : {});
+    }
     // A tag on the remote at another commit is the owner's to settle; every other stop of the archive stays `archive-failed`.
     if (step === 'stop-archive' && row.next.archiveStep === 'tag-release' && row.next.at) {
       return blocked('tag-elsewhere', { tag: row.next.tag, at: String(row.next.at).slice(0, 7), sha: String(row.next.sha).slice(0, 7) }, currentId);

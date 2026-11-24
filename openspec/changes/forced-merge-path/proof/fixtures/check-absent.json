@@ -1,0 +1,20 @@
+{
+  "case": "check-absent",
+  "about": "A required check that never reported: the rollup has no devkit-reviews entry, so it counts as absent.",
+  "rollup": [
+    "check"
+  ],
+  "gates": {
+    "evidence": "passed",
+    "reviews": {
+      "code-quality-reviewer": "APPROVED",
+      "test-coverage-reviewer": "APPROVED"
+    }
+  },
+  "expect": {
+    "all": {
+      "after": "retro",
+      "loop": "retro"
+    }
+  }
+}

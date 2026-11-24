@@ -74,7 +74,7 @@ test('change-loop settings: shipConfig of deliver-check gives the same with and 
 const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
-  places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
+  places: 3, count: 2, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
   version: 1, state: 'github', machine: 'avel', taken: 1, entry: 'avel', field: 'folder', fix: 'compozy daemon start', run: 'looprun-1',
   branch: 'develop', base: 'master', default: 'main', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
   spent: 2100000, cap: 2000000, tag: 'v1.3.0', at: 'd4e5f60', sha: 'a1b2c3d', models: 'opus 3210, sonnet 1105', tokens: 4315, from: 'haiku', to: 'sonnet',
@@ -426,6 +426,45 @@ test('change-loop decide: B6 the pull request and archive steps of the session',
   }
   assert.equal(build(rowOf('answer', { url: 'https://github.com/o/r/pull/12' })).detail.url, 'https://github.com/o/r/pull/12');
   assert.equal(build(rowOf('retro')).stage, 'retro');
+});
+
+// ---- forced-merge-path phase 2: an owner's forced merge (C1-C3, D1)
+
+const FORCED = {
+  number: 12, url: 'https://github.com/o/r/pull/12', head: 'aaa111', count: 2,
+  items: [{ kind: 'task', id: '9.6', text: 'task 9.6 not ticked' }, { kind: 'check', id: 'devkit-reviews', text: 'devkit-reviews (FAILURE)' }],
+};
+
+test('forced-merge-path 2: C1 a retro row with forced is a session step carrying the forced object and its reply, in both languages', () => {
+  for (const lang of ['en', 'pt-BR']) {
+    const a = build(rowOf('retro', { number: 12, forced: FORCED }), {}, { lang });
+    assert.deepEqual([a.kind, a.step, a.stage, a.agent, exitCodeOf(a)], ['session', 'retro', 'retro', undefined, 0], lang);
+    assert.deepEqual(a.detail.forced, FORCED, lang);
+    assert.equal(a.reply, says('forced-merge', { number: 12, count: 2 }, lang), lang);
+    assert.match(a.reply, /#12/, lang);
+    assert.match(a.reply, /\b2\b/, lang);
+    assert.ok(!a.reply.includes('{'), lang);
+  }
+  assert.notEqual(MESSAGES.en['forced-merge'], MESSAGES['pt-BR']['forced-merge']);
+  assert.match(says('forced-merge', { number: 12, count: 2 }), /You merged pull request #12 of feat with 2 items still open/);
+});
+
+test('forced-merge-path 2: C2 a unit-tests stage next does not replace a forced retro row', () => {
+  const rep = { next: nextOf(FLOWS.devkit, 'unit-tests', 'no-file', { stage: 'unit-tests' }) };
+  const a = run({ rep, facts: { row: rowOf('retro', { number: 12, forced: FORCED }), tests: { unit: 'npm test', coverage: { command: null, target: null } } } });
+  assert.deepEqual([a.kind, a.step, a.stage, a.agent], ['session', 'retro', 'retro', undefined]);
+  assert.deepEqual(a.detail.forced, FORCED);
+  assert.equal(a.reply, says('forced-merge', { number: 12, count: 2 }));
+  // The same stage next still goes to its role when the row is not forced.
+  const plain = run({ rep, facts: { row: rowOf('commit'), tests: { unit: 'npm test', coverage: { command: null, target: null } } } });
+  assert.deepEqual([plain.kind, plain.step], ['agent', 'unit-tests']);
+});
+
+test('forced-merge-path 2: C3 a retro row without forced carries no reply, as before', () => {
+  const a = build(rowOf('retro', { number: 12 }));
+  assert.deepEqual([a.kind, a.step, a.stage, exitCodeOf(a)], ['session', 'retro', 'retro', 0]);
+  assert.equal(a.reply, undefined);
+  assert.equal(a.detail.forced, undefined);
 });
 
 test('change-loop decide: B7 pending checks end waiting on GitHub', () => {

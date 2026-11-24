@@ -1,0 +1,24 @@
+{
+  "case": "hand-opened",
+  "about": "Live case 2 (PR 91, stage-models): the pull request was opened by hand and merged with devkit-reviews FAILURE and a review REJECTED.",
+  "rollup": [
+    "check",
+    {
+      "name": "devkit-reviews",
+      "conclusion": "FAILURE"
+    }
+  ],
+  "gates": {
+    "evidence": "missing",
+    "reviews": {
+      "code-quality-reviewer": "REJECTED",
+      "test-coverage-reviewer": "APPROVED"
+    }
+  },
+  "expect": {
+    "all": {
+      "after": "retro",
+      "loop": "retro"
+    }
+  }
+}
