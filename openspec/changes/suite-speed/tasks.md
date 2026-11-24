@@ -143,7 +143,7 @@ and end every task with `git status --short`.
   `grep -c "^- Status: accepted$" docs/adr/0022-the-devkit-test-suite-runs-by-file-in-parallel.md`
   prints 1, and `grep -c "openspec/changes/suite-speed/approval.md" docs/adr/0022-the-devkit-test-suite-runs-by-file-in-parallel.md`
   prints 1.
-- [ ] 3.5 Gate: `mkdir -p /var/tmp/devkit-suite-speed && env TMPDIR=/var/tmp/devkit-suite-speed node scripts/test-suite.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate .` green; covers AC-1, AC-5c and AC-7 (the texts and the CI step; the CI run itself is the PR's).
+- [x] 3.5 Gate: `mkdir -p /var/tmp/devkit-suite-speed && env TMPDIR=/var/tmp/devkit-suite-speed node scripts/test-suite.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate .` green; covers AC-1, AC-5c and AC-7 (the texts and the CI step; the CI run itself is the PR's).
 
 ## 4. The measurement and the time in the docs (AC-5, AC-8), after the place
 
