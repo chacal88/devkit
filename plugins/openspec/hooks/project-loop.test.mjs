@@ -1087,6 +1087,24 @@ test('project-loop next: S12 a review at its ceiling ends blocked', () => {
   assert.match(a.reply, /reached its limit of failures in a row \(2\)/);
 });
 
+test('stage-ceiling-consecutive AC-6 project-loop: the ceiling reply says the failures in a row, not the attempt', () => {
+  const t = loopProject();
+  const wt = readySlice(t);
+  const at = (attempt, result, commit) => header('review', result).replace('attempt=1', `attempt=${attempt}`).replace('commit=none', `commit=${commit}`);
+  // Committed history: passed (attempt 1), then failed at attempt 2; the file in the tree fails at attempt 3 for HEAD.
+  put(wt, { 'openspec/changes/billing/review.md': at(1, 'passed', 'none') });
+  commitAll(wt, 'review passed');
+  put(wt, { 'openspec/changes/billing/review.md': at(2, 'failed', headOf2(wt)) });
+  commitAll(wt, 'review failed once');
+  put(wt, { 'openspec/changes/billing/review.md': at(3, 'failed', headOf2(wt)) });
+  const r = nextP(t.main, 'billing');
+  assert.equal(r.code, 2);
+  const a = body(r);
+  assert.deepEqual([a.kind, a.end.state, a.end.why, a.stage], ['end', 'blocked', 'ceiling', 'review']);
+  assert.match(a.reply, /reached its limit of failures in a row \(2\)/);
+  assert.doesNotMatch(a.reply, /\(3\)/, 'the attempt is 3 but the failures in a row are 2');
+});
+
 // The archived-on-its-branch rows: the slice reviewed and archived in its worktree.
 
 test('project-loop next: S13 and S14 ship plan stops at the archive commit', () => {

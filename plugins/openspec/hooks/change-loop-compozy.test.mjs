@@ -2687,3 +2687,7 @@ test('stage-ceiling-consecutive AC-6 loop: the fix briefs name the failures in a
   const tests = run({ rep: { next: nextOf(FLOWS.devkit, 'implementation', 'fix-after-failure', { failed: 'unit-tests', attempt: 3, failures: 1, ceiling: 3 }) }, facts: { row: rowOf('commit'), tests: { unit: 'npm test', e2e: null } } });
   assert.ok(tests.brief.includes('unit-tests failed at attempt 3 (failures in a row: 1 of 3): fix the code from unit-tests.md, test first, within the approved tasks'), tests.brief);
 });
+test('stage-ceiling-consecutive AC-6 loop: a report with no failures falls back to the attempt in the fix-tests brief', () => {
+  const tests = run({ rep: { next: nextOf(FLOWS.devkit, 'implementation', 'fix-after-failure', { failed: 'unit-tests', attempt: 2, ceiling: 3 }) }, facts: { row: rowOf('commit'), tests: { unit: 'npm test', e2e: null } } });
+  assert.ok(tests.brief.includes('unit-tests failed at attempt 2 (failures in a row: 2 of 3): fix the code from unit-tests.md, test first, within the approved tasks'), tests.brief);
+});

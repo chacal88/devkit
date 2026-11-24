@@ -2038,6 +2038,10 @@ test('change-loop lock: bypass and a project not opted in refuse nothing', () =>
 });
 
 // stage-ceiling-consecutive (AC-6, the loops): the ceiling and the fix briefs say the failures in a row.
+test('stage-ceiling-consecutive AC-6 loop: a report with no failures falls back to the attempt in the plan brief', () => {
+  const plan = run({ rep: { next: nextOf(FLOWS.devkit, 'proposal', 'fix-after-failure', { failed: 'readiness', attempt: 2, ceiling: 3 }) } });
+  assert.ok(plan.brief.includes('readiness failed at attempt 2 (failures in a row: 2 of 3): revise the plan from its findings'), plan.brief);
+});
 test('stage-ceiling-consecutive AC-6 loop: the ceiling reply says the failures in a row, in both languages', () => {
   const ended = (lang, params) => run({ ctx: { lang }, rep: { end: endOf('blocked', 'evidence', 'ceiling-reached', { stage: 'evidence', ceiling: 3, ...params }) } });
   const full = { attempt: 5, failures: 3 };
