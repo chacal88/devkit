@@ -204,7 +204,7 @@ every task with `git status --short`.
   with the `^jira-entry-followups AC-10 ` call above (`conduct-check.test.mjs` run whole, the `^change-loop` patterns
   and that call on `change-loop-remote.test.mjs`, a call of its own so the other patterns do not run that file's tests
   the phase does not touch).
-- [ ] 2.5 Gate: `node scripts/test-suite.mjs && python3 scripts/check.py` green; covers AC-10 (T25 to T31), AC-7 (T32 to T44, T95 to T97, T105 to T113, T132, T141) and AC-13 (T45 to T50, T117, T118, and the seven updated tests), and AC-1 (T10, T17), each also run by name in 2.4's Check.
+- [x] 2.5 Gate: `node scripts/test-suite.mjs && python3 scripts/check.py` green; covers AC-10 (T25 to T31), AC-7 (T32 to T44, T95 to T97, T105 to T113, T132, T141) and AC-13 (T45 to T50, T117, T118, and the seven updated tests), and AC-1 (T10, T17), each also run by name in 2.4's Check.
 
 ## 3. The conducting session's tasks, the revised plan, the `archive-` id and the advanced branch (AC-9, AC-8, AC-17, AC-18)
 
