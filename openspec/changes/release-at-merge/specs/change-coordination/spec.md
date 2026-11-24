@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=1 commit=2ecd562495b490011ebc73c0165172169b92b8b7 -->
+<!-- devkit-stage specs result=passed attempt=5 commit=41dd40ed6cb3017dd2a8cc5c623ffa6d19934303 -->
 # Spec Delta
 
 ## ADDED Requirements
@@ -69,6 +69,104 @@ record is not reported unreadable and no step asks to accept it again.
 
 ## MODIFIED Requirements
 
+### Requirement: From the implementation on, the step inside the stage goes to its role
+From the implementation to the archive, the loop SHALL take the stage from the stage checker and the
+step inside it from the delivery checker, with the override the retired `/conduct` applied and `/devkit change` keeps (a release-file
+conflict), and hand each step to the role declared for its stage; the stage
+checker's blocked ends SHALL win. The unit tests and the E2E tests, which the delivery checker does
+not know, SHALL be taken from the stage checker alone. For a change with a release note in a project
+that names `devkit.release_tag` and sets no delivery train, a pull request in conflict with its base
+or behind it SHALL go to the session step `assign-release` instead of `resolve-release-conflict`,
+`update-branch` or the blocked end the scenarios below give a change with no release note.
+
+#### Scenario: Implementation and fixes
+- **WHEN** the delivery checker's step is `implement`, `fix-review`, `fix-defect`, `fix-checks` or `apply-proposals`
+- **THEN** the next action hands it to the implementer's agent
+
+#### Scenario: The agent of a delivery step comes from the checker's row
+- **WHEN** the row the delivery checker returns for a step the loop hands to an agent names that step's agent
+- **THEN** the next action's agent is the one the row names
+
+#### Scenario: Commits and pull requests
+- **WHEN** the step is `commit`, `open-pr`, `push` or `open-archive-pr`
+- **THEN** the next action hands it to the commit-and-pr agent
+
+#### Scenario: A conflict only in release files
+- **WHEN** the change's or the archive's pull request conflicts with its base only in release files (versions, changelog, catalog, the CI pin), and the change carries no release note
+- **THEN** the next action hands `resolve-release-conflict` to the implementer's agent with the release merge command and the conflicting paths
+
+#### Scenario: A release merge that is not pushed yet
+- **WHEN** GitHub still reports the pull request in conflict, the local head already holds the base and the pull request's head is an ancestor of the local head and differs from it
+- **THEN** the next action hands `push` (for the change's pull request) or `open-archive-pr` (for the archive's) to the commit-and-pr agent with the command `git push origin <branch>`, which holds neither `--force` nor `--force-with-lease`
+
+#### Scenario: A branch the loop's own rebase rewrote
+- **WHEN** the pull request's head is no longer an ancestor of the local head because the branch was rewritten by a rebase, as an earlier version's release step did
+- **THEN** the loop hands no push for it: the run ends blocked, saying the pull request's head is not in the local history, for the owner to push by hand
+
+#### Scenario: No step pushes by force
+- **WHEN** the loop's rows and every step the delivery checker and the override can return are listed
+- **THEN** none of them is `push-rebased` and no command they carry holds `--force` or `--force-with-lease`
+
+#### Scenario: A conflict in any other file
+- **WHEN** the pull request of a change with no release note conflicts with its base in a file that is not a release file
+- **THEN** the run ends blocked, saying the pull request has a problem the session cannot fix alone
+
+#### Scenario: GitHub reports a conflict the base merges cleanly
+- **WHEN** GitHub reports a conflict, the base merges cleanly with the local head, the local head is the pull request's head, the project merges automatically, and the change carries no release note
+- **THEN** the next action is the session step `update-branch`
+
+#### Scenario: A change with a release note in conflict with its base
+- **WHEN** a change with a release note, in a project that names `devkit.release_tag` and sets no delivery train, has its pull request in conflict with its base, in release files or in any other file
+- **THEN** the next action is the session step `assign-release`, and when its command then exits 2 naming the conflict the run ends blocked with that message
+
+#### Scenario: The demonstration
+- **WHEN** the step is `verify`
+- **THEN** the next action hands it to the verifier's agent
+
+#### Scenario: The code review
+- **WHEN** the step is `review`
+- **THEN** the next action is a session step that runs the review skill and sets the review file's stage header
+
+#### Scenario: A phase gate
+- **WHEN** the step is `gate`
+- **THEN** the next action is a session step carrying the gate's command and task; a green run ticks the task and a red run ends the run blocked, saying the phase's tests failed
+
+#### Scenario: A pull-request or archive step of the session
+- **WHEN** the step is `edit-pr-body`, `enable-auto-merge`, `disable-auto-merge`, `update-branch`, `answer`, `retro`, `archive` or `tick-roadmap`
+- **THEN** the next action is a session step naming it, done as the shipping skill's row for that step says
+
+#### Scenario: A question on the pull request only the owner can answer
+- **WHEN** the session's answer step finds a decision only the owner can take
+- **THEN** the run ends waiting for the owner, with a reply naming the comment's link
+
+#### Scenario: A step this version does not know
+- **WHEN** the delivery checker returns a step the loop has no row for
+- **THEN** the run ends blocked, saying the next step is unknown
+
+#### Scenario: The loop's rows match what the checkers return
+- **WHEN** the loop's rows are compared with every step the delivery checker and the override can return
+- **THEN** every returnable step has a row and no row names a step that no checker returns
+
+#### Scenario: The loop and the checker name the same agent for each step
+- **WHEN** the loop's own step-to-agent rows are compared with the delivery checker's step-to-agent mapping for every step both name as a hand-off to an agent
+- **THEN** both name the same agent, and the one step the checker gives to an agent that the loop runs in the session, the retro, is the only one left out
+
+#### Scenario: The delivery checker cannot read the change
+- **WHEN** the delivery checker fails with a usage or settings error
+- **THEN** the run ends blocked, saying the change cannot be read, and the command exits 3
+
+#### Scenario: The unit tests are next
+- **WHEN** the stage checker's next stage is the unit tests, missing, stale or offered again after a fix
+- **THEN** the next action hands the stage to `devkit-core:test-runner`, its detail carrying the declared unit command, coverage command and coverage target, whatever step the delivery checker would give
+
+#### Scenario: The E2E tests are next
+- **WHEN** the stage checker's next stage is the E2E tests
+- **THEN** the next action hands the stage to `devkit-core:e2e-tester`, its detail carrying the declared E2E command
+
+#### Scenario: A red test stage goes back to the implementer
+- **WHEN** the stage checker's next stage is the implementation because the unit tests or the E2E tests failed below their ceiling and nothing changed since
+- **THEN** the next action hands the step `fix-tests` to the implementer's agent, its detail naming the failed stage and its file
+
 ### Requirement: A requirement a merged change contradicts reopens the grill
 When the plan is written and code merged since the grill contradicts what a requirement says, the
 planner SHALL write no plan file, add the question to `requirements.md` and set its header back to
@@ -87,3 +185,40 @@ name no ADR number and no version.
 #### Scenario: An unnumbered ADR
 - **WHEN** a sibling with an ADR merges while a new change in a project that names `devkit.release_tag` is planned
 - **THEN** the plan still cites its ADR `ADR [<slug>]`, names no number, and the owner is not asked
+
+### Requirement: The loop fetches the base branch before it judges a delivery step
+When the change command's `next` decides a step of a change in its delivery part, it SHALL first
+fetch the default branch from the `origin` remote into that remote's tracking ref, so that every
+delivery step, the release-conflict step and the archive steps among them, is judged from the
+remote's current base. The fetch SHALL write that one tracking ref and nothing else. For a change
+that carries a release note, in a project that names `devkit.release_tag` and sets no delivery
+train, the step judged from the fetched base SHALL be `assign-release` wherever the delivery checker
+answers it, in place of the release-conflict step and of the update of the branch.
+
+#### Scenario: A base that moved on the remote
+- **WHEN** the remote's `main` holds a commit that conflicts with the change in a release file, the local tracking ref of `main` is one commit behind, `next` runs for the change in delivery, and the change carries no release note
+- **THEN** the tracking ref moves to the remote's commit and the action hands the release-conflict step, not the update of the branch saying the base merges cleanly
+
+#### Scenario: A base that moved on the remote, for a change with a release note
+- **WHEN** the same remote commit and stale tracking ref meet a change with a release note, in a project that names `devkit.release_tag` and sets no delivery train
+- **THEN** the tracking ref moves to the remote's commit and the action is the session step `assign-release`, not the release-conflict step and not the update of the branch
+
+#### Scenario: The same base without the fetch
+- **WHEN** the loop decides the same change from the stale tracking ref without fetching
+- **THEN** the action is the update of the branch, which is the step the fetch corrects
+
+#### Scenario: Only the base's tracking ref changes
+- **WHEN** the fetch succeeds while the remote also holds a new tag and a moved branch other than the base
+- **THEN** only the base's tracking ref differs afterwards: no tag is created, no other remote branch moves, and the working tree and the index are as they were
+
+#### Scenario: A successful fetch is recorded without a line
+- **WHEN** the fetch succeeds
+- **THEN** the action records that the base was fetched, and its reply holds no extra line
+
+#### Scenario: A change before its delivery
+- **WHEN** `next` runs for a change whose stage is still in the plan
+- **THEN** nothing is fetched
+
+#### Scenario: A repository without a remote
+- **WHEN** the repository has no `origin` remote
+- **THEN** nothing is fetched, the action records no fetch and its reply is the one of today

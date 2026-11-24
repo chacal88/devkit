@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=1 commit=2ecd562495b490011ebc73c0165172169b92b8b7 -->
+<!-- devkit-stage specs result=passed attempt=4 commit=41dd40ed6cb3017dd2a8cc5c623ffa6d19934303 -->
 # Spec Delta
 
 ## ADDED Requirements
@@ -25,3 +25,19 @@ take the change off the train with the reason attached.
 #### Scenario: A citation the train cannot resolve
 - **WHEN** `beta` cites `ADR [gamma]` and neither the base nor an earlier join numbered `gamma`
 - **THEN** `beta` is not in the train, and the record lists it as left with a reason naming `gamma`
+
+#### Scenario: A project with no release file setting
+- **WHEN** the project names no `devkit.release_tag` and the boarded head `alpha` carries a `release.md` and bumps its own manifest
+- **THEN** `alpha` is joined as before this rule, renumbered above the train by the kind of its own bump, and its `release.md` is not read
+
+## MODIFIED Requirements
+
+### Requirement: Release numbers follow the boarding order on the train only
+Each join of a head with no release note SHALL renumber the release files the joined head bumped
+above the train's tip, keeping the kind of each bump, so the first boarded takes the lowest number.
+Every boarded branch SHALL keep its own numbers. A head with a release note SHALL be numbered from
+its note instead, as "A join numbers the release a boarded change's note states" says.
+
+#### Scenario: Two minor bumps from the same release
+- **WHEN** `main` is at 0.29.0 and `alpha` and `beta` each bump devkit-openspec to 0.30.0 with a CHANGELOG entry
+- **THEN** after the joins the train holds 0.31.0, the CHANGELOG holds `beta`'s entry as 0.31.0 above `alpha`'s as 0.30.0, and both change branches still say 0.30.0

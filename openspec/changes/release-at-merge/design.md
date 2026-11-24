@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=3 commit=ba3126b84f6821144dad1cfb02b260bf68dc7e77 -->
+<!-- devkit-stage design result=passed attempt=5 commit=41dd40ed6cb3017dd2a8cc5c623ffa6d19934303 -->
 # Design
 
 Change: `release-at-merge` · Date: 2026-11-24 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -8,6 +8,17 @@ Plan base: `ba3126b`, the merge of `origin/main` at `c663f21` (train 4, which ca
 the first base `2ecd562`); the code and the tests below were read again at `ba3126b`. Every
 function, constant and file is named, never a line number; this change's own version and ADR number
 are "assigned at merge" and never written.
+
+**Revised after review round 1** (`review.md`, FAIL at `4a6e858`; the five verdict files under
+`reviews/`), at `41dd40e`: the coordinating session took the decisions D-18 to D-27 under the owner's
+delegation, and D-4, D-5, D-6, D-9, D-13, D-15, D-16 and D-17 are revised where they point to them.
+"Findings of review round 1", after D-27, gives every finding its decision and task, or the written
+reason it gets none. Phase 9 of `tasks.md` carries the work. The readiness review of that revision
+(attempt 4, `readiness.md`) found four blockers, answered in the same place: D-20 amends `ADR
+[release-at-merge]` decision 6, so the adr-author drafted `ADR [release-at-merge-step-record]`
+(listed in `decisions.md`); the base moved to `a815222` (train 15, D-25 and D-27); the give-back
+refusal gets a scenario and a test (D-20, D-26); task 9.6 names every flow-page sentence that repeats
+the rule D-20 changes.
 
 ## Context
 
@@ -215,9 +226,10 @@ existing download tests, T-20 of `merge-setup.test.mjs` and "archive-release-pin
 A noted change names its ADR `<dir>/<slug>.md` (`<slug>` the change id, `<change-id>-<topic>` for
 more) and cites it `ADR [<slug>]`; `decisions.md` lists that path and is never edited. Citation forms
 rewritten, in every tracked text file (`git grep -I`) outside `openspec/changes/` (every change folder
-and the archive: another change's plan files stay as approved): `ADR [<slug>]` to `ADR <NNNN>`, and
-`<slug>.md` not preceded or followed by a letter, digit, `_` or `-` to `<NNNN>-<slug>.md` (covers
-`docs/adr/<slug>.md`, `adr/<slug>.md` links and `(<slug>.md)` header references). A foreign slug that
+and the archive: another change's plan files stay as approved) but test files and fixtures (D-18):
+`ADR [<slug>]` to `ADR <NNNN>`, and `<slug>.md` not preceded or followed by a letter, digit, `_` or
+`-` to `<NNNN>-<slug>.md` only where it names a file of an ADR folder (D-19: `docs/adr/<slug>.md`,
+`adr/<slug>.md` links, and `(<slug>.md)` header references inside an ADR folder). A foreign slug that
 has landed on the base is rewritten to its number too (AC-7). Refusals (exit 2, merge undone): a slug
 another file of `ADR_DIRS` already has (`a second ADR with the slug <slug>: <paths>`) and an unlanded
 citation (`ADR [<x>] is cited but has not landed on <base>; it lands with its own change`). The ADR's
@@ -226,9 +238,10 @@ own `Change:` line resolves the citations left in the change folder after the me
 ### D-5 The release edit, which stales nothing
 
 `maskRelease(text, path, map)` masks, symmetrically: JSON manifests and the release file without their
-version fields; `PIN_FILE` with `setPins(text, '0.0.0')` (the mask `pinLinesOnly` uses, ADR 0027); in any text, `ADR <NNNN>` to `ADR [<slug>]`
-and `<NNNN>-<slug>.md` to `<slug>.md` for every numbered ADR of `ADR_DIRS` at the later revision
-(`map`, memoized per revision). `releaseOnlyEdit(root, before, after, path)` is true for
+version fields; `PIN_FILE` with `setPins(text, '0.0.0')` (the mask `pinLinesOnly` uses, ADR 0027); in a file that holds citations (D-18), `ADR <NNNN>` to `ADR [<slug>]`
+and, where D-19's anchor matches, `<NNNN>-<slug>.md` to `<slug>.md` for every numbered ADR of `ADR_DIRS` at the
+revision (`map`, memoized per revision; each side masked with its own records, the refinement
+`49a8884` made). `releaseOnlyEdit(root, before, after, path)` is true for
 `CHANGELOG.md` and `docs/catalog.md`, for a path whose two texts mask equal, for an added
 `<dir>/<NNNN>-<slug>.md` whose text masks equal to `<dir>/<slug>.md` before, and for that unnumbered
 path deleted when its numbered form is added. `staleness` gains the option `release` (a predicate
@@ -251,8 +264,10 @@ The usage grows to `--base <base> [--roadmap-ticks] [--json] | --assign --base <
 1. Preflight as `--base` (exit 3: no `origin/<base>`, a rebase, tracked edits outside `openspec/`;
    a merge left in progress is aborted). The noted change is the one folder under `openspec/changes/`
    (not `archive/`) whose `release.md` the side added or changed since the merge base; none or two is
-   exit 2 with the reason. `releaseState` of the side must be `unassigned` or `assigned` (else exit 2,
-   `release lines edited by hand: <paths>`); a malformed note is exit 2 with the reader's message.
+   exit 2 with the reason. `releaseState` of the side must be `unassigned` (a line the step's own
+   record names counts as given back, D-20) or `assigned` (else exit 2, `release lines edited by hand:
+   <paths>`); a malformed note is exit 2 with the reader's message. A project that names no
+   `devkit.release_tag` is exit 3 (D-24).
 2. When `target` is not an ancestor of the head: `git merge --no-ff --no-commit <target>`. For each
    path the side changed outside `openspec/changes/` whose text holds assigned tokens, the merged text
    is `git merge-file` of the merge base, `maskRelease` of the side's text and the target's text (in a
@@ -261,8 +276,11 @@ The usage grows to `--base <base> [--roadmap-ticks] [--json] | --assign --base <
    `RELEASE_FILE` matches (pack manifests, the marketplace, `CHANGELOG.md`, `docs/catalog.md`) keep
    the target's side; `PIN_FILE` is not one of them: its text takes the masked three-way merge above
    (pins masked with `setPins`), so its prose edits from both sides are kept and step 3 writes its
-   pins.
-3. Write the lines of `computeRelease(target)`: manifests by `resolveManifest` from the target's text,
+   pins. When no merge is needed and the state's `reassign` is not empty (the person merged the base
+   by hand after a refusal), D-20's give-back runs instead, before the slug check.
+3. Write the lines of `computeRelease(target)`: manifests by `resolveManifest` on the merged text, so a
+   manifest field the branch added stays and only the version fields move (revised after round 1:
+   the implementation's deviation 1, which the five reviewers accepted, and architecture nit F4),
    `CHANGELOG.md` by `changelogEntry` on the target's text, the pins by `setPins` (the one pin
    definition ADR 0027 put in `deliver-check.mjs`; T-6 checks them against the manifest, ADR 0030;
    the archive check's pin-line rule is not involved: this is the change's branch), the release file's
@@ -270,8 +288,10 @@ The usage grows to `--base <base> [--roadmap-ticks] [--json] | --assign --base <
    with `ADR [<slug>]` and `<slug>.md` rewritten in it, then the citations (D-4).
 4. Commit: `chore(release): merge origin/<base> and assign the release of <id>` (a merge) or
    `chore(release): assign the release of <id>` (a plain commit); nothing to write is exit 0 with no
-   commit. Never push. JSON adds `mode: "assign"`, `change`, `adrs` (`{ from, to }`), `citations`
-   (paths) to the existing fields. Any failure after the merge started restores the tree (exit 2).
+   commit. The message ends with the step's record (D-20): `Release-change`, `Release-line`,
+   `Release-adr` and `Release-citation` trailers. Never push. JSON adds `mode: "assign"`, `change`,
+   `adrs` (`{ from, to }`), `citations` (paths) to the existing fields. Any failure after the merge
+   started restores the tree (exit 2).
 
 ### D-7 The join of a noted head: `--merge <rev>`
 
@@ -312,7 +332,8 @@ reports the branch behind. `--ci` is unchanged except for D-5's predicate.
 ### D-9 The approval covers the note
 
 `approvalState(dir)` adds `release` (`releaseNoteHash(dir)`) and `recordedRelease` (the value of a
-`- Release note:` line of `approval.md`) only when either is non-null, so the object of a change with
+`- Release note:` line of `approval.md`) only when either is non-null (in a project that names
+`devkit.release_tag`, which `approvalState` reads itself when its caller does not say, D-22), so the object of a change with
 no note keeps its keys (pinned by `deliver-check.test.mjs` and `flow-check.test.mjs`); `ok` also
 requires the two to be equal. `nextStep`'s `stop-plan-approval` carries `release`. The `ship-change`
 row for `stop-plan-approval` adds the line `- Release note: <next.release>` after `- Readiness:` when
@@ -425,6 +446,14 @@ git repository is the base. A fresh branch at the base's tip with an uncommitted
   numbers both forms. ADR 0003, ADR 0027 and ADR 0030 are built on, not amended (`ADR
   [release-at-merge]`'s Builds-on line and decision 7): no file of them is edited, so ADR 0003's
   first nine lines stay as "archive-release-pin 11" reads them (T-41).
+- After review round 1 (phase 9): `docs/openspec-flow.md`'s `--assign` paragraph replaces "Citations
+  are read only in Markdown and YAML files ..." with D-18's rule and D-19's anchor, names the
+  record's trailers and the recovery after a refusal for a conflict outside the release lines
+  (D-20), and says that `--assign` with no `devkit.release_tag` exits 3 (D-24); "The release note"
+  paragraph gains the sentence that the note counts with `tasks.md` when the readiness is judged
+  stale (D-21). `plugins/openspec/skills/ship-change/SKILL.md`'s `assign-release` row gains, after
+  its exit 2 clause, the merge by hand (D-20); its existing words stay (T-2, T-32, T-33). The
+  `ADRs:` entry of `openspec/config.yaml` keeps its citation form (D-25).
 
 ### D-14 The existing tests this change alters or must keep green
 
@@ -520,6 +549,8 @@ test reads the repository's history or names this change's ADR file.
 | `change-loop.test.mjs` | AC-4: the `assign-release` session action and its detail; AC-1: the planner's stop refused once with no note (reason names `release.md`, key `release-note/missing@<fingerprint>`) and with a malformed note (the reader's message, key `release-note/malformed@<fingerprint>`), let through the second time in the same state, refused again after the planner changed a file, let through after the note is written, for another role, while `tasks.md` is missing, and without the setting; AC-5: `decisionRecords` after the numbering (one file; two files unreadable); AC-12: the approval details carry `release`, `approvalText` writes the line only with it |
 | `release-tags.test.mjs` | AC-13: the tag asked for a single merge whose release `assign-release` wrote, and for a train's merge commit |
 
+The tests review round 1 found missing, and those of D-18 to D-24, are listed in D-26.
+
 ### D-16 The real-run proof
 
 Task 6 runs each case with the worktree's CLIs (`$DEV`) in scratch repositories under a private
@@ -542,6 +573,11 @@ on `PATH` answers from a JSON file the case writes (named in the case; no GitHub
 | P-10 | refusal: a duplicate slug; `check.py` on the branch and on `main` | AC-6 |
 | P-11 | each malformed field of the note through the checker and the step | AC-1 |
 | P-12 | the tag after the single merge of P-1 and after the train of P-2 (`gh` stub serving the merge commits the cases made) | AC-13 |
+| P-13 | (after review round 1, D-20) the reviewer's sequence: `feat` assigned (a pack and an ADR); a sibling lands the same pack's next version and the same ADR number and changes `src/a.ts`, which `feat` also changed; `assign-release` exits 2 naming `src/a.ts` and leaves the branch as it was; the session merges `origin/main` by hand, resolves `src/a.ts`, takes the base's side of every release line, commits; `deliver-check` answers `assign-release`, not `blocked`; the step exits 0, renumbers the ADR above the sibling's, writes the version above the base's, and `git log -1 --format=%B` shows its record; the state reads assigned and current and `enable-auto-merge` is next | AC-4, AC-5 |
+
+After review round 1 the whole script (`proof/cases.mjs`, P-1 to P-13) runs again at the head of
+phase 9 and `proof/real-run.md` is written anew: the step's commits now carry their record, the
+citations follow D-18 and D-19, and P-5's hand run of `--assign` exits 3 (D-24).
 
 Task 7 is the conducting session's own part, with the real agents of the worktree
 (`claude --plugin-dir <worktree>/plugins/core --plugin-dir <worktree>/plugins/openspec -p`, each run
@@ -569,6 +605,7 @@ and names what it seeded.
 | S-9 | K: the same on a seeded noted plan whose `decisions.md` lists a numbered `docs/adr/0002-<slug>.md`: a finding naming the numbered ADR | AC-5, AC-14 |
 | S-10 | K: the same on a seeded noted plan with a task that sets `package.json`'s version: a finding naming the task | AC-2, AC-14 |
 | S-11 | K: the `tdd-implementer` on phase 1 of a seeded, approved noted plan whose task 1.1 asks it to set `package.json`'s version returns `Outcome: failure` naming the release line; `git diff` shows `package.json` unchanged and `deliver-check feat --json` gives no row N3 | AC-2 |
+| S-12 | (after review round 1, D-21) K, the failure path then the success path: S-8's seed (a plan with no `release.md`), the real `plan-readiness-reviewer` fails it with a finding naming `release.md` (`readiness.md` `result=failed`); `change-loop.mjs next` hands the planner the revision; on a copy of that state the case writes only `release.md` and `change-loop.mjs next` hands the readiness review (`rerun-after-fix`), not the same revision; then the real `change-planner` runs on the brief (the case records which plan files it changed and their mtimes), `change-loop.mjs next` hands the readiness review again, and the real reviewer passes the plan; the same seed in N (no `devkit.release_tag`), with `release.md` touched after `readiness.md`, keeps the readiness passed | AC-16, AC-1 |
 
 ### D-17 The bootstrap and the line with `archive-release-pin`
 
@@ -587,6 +624,9 @@ and names what it seeded.
   `renumber-adr` (they would renumber the changelog heading but not its per-pack versions, which this
   branch's checker refuses as a hand edit).
 - `check.py` tolerates the unnumbered ADR on this branch (D-12) and, after the dogfood, finds none.
+- After review round 1: the dogfood commit `2bd35c5` carries no record (D-20 came later), and the base
+  since released the same numbers; D-27 gives them back by hand before the merge of the base, and
+  task 9.17 runs the step again, with its record, after the last merge of `origin/main`.
 - The line with `archive-release-pin` (merged, train 4): that change makes a pin-line rewrite
   acceptable to the archive check (`unnamedFiles` with `pinLinesOnly`, ADR 0027 amending ADR 0003)
   and makes `change-loop-compozy.test.mjs` read the version from the manifest (ADR 0030); this change
@@ -596,6 +636,540 @@ and names what it seeded.
   archive check's pin-line rule stays as written, the safety net for archive pull requests (no note)
   and for changes on the old rule, and is removed with the old rule. Nothing waits: no pin assertion
   stands in the way of this change's release (T-6).
+
+### D-18 A citation lives in every text file but tests and fixtures (after review round 1: A1)
+
+Revises D-4 and D-5 (adr-reviewer F1, spec-reviewer F1, code-quality nit F4). Commit `620c047`
+(dogfood defect 4) read citations only in `*.md`, `*.yaml` and `*.yml` files, narrower than `ADR
+[release-at-merge]` decision 3, which says every citation in a tracked text file outside
+`openspec/changes/`. The rule goes back to the decision's scope minus the files that hold test data:
+a literal in a test or a fixture names no record, and defect 4 came from such literals only.
+
+`deliver-check.mjs` keeps the one definition and drops `CITATION_EXTENSIONS`:
+
+- `CITATION_PATHSPEC = ['.', ':(exclude)openspec/changes', ':(exclude,glob)**/*.test.*',
+  ':(exclude,glob)**/*-fixtures.*', ':(exclude,glob)**/test/**', ':(exclude,glob)**/tests/**']`,
+  always read with `git -C <root> grep -I` (binary files skipped);
+- `holdsCitations(path)`: true when `path` is not under `openspec/changes/`, its base name matches
+  neither `*.test.*` nor `*-fixtures.*`, and none of its folders is named `test` or `tests`. A caller
+  that reads a file's text through it skips a text that holds a NUL byte, as `-I` does.
+
+Every reader uses those two names: `citationsOf` (the changed files scanned for `ADR [<x>]`),
+`citedAt` (a citation still standing), `numberRelease`'s rewrite (`git grep -l`), the give-back
+`unassign` of the step and the join (D-6 step 2, D-7, D-20) and `maskRelease`'s ADR part: the ADR
+tokens are masked only when `holdsCitations(path)`, so a commit that changes the test literal
+`docs/adr/feat.md` to `docs/adr/0002-feat.md` is a plain edit and stales (code-quality nit F4), and
+`unassign` passes the real path, not `''`. `docs/openspec-flow.md` says so (D-13). The comments of the
+tests written for defect 4 ("release-note AC-7 citation: an ADR [x] literal in a changed .mjs file is
+neither cited nor rewritten" and the "same token" test after it in `release-note.test.mjs`; "release-note
+AC-7 join: a head numbered before the train is renumbered in its Markdown citations, and its source
+literals stay as written" in `delivery-train.test.mjs`) say "a test file or a fixture" where they say
+"a source file"; their assertions stand, since their files are `*.test.mjs`. A `git grep -I` with this
+pathspec at `41dd40e` finds no `ADR [<x>]` token outside `openspec/changes/`: the repository trips
+nothing.
+
+### D-19 The `<slug>.md` form only where it names an ADR folder's file (code-quality F2)
+
+D-4's second form matched `<slug>.md` in any file, so a change named like another document (`roles`
+and `docs/roles.md`) would break every link to it, and `maskRelease` hid the break from the
+staleness. `deliver-check.mjs` exports `adrFileRe(name, path)`: the global RegExp of `<name>.md` as a
+whole token (not preceded or followed by a letter, a digit, `_` or `-`) whose folder part ends in
+`adr/` or `decisions/` (the last part of each `ADR_DIRS` folder: `docs/adr/feat.md`, `../adr/feat.md`,
+`adr/feat.md`, `docs/decisions/feat.md`), or, when `path` is a file of an `ADR_DIRS` folder, with no
+folder part (`(feat.md)` in `docs/adr/0022-x.md`); the folder part is captured so the rewrite keeps
+it. `rewriteCitations(text, slug, number, path)` (a fourth argument) writes `<number>-<slug>.md` only
+where `adrFileRe(slug, path)` matches; `maskRelease` maps `<NNNN>-<slug>.md` back only where
+`adrFileRe(`${number}-${slug}`, path)` matches. `ADR [<slug>]` and `ADR <NNNN>` keep their rule.
+This also meets the part of architecture nit F3 that this change touches: the two citation forms
+live in one helper the rewrite and the mask share; the other numbered-name lookups stay where they
+are (follow-up).
+
+### D-20 The step's own record of what it wrote (Blocker 1, code-quality F1)
+
+**The failure.** An assigned branch whose base then released the same pack, took the same ADR number
+for another record and changed a file the branch also changed (`src/a.ts`) gets exit 2 from
+`--assign` (a conflict outside the release lines, D-6 step 2). The only way on is a merge by hand.
+After it the merge base is the base's tip, the release files are the base's, and the change's record
+still holds the number the earlier run gave it (`docs/adr/0002-feat.md`, while the base's `0002` is
+`docs/adr/0002-other.md`). `releaseStateAt` reads that line as neither the merge base's nor what the
+step computes there, so `hand`, and every later `--assign` refuses with `release lines edited by
+hand: docs/adr/feat.md`. AC-4 fails for this case, and no document names a way out.
+
+**The record.** Every commit `numberRelease` makes for `--assign` (a plain or a merge commit) keeps
+its subject and ends its message with a trailer block, one trailer per thing it wrote, in this order:
+
+```text
+chore(release): assign the release of feat
+
+Release-change: feat
+Release-line: plugins/openspec/.claude-plugin/plugin.json
+Release-line: .claude-plugin/marketplace.json
+Release-line: CHANGELOG.md
+Release-line: docs/openspec-flow.md
+Release-adr: docs/adr/feat.md -> docs/adr/0002-feat.md
+Release-citation: docs/x.md
+```
+
+`Release-line` names each key D-3 compares (a pack manifest, the marketplace, `CHANGELOG.md`,
+`PIN_FILE`, the release file) that the commit wrote; `Release-adr` each record it renamed;
+`Release-citation` each path whose citations it rewrote (the JSON's `citations`). `docs/catalog.md`
+is not named (D-3 leaves it to `gen-catalog.py --check`). The join's commits carry none: a train's
+commits never come back to a change branch, and the record is read only from commits not on the
+target.
+
+`deliver-check.mjs` exports `stepRecord(root, { head, tip, id })` (`node:` imports only, D-3a): `git
+log --first-parent --format=%H%x00%B%x1e <tip>..<head>`, newest first; the first commit whose
+message's last paragraph holds `Release-change: <id>` is the record; null when none does or when `git
+log` fails (a shallow clone that cannot reach the range). The values come from that commit's own
+tree, never from the trailer text, and a named key counts only when the commit changed it from its
+first parent: a `Release-line` whose line differs between `<commit>^1` and `<commit>`, a `Release-adr`
+whose `to` the commit holds and its first parent does not, a `Release-citation` whose path differs
+between the two. A trailer typed on a commit that wrote nothing is ignored. It returns `{ commit,
+lines, adrs, citations }`: `lines` the values in the form `linesOf` and `adrValue` give (the changelog
+masked with the head's numbers, as D-3 does), `adrs` the `{ from, to }` pairs, `citations` the paths.
+
+**The state.** `releaseStateAt` reads the record and counts a key whose head value is neither the
+merge base's nor the computed one as the step's own when the record holds that same value for it.
+Then, first match wins: every key equal to the computed value is `assigned`; every key equal to the
+merge base's or to the record's is `unassigned`, with `reassign` listing the keys taken from the
+record (empty in every case D-3 already knew); anything else is `hand`, the paths as before. Only the
+step's own record decides: a value no recorded commit wrote stays `hand` (a number typed by hand, a
+record lost to an amend). `nextStep` therefore answers N6 `assign-release`, not N3, for a branch
+merged by hand. A key whose head value equals the merge base's is never in `reassign`, even when the
+record holds that same value (the reviewer's own sequence: devkit-openspec 1.1.0 on both sides, so
+the manifest is unassigned and given back by nothing); `reassign` lists only keys whose head value
+equals the record's and differs from the merge base's.
+
+**What the give-back touches.** `reassign` holds state keys only, the keys `releaseStateAt` compares
+(the pack manifests, the marketplace, `CHANGELOG.md`, `PIN_FILE`, the release file and each
+`Release-adr` `from` path); the record's `Release-citation` paths are given back together with the
+`Release-adr` entry they belong to when that entry's key is in `reassign`, and never become keys the
+state compares (readiness attempt 5, O2). Only the record's `Release-adr` and `Release-citation`
+entries so selected go through the three-way give-back below. A `Release-line` key in `reassign` (a pack or
+marketplace version, `CHANGELOG.md`, the CI pins, the release file's `version`, kept from the
+branch's side of a merge by hand) is left to step 3, which writes every release line from
+`computeRelease(target)` anyway: the manifests by `resolveManifest` on the merged text, the changelog
+by `changelogEntry` on the target's text, the pins by `setPins`, the release file's version.
+
+**The step.** `numberRelease` takes the `unassigned` state with a non-empty `reassign` when no merge
+is needed (the person merged): before the slug check of D-4 it gives back what the record names,
+each path through `git merge-file` of three texts (base: the path's text at the record's commit;
+ours: the working text; theirs: the record commit's text with the record's numbers masked by
+`maskRelease`), so only the tokens the step wrote go back to `ADR [<slug>]` and `<slug>.md`, and a
+citation the base brought with the same number (`ADR 0002` for the base's other record) stays as it
+is; each `Release-adr` record is moved back to its `from` the same way. A conflict there is exit 2
+(`cannot give back the numbers the step wrote in <path>`), nothing written and the head and the tree
+as they were (`restore`): a person who edited, after the record, a line where the step had written
+a number (`see ADR 0002` became `see ADR 0002 and its notes` in `docs/x.md`) changed the very line
+the give-back changes, so `git merge-file` conflicts; the scenario "A line the step wrote, edited
+after its record" and the D-26 test of that name prove it. Step 3 then writes
+`computeRelease(target)` as always. The merge path of D-6 step 2 is unchanged: before its merge the
+side holds no other record with its number, so its mask is exact.
+
+**Why trailers.** Rejected: (a) a guess from the trees (the review's first suggestion: a numbered
+form whose text masks equal to the unnumbered one is the step's): it cannot tell a number the step
+wrote from one a person typed, and it covers records, not a version a person kept; (b) `--assign
+--continue` over a merge left in progress for the person: a half-merged worktree across a session
+boundary, which the checker cannot read while it waits; (c) a file holding the numbers: under
+`openspec/changes/<id>/` it changes the change folder and stales the records, anywhere else it is a
+file outside the release lines; (d) `git notes`: neither pushed nor fetched by default, so a clone
+loses them. A trailer travels with its commit through push, fetch and merge, needs no file, and sits
+on the very commit whose diff proves it.
+
+**Where it is read, and the checkout depth.** Only where the branch's history is present: the
+checker's `nextStep` in a local clone, the step, and the join in the train's scratch worktree of a
+local clone. `deliver-check --ci` computes no release state (it judges staleness through
+`releaseOnlyEdit`, which reads no trailer), and both `devkit-reviews.yml` files (this repository's
+and the setup template's) check out with `fetch-depth: 0` anyway. CI's `check` job
+(`.github/workflows/ci.yml`, `actions/checkout@v4` at its default depth of 1) runs `check.py`, which
+reads no record, and the suite, whose tests build their own repositories and never read this
+repository's history (D-15). A clone that cannot read the range reads no record and falls back to the
+trees: `hand`, never a false pass. The join reaches `stepRecord` only through `releaseStateAt` and
+adds no give-back of its own: in a train project the step never runs (D-8 hands `assign-release`
+only with no train), so a boarded head holds no record and its `reassign` is empty, and a head the
+step numbered before the train (D-17's bootstrap) keeps D-7's mask give-back.
+
+**The recovery, written down.** The `ship-change` `assign-release` row and the flow page's `--assign`
+paragraph say what follows exit 2 for a conflict outside the release lines: the person merges
+`origin/<base>` by hand, resolves those files, takes the base's side of every release line in
+conflict (the versions, the `CHANGELOG.md` entries, the CI pins), commits, and runs the loop again;
+the step then numbers the branch above the base from its record. The records go stale at that merge
+when it resolves a conflict in one of the change's own files (ADR 0025 decision 2); the step's commit
+after it stales nothing more.
+
+**The record of the decision.** `ADR [release-at-merge]` decision 6 refuses "anything else" as
+edited by hand and derives the state "with no marker commit"; D-20 adds an outcome (a value the
+step's own recorded commit wrote is given back, not refused) and makes the state depend on
+commit-message metadata as well as the trees (an amend that drops the trailers changes the state
+while the trees stay the same, and can only turn it back into the refusal). That is a change of
+decision 6, not a reading of it, so it has its own record: `ADR [release-at-merge-step-record]`
+(`docs/adr/release-at-merge-step-record.md`, proposed, drafted by the adr-author and listed in
+`decisions.md`), whose decisions 1 to 8 are this D-20 and whose alternatives are (a) to (d) above
+plus a documented manual recovery. The decision text of `ADR [release-at-merge]` is not edited; its
+header gains the one line `- Amended by ADR [release-at-merge-step-record]
+(release-at-merge-step-record.md)` at task 9.1a, as the repository's convention for an amended record
+(F-8, "The `Amended by` line" below). The record follows
+D-4: unnumbered, cited by its slug in this folder before and after, and numbered by the step in the
+same commit as the first record, the next number after it, since `decisions.md` lists it second
+(task 9.17); no plan file names either number. Its slug starts with the first record's slug, so the
+D-26 test "two unnumbered records of one change" builds that very shape (`feat`, `feat-store`).
+
+**The texts that repeat decision 6.** `docs/openspec-flow.md` says the rule D-20 changes in three
+places, each found by its text (task 9.6):
+
+- "The release note" paragraph: the sentence that starts "The state of a branch is derived, with no
+  marker commit:" and ends "anything else was edited by hand." becomes: "The state of a branch is
+  derived from its trees, with no commit made to mark it: its release lines (...the list as now...)
+  equal to those of its merge base with `origin/<base>` is `unassigned`; equal to what the step
+  computes from that merge base and the note is `assigned`, and `current` once `origin/<base>` is in
+  the branch; a line that equals neither but holds what the step's own last recorded commit wrote
+  (the `Release-` trailers of its message, read against that commit's tree) is `unassigned` too, and
+  the next run of the step gives it back and numbers it again; anything else was edited by hand."
+- the row N3 of that paragraph's table: the condition "a note, and the release lines were edited by
+  hand" becomes "a note, and a release line is neither the merge base's, nor what the step computes,
+  nor what the step's own record wrote"; its `next.step` cell stays.
+- the `--assign --base <base>` bullet of "Release-file conflicts: `release-merge.mjs`": "exits 2 when
+  the branch's release lines are neither the merge base's nor the ones the step wrote there" gains
+  ", nor the ones its own last recorded commit wrote", and the bullet gains the record (the trailer
+  block, one per thing written), the give-back with its exit 2 `cannot give back the numbers the step
+  wrote in <path>`, and the recovery after a conflict outside the release lines.
+
+A `grep -rn` of the test files at `41dd40e` (`edited by hand`, `marker commit`, `The state of a
+branch`, `neither the merge base`, `a note, and`) finds no assertion of these three sentences: the
+"documents" subtest of `release-note.test.mjs` asserts only the bold heads `**The release note.**`
+and `**A noted change on the train.**`, the table cell of the `assign-release` row and the bullet's
+head `--assign --base <base>`, which stay; the tests that match `release lines edited by hand:` (the N3 tests of
+`deliver-check.test.mjs`, the AC-2 state tests of `release-note.test.mjs`, "release-note AC-4 assign:
+a version edited by hand exits 2 naming the release line" of `release-merge.test.mjs`) assert the
+checker's and the step's message, which does not change. The `devkit` skill's `assign-release` clause
+("a release line edited by hand, a conflict outside the release lines, an ADR cited before it
+landed") stays true and is not edited.
+
+**The `ADRs:` line.** In `openspec/config.yaml`'s `ADRs:` list, this change's first entry, which
+ends `, amends 0022 and 0025`, gains `, amended by ADR [release-at-merge-step-record]` (the way the
+0027 entry says `amends 0003, amended by 0030`), and the list gains, after that entry, `; ADR
+[release-at-merge-step-record] the release step's commits record the lines they wrote, so a branch
+merged by hand is numbered again, amends ADR [release-at-merge]`. Both new citations keep the
+bracket form, so the step rewrites each (D-25's reason for code-quality nit F6: a bare
+`[release-at-merge-step-record]` or a bare number is no citation form, and a later run that
+renumbers would leave it behind). The "documents" subtest of
+`release-note.test.mjs` "release-note AC-14 texts: ..." asserts that the line ends with this change's
+record (`; ${CITED} [^;]+, amends 0022 and 0025\\)$`); its assertion changes to the line ending with
+the first record's entry followed by the second's (`; ${CITED} [^;]+, amends 0022 and 0025, amended
+by ${CITED2}; ${CITED2} [^;]+, amends ${CITED}\\)$`, `CITED2` the second slug's `ADR
+(?:\\[<slug>\\]|\\d{4})`). Invariant: the `ADRs:` line ends with this change's records in the order
+`decisions.md` lists them, each in a form the step rewrites, the first naming the second as its
+amender, and the entries before them stay; layer: the texts of D-13; suite: `release-note.test.mjs`
+(D-26, "changed").
+
+**The `Amended by` line.** Decided by the coordinating session as the repository's standing
+convention, not an owner question: every amended accepted record in `docs/adr/` carries one `-
+Amended by ADR <NNNN> (<NNNN>-<slug>.md)` header line per amender (ADR 0003 carries four, ADR 0027
+one, and ADR 0022 and ADR 0025 received theirs from this change). So `ADR [release-at-merge]` gets,
+as the last line of its header bullets (after `- Builds on:`, where ADR 0027 places its line), `-
+Amended by ADR [release-at-merge-step-record] (release-at-merge-step-record.md)`, written in the
+unnumbered form the step rewrites. The adr-author adds it at task 9.1a: after 9.1, because 9.1's
+revert renames `docs/adr/0031-release-at-merge.md` back to `docs/adr/release-at-merge.md` and a line
+added before it would meet that revert; before 9.6, so the record reads complete before the texts
+that cite the second record change. The line is a header line, not an edit of the accepted decision
+text (as for ADR 0022 and ADR 0025 here). It stales no stage file (the `decisions` stage is
+`decisions.md` only, `plugins/openspec/schemas/devkit/flow.json`), and no test reads it (the
+"records" subtest of `release-note.test.mjs` checks ADR 0022, 0025, 0003, 0027 and 0030 only). At
+task 9.17 the step numbers both of its tokens: `ADR [release-at-merge-step-record]` by the
+`ADR [<slug>]` rule, and `(release-at-merge-step-record.md)` by D-19's no-folder form, since the file
+holding it is an `ADR_DIRS` file; the step's citation pass reads every tracked file the pathspec
+names, the record it renamed a moment before included, so the line reads `- Amended by ADR <N+1>
+(<N+1>-release-at-merge-step-record.md)` in `docs/adr/<N>-release-at-merge.md`. No existing test
+covers a citation in an ADR's header line naming another record of the same change (the two-records
+test of task 9.5 covers the second citing the first), so D-26 adds one (task 9.2), which pins that
+the pass hands `rewriteCitations` the renamed record's own path once D-19 makes the file form depend
+on the path.
+
+### D-21 The readiness review sees the release note (B1)
+
+**The failure.** The readiness review fails a plan on its note (`plan-readiness-review/SKILL.md`, the
+release note paragraph; S-8), but the readiness stage's `staleAfter` names stage files only, so a
+planner that then changes only `release.md` leaves `readiness.md` the newest stage file and the loop
+hands it the same revision brief until no progress ends the run (S-6, "What the loop hands after the
+revision"). **The agent that fails, the files it leaves, the hook that sees it:** the
+`plan-readiness-reviewer` leaves `readiness.md` with `result=failed` and a finding naming `release.md`;
+the `change-planner` then leaves a newer `release.md` and no other changed plan file. The hook is not
+`guard.mjs subagent-stop` but the stage walk of `flow-check.mjs` (`artifactState`, reached by
+`change-loop.mjs next` through `collectFlow` and `computeFlow`), which marks a failed stage whose
+`staleAfter` files are newer as `fixed` and offers it again (`rerun-after-fix`).
+
+**The rule, in code.** `collectFlow` adds `facts.noteFiles`: `[{ path: 'release.md', mtimeMs }]`
+when `releaseTagOf(root)` names a file (a value the setting reader refuses counts as none, as in
+`releaseFacts`) and the change's folder holds `release.md`; else `[]`. In `artifactState`'s
+`staleAfter` loop the entry `tasks` compares `maxMtime([...(facts.files.tasks ?? []),
+...(facts.noteFiles ?? [])])`; the reason stays `stale-plan` with `by: 'tasks'`. `release.md` never
+joins `facts.files.tasks`, so the tasks stage asks no header of it. The guard `!started &&
+!facts.postMerge` is unchanged: once a task is ticked, a changed note is the approval's (row A1, the
+recorded hash). A readiness run again stales the approval through its own `staleAfter`
+(`readiness`), so the owner approves the new note. The conductor follows the same rule:
+`conduct-check.mjs` `planFacts` counts the `release.md` mtime, under the same condition, in a
+`newestNote` it compares only in `readiness.fresh` (never in `planArtifacts`, so no `plan` step asks
+for it, and never in `newestPlan`, so the dependency audit's `audit.fresh`, which judges the order of
+changes and not their release, is not staled by a note), and its planning row answers `readiness`
+too. No `flow.json` changes and no flow version is released (`ADR [release-at-merge]`
+decision 2); the requirement is the MODIFIED `change-stages` block (D-25). The canonical
+`change-stages` requirement "A change follows the flow version it opened with" holds: the rule edits
+no stale rule, ceiling or `onFail` target of a recorded flow; it is an input of the comparison in
+code, of the same kind as the 2-second tolerance and the started guard, and acts on every recorded
+flow whose readiness lists `tasks` in `staleAfter` (devkit flows 1 and 2, identical there).
+
+### D-22 Every reader of the approval checks the note (architecture F2)
+
+D-9 gave `approvalState(dir)` the note keys directly; the code took them only when the caller passed
+`{ release: true }`, which evidence.md did not list as a deviation, so `conduct-check.mjs` `planFacts`
+(the conductor's `approve` row) and `change-loop.mjs` `acceptDecisions` read a plan whose note
+changed after the approval as approved. `approvalState(dir, { release } = {})` now reads the setting
+itself when `release` is undefined: `namesReleaseTag(changeRoot(dir))`. `namesReleaseTag` moves from
+`change-loop.mjs` into `deliver-check.mjs` and is exported (`change-loop.mjs` imports it);
+`changeRoot(dir)` is the folder above `openspec/changes/<id>` or `openspec/changes/archive/<id>`, and
+a folder outside that layout names no setting. Callers that pass `release` keep passing it.
+`conduct-check.mjs`'s `approve` row gives the reason `release note changed after approval` (with
+`release` among its fields) when the readiness hash matches and the note's does not;
+`acceptDecisions` refuses with the same words. The object of a change with no note keeps its four
+keys (T-13). The rule is the ADDED requirement "Every reader of the plan approval checks the release
+note", whose scenario "A folder outside a project's layout" pins the last case.
+
+### D-23 A `## ` line in the changelog body is refused (code-quality nit F5)
+
+`parseReleaseNote` refuses a body line outside a code fence that starts `## ` (`/^##\s/`):
+`release.md: changelog body: line <n>: "<text>" is a version heading; write ### or a list item`.
+`changelogEntry` would otherwise write it into `CHANGELOG.md` as another version-level heading, which
+`parseChangelog` and the changelog rule of `check.py` read as a version. A `### ` line and a line
+inside a fence are kept.
+
+### D-24 `--assign` with no `devkit.release_tag` exits 3 (architecture nit F5, spec-reviewer nit F7)
+
+The implementation's exit 2 (evidence.md, deviation 2) is a setup error, as a setting the reader
+refuses already is in `--assign` (exit 3), and the script's header reserves 3 for setup and usage
+errors, while `ship-change` reads 2 as `blocked: item 5`. So: stderr `release-merge: openspec/config.yaml
+names no devkit.release_tag: this project has no release to assign`, no JSON, exit 3, nothing
+written. No session reaches it (the checker never hands `assign-release` without the key); P-5 runs
+again and records exit 3.
+
+### D-25 Spec and design text settled after round 1
+
+- spec-reviewer F2: `change-coordination` carries "From the implementation on, the step inside the
+  stage goes to its role" as a MODIFIED block, its text and every scenario copied verbatim from the
+  canonical spec, plus one sentence, the three conflict scenarios ("A conflict only in release
+  files", "A conflict in any other file", "GitHub reports a conflict the base merges cleanly") scoped
+  to a change with no release note, and the scenario of a noted change in conflict
+  (`assign-release`). The review named the second and the third; the first contradicts the ADDED
+  conductor requirement in the same way, so it is scoped too (F-10).
+- Train 15 (`a815222`, readiness attempt 4, blocker 2): `change-coordination` carries "The loop
+  fetches the base branch before it judges a delivery step" as a MODIFIED block, its text and its six
+  scenarios copied verbatim from the canonical spec at `a815222`, plus one sentence: for a change with
+  a release note, in a project that names `devkit.release_tag` and sets no delivery train, the step
+  judged from the fetched base is `assign-release`. Its scenario "A base that moved on the remote",
+  whose THEN hands the release-conflict step, is scoped to a change with no release note, and one
+  scenario is added, "A base that moved on the remote, for a change with a release note" (the action
+  is the session step `assign-release`). The fetch is `fresh-base-check`'s code, already on this
+  branch through train 12 (train 15 archived its spec), and N5 and N6 are this change's, so the D-26
+  test of that scenario is a guard (F-10). Until task 9.1 merges `a815222`, this worktree's
+  canonical spec lacks the requirement, so `openspec validate` reports, as information, that the
+  archive would refuse this block; the merge clears it.
+- spec-reviewer F4: `change-delivery` gains "The repository check refuses an unnumbered ADR on the
+  base" and "The repository check refuses an unlisted unnumbered ADR and a slug held twice"; the
+  seven existing `release-note AC-6 check` tests prove their scenarios (D-26), and AC-6 names the
+  unlisted rule.
+- spec-reviewer nit F5: the MODIFIED "A plain commit on the branch keeps its rule" names the change's
+  own ADR renumbered by a later run as a release edit, with a scenario.
+- spec-reviewer nit F6: `delivery-train` carries "Release numbers follow the boarding order on the
+  train only" as a MODIFIED block scoped to a head with no note, its scenario verbatim; the ADDED join
+  requirement gains the scenario of a project with no `devkit.release_tag` (test-coverage nit F8).
+- B1 is the MODIFIED `change-stages` requirement "A plan stage is stale after a plan file changes,
+  until the work starts" (verbatim, plus the note's sentence and four scenarios): a fifth capability,
+  named in the proposal (F-10).
+- D-18 to D-20 are ADDED `change-delivery` requirements ("A citation lives in every text file but
+  tests and fixtures", "The file form of a citation is rewritten only where it names an ADR folder's
+  file", "A release line the step wrote is known by the step's own record", "The release step
+  records what it wrote and numbers again after a merge by hand", whose scenario "A line the step
+  wrote, edited after its record" is the give-back's exit 2), and D-22 is "Every reader of the plan
+  approval checks the release note".
+- architecture nit F4 and the implementation's deviation 1: D-6 step 3 says the merged text, and
+  test-coverage F4's test pins it with the state read `assigned` right after the step.
+- code-quality nit F6 (the `ADRs:` entry reads `ADR <NNNN> a change carries ...` where the others read
+  `<NNNN> <subject>`): kept, with this reason. A bare number is no citation form, so a later run of
+  the step that renumbers the record after the base took its number would leave it behind; the entry
+  keeps the `ADR [<slug>]` form D-13 wrote, which the step rewrites. Follow-up: a citation form for
+  the `ADRs:` list.
+- adr-reviewer nit F3 (`ADR [release-at-merge]` decision 4's "no train" read literally): F-6's
+  reading stands; the record is accepted and is not edited, and no new record is wanted for a
+  wording. Follow-up for the next record that touches decision 4.
+
+### D-26 The tests round 1 found missing, and the tests of D-18 to D-24
+
+Each is named `release-note <AC-n> <area>: ...` (D-15). "Red" fails on the code as phase 9 finds it;
+"guard" pins behaviour the code already has and passes there, saying so in `proof/red-9.txt`.
+
+| Finding | File | Test | Kind |
+|---|---|---|---|
+| A1 / D-18 | `release-note.test.mjs` | "release-note AC-7 citation: a citation in a changed source file is refused while unlanded and rewritten once landed" (`plugins/openspec/hooks/x.mjs` with `// amends ADR [other]`) | red |
+| A1 / D-18 | `release-note.test.mjs` | "release-note AC-5 rewrite: a source comment and a Python file are numbered with the record" (`plugins/a/hooks/x.mjs`, `scripts/x.py`) | red |
+| A1 / D-18 | `release-note.test.mjs` | "release-note AC-5 citation scope: a test file, a fixture and the files of a test folder are never cited, rewritten or counted as still cited" (`x.test.mjs`, `x-fixtures.mjs`, `test/a.md`, `tests/b.yaml`) | guard |
+| A1 / D-18 | `release-note.test.mjs` | "release-note AC-5 citation scope: holdsCitations and CITATION_PATHSPEC name the same files" (a scratch repository with those paths and `docs/x.md`, `plugins/a/hooks/x.mjs`, `scripts/x.py`, `openspec/config.yaml`, `openspec/changes/f/design.md`: `git grep -l` with the pathspec equals the filter) | red |
+| code-quality nit F4 / D-18 | `deliver-check.test.mjs` | "release-note AC-4 staleness: a test literal renumbered by hand stales the evidence" | red |
+| A1 / D-18 | `delivery-train.test.mjs` | "release-note AC-7 join: a source file's citation of a head numbered before the train is given back and renumbered" | red |
+| code-quality F2 / D-19 | `release-note.test.mjs` | the existing "release-note AC-5 rewrite: ADR [<slug>] becomes ADR <NNNN> and <slug>.md becomes <NNNN>-<slug>.md, each only as a whole token" changes: called with the path `docs/x.md` the bare `(feat.md)` stays, with `docs/adr/0001-start.md` it is rewritten (invariant: both forms are rewritten as whole tokens, the file form only where it names an ADR folder's file; layer: the step's rewrite in `release-merge.mjs`; suite: `release-note.test.mjs`) | changed |
+| code-quality F2 / D-19 | `release-note.test.mjs` | "release-note AC-5 rewrite: a change named like another document leaves its links alone" (change `roles`, `docs/roles.md` linked from `docs/x.md`) and "release-note AC-5 mask: a link to another document renamed by hand is not masked" | red |
+| D-19, D-20 "The `Amended by` line" | `release-merge.test.mjs` | "release-note AC-5 assign: the first record's Amended by header line naming the second record of the same change takes the second's number in both tokens" (`decisions.md` lists `docs/adr/feat.md` then `docs/adr/feat-store.md`; `docs/adr/feat.md`'s header ends `- Amended by ADR [feat-store] (feat-store.md)`; the base's highest is `0026`; after `--assign`, `docs/adr/0027-feat.md` holds `- Amended by ADR 0028 (0028-feat-store.md)`, and no tracked file outside `openspec/changes/` holds `ADR [feat-store]`, a bare `(feat-store.md)` or `0027-feat-store.md`) | guard (today's file form matches anywhere; after D-19 it pins that the citation pass hands `rewriteCitations` the renamed record's path, an `ADR_DIRS` file) |
+| code-quality F1 / D-20 | `release-merge.test.mjs` | "release-note AC-4 assign: an assigned branch merged by hand after a code conflict with a base that released the same pack and ADR number is numbered again" (the reviewer's sequence: assign; the base releases the same pack and ADR number and edits `src/a.ts`; `--assign` exits 2 on `src/a.ts`; a merge by hand that takes the base's release files; `--assign` again exits 0, renumbers, and the state reads `assigned` and `current`) | red |
+| code-quality F1 / D-20 | `release-merge.test.mjs` | "release-note AC-4 assign: the step's commit ends with its record" (plain and merge commit: subject unchanged, the trailers of D-20 in order) | red |
+| code-quality F1 / D-20 | `release-merge.test.mjs` | "release-note AC-4 assign: the same branch with its record removed by an amend reads hand naming the record" and "...: a version no recorded commit wrote is still refused" | guard |
+| code-quality F1 / D-20 | `release-merge.test.mjs` | "release-note AC-4 assign: a citation the base brought with the step's old number keeps its number when the step gives its own back" | red |
+| code-quality F1 / D-20 | `release-note.test.mjs` | "release-note AC-4 record: stepRecord reads the newest recorded commit, ignores a trailer whose commit wrote nothing, and is null without one" | red |
+| code-quality F1 / D-20 | `deliver-check.test.mjs` | "release-note AC-4 row N6: a branch merged by hand after the step is handed assign-release, not refused" | red |
+| readiness M3 / D-20 | `release-merge.test.mjs` | "release-note AC-4 assign: a line the step wrote, edited by a person after the record, is not given back: exit 2 naming the path, the head and the tree as they were" (the reproduction's merge by hand, then `see ADR 0002` becomes `see ADR 0002 and its notes` in `docs/x.md`; stderr and the JSON's `error` say `cannot give back the numbers the step wrote in docs/x.md`; `git rev-parse HEAD` and `git status --short` as before the run) | red |
+| readiness O1 / D-20 | `release-note.test.mjs` | "release-note AC-4 record: a line equal to both the merge base's value and the record's is unassigned and outside reassign, and a version kept from the record is left to step 3" (the reproduction's manifest at 1.1.0 on both sides is not in `reassign`; a second branch whose merge by hand kept its own 1.1.0 over a base at 2.0.0 has the manifest in `reassign`, and `--assign` then writes 2.1.0 through step 3 with no three-way give-back of the manifest) | red |
+| readiness M1 / D-20, D-4 | `release-merge.test.mjs` | "release-note AC-5 assign: two unnumbered records of one change take the next two numbers in the order decisions.md lists them, the second's citations of the first follow, and the record names both renames in that order" (`decisions.md` lists `docs/adr/feat.md` then `docs/adr/feat-store.md`, the second citing `ADR [feat]` and `(feat.md)`, `docs/x.md` citing both; the base's highest is `0026`: `0027-feat.md` and `0028-feat-store.md`, `ADR [feat-store]` never read as `ADR [feat]`, `feat-store.md` never rewritten as `feat.md`, two `Release-adr` trailers in listed order) | red (the record part) |
+| B1 / D-21 | `flow-check.test.mjs` | "release-note AC-16 stages: a note newer than readiness.md makes it stale", "...: a readiness failed on the note is offered again after a note-only revision", "...: without devkit.release_tag the note stales nothing", "...: once a task is ticked the note stales nothing" | red, red, guard, guard |
+| B1 / D-21, readiness O3 | `conduct-check.test.mjs` | "release-note AC-16 conduct: a note newer than readiness.md hands readiness" (an `audit.md` as new as the plan stays `fresh` beside it) | red |
+| B1 / D-21 | `change-loop.test.mjs` | "release-note AC-16 loop: after a note-only revision of a failed readiness the next action is the readiness review" | red |
+| architecture F2 / D-22 | `deliver-check.test.mjs` | "release-note AC-12 approval: approvalState reads devkit.release_tag itself, and a folder outside a project gets no note keys" | red |
+| architecture F2 / D-22 | `conduct-check.test.mjs` | "release-note AC-12 conduct: a note changed after the approval answers approve with that reason" | red |
+| architecture F2 / D-22 | `change-loop.test.mjs` | "release-note AC-12 accept: accept-decisions refuses a note changed after the approval" | red |
+| code-quality nit F5 / D-23 | `release-note.test.mjs` | "release-note AC-1 reader: a ## line in the changelog body is refused naming its line; a ### line and a fenced ## line are kept" | red |
+| test-coverage F1 | `release-merge.test.mjs` | "release-note AC-4 assign: run again after the base released another devkit-openspec version, the pin-only conflict of a flow page that cites no ADR is resolved by rule" (`notedRepo` with no ADR; the base releases a patch with `pinDoc` of it; exit 0, the pins name the branch's new version, no conflict marker) | guard |
+| test-coverage F2 | `release-note.test.mjs` | "release-note AC-8 consumer: run again after the base released, the release file takes the note's bump above the base's" (beside the AC-8 consumer test) | guard |
+| test-coverage F3 | `deliver-check.test.mjs` | "release-note AC-4 staleness: a consumer's step commit leaves tasks, acceptance and approved reviews current" (`CONSUMER` config, `ciProve`) | guard |
+| test-coverage F3 | `delivery-train-after.test.mjs` | "release-note AC-3 trainCheck: a consumer's join that writes the release file passes" | guard |
+| test-coverage F4, architecture nit F4 | `release-merge.test.mjs` | "release-note AC-4 assign: a manifest field the branch added is kept when the step merges a base that released, and only the version moves" (the state reads `assigned` right after) | guard |
+| test-coverage F6 | `deliver-check-cli.test.mjs` | "release-note AC-12 format: ship-change's stop-plan-approval row writes - Release note: <next.release> after - Readiness: when next.release is set" (beside T-32) | guard |
+| test-coverage F6, D-20 | `deliver-check-cli.test.mjs` | "release-note AC-4 format: ship-change's assign-release row fetches, runs next.command, pushes plain and never by force, stops blocked on exit 2 and names the merge by hand" | red (the merge by hand is new) |
+| test-coverage nit F7, D-24 | `release-merge.test.mjs` | "release-note AC-9 assign: the refusals before any write" (no `devkit.release_tag`: exit 3; a setting the reader refuses: exit 3; `--assign --roadmap-ticks`: exit 3; no noted change and two noted changes: exit 2; each with the tree as it was) | red (exit 3) |
+| test-coverage nit F8 | `delivery-train.test.mjs` | "release-note AC-9 join: with no devkit.release_tag a head carrying release.md joins by the old rule" | guard |
+| test-coverage nit F9 | `deliver-check.test.mjs` | "release-note AC-4 row N6: before ready-base in a two-prs project" | guard |
+| test-coverage nit F10 | `release-merge.test.mjs` | "release-note AC-4 assign: a slug refusal after the step gave back its own numbered record leaves the tree as it was" (restore takes out `docs/adr/feat.md`) | guard |
+| readiness M2 / D-25 | `change-loop.test.mjs` | "release-note AC-4 fetch: a base that moved on the remote hands assign-release, not resolve-release-conflict, to a noted change" (`staleMergeFixture` of the `fresh-base-check` tests with `devkit.release_tag` set and the change's `release.md`: `next` moves `origin/main` to the remote's commit and answers the session step `assign-release`) | guard |
+| readiness M1 / D-20 | `release-note.test.mjs` | the "documents" subtest of "release-note AC-14 texts: the agents, the documents and the records follow the release note and the unnumbered ADR" changes: the `ADRs:` line ends with the first record's entry, then the second's, `amends ${CITED}` (invariant, layer and suite in D-20, "The `ADRs:` line") | changed |
+| spec-reviewer F4 | `release-note.test.mjs` | no new test: the seven existing `release-note AC-6 check` tests prove the scenarios of the two check.py requirements (branch, `main`, `train/1`, unlisted, two slugs, `README.md`, a root with no git) | existing |
+
+### D-27 The merge of trains 13 to 15, and the numbers given back first
+
+`origin/main` stands at `a815222` (trains 13, 14 and 15, local as last fetched; this revision did not
+fetch). Against the last merge base `d6d7f6a` it released devkit-openspec and the marketplace at the
+very versions the dogfood commit `2bd35c5` gave this branch and then a patch above them (train 15),
+and devkit-core at two patches; it holds no ADR above 0030. Its code: `flow-check.mjs`
+(`notApplicableOf` and `appliedStages` at the top of `artifactState`), `change-loop.mjs` (the status
+line's state; train 15 removed one line, a second `const baseBranch` inside `nextAction`'s delivery
+branch), `merge-setup.mjs` (`OFFLINE_GH`), `roadmap-loop.mjs`, one sentence each of
+`plan-readiness-review/SKILL.md` and `requirements-grill/SKILL.md`, `pr-verifier.md` and their tests;
+it added `status-line.mjs`, `status-line.test.mjs` and `change-state-stages.test.mjs`, and the flow
+page's CI pins name its devkit-openspec release. Its specs: train 15 archived `fresh-base-check` and
+`run-status-bar`, adding to `change-coordination` "The loop fetches the base branch before it judges a
+delivery step" and "A base that cannot be fetched does not stop the loop", to `change-delivery` "The
+delivery checkers never fetch", and the `change-state`, `roadmap-coordination` and `status-line`
+requirements. One scenario contradicts this change's delta: "A base that moved on the remote" hands
+the release-conflict step where a noted change gets `assign-release` (N5); D-25 scopes it in a
+MODIFIED block, the planner's step 3b answer for drift a requirement of this change already decides.
+"The delivery checkers never fetch" agrees with D-3 (the checker reads `origin/<base>` and, when it is
+missing, says `git fetch origin <base>` without running it) and with D-20 (`stepRecord` reads `git
+log` only). The rest is drift the plan resolves.
+
+`2bd35c5` carries no record (D-20 came later), and both sides changed `change-loop.mjs` and append
+tests to the same files, so the step's merge would stop on a conflict outside the release lines and
+leave this branch in D-20's failure with no record to read. Task 9.1 therefore gives the numbers back
+by hand before it merges, as the readiness review ran it in a scratch clone at `41dd40e`:
+
+1. `git revert --no-commit 2bd35c5` conflicts in `CONTRIBUTING.md` only, on one sentence of step 5,
+   where the number `2bd35c5` wrote, `(ADR <NNNN>)`, stands against `(ADR [release-at-merge])` beside train 12's other edits; the
+   implementer undoes only what `git show 2bd35c5` changed there (the sentence takes `ADR
+   [release-at-merge]`) and keeps every other line of HEAD. Committed as `chore(release): give back the
+   release of release-at-merge before the merge of origin/main`. After it, `git diff d6d7f6a HEAD --
+   CHANGELOG.md .claude-plugin/marketplace.json docs/catalog.md 'plugins/*/.claude-plugin/plugin.json'`
+   is empty.
+2. `git merge --no-ff origin/main` merges the release files cleanly (the branch holds the merge base's)
+   and conflicts in `plugins/openspec/hooks/change-loop.mjs` only, in two hunks, each resolved by
+   keeping both sides: the import lines, where HEAD adds `ADR_LINES`, `releaseTagOf` and the other
+   names of D-2 and D-11 and the base adds `appliedStages` and the `OFFLINE_GH` import, so one line
+   changed on both sides becomes the union of the names each side imports, each name once; and two
+   `const` definitions both sides added at the same place, both kept. Any other conflict outside
+   `openspec/` stops the phase for the owner.
+
+The state then reads `unassigned` above the new merge base, the first record is
+`docs/adr/release-at-merge.md` again beside `docs/adr/release-at-merge-step-record.md`, and
+`check.py` tolerates both on the branch (D-12; `decisions.md` lists both). The give-back writes no
+number of its own (`ADR [release-at-merge]` decision 1). Phase 9 runs on the current base, and task
+9.17 runs this worktree's step, now with its record, after the last merge of `origin/main`: the two
+records take the next free numbers on the base then, which no task assumes; a later merge of the
+base goes through the step (with the record, even after a code conflict). The give-back commit
+stales the records, which phase 9's code changes stale anyway.
+
+## Findings of review round 1
+
+Every finding of the five verdict files, with its decision and task, or the reason it gets none.
+
+| Reviewer | Finding | Severity | Answer |
+|---|---|---|---|
+| adr-reviewer | F1 citations only in Markdown and YAML | blocking | fixed: D-18; tasks 9.2 to 9.4 |
+| adr-reviewer | F2 readiness not run again on a note-only revision | important | fixed: D-21; tasks 9.8 to 9.10, S-12 (9.15) |
+| adr-reviewer | F3 decision 4's "no train" | nit | follow-up (D-25): the record is accepted and not edited; F-6's reading stands |
+| adr-reviewer | F4 `.compozy/kit-manifest.json`'s `pack` | nit | follow-up: a change of the kit installer (it records the pack's version, which the step does not write); three reviewers accepted it as informational |
+| adr-reviewer | F5 `origin/main` moved | nit | fixed: D-27; tasks 9.1 and 9.17 |
+| spec-reviewer | F1 citations narrower than the requirement | important | fixed: D-18 (code back to the requirement, which now names the test exclusion) |
+| spec-reviewer | F2 canonical conflict scenarios contradict the delta | important | fixed: D-25, the MODIFIED `change-coordination` block |
+| spec-reviewer | F3 readiness gap | important | fixed: D-21, the MODIFIED `change-stages` block |
+| spec-reviewer | F4 check.py rules with no requirement | important | fixed: D-25, two ADDED requirements; AC-6 names the unlisted rule |
+| spec-reviewer | F5 renumbered own ADR not named | nit | fixed: D-25 |
+| spec-reviewer | F6 old train requirement unscoped | nit | fixed: D-25 |
+| spec-reviewer | F7 `--assign` exit with no setting | nit | fixed: D-24; task 9.11 |
+| code-quality-reviewer | F1 no way back after a merge by hand | blocking | fixed: D-20; tasks 9.5 to 9.7, P-13 (9.14) |
+| code-quality-reviewer | F2 `<slug>.md` rewritten anywhere | important | fixed: D-19; tasks 9.2 to 9.4 |
+| code-quality-reviewer | F3 readiness stall | important | fixed: D-21 |
+| code-quality-reviewer | F4 mask in every file | nit | fixed: D-18 |
+| code-quality-reviewer | F5 `## ` in the changelog body | nit | fixed: D-23; tasks 9.11, 9.12 |
+| code-quality-reviewer | F6 `ADRs:` entry form | nit | kept, reason in D-25; follow-up |
+| test-coverage-reviewer | F1 pin-only conflict on re-assign | important | test: D-26; task 9.11 |
+| test-coverage-reviewer | F2 consumer re-assign | important | test: D-26; task 9.11 |
+| test-coverage-reviewer | F3 release-file mask for a consumer | important | tests: D-26; task 9.11 |
+| test-coverage-reviewer | F4 manifests on the merged text | important | test: D-26; D-6 step 3 revised; task 9.11 |
+| test-coverage-reviewer | F5 readiness gap | important | fixed: D-21 |
+| test-coverage-reviewer | F6 ship-change clause and row | important | tests: D-26; task 9.11 |
+| test-coverage-reviewer | F7 step refusals untested | nit | test: D-26 (with D-24) |
+| test-coverage-reviewer | F8 AC-9 for trains | nit | test: D-26 |
+| test-coverage-reviewer | F9 N6 before `ready-base` | nit | test: D-26 |
+| test-coverage-reviewer | F10 restore's new branch | nit | test: D-26 |
+| test-coverage-reviewer | F11 the AC-13 tests are fed by the gh fixture | nit | follow-up, accepted: the tag path is ADR 0019's unchanged code, and P-12 proves it end to end |
+| test-coverage-reviewer | F12 an impossible fixture number in `conduct-check.test.mjs` | nit | follow-up: the asserted rule does not depend on the number |
+| test-coverage-reviewer | F13 no red run recorded for the defect fixes | nit | accepted for phases 1 to 8 (a red run cannot be made again after the fix); phase 9 saves each red run to `proof/red-9.txt` |
+| architecture-reviewer | F1 readiness and the note have two owners | important | fixed: D-21, the reviewer's direction (a), by mtime as the stages already are |
+| architecture-reviewer | F2 approvalState's option | important | fixed: D-22; tasks 9.8 to 9.10 |
+| architecture-reviewer | F3 numbered-name lookups in five places | nit | partly: D-19's one helper for the citation forms; the rest a follow-up |
+| architecture-reviewer | F4 D-6 step 3's wording | nit | fixed: D-6 step 3, D-26's test |
+| architecture-reviewer | F5 exit 2 for a setup error | nit | fixed: D-24 |
+
+The readiness review of the revised plan (attempt 4, NEEDS-REVISION) and its answers:
+
+| Item | Finding | Answer |
+|---|---|---|
+| M1 | D-20 changes `ADR [release-at-merge]` decision 6, so it needs a record, not a reading | fixed: `ADR [release-at-merge-step-record]` (drafted by the adr-author, listed in `decisions.md`); D-20 "The record of the decision"; F-8; the `ADRs:` line and its test (D-20, D-26); the numbering at task 9.17 and the test of two records of one change (task 9.5) |
+| M2 | the base is `a815222` (train 15), whose "A base that moved on the remote" contradicts the delta | fixed: D-27 restated; D-25's MODIFIED `change-coordination` block; F-10; the guard test of the noted case (task 9.11) |
+| M3 | the give-back's exit 2 has no scenario and no test | fixed: D-20; the scenario "A line the step wrote, edited after its record"; the D-26 test (task 9.5) |
+| M4 | the flow page repeats decision 6 in two places task 9.6 does not name | fixed: D-20 "The texts that repeat decision 6" (three places, by text; no test asserts them); task 9.6 |
+| O1 | which keys `reassign` holds and what the give-back touches | taken: D-20; the D-26 record test (task 9.5) |
+| O2 | whether the join reads the record | taken: D-20, "Where it is read" (one sentence; no join test, since no boarded head holds a record) |
+| O3 | the flow-version requirement, and the audit staled by the note | taken: D-21 (the audit keeps `newestPlan`); the conduct test's audit check |
+| O4 | task 9.17's diff check too wide after a merge commit | taken: task 9.17 checks `openspec/changes/release-at-merge/` |
+| O5 | the changelog body of `release.md` | not taken: `release.md` is outside this revision's files; the approval covers the note, and the implementer's evidence names the record and the recovery |
+| O6 | the test-folder exclusion also skips Markdown there | taken: F-9 |
+| O7 | the proposal over two pages | partly: the revision added only the lines M1 and M2 need |
+| Low | D-22's folder outside the layout has a test but no scenario | taken: the scenario "A folder outside a project's layout" |
+
+The readiness review of attempt 5 (NEEDS-REVISION) and its answers:
+
+| Item | Finding | Answer |
+|---|---|---|
+| N1 | task 9.6's done condition greps for a phrase D-20's new sentence keeps | fixed: task 9.6 checks that `derived, with no marker commit` (the old text only) prints 0 and that `what the step's own last recorded commit wrote` (the new text) is present |
+| O1 | the step record's decisions 4 and 5 differ from D-20 | not taken here: the record is the adr-author's, and a proposed record is aligned before the owner accepts it with the plan, not by a phase 9 task; the coordinating session has the adr-author align it before the approval |
+| O2 | what `reassign` holds | taken: D-20, "What the give-back touches" (state keys only; citation paths go back with their `Release-adr` entry and are never keys) |
+| O3 | when the `Amended by` line is added | taken: decided as the standing convention, added at task 9.1a (after 9.1, before 9.6); D-20, "The `Amended by` line"; F-8; the D-26 test of the header line (task 9.2) |
+| O4 | the second record is untracked before 9.1 | taken: the paragraph before task 9.1 |
+| O5 | the dependency line calls `ADR [release-at-merge]` proposed | taken: the Dependencies of phase 9 |
+| O6 | the proposal over two pages | not taken: `proposal.md` is outside this revision's files |
 
 ## Flagged for the owner
 
@@ -623,6 +1197,35 @@ and names what it seeded.
 - F-7: `ADR [release-at-merge]`'s sentence "until then it is `docs/adr/release-at-merge.md`, cited as
   `ADR [release-at-merge]`" will read with the number after the rewrite; the adr-author can word it
   without the tokens.
+- F-8 (after review round 1, D-20; resolved by `ADR [release-at-merge-step-record]`): `ADR
+  [release-at-merge]` decision 6 derives the state "with no marker commit" and refuses "anything
+  else" as edited by hand. D-20 reads the trailers of the step's own commit to tell its own earlier
+  output from a hand edit, which adds an outcome to decision 6, so the readiness review (attempt 4,
+  M1) asked for a record rather than a reading, as `openspec/config.yaml`'s design rule says. The
+  adr-author drafted `ADR [release-at-merge-step-record]` (proposed), which amends decision 6 and
+  carries D-20's rejected alternatives; `decisions.md` lists it, and the owner accepts it with the
+  plan. The decision text of `ADR [release-at-merge]` is not edited. Its header line `- Amended by
+  ADR [release-at-merge-step-record] (release-at-merge-step-record.md)` is decided, not asked: the
+  coordinating session settled it as the repository's standing convention (every amended accepted
+  record carries one such line per amender; ADR 0022 and ADR 0025 received theirs in this change).
+  The adr-author adds it at task 9.1a, after 9.1 un-numbers the record and before 9.6, and the
+  `ADRs:` entry of the first record says `amended by ADR [release-at-merge-step-record]` (task 9.6);
+  D-20, "The `Amended by` line", gives the reasons, the numbering of both tokens at task 9.17 and the
+  D-26 test that covers it.
+- F-9 (after review round 1, D-18): decision 3 says "every citation in a tracked text file outside
+  `openspec/changes/`"; D-18 leaves out test files and fixtures, reading a test literal as test data
+  and not a citation of a record (the exclusion adr-reviewer F1 offered as its first fix). No new
+  record. The folder part of the exclusion (`test/`, `tests/`) also skips Markdown and YAML kept in
+  such a folder, wider than test data; the repository has none today (readiness attempt 4, O6), and
+  the owner confirms the reading at the plan approval.
+- F-10 (after review round 1, D-25): two widenings found while revising, flagged rather than taken
+  silently: the `change-stages` capability joins the four the proposal named (B1's requirement lives
+  there), and the canonical scenario "A conflict only in release files" is scoped to a change with no
+  note beside the two the spec review named, since it contradicts the ADDED conductor requirement in
+  the same way. A third, after the readiness review of attempt 4 (M2): train 15's canonical
+  requirement "The loop fetches the base branch before it judges a delivery step" joins the
+  `change-coordination` delta as a MODIFIED block, its scenario "A base that moved on the remote"
+  scoped to a change with no note and one scenario added for a noted change (D-25).
 
 ## Risks / Trade-offs
 
@@ -637,6 +1240,9 @@ and names what it seeded.
   release step (owner's memory: a re-merge costs one to two hours here).
 - [A consumer pinned to an older checker] → its `--ci` judges the step's commit as stale until its pin
   moves to this release; the release note says so in `docs/openspec-flow.md`'s CI section.
+- [A record trailer typed by hand] → D-20 reads values from the commit's tree and counts a key only
+  when that commit changed it; a forged trailer on a commit that wrote the same lines by hand would
+  pass, which the train check and the reviews of that commit still see.
 
 ## Migration Plan
 
@@ -705,8 +1311,76 @@ commit their header names (Context: `stale-only-on-own-files/approval.md`); `act
 branch's `deliver-check.mjs` (`.github/workflows/devkit-reviews.yml`); `release-merge.mjs` is
 installed next to `deliver-check.mjs` in every pack copy (`plugins/openspec/hooks/`).
 
-Dependencies: `ADR [release-at-merge]` (proposed, accepted by the plan approval); ADR 0019 (tag rule,
+### Phase 9: the fixes of review round 1
+
+Order: the merge of the base with the numbers given back (D-27) → the citations (D-18, D-19) → the
+record and the step after a merge by hand (D-20) → the readiness and the approval (D-21, D-22) → the
+note body, the exit code and the coverage gaps (D-23, D-24, D-26) → the real runs (P-1 to P-13, S-12)
+→ the dogfood and the whole suite.
+
+- **Hooks:** `deliver-check.mjs` (`CITATION_PATHSPEC`, `holdsCitations`, `adrFileRe`, `maskRelease`,
+  `stepRecord`, `releaseStateAt`, `approvalState`, `namesReleaseTag`, `parseReleaseNote`),
+  `release-merge.mjs` (`rewriteCitations`, `unassign`, `numberRelease`'s give-back and trailers,
+  `main`'s exit 3), `flow-check.mjs` (`collectFlow`'s `noteFiles`, `artifactState`'s `staleAfter`
+  loop), `conduct-check.mjs` (`planFacts`' `newestPlan`, the `approve` reason), `change-loop.mjs`
+  (`acceptDecisions`' refusal, `namesReleaseTag` imported).
+- **Skills and docs:** `plugins/openspec/skills/ship-change/SKILL.md` (the `assign-release` row),
+  `docs/openspec-flow.md` (the `--assign` bullet, "The release note" and its row N3, D-20),
+  `openspec/config.yaml` (the second record in the `ADRs:` line, D-20).
+- **Records:** `docs/adr/release-at-merge-step-record.md`, drafted by the adr-author and not edited
+  by any task; `docs/adr/release-at-merge.md` gains its `- Amended by` header line from the
+  adr-author at task 9.1a; the step numbers both records at task 9.17.
+- **Proof:** `proof/cases.mjs` (P-13), `proof/agents.mjs` (S-12), `proof/real-run.md` written anew,
+  `proof/agents-run.md` and `proof/dogfood.md` appended, `proof/red-9.txt` created.
+
+Files to create: `openspec/changes/release-at-merge/proof/red-9.txt` (and, in this revision,
+`specs/change-stages/spec.md`). Files to modify: the hooks above and
+`plugins/openspec/hooks/{release-note,release-merge,deliver-check,deliver-check-cli,delivery-train,delivery-train-after,flow-check,conduct-check,change-loop}.test.mjs`
+(new tests; the existing ones only as D-18 and D-26 say), `plugins/openspec/hooks/change-loop.test.mjs`
+(the fetch guard), the texts and `openspec/config.yaml`, the three proof scripts and records; at the
+dogfood, the release files, `docs/adr/release-at-merge.md`, `docs/adr/release-at-merge-step-record.md`
+and their citations. Files to delete: none.
+
+Estimate for phase 9: optimistic 19 h, likely 28 h, pessimistic 44 h.
+
+| Component | Hours | Type | Risk |
+|---|---|---|---|
+| The merge of the base with the numbers given back (D-27) | 2 | Migration | MEDIUM |
+| Citations in every text file, the anchored file form, their tests (D-18, D-19) | 4 | Core | MEDIUM |
+| The step's record, the state, the give-back, the recovery texts, the second record's line, their tests (D-20) | 8 | Core | HIGH |
+| Readiness sees the note, every reader of the approval, their tests (D-21, D-22) | 3 | Core | MEDIUM |
+| Note body, exit 3, coverage gaps and nits (D-23, D-24, D-26) | 4 | Testing | LOW |
+| P-1 to P-13 again (D-16) | 3 | Testing | MEDIUM |
+| S-12 with the real agents (D-16) | 2 | Testing | MEDIUM |
+| Dogfood again and the whole suite (D-17, D-27) | 2 | Migration | MEDIUM |
+
+| Risk | Probability × impact | Mitigation |
+|---|---|---|
+| The merge of 9.1 meets a conflict that is not append-only | MEDIUM × MEDIUM | the phase stops for the owner (task 9.1); the numbers are given back first, so the release files cannot conflict |
+| The wider citation scope finds an `ADR [<x>]` in a source file of a consumer project | LOW × MEDIUM | the step names the file and the slug (exit 2, as for Markdown); the repository has none (D-18's grep) |
+| A three-way give-back meets a line the person edited by hand | LOW × MEDIUM | exit 2 naming the path, the head and the tree as they were (D-20, its scenario and test); the person fixes that line |
+| Two records of one change whose slugs share a prefix (`release-at-merge`, `release-at-merge-step-record`) are rewritten or masked one for the other | LOW × HIGH | the whole-token rule of D-4 and D-19; the D-26 test of two records of one change builds that shape (`feat`, `feat-store`) |
+| A clone that cannot read the record | LOW × LOW | null record: the trees decide, `hand`, never a false pass (D-20) |
+| The note counted with the tasks stage stales a readiness the owner already saw | LOW × LOW | only before the work starts, and only when `release.md` is newer (D-21) |
+| A test reads the step's commit message whole | LOW × LOW | the subject is unchanged; the grep at `41dd40e` finds only `--format=%s` reads of it (`release-merge.test.mjs`) |
+| `origin/main` moves again during phase 9 | MEDIUM × MEDIUM | task 9.17 runs the step after the last merge, with its record; the coordinator holds `main` at the release step (D-17) |
+
+Assumptions of phase 9: `git log --first-parent <tip>..<head>` reaches the step's commits in every
+clone that computes the release state (`.github/workflows/devkit-reviews.yml` and the setup template
+check out with `fetch-depth: 0`; `--ci` reads no record); the trailer convention of `git
+interpret-trailers`, a last paragraph of `Key: value` lines, is what the step writes and
+`stepRecord` reads; the main session runs task 9.1's merge on the local `origin/main` the coordinating
+session last fetched.
+
+Dependencies: `ADR [release-at-merge]` (accepted by the owner at the change's first plan approval,
+its header `Status: accepted`); ADR 0019 (tag rule,
 unchanged); ADR 0022 and ADR 0025 (amended); ADR 0003, ADR 0027 and ADR 0030 (built on, unchanged);
 `archive-release-pin` (merged, train 4) for the pin definition in `deliver-check.mjs`, the pin test
 that reads the manifest and the base text of `CONTRIBUTING.md` step 5 and the flow page (D-17; nothing
-waits on it); `release-merge-leftovers` (merged, train 3) for the change-delivery spec.
+waits on it); `release-merge-leftovers` (merged, train 3) for the change-delivery spec; for phase 9,
+`run-status-bar` and the archive of `stage-ceiling-consecutive` (merged, trains 13 and 14) and the
+archives of `fresh-base-check` and `run-status-bar` (train 15, `origin/main` at `a815222`) for the base
+task 9.1 merges (D-27), which changed `flow-check.mjs`'s `artifactState` next to D-21's loop, the
+`change-stages` spec outside the requirement D-21 modifies and the `change-coordination` requirement
+D-25 modifies; `ADR [release-at-merge-step-record]` (proposed, accepted by the plan approval; amends
+`ADR [release-at-merge]` decision 6; builds on ADR 0020 and ADR 0025, unchanged).

@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=3 commit=ba3126b84f6821144dad1cfb02b260bf68dc7e77 -->
+<!-- devkit-stage tasks result=passed attempt=5 commit=41dd40ed6cb3017dd2a8cc5c623ffa6d19934303 -->
 # Tasks
 
 Change: `release-at-merge` · Date: 2026-11-24 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -28,21 +28,22 @@ invariant, layer and suite in the commit message. Leave no backup or scratch fil
 
 | Id | Tasks |
 |---|---|
-| AC-1 | 2.1, 2.3, 2.5, 4.1, 4.3, 6.6, 7.2, 7.3, 7.5, 7.6 |
-| AC-2 | 2.1, 2.3, 2.5, 6.6, 7.6, 7.7 |
-| AC-3 | 3.1, 3.3, 6.3 |
-| AC-4 | 2.1, 2.4, 2.5, 3.1, 3.2, 4.1, 4.2, 6.2, 8.1 |
-| AC-5 | 2.4, 3.1, 3.2, 3.3, 4.3, 6.2, 6.3, 7.1, 7.4, 7.6, 8.1 |
-| AC-6 | 5.1, 5.2, 5.3, 6.6, 7.1, 8.1 |
-| AC-7 | 2.1, 2.5, 3.1, 3.2, 3.3, 6.6 |
-| AC-8 | 3.1, 3.2, 6.5 |
-| AC-9 | 2.1, 2.2, 2.5, 3.1, 6.5, 7.4, 7.5 |
+| AC-1 | 2.1, 2.3, 2.5, 4.1, 4.3, 6.6, 7.2, 7.3, 7.5, 7.6, 9.11, 9.12 |
+| AC-2 | 2.1, 2.3, 2.5, 6.6, 7.6, 7.7, 9.5, 9.6 |
+| AC-3 | 3.1, 3.3, 6.3, 9.11 |
+| AC-4 | 2.1, 2.4, 2.5, 3.1, 3.2, 4.1, 4.2, 6.2, 8.1, 9.1, 9.5, 9.6, 9.11, 9.12, 9.14, 9.17 |
+| AC-5 | 2.4, 3.1, 3.2, 3.3, 4.3, 6.2, 6.3, 7.1, 7.4, 7.6, 8.1, 9.2, 9.3, 9.5, 9.6, 9.14, 9.17 |
+| AC-6 | 5.1, 5.2, 5.3, 6.6, 7.1, 8.1, 9.17 |
+| AC-7 | 2.1, 2.5, 3.1, 3.2, 3.3, 6.6, 9.2, 9.3 |
+| AC-8 | 3.1, 3.2, 6.5, 9.11 |
+| AC-9 | 2.1, 2.2, 2.5, 3.1, 6.5, 7.4, 7.5, 9.11, 9.12, 9.14 |
 | AC-10 | 3.1, 3.3, 4.1, 4.2, 6.4, 7.4 |
 | AC-11 | 2.1, 2.5, 6.6 |
-| AC-12 | 1.2, 2.1, 2.5, 4.3, 6.6 |
+| AC-12 | 1.2, 2.1, 2.5, 4.3, 6.6, 9.8, 9.9, 9.11 |
 | AC-13 | 4.1, 6.2, 6.3 |
-| AC-14 | 5.1, 5.4, 5.5, 5.6, 5.7, 7.6 |
-| AC-15 | 6.1 to 6.7, 7.1 to 7.8 |
+| AC-14 | 5.1, 5.4, 5.5, 5.6, 5.7, 7.6, 9.1a, 9.3, 9.6, 9.9, 9.12, 9.17 |
+| AC-15 | 6.1 to 6.7, 7.1 to 7.8, 9.14, 9.15, 9.16 |
+| AC-16 | 9.8, 9.9, 9.10, 9.15, 9.16 |
 
 ## 1. Setup
 
@@ -278,9 +279,214 @@ seeded files it names and the outputs to `proof/agents-run.md` under `## S-<n> `
   run once as a background command with no other suite on the machine; the train's suite proves both
   parts.
 
+## 9. Fixes of review round 1
+
+Review round 1 failed (`review.md` at `4a6e858`); the decisions are D-18 to D-27 of `design.md`, and
+"Findings of review round 1" there maps every finding to these tasks. Strict test first, as in phases
+2 to 5: each fix's test task comes before its code task, its red tests fail on the code as the phase
+finds it, and its guard tests (D-26's "guard": coverage of behaviour the code already has) pass there
+and say so; each run is appended as printed to `openspec/changes/release-at-merge/proof/red-9.txt`
+under a line naming its task, and that run is the task's check, never a gate. An existing test changes
+only where D-18 and D-26 say, its invariant, layer and suite named in the commit message. No task
+writes a version or an ADR number of this change. Every gate runs at most three test files at once
+(`--concurrency=3`) as a background command of the tool, judged by its exit code. End every task with
+`git status --short`.
+
+Before 9.1: `python3 scripts/check.py` fails at `41dd40e`, before any phase 9 edit, with `broken link
+docs/roles.md` in `review.md` and `reviews/code-quality-reviewer.md` (code-quality F2 quotes
+`[the roles](docs/roles.md)` outside a code span). Those are gate files with one writer each, so
+neither the planner nor the implementer edits them: the coordinating session has their writers (the
+review session for `review.md`, the `code-quality-reviewer` for its verdict) make that quotation a
+code span, with no other word changed, before 9.1; every gate below needs `check.py` green. The
+plan-and-approval commit includes `docs/adr/release-at-merge-step-record.md`, which 9.1's `git
+ls-files` check needs (readiness attempt 5, O4).
+
+- [ ] 9.1 Merge the base with the numbers given back (D-27; adr-reviewer nit F5). On the local
+  `origin/main` as the coordinating session last fetched it (`a815222`, train 15, or later):
+  `git revert --no-commit 2bd35c5`, whose one expected conflict is one sentence of `CONTRIBUTING.md`
+  step 5 (the number `2bd35c5` wrote in `(ADR <NNNN>)` against `(ADR [release-at-merge])`), resolved by undoing only what `git show
+  2bd35c5` changed and keeping every other line of HEAD; commit `chore(release): give back the
+  release of release-at-merge before the merge of origin/main`; then `git merge --no-ff
+  origin/main`, whose expected conflicts are two hunks of `plugins/openspec/hooks/change-loop.mjs`,
+  each resolved by keeping both sides (the import line: the union of the names each side imports,
+  each once; two `const` definitions both sides added at one place: both kept). Any other conflict
+  outside `openspec/`, in the revert or the merge, stops the phase for the owner. Done when `git merge-base --is-ancestor origin/main
+  HEAD` exits 0, `git ls-files docs/adr` lists `docs/adr/release-at-merge.md` and
+  `docs/adr/release-at-merge-step-record.md` and no numbered file of either slug, `git grep -n -e "-release-at-merge.md" -e "-release-at-merge-step-record.md" -- ':!openspec/changes'` finds nothing,
+  `git diff --quiet origin/main HEAD -- CHANGELOG.md .claude-plugin/marketplace.json docs/catalog.md
+  'plugins/*/.claude-plugin/plugin.json'` exits 0 (the release lines are the new merge base's: the
+  state D-3 calls `unassigned`), and `python3 scripts/check.py` and `openspec validate
+  release-at-merge --strict` pass, the latter no longer printing `Archive would refuse this delta`
+  (before this merge the canonical `change-coordination` spec lacks train 15's requirement, which the
+  delta modifies; D-25).
+- [ ] 9.1a (readiness attempt 5, O3; D-20, "The `Amended by` line"; F-8) The coordinating session
+  has the adr-author add to `docs/adr/release-at-merge.md` (unnumbered by 9.1), as the last line of
+  its header bullets (after `- Builds on:`, where ADR 0027 places its line), the one line `- Amended
+  by ADR [release-at-merge-step-record] (release-at-merge-step-record.md)`, in the unnumbered form
+  the step rewrites; no other line of the record changes, and the implementer does not write it.
+  Committed as `docs(adr): name the amending record in the header of release-at-merge`. Done when
+  `grep -c -F -e "- Amended by ADR [release-at-merge-step-record] (release-at-merge-step-record.md)"
+  docs/adr/release-at-merge.md` prints 1, `git diff --numstat <9.1's merge commit> HEAD --
+  docs/adr/release-at-merge.md` reports one line added and none removed, and `python3
+  scripts/check.py` passes.
+- [ ] 9.2 Write the D-26 tests of D-18 and D-19 (adr-reviewer F1, spec-reviewer F1, code-quality F2
+  and nit F4): in `plugins/openspec/hooks/release-note.test.mjs` the source-file citation, the
+  source comment and Python file, the citation scope, the pathspec agreement, the anchored rewrite
+  and mask tests, and the change of the existing "release-note AC-5 rewrite: ADR [<slug>] becomes ADR
+  <NNNN> and <slug>.md becomes <NNNN>-<slug>.md, each only as a whole token"; in
+  `plugins/openspec/hooks/deliver-check.test.mjs` the test-literal staleness test; in
+  `plugins/openspec/hooks/delivery-train.test.mjs` the join's source-file give-back test; in
+  `plugins/openspec/hooks/release-merge.test.mjs` "release-note AC-5 assign: the first record's
+  Amended by header line naming the second record of the same change takes the second's number in
+  both tokens" (a guard; D-20, "The `Amended by` line"). Run them;
+  append the run to `proof/red-9.txt`. Done when each exists by its D-26 name, the red ones fail and
+  the guard passes there.
+- [ ] 9.3 Apply D-18 and D-19 (adr-reviewer F1, spec-reviewer F1, code-quality F2 and nit F4): in
+  `plugins/openspec/hooks/deliver-check.mjs` `CITATION_PATHSPEC`, `holdsCitations`, the export `adrFileRe`, `maskRelease` (ADR part only in a file that holds
+  citations, the file form anchored); in `plugins/openspec/hooks/release-merge.mjs`
+  `rewriteCitations(text, slug, number, path)`, its callers and `unassign` with the real path; in
+  `docs/openspec-flow.md` the `--assign` paragraph's citation sentences (D-13); the comments of the
+  defect-4 tests D-18 names. Done when the 9.2 tests pass, every other `release-note AC-5` and `AC-7`
+  test stays green, and T-5, T-14 and T-31 stay green.
+- [ ] 9.4 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/merge-setup.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs && python3 scripts/check.py` green; covers AC-5 and AC-7 for the citations.
+- [ ] 9.5 Write the D-26 tests of D-20 (code-quality F1), the reviewer's reproduction first: in
+  `plugins/openspec/hooks/release-merge.test.mjs` "release-note AC-4 assign: an assigned branch
+  merged by hand after a code conflict with a base that released the same pack and ADR number is
+  numbered again" (assign; the base releases the same pack and ADR number and edits `src/a.ts`;
+  `--assign` exits 2 on `src/a.ts`; a merge by hand taking the base's release files; `--assign`
+  again exits 0 and renumbers; the state reads `assigned` and `current`), then the record, the
+  amended-record, the unwritten-version and the base-citation tests; in
+  `plugins/openspec/hooks/release-note.test.mjs` the `stepRecord` test; in
+  `plugins/openspec/hooks/deliver-check.test.mjs` the row N6 test for a branch merged by hand; in
+  `plugins/openspec/hooks/deliver-check-cli.test.mjs` "release-note AC-4 format: ship-change's
+  assign-release row fetches, runs next.command, pushes plain and never by force, stops blocked on
+  exit 2 and names the merge by hand" (test-coverage F6, the row's part). Then the three tests the
+  readiness review of attempt 4 asked for: in `plugins/openspec/hooks/release-merge.test.mjs`
+  "release-note AC-4 assign: a line the step wrote, edited by a person after the record, is not
+  given back: exit 2 naming the path, the head and the tree as they were" (M3) and "release-note
+  AC-5 assign: two unnumbered records of one change take the next two numbers in the order
+  decisions.md lists them, the second's citations of the first follow, and the record names both
+  renames in that order" (M1: `feat` then `feat-store`, the shape of this change's two records); in
+  `plugins/openspec/hooks/release-note.test.mjs` "release-note AC-4 record: a line equal to both the
+  merge base's value and the record's is unassigned and outside reassign, and a version kept from
+  the record is left to step 3" (O1). Every repository is a scratch one the test builds; none reads
+  this repository's history. Run them; append the run to `proof/red-9.txt`. Done when each exists by
+  its D-26 name, the reproduction and the other red ones fail (the two-records test on its record
+  part), and the two guards pass.
+- [ ] 9.6 Apply D-20 (code-quality F1; test-coverage F6, the row's part; readiness M1, M3, M4, O1):
+  in `plugins/openspec/hooks/deliver-check.mjs` `stepRecord` and the state of `releaseStateAt`
+  (`reassign`: only keys equal to the record's and not to the merge base's); in
+  `plugins/openspec/hooks/release-merge.mjs` the trailers of every `--assign` commit and the
+  give-back with no merge before the slug check (`Release-adr` and `Release-citation` entries only;
+  exit 2 `cannot give back the numbers the step wrote in <path>` with `restore`); in
+  `plugins/openspec/skills/ship-change/SKILL.md` the merge by hand after the `assign-release` row's
+  exit 2 clause. In `docs/openspec-flow.md`, the three places D-20 ("The texts that repeat decision
+  6") names, each found by its text and not by a line number: in "The release note" paragraph the
+  sentence that starts "The state of a branch is derived, with no marker commit:" and ends "anything
+  else was edited by hand."; the row N3 of that paragraph's table, whose condition reads "a note, and
+  the release lines were edited by hand"; and the `--assign --base <base>` bullet's "neither the
+  merge base's nor the ones the step wrote there", the bullet also gaining the record, the give-back
+  and the recovery. Each takes D-20's sentence. No test asserts those three sentences (D-20's grep:
+  the "documents" subtest of `release-note.test.mjs` asserts only the paragraph heads, the
+  `assign-release` row and the bullet's head, which stay; the tests matching `release lines edited
+  by hand:` assert the unchanged message). In `openspec/config.yaml` the `ADRs:` line's first
+  record entry gains `, amended by ADR [release-at-merge-step-record]` after `amends 0022 and 0025`,
+  and the line gains the second record's entry after the first's (D-20, "The `ADRs:` line"); the
+  `Amended by` header line of `docs/adr/release-at-merge.md` is 9.1a's, and the "documents" subtest of
+  `plugins/openspec/hooks/release-note.test.mjs` "release-note AC-14 texts: ..." changes its `ADRs:`
+  assertion as D-20 says, its invariant, layer and suite named in the commit message. Neither record
+  under `docs/adr/` is edited by this task (the adr-author's). Done when the 9.5 tests pass, the
+  changed "documents" subtest passes, `grep -c "derived, with no marker commit"
+  docs/openspec-flow.md` prints 0 (a phrase only the old sentence holds), `grep -c "what the step's
+  own last recorded commit wrote" docs/openspec-flow.md` prints 1 (the new sentence), `grep -c -F
+  "amends 0022 and 0025, amended by ADR [release-at-merge-step-record]; ADR
+  [release-at-merge-step-record] " openspec/config.yaml` prints 1, every `release-note AC-2`, `AC-4` and `AC-14` test stays green, and T-2, T-16, T-32,
+  T-33, T-35 and T-36 stay green.
+- [ ] 9.7 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/release-tags.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs && python3 scripts/check.py` green; covers AC-2, AC-4 and AC-5 after a merge by hand.
+- [ ] 9.8 Write the D-26 tests of D-21 and D-22 (adr-reviewer F2, spec-reviewer F3, code-quality F3,
+  test-coverage F5, architecture F1 and F2): in `plugins/openspec/hooks/flow-check.test.mjs` the four
+  `release-note AC-16 stages` tests; in `plugins/openspec/hooks/conduct-check.test.mjs` the AC-16 and
+  AC-12 conduct tests; in `plugins/openspec/hooks/change-loop.test.mjs` the AC-16 loop and AC-12
+  accept tests; in `plugins/openspec/hooks/deliver-check.test.mjs` the AC-12 approval test. Run them;
+  append the run to `proof/red-9.txt`. Done when each exists by its D-26 name, the red ones fail and
+  the guards pass.
+- [ ] 9.9 Apply D-21 and D-22 (adr-reviewer F2, spec-reviewer F3, code-quality F3, test-coverage F5,
+  architecture F1 and F2): in `plugins/openspec/hooks/flow-check.mjs` `collectFlow`'s
+  `noteFiles` and the `staleAfter` loop of `artifactState`; in `plugins/openspec/hooks/conduct-check.mjs`
+  `planFacts`' `newestNote`, compared in `readiness.fresh` only (D-21: `newestPlan` and the audit's
+  `fresh` unchanged), and the `approve` reason; in `plugins/openspec/hooks/deliver-check.mjs`
+  `approvalState`'s default and `namesReleaseTag` (moved from `change-loop.mjs`, which imports it);
+  in `plugins/openspec/hooks/change-loop.mjs` `acceptDecisions`' refusal; in `docs/openspec-flow.md`
+  the sentence of "The release note" (D-13). No `flow.json` and no schema file changes. Done when the
+  9.8 tests pass and T-4, T-13, T-19 and T-29 stay green.
+- [ ] 9.10 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/change-state-stages.test.mjs plugins/openspec/hooks/status-line.test.mjs plugins/openspec/hooks/stage-models.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/roadmap-loop-followups.test.mjs && python3 scripts/check.py` green; covers AC-12 and AC-16.
+- [ ] 9.11 Write the remaining D-26 tests (test-coverage F1, F2, F3, F4, F6 and nits F7 to F10;
+  code-quality nit F5; spec-reviewer nit F7): in `plugins/openspec/hooks/release-merge.test.mjs` the
+  pin-only re-assign, the manifest field, the refusals before any write (exit 3 with no
+  `devkit.release_tag`) and the slug refusal after the give-back; in
+  `plugins/openspec/hooks/release-note.test.mjs` the consumer re-assign and the `## ` body line; in
+  `plugins/openspec/hooks/deliver-check.test.mjs` the consumer staleness and row N6 before
+  `ready-base`; in `plugins/openspec/hooks/delivery-train-after.test.mjs` the consumer `trainCheck`;
+  in `plugins/openspec/hooks/delivery-train.test.mjs` the join with no `devkit.release_tag`; in
+  `plugins/openspec/hooks/deliver-check-cli.test.mjs` the `stop-plan-approval` format test
+  (test-coverage F6, the clause's part); in `plugins/openspec/hooks/change-loop.test.mjs`
+  "release-note AC-4 fetch: a base that moved on the remote hands assign-release, not
+  resolve-release-conflict, to a noted change" (readiness M2, a guard of the MODIFIED
+  `change-coordination` requirement "The loop fetches the base branch before it judges a delivery
+  step"). Run them; append the run to `proof/red-9.txt`. Done when each
+  exists by its D-26 name, the `## ` body test and the exit 3 part fail, and every guard passes.
+- [ ] 9.12 Apply D-23 and D-24 (code-quality nit F5, architecture nit F5, spec-reviewer nit F7): in `plugins/openspec/hooks/deliver-check.mjs` `parseReleaseNote`'s
+  refusal of a `## ` body line; in `plugins/openspec/hooks/release-merge.mjs` exit 3 with no
+  `devkit.release_tag`; in `docs/openspec-flow.md` the `--assign` paragraph's exit 3 (D-13). Done
+  when the 9.11 tests pass and every `release-note AC-1` and `AC-9` test stays green.
+- [ ] 9.13 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/merge-setup.test.mjs plugins/openspec/hooks/change-loop.test.mjs && python3 scripts/check.py` green; covers AC-1, AC-3, AC-4, AC-8, AC-9 and AC-12 on the paths round 1 found untested, and the base fetch for a noted change.
+- [ ] 9.14 (code-quality F1 in a real run; D-24 and D-18 in the cases they change) Add P-13 to `openspec/changes/release-at-merge/proof/cases.mjs` (D-16) and run the whole
+  script again under a private `TMPDIR` (`$TMPDIR/devkit-proof-release-at-merge`, never `/tmp`),
+  `node openspec/changes/release-at-merge/proof/cases.mjs` with no case named, so it writes
+  `proof/real-run.md` anew. Done when it exits 0 and prints `P-1 done` to `P-13 done`, P-5 records
+  `--assign` exit 3, P-1 and P-13 show the step's record in `git log -1 --format=%B`, and P-13 reads
+  `assign-release` after the merge by hand, then exit 0, the ADR numbered above the sibling's, the
+  state assigned and current and `enable-auto-merge` next (AC-4, AC-5, AC-9, AC-15).
+- [ ] 9.15 (adr-reviewer F2, spec-reviewer F3, code-quality F3, test-coverage F5, architecture F1 with
+  the real agents) Add S-12 to `openspec/changes/release-at-merge/proof/agents.mjs` (D-16) and run it with
+  the worktree's agents (`claude --plugin-dir <worktree>/plugins/core --plugin-dir
+  <worktree>/plugins/openspec -p`), appending to `proof/agents-run.md` under `## S-12 ` with a
+  `Done-condition` block. Done when the real reviewer fails the plan naming `release.md`, the loop
+  hands the planner the revision, the note-only state makes `change-loop.mjs next` hand the
+  readiness review (`rerun-after-fix`), the real planner's revision is followed by the readiness
+  review and the real reviewer passes it, and in N the touched note keeps the readiness passed
+  (AC-16, AC-15).
+- [ ] 9.16 Gate: `python3 scripts/check.py && openspec validate release-at-merge --strict && grep -q "^## P-13 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## S-12 " openspec/changes/release-at-merge/proof/agents-run.md` green, the scratch folders removed; covers AC-15 and AC-16 in real runs.
+- [ ] 9.17 (adr-reviewer nit F5; code-quality F1 on this branch) After the last merge of `origin/main` before review (when the base moved since 9.1, run
+  the step itself, which merges it), run this worktree's `node plugins/openspec/hooks/release-merge.mjs
+  --assign --base main --json` (D-17, D-27) and append the command, its JSON and `git log -1
+  --format=%B` to `proof/dogfood.md`. The step numbers both records `decisions.md` lists, in that
+  order: `ADR [release-at-merge]` takes the next free number on the base and `ADR
+  [release-at-merge-step-record]` the one after it, and the citations of each outside
+  `openspec/changes/` (the second record's `Amends` line, the first record's `Amended by` line, both
+  its tokens, the `ADRs:` line, ADR 0022 and ADR 0025) follow; no task or plan file writes either
+  number. Done when it exits 0, `git grep -n -F -e "ADR [release-at-merge" -e
+  "(release-at-merge-step-record.md)" -e "(release-at-merge.md)" -- ':!openspec/changes'` finds
+  nothing, the first record's header holds `- Amended by ADR <M> (<M>-release-at-merge-step-record.md)`
+  with `<M>` the second record's number, the commit's message ends
+  with `Release-change: release-at-merge` and the trailers D-20 lists (two `Release-adr` lines, the
+  first record's first), `git diff --stat HEAD^ -- openspec/changes/release-at-merge/` is empty,
+  `git ls-files docs/adr` lists both records numbered, the second's number one more than the
+  first's, and neither unnumbered, `python3 scripts/check.py`, `python3
+  scripts/gen-catalog.py --check` and `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs
+  --check` pass, and `node plugins/openspec/hooks/deliver-check.mjs release-at-merge --json` shows no
+  row N1 to N7 (AC-4, AC-5, AC-6).
+- [ ] 9.18 Gate: `node scripts/test-suite.mjs --concurrency=3 && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && claude plugin validate . && openspec validate release-at-merge --strict` green at the final head, the whole suite run once as a background command with no other suite on the machine; the train's suite proves it again.
+
 ## Workflow follow-up
 
 - After the train that carries this change merges: `tag-release` pushes the devkit-openspec tag on
   the train's merge commit (ADR 0019).
 - At the archive: no roadmap line names this change; moving the ten open changes to notes and removing
   the old rule are changes of their own (requirements, Out of scope).
+- Follow-ups of review round 1 (design, "Findings of review round 1"), each a change of its own: a
+  citation form for the `ADRs:` list of `openspec/config.yaml` (code-quality nit F6); the wording of
+  `ADR [release-at-merge]` decision 4 in the next record that touches it (adr-reviewer nit F3); the
+  kit installer's `pack` field in `.compozy/kit-manifest.json` (adr-reviewer nit F4); one helper for
+  the other numbered-name lookups (architecture nit F3); the AC-13 tests fed by the `gh` fixture and
+  the fixture number of `conduct-check.test.mjs` (test-coverage nits F11, F12).

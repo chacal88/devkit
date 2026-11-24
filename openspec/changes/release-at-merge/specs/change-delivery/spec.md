@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=3 commit=ba3126b84f6821144dad1cfb02b260bf68dc7e77 -->
+<!-- devkit-stage specs result=passed attempt=5 commit=41dd40ed6cb3017dd2a8cc5c623ffa6d19934303 -->
 # Spec Delta
 
 ## ADDED Requirements
@@ -30,7 +30,7 @@ had one. A note the project cannot release SHALL be refused the same way: a pack
 have, and a `marketplace:` bump in a project with no `.claude-plugin/marketplace.json`.
 
 #### Scenario: A malformed field
-- **WHEN** `release.md` has no `packs:` line, a bump other than `patch`, `minor` or `major`, a pack named twice, the fields out of order, an unknown line before the title, no title or no body for a release, or a body that opens a code fence it never closes
+- **WHEN** `release.md` has no `packs:` line, a bump other than `patch`, `minor` or `major`, a pack named twice, the fields out of order, an unknown line before the title, no title or no body for a release, a body that opens a code fence it never closes, or a body line outside a code fence that starts `## ` (a heading the changelog reads as a version)
 - **THEN** the delivery checker answers `blocked` with a reason that starts `release.md:` and names that field, and the delivery step exits 2 with the same message
 
 #### Scenario: An empty or unterminated file
@@ -67,6 +67,29 @@ release lines are the pack and marketplace versions, `CHANGELOG.md`, the CI pins
 #### Scenario: Half of what the step writes
 - **WHEN** the branch holds the versions the step computes but its ADR still has no number
 - **THEN** the delivery checker refuses it as release lines edited by hand, naming the ADR path
+
+### Requirement: A release line the step wrote is known by the step's own record
+For a change with a release note, a release line whose head value is the merge base's SHALL be read
+as the base's, even when the step's record holds it too. Otherwise a line whose head value the
+step's own latest recorded commit on the branch wrote SHALL be read as the step's, for the step to
+number again, and never refused as edited by hand. Only that record SHALL decide it; a value no
+recorded commit wrote keeps the refusal.
+
+#### Scenario: The base merged by hand after the step refused a conflict
+- **WHEN** the step numbered the branch `devkit-openspec` 1.1.0 and `docs/adr/0002-feat.md`, the base then released 1.1.0 and took `0002` for `docs/adr/0002-other.md`, and a person merged the base by hand, resolving a conflict in `src/a.ts` and taking the base's side of every release file
+- **THEN** the delivery checker raises no release refusal and the next step is `assign-release`
+
+#### Scenario: A version both sides released
+- **WHEN** the step's record wrote `devkit-openspec` 1.1.0, the base released 1.1.0 too, and a person merged the base by hand as above
+- **THEN** the manifest reads as the merge base's, the step gives none of its text back, and the step then writes the version it computes from the base
+
+#### Scenario: A number the step never wrote
+- **WHEN** the same merged branch also sets a version the step's recorded commit did not write
+- **THEN** the delivery checker answers `blocked` with `release lines edited by hand:` naming that manifest
+
+#### Scenario: No record
+- **WHEN** the step's commit carries no record, as one made before this rule, and the branch was merged by hand as above
+- **THEN** the delivery checker refuses it as release lines edited by hand, naming `docs/adr/feat.md`
 
 ### Requirement: The release is never judged without the base
 For a change with a release note, when `origin/<base>` is missing, so the release lines cannot be
@@ -119,6 +142,20 @@ for a change with no note SHALL be read as before.
 - **WHEN** a change with no `release.md` has an approval with no note line
 - **THEN** the approval is read exactly as before this rule
 
+### Requirement: Every reader of the plan approval checks the release note
+Every reader of the plan approval (the delivery checker, the conductor's planning row and the loop's
+acceptance of the decision records) SHALL apply the release note's hash as the delivery checker
+does, the project's `devkit.release_tag` read by the approval reader itself, so no caller can leave
+the note out.
+
+#### Scenario: The conductor and the acceptance of the records
+- **WHEN** `release.md` changed after the approval and no task is ticked
+- **THEN** the conductor's planning row answers `approve` with the reason `release note changed after approval`, and the acceptance of the decision records is refused with that reason
+
+#### Scenario: A folder outside a project's layout
+- **WHEN** the approval reader is given a change folder that is not under `openspec/changes/` or `openspec/changes/archive/` of a project
+- **THEN** it reads no release setting and the approval it returns has no note keys
+
 ### Requirement: With no train the release is assigned by one step before the merge
 In a project that names `devkit.release_tag` and sets no delivery train, for a change with a release
 note the delivery checker SHALL answer `assign-release` in place of `update-branch` or the conflict
@@ -150,7 +187,8 @@ the release computed from it. A train project SHALL never be answered `assign-re
 The delivery step SHALL merge `origin/<base>` when the branch is behind it, resolving release lines
 by rule and keeping no branch-written number, then write the release lines from the note and commit
 only them (and the merge). It SHALL never push. A merge it cannot resolve SHALL be undone, leaving the
-branch at its old head, and the step SHALL exit 2 with the paths.
+branch at its old head, and the step SHALL exit 2 with the paths. In a project that names no
+`devkit.release_tag` the step SHALL exit 3, a setup error, and write nothing.
 
 #### Scenario: A base that released another change
 - **WHEN** the branch holds an assigned release and the base since released the same pack
@@ -164,6 +202,28 @@ branch at its old head, and the step SHALL exit 2 with the paths.
 - **WHEN** the merge of the base conflicts in `src/a.ts`
 - **THEN** the step exits 2 naming `src/a.ts`, the branch is at its old head and no merge is in progress
 
+#### Scenario: A project with no release file setting
+- **WHEN** `release-merge.mjs --assign --base main` runs in a project that names no `devkit.release_tag`
+- **THEN** it exits 3 with a message naming `devkit.release_tag`, and no file and no commit is written
+
+### Requirement: The release step records what it wrote and numbers again after a merge by hand
+The delivery step SHALL record in its own commit's message the change, the release files, the ADR
+renames and the citation paths it wrote. After a person merged the base by hand, the step SHALL give
+back the numbers its record names and number the branch above the base. When a line the step wrote
+was edited after the record, the step SHALL exit 2 naming the path and leave the branch as it was.
+
+#### Scenario: The step after a merge by hand
+- **WHEN** the step numbered the branch `devkit-openspec` 1.1.0 and `docs/adr/0002-feat.md`, the base then released 1.1.0 with `docs/adr/0002-other.md` and changed `src/a.ts`, the step exited 2 naming `src/a.ts`, and a person merged the base by hand, resolving `src/a.ts` and taking the base's side of every release file
+- **THEN** the step exits 0, the branch holds `docs/adr/0003-feat.md`, `devkit-openspec` 1.2.0 with its changelog entry above the base's 1.1.0, every citation the step had written names `0003`, and the release reads assigned and current
+
+#### Scenario: The step's record
+- **WHEN** the step commits
+- **THEN** the commit's subject is as before and its message ends with the trailers `Release-change: <id>`, one `Release-line:` per release file it wrote, one `Release-adr: <from> -> <to>` per record it renamed and one `Release-citation:` per path whose citations it rewrote
+
+#### Scenario: A line the step wrote, edited after its record
+- **WHEN** the branch was merged by hand as above, and a person then edited in `docs/x.md` the line where the step had written `ADR 0002` (`see ADR 0002` became `see ADR 0002 and its notes`)
+- **THEN** the step exits 2 with `cannot give back the numbers the step wrote in docs/x.md`, writes nothing, and the branch's head and tree are as they were before the run
+
 ### Requirement: An unnumbered ADR is numbered at the delivery
 A change with a release note SHALL name each ADR it adds `<folder>/<slug>.md` and cite it
 `ADR [<slug>]`. The delivery step and the train's join SHALL rename each such file `decisions.md`
@@ -176,8 +236,37 @@ They SHALL change no file under `openspec/changes/`.
 - **THEN** the file becomes `docs/adr/0027-feat.md`, `docs/x.md` says `ADR 0027`, `design.md` still says `ADR [feat]`, and the readiness, approval, reviews and evidence stay current
 
 #### Scenario: Two ADRs of one change
-- **WHEN** the change's `decisions.md` lists `docs/adr/feat.md` then `docs/adr/feat-store.md` and the base's highest ADR is `0026`
-- **THEN** they become `0027-feat.md` and `0028-feat-store.md`
+- **WHEN** the change's `decisions.md` lists `docs/adr/feat.md` then `docs/adr/feat-store.md`, the second cites the first as `ADR [feat]` and `(feat.md)`, and the base's highest ADR is `0026`
+- **THEN** they become `0027-feat.md` and `0028-feat-store.md`, the second says `ADR 0027` and `(0027-feat.md)`, every `ADR [feat-store]` becomes `ADR 0028` and none becomes `ADR 0027`, and the record of `assign-release`'s commit names the two renames in that order
+
+### Requirement: A citation lives in every text file but tests and fixtures
+The files that hold ADR citations SHALL be every tracked text file outside `openspec/changes/`
+except test files and fixtures: a name matching `*.test.*` or `*-fixtures.*`, or a file under a
+folder named `test` or `tests`, which hold test data and no citation. The same files SHALL be read
+for the citations of a change, for a citation still standing, for the rewrite, for the numbers a
+later run or a join gives back, and for the release edit that stales nothing.
+
+#### Scenario: A citation in a source file
+- **WHEN** the base's highest ADR is `0026` and `plugins/a/hooks/x.mjs` holds the comment `// see ADR [feat]`
+- **THEN** the comment says `// see ADR 0027` after the numbering
+
+#### Scenario: A test fixture
+- **WHEN** `plugins/a/hooks/x.test.mjs`, `plugins/a/hooks/x-fixtures.mjs` and `tests/a.md` each hold the text `ADR [feat] in docs/adr/feat.md`
+- **THEN** none of them changes, and none is read as a citation still standing
+
+#### Scenario: A test literal edited by hand
+- **WHEN** a commit after the recorded evidence changes the literal `docs/adr/feat.md` to `docs/adr/0002-feat.md` in `plugins/a/hooks/x.test.mjs` and nothing else
+- **THEN** the evidence is stale, naming that commit and that file
+
+### Requirement: The file form of a citation is rewritten only where it names an ADR folder's file
+The citation form `<slug>.md` SHALL be rewritten to `<NNNN>-<slug>.md`, and masked back, only where
+it names a file of an ADR folder: its folder part ends in `adr/` or `decisions/`, or it has no folder
+part and stands in a file of `docs/adr/` or `docs/decisions/`. A document elsewhere that shares the
+slug's name SHALL keep every link to it.
+
+#### Scenario: A document with the change's name
+- **WHEN** the base's highest ADR is `0026`, the change `roles` adds `docs/adr/roles.md`, `docs/x.md` links `docs/roles.md` and `adr/roles.md`, and `docs/adr/0010-y.md` links `(roles.md)`
+- **THEN** after the numbering `docs/x.md` still links `docs/roles.md`, its `adr/roles.md` link names `adr/0027-roles.md`, and `docs/adr/0010-y.md` links `(0027-roles.md)`
 
 ### Requirement: The numbering refuses a slug taken and a citation not landed
 The delivery step and the train's join SHALL refuse, naming the slug, an ADR whose slug another file
@@ -193,6 +282,10 @@ the step is not handed a numbering it must refuse.
 #### Scenario: A citation of another change's ADR
 - **WHEN** the change cites `ADR [other]` and the base has no `docs/adr/<NNNN>-other.md`
 - **THEN** the step exits 2 with a message naming `other`
+
+#### Scenario: A citation in a source comment
+- **WHEN** a changed `plugins/a/hooks/x.mjs` holds the comment `// amends ADR [other]` and the base has no `docs/adr/<NNNN>-other.md`
+- **THEN** the step exits 2 with a message naming `other`, as for the same citation in a Markdown file
 
 #### Scenario: The checker sees the citation first
 - **WHEN** a change with a note in a project with no train has every task ticked and cites `ADR [other]`, and `origin/main` has no `docs/adr/<NNNN>-other.md`
@@ -227,6 +320,38 @@ bump SHALL be refused, naming the pack, because that file's version follows the 
 #### Scenario: This repository's release file
 - **WHEN** `devkit.release_tag` names `plugins/openspec/.claude-plugin/plugin.json` and the note says `release: minor`
 - **THEN** the delivery checker answers `blocked` with a reason that starts `release.md: release:` and names `devkit-openspec`
+
+### Requirement: The repository check refuses an unnumbered ADR on the base
+This repository's `scripts/check.py` SHALL read as a record of `docs/adr/` or `docs/decisions/` a
+file `<NNNN>-<slug>.md`, or a file `<slug>.md` whose first non-blank line starts `# ADR [`, and
+SHALL refuse an unnumbered record on the base. The base is, first match wins: a root that is not a
+git repository; a pull request whose head is `train/<n>` (any other pull request is a branch); the
+default branch checked out; a `HEAD` the default branch contains. Anything else is a change branch.
+
+#### Scenario: An unnumbered record on its change branch
+- **WHEN** a change branch adds `docs/adr/feat.md` titled `# ADR [feat]: ...` and the change's `decisions.md` lists it
+- **THEN** `scripts/check.py` reports no ADR problem
+
+#### Scenario: An unnumbered record on the base
+- **WHEN** the default branch is checked out, or the pull request's head is `train/1`, and `docs/adr/feat.md` is an unnumbered record
+- **THEN** `scripts/check.py` exits 1 naming `docs/adr/feat.md` as an unnumbered ADR on the base branch
+
+#### Scenario: A file that is not a record
+- **WHEN** `docs/adr/README.md` does not start with `# ADR [`
+- **THEN** `scripts/check.py` does not read it as a record
+
+### Requirement: The repository check refuses an unlisted unnumbered ADR and a slug held twice
+`scripts/check.py` SHALL refuse, on the base and on a change branch, two records with one slug
+across `docs/adr/` and `docs/decisions/`, and an unnumbered record that no active change's
+`decisions.md` lists in an `- ADR:` line.
+
+#### Scenario: An unnumbered record no change lists
+- **WHEN** a change branch holds the unnumbered record `docs/adr/stray.md` and no active change's `decisions.md` lists it
+- **THEN** `scripts/check.py` exits 1 naming `docs/adr/stray.md`
+
+#### Scenario: Two records with one slug
+- **WHEN** `docs/adr/feat.md` and `docs/adr/0031-feat.md` are both records, on a change branch or on the base
+- **THEN** `scripts/check.py` exits 1 with `a second ADR with the slug feat:` naming both paths
 
 ## MODIFIED Requirements
 
@@ -265,8 +390,9 @@ For a change with a release note, a release edit SHALL NOT be judged as a plain 
 after the recorded evidence or an approved or declined review, the delivery step's commit and its
 merge of the base included, whose every changed path differs from its parent (a merge's first
 parent) only in release lines (versions, the changelog, the CI pins, the version of the release
-file, and an unnumbered ADR renamed to its number with its citations rewritten) SHALL leave them
-current. A rejected review and a change with no note SHALL be judged as before.
+file, and an unnumbered ADR renamed to its number, or the change's own ADR renumbered by a later run
+of the step after the base took its number, with its citations rewritten) SHALL leave them current.
+A rejected review and a change with no note SHALL be judged as before.
 
 #### Scenario: A plain product commit after a base merge
 - **WHEN** a merge of `origin/<base>` after R brings only unrelated files and a later one-parent commit on the branch changes `src/unrelated.ts`, a file the branch never changed before
@@ -279,6 +405,10 @@ current. A rejected review and a change with no note SHALL be judged as before.
 #### Scenario: The step's commit
 - **WHEN** the evidence and the approved reviews record commit R and the only later commit is the one `assign-release` made
 - **THEN** the delivery checker, the stage checker and `deliver-check --ci` read them as current
+
+#### Scenario: A later run that renumbers the change's own ADR
+- **WHEN** the evidence and the approved reviews record commit R after a first run of the step numbered `docs/adr/0002-feat.md`, the base then took `0002` and changed no file of the change, and the only later commit is the step's merge of the base that renumbers the record to `0003` and rewrites its citations
+- **THEN** the delivery checker reads them as current
 
 #### Scenario: A release commit that also edits a sentence
 - **WHEN** the later commit renames the ADR and also changes a sentence of `docs/openspec-flow.md` that is not a citation

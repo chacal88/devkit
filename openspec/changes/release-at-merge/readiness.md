@@ -1,4 +1,4 @@
-<!-- devkit-stage readiness result=passed attempt=3 commit=ba3126b84f6821144dad1cfb02b260bf68dc7e77 -->
+<!-- devkit-stage readiness result=passed attempt=6 commit=41dd40ed6cb3017dd2a8cc5c623ffa6d19934303 -->
 # Readiness review: release-at-merge
 
 ## 1. Decision
@@ -6,142 +6,165 @@
 - Confidence: high
 - Ready to implement: yes
 
-The one blocker of round 2 (the plan was written against the base before `archive-release-pin`) is fixed: the
-plan base is now `ba3126b`, the merge of `origin/main` `c663f21` (train 4) into the branch, and
-`git merge-base --is-ancestor origin/main HEAD` exits 0 (`git rev-list --count HEAD..origin/main` is 0). I
-re-derived the moved helpers, the re-exports, the module boundary and the tests the plan names against the code at
-that HEAD; each claim holds, with two small wording points (section 10) that do not change what is built.
-`openspec validate release-at-merge --strict` passes. No instruction from the caller to give a verdict was received.
+This is the re-review of the plan at attempt 6. The plan files are uncommitted on `41dd40e`, and
+`docs/adr/release-at-merge-step-record.md` is still untracked. Attempt 5's only blocker, N1, is
+closed. I checked everything changed since attempt 5 against the code and the repository's records:
+- task 9.1a;
+- tasks 9.2, 9.6 and 9.17;
+- D-20's "What the give-back touches" and "The `Amended by` line";
+- the new D-26 guard row;
+- F-8;
+- decisions 4 and 5 of the step record.
+
+No blocker is open. Two Low items remain, both optional.
+
+`openspec validate release-at-merge --strict`: valid. It prints the one expected INFO line, "Archive
+would refuse this delta … The loop fetches the base branch before it judges a delivery step - not
+found". The line goes away when task 9.1 merges train 15 (D-25), and 9.1's done condition checks
+that it is gone.
+
+`python3 scripts/check.py`: `all checks passed` on the working tree. The precondition in the
+paragraph before 9.1 is met: `review.md` and `reviews/code-quality-reviewer.md` now quote
+`` `rewriteCitations('See [the roles](docs/roles.md) ...', …)` `` in a code span, and no other word
+changed. I checked this with `git diff`.
+
+`openspec/config.yaml` `rules.readiness` applies: this file is written by this agent only. The
+caller gave no instruction about the verdict.
 
 ## 2. Scope validation
 Classification: correct
 
-The problem (a change picks release numbers and ADR numbers that every other change also picks), the in and out
-of scope, the two extra capabilities `delivery-train` and `reviews-check` (flagged F-3) and the line with
-`archive-release-pin` (D-17: built on, not amended) are explicit and agree across `proposal.md`, `design.md`, the
-four spec deltas and the ADR. The module boundary (D-3a) stays inside the change's own hook files.
+Since attempt 5 the plan adds one header line to an accepted record (9.1a) and its guard test. The
+repository's convention covers that line (section 4). Nothing else widens.
 
 ## 3. Proposal review
-- Problem, the four decisions taken for the owner, impact and 15 acceptance criteria are clear and testable; every
-  AC id is in the tasks table (`tasks.md:29-45`), checked AC-1 to AC-15.
-- `proposal.md:6-7` and `:101-109` now state the real base and that nothing waits on `archive-release-pin`; the
-  Impact line (`:95`) says `pinsIn` and `setPins` are already re-exported and the other helpers move. Matches the code.
-- Non-goals are tight (`:54-57`); dependencies and exit criteria named.
+Unchanged since attempt 5 (file time 18:34, before attempt 5's report). O6 (over two pages) is
+declined because the file is outside this revision (`design.md:1172`). I accept that. No findings.
 
 ## 4. Design review
-Round 2 finding 1, re-derived at HEAD `ba3126b`:
+Re-derived against live code:
 
-| Claim | Code |
+| Claim | Check |
 |---|---|
-| `PIN_MARKER`, `PIN_TOKEN`, `pinsIn`, `setPins`, `PIN_LINE_FILES`, `pinLinesOnly`, `RELEASE_FILE`, `TRAIN_PIN_FILE` are in `deliver-check.mjs` | `deliver-check.mjs:1359-1388`; `TRAIN_PIN_FILE` is the literal `'docs/openspec-flow.md'` (`:1388`), which D-3a rewrites to `= PIN_FILE`. |
-| `release-merge.mjs` already imports and re-exports `pinsIn`, `setPins` | `release-merge.mjs:18-19`. |
-| Still in `release-merge.mjs`, and moved by D-3a: `ReleaseError`, `SEMVER`, `parseSemver`, `bumpKind`, `applyBump`, `resolveManifest`, `withoutVersions` (private today, so "now exported" is right), `PIN_FILE`, `PIN_PACK`, `PIN_PACK_NAME` | `release-merge.mjs:21-47,57-70,128-130`. |
-| Stays: `resolveVersion`, `manifestEditsBeyondVersion` (uses `withoutVersions`, `:87-90`), `resolveChangelog`, `mergePins` with local `MASK` (`:131-148`), roadmap ticks, `classifyConflict`, `main` | as D-3a lists. |
-| `deliver-check.mjs` imports only `./merge-setup.mjs` (`:13`) and `./guard.mjs` (`:19`), no dynamic import | confirmed; the source-scan test of D-3a and T-42 (`release-merge.test.mjs:651-659`) hold the same line. |
-| Importers of `release-merge.mjs` | `release-merge.test.mjs:10` (names `bumpKind`, `applyBump`, `resolveManifest`, `PIN_FILE`, `PIN_PACK`, `PIN_PACK_NAME`, `setPins`, `pinsIn`), `release-tags.test.mjs:18` and `change-loop-compozy.test.mjs:16` (`pinsIn`), `delivery-train(.after).test.mjs` (`import * as release`), `conduct-check.mjs:19` (`PIN_FILE`): each is covered by the grown re-export line. |
-| T-6: the pin test reads the manifest | `change-loop-compozy.test.mjs:303,364` (`pinMismatches(pinsIn(...))`, no literal). |
-| T-41 to T-44 exist and assert what the plan says | `deliver-check-archive.test.mjs:1249-1279` (ADR 0003 header lines, `ADRs:` entries for 0027 and 0030, P13 row), `:1045`, `:1093`, `:1235`, `:1282`; `delivery-models.test.mjs:1906`; `release-tags.test.mjs:594`; `guard.test.mjs:455`. |
-| `releaseTagOf` becomes exported; `ADR_DIRS` moves from `conduct-check.mjs:376`, `ADR_LINES` from `change-loop.mjs:1593` | both unexported or local today; `ADR_FILE` stays in `conduct-check.mjs:377`; `ADR_LINES` is only read through `matchAll` (`change-loop.mjs:1623`). |
+| Every amended accepted record carries `- Amended by` lines, and ADR 0003 carries four | `docs/adr/0003-*.md:4,5,6,9` (0018, 0027, 0030, 0022). |
+| ADR 0027 puts its `Amended by` line after `- Builds on:` | `docs/adr/0027-*.md:8-9`. The header of `docs/adr/0031-release-at-merge.md` also ends with `- Builds on:` (`:8`), so 9.1a's place is well defined. |
+| Today's file form of a citation is rewritten anywhere, so the new D-26 row (`design.md:1019`) is a guard | `release-merge.mjs:288-291`: the `<slug>.md` regex has no folder condition. |
+| The citation pass reads the record the step just renamed | `git mv` updates the index (`release-merge.mjs:452`). The pass then runs `git grep` over the tracked `*.md`/`*.yaml` (`:465`, `CITATION_PATHSPEC` at `deliver-check.mjs:34`), so `docs/adr/<N>-feat.md` is found and its `(feat-store.md)` is rewritten with `feat-store`'s number (`:471`). The own-record rewrite (`:453`) and the slug check (`:422`) never touch a `feat-store` token while rewriting `feat`. Both forms need a closing `]` or a `.md`. |
+| `reassign` holds state keys only, and citation paths go back with their `Release-adr` (O2) | `design.md:743-748`. This matches `releaseStateAt`'s keys (`deliver-check.mjs:2068-2080`). |
+| 9.6's new checks can pass | `docs/openspec-flow.md:494` is the whole "The release note" paragraph on one line (1996 characters). `derived, with no marker commit` counts 1 today and is absent from D-20's new sentence (`design.md:821-827`). `what the step's own last recorded commit wrote` counts 0 today and appears once in the new sentence. The bullet's addition ("its own last recorded commit wrote") and the N3 row ("the step's own record wrote") do not match it. |
+| 9.6's `ADRs:` grep | `openspec/config.yaml:37` is one line ending `amends 0022 and 0025)`. The `-F` string in `tasks.md:401-402` is exactly the text D-20 prescribes (`design.md:848-852`). |
+| 9.17's grep finds nothing outside the change folder after the step | `git grep -F` for `ADR [release-at-merge`, `(release-at-merge.md)` and `(release-at-merge-step-record.md)` outside `openspec/changes/` finds no test or source literal today. The only hits of the slug are comments with the bare id (`release-at-merge D-9` etc.), which are not citation forms. |
 
-Round 1 and round 2 claims not touched by the revision were spot-checked again and still hold: `subagentStopFor`
-returns `allow('delivered')` at `change-loop.mjs:2503` before the `no-file` and `UNDELIVERED` refusals and `refuseOnce`
-accepts the planned key (`:2442-2447`); `stop-plan-approval` is `needsReadiness && APPROVED && !approval.ok &&
-!started` (`deliver-check.mjs:1824`); the `commit` row, the item 5 rows with `conflict: true`, `wait-merge`,
-`enable-auto-merge`, `ready` and `ready-base` are where D-8 puts N1 to N7 (`:1788-1977`); `staleness` takes `own`
-(`:356`); `releaseConflict` fires on `blocked`, item 5, `conflict` (`conduct-check.mjs:~430`); `MAIN` has no
-`assign-release` yet (`:62`), as the plan says.
+### Attempt 5's items
+- **N1: closed.** 9.6 now checks a phrase only the old text holds, and that the new sentence is present
+  (`tasks.md:399-401`; `design.md:1166`).
+- **O1: closed.** Decisions 4 and 5 of `docs/adr/release-at-merge-step-record.md` (`:63-85`) now say
+  that a line equal to the merge base's is never listed as taken from the record. They also say that
+  only `Release-adr` and `Release-citation` entries are given back, with `Release-line` keys left to
+  the step's computation. Both match D-20 (`design.md:738-752`).
+- **O2: closed.** See the table.
+- **O3: closed.** It is decided rather than asked:
+  - 9.1a (`tasks.md:322-331`) adds the line after 9.1 and before 9.6;
+  - D-20, "The `Amended by` line" (`design.md:865-886`), gives the reasons;
+  - F-8 (`:1200-1214`) records it.
 
-Gates that exist on the base and were run here, green: `openspec validate release-at-merge --strict`,
-`python3 scripts/check.py`, `python3 scripts/gen-catalog.py --check`,
-`node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check`, `claude plugin validate .`. Every test
-file the phase gates name exists except `release-note.test.mjs`, which task 2.1 creates; `scripts/test-suite.mjs`
-takes file arguments (its usage line). The whole-suite gate (task 8.2) is long and is the caller's; not run.
-
-Decisions inherited from ADRs: the plan amends ADR 0022 and ADR 0025 and builds on ADR 0003, 0019, 0027 and 0030
-without editing them (ADR `release-at-merge` Amends and Builds-on lines; D-13, D-17, task 5.6). No conflict left.
+  The line stales no stage file, because the `decisions` stage is `decisions.md` only. Its two tokens
+  are numbered at 9.17, which checks the result (`tasks.md:470`).
+- **O4: closed.** `tasks.md:300-302`.
+- **O5: closed.** `design.md:1375`.
 
 ## 5. Specs review
-- Normative language and `#### Scenario:` blocks in all four deltas; MODIFIED headers match `main`'s requirement
-  names.
-- D-8 decision table against the scenarios: A1, N1 (every repository error), N2, N3, N4, N5 (both halves), N6
-  (including `wait-merge`: "Auto-merge on while the release is not current"), N7 each have one. Round 2 item 3 is
-  fixed.
-- The three smaller deltas (`change-coordination`, `delivery-train`, `reviews-check`) agree with the design.
+Unchanged since attempt 5 (spec files dated 18:09). The `Amended by` header citation needs no new
+scenario: it falls under the existing citation-rewrite requirement, and D-26 gives it a test. No
+findings.
 
 ## 6. Tasks review
-- One `## N.` group per phase, each ends in a gate task naming a single backticked command; test-first tasks save
-  `proof/red-<n>.txt`; the config rule "next free number on origin/main at the last merge before review"
-  (`openspec/config.yaml:57`) is applied in task 8.1; no task writes a literal version or ADR number.
-- Task 1.1 now says what to do in both cases (ancestor: nothing; not an ancestor: merge, re-read D-3a's two lists,
-  stop for a plan revision on a mismatch); round 2 item 2 is fixed. Task 2.2 moves only what is still in
-  `release-merge.mjs` and says not to touch the pin helpers; round 2 item 1(a) is fixed. Task 8.1 no longer stops
-  for `archive-release-pin`.
-- Every task path falls under a real directory; every test it names exists (above).
+- 9.1a's done condition is executable. The `-F -e` grep counts the one line. `git diff --numstat <9.1's
+  merge commit> HEAD -- docs/adr/release-at-merge.md` pins "one added, none removed". `check.py`
+  closes it.
+- 9.2 names the guard by its D-26 name, and the name matches `design.md:1019` word for word.
+- 9.6 no longer edits either record, and it points to 9.1a for the header line (`tasks.md:395-398`).
+- 9.17 lists the first record's `Amended by` line among the citations, and it checks the numbered
+  form (`tasks.md:466-471`).
+- I ran no test gate. No product code has changed since `4a6e858`, gate 8.2 recorded the whole suite
+  green at `c7b86d9`, and the phase 9 gates are filtered or long runs that the implementer and the
+  caller make.
+- Low (O-A): the tasks do not say where the implementer stops for 9.1a, which another session does
+  in the middle of the phase. Section 10 has the details.
 
 ## 7. Omission detection
-Validation, error handling, idempotency, parsers (D-1, D-12), rollback, compatibility with older consumers, test
-strategy and evidence (D-14 to D-16, red files, real runs of every variant): defined. Observability: the step's JSON
-only, which is enough here. The plan's own base is stated and re-checked by task 1.1.
+No findings. Validation, error handling, rollback, idempotency and compatibility are as at attempt 5.
+The real runs P-13 and S-12 cover the failure and success paths.
 
 ## 8. Execution risks (top 5 failures)
-1. Cause: the base moves again before the implementation. Impact: a name D-3a lists is somewhere else. Prevention:
-   task 1.1 re-reads D-3a's lists after the merge and stops for a plan revision.
-2. Cause: a plain-commit release edit the masking misses (a citation form, a pin line). Impact: stale evidence
-   after the step, one re-review per assignment. Prevention: D-15's per-form tests and P-1.
-3. Cause: this change's dogfood (task 8.1) writes numbers on the branch and `main`'s installed train then joins it as
-   an old-rule change. Impact: a manual command and one to two hours on the Avell per round. Prevention: D-17; the
-   coordinator holds `main` at the release step.
-4. Cause: `deliver-check.mjs` gains an import a consumer job cannot load. Impact: every consumer's `--ci` fails at
-   load. Prevention: the three boundary tests and T-20.
-5. Cause: the planner's stop hook refuses a stage that is not the plan's last. Impact: one extra planner turn.
-   Prevention: D-11 places the check inside the `delivered` branch with `tasks.md` present, once per key.
+1. **9.1a skipped or done late.**
+   - Cause: 9.1a is the coordinating session's step in the middle of phase 9, and the implementer is
+     not told to stop for it.
+   - Impact: 9.6's checks do not read the line. The miss shows only at 9.17, whose done condition
+     requires the numbered `Amended by` line.
+   - Prevention: O-A.
+2. **The base moves again during phase 9.**
+   - Cause: trains keep landing.
+   - Impact: another merge at 9.17.
+   - Prevention: as planned. 9.17 runs the step, which now carries its record, and the coordinator
+     holds `main` at the release step.
+3. **9.1's revert meets a conflict outside the one expected.**
+   - Cause: the base moved past `a815222`.
+   - Impact: the phase stops for the owner.
+   - Prevention: as written in 9.1.
+4. **A D-19 caller left without the path.**
+   - Cause: 9.3 changes `rewriteCitations` to take a path, and line `:453` (the record's own rewrite)
+     is a caller as well as the pass.
+   - Impact: a record's own `(other.md)` is left unrewritten.
+   - Prevention: 9.3 says "its callers", and the new 9.2 guard pins the pass's side.
+5. **The `newestPlan` wording in the phase 9 summary.**
+   - Cause: `design.md:1325` lists `planFacts`' `newestPlan`, while D-21 and task 9.9 say `newestNote`,
+     with `newestPlan` unchanged.
+   - Impact: if an implementer follows the summary, the dependency audit is staled by the note.
+   - Prevention: 9.9 is explicit, and O-B fixes the summary.
 
 ## 9. Mandatory fixes before implementation
 None.
 
 ## 10. Optional improvements (within scope)
-- [ ] Low, fix during implementation: `design.md:242-243` and `tasks.md:137-138` say `trainCheck`'s message keeps
-  the substring `release files, the CI pin, \`openspec/roadmap.md\` and` the record. The code's message
-  (`deliver-check.mjs:2620`) holds the same words without backticks and ends in `${file}`; the backticked sentence is
-  the flow page's CI paragraph, asserted by `delivery-train-after.test.mjs:197` (T-9, already in task 3.4). No test
-  reads the code's message. Smallest correction: say "the CI paragraph keeps the substring" and leave the message as is.
-- [ ] Low, fix during implementation: D-8 row A1 (`design.md:297`) does not say which reason wins when the
-  readiness changed after the approval and the note changed too (no task ticked). Smallest correction: one clause,
-  for example the existing reason first, since the owner approves again either way.
-- [ ] Low: task 2.3 says `ADR_DIRS` and `ADR_LINES` move "here"; they come from two files (`conduct-check.mjs:376`,
-  `change-loop.mjs:1593`). `changeAdrs` should read `ADR_LINES` with `matchAll` as `decisionRecords` does, because the
-  regular expression carries the `g` flag.
-- [ ] D-13 (carried): write the `ADRs:` entry of `openspec/config.yaml` as `ADR [release-at-merge] <subject>` as the
-  design says; the existing entries for 0027 and 0030 stay untouched (T-41 reads them).
+- [ ] O-A (Low, Fix during implementation). Where: `tasks.md:322` (9.1a). Say how phase 9 is split
+  around 9.1a. For example, the implementer returns after 9.1 and the coordinating session resumes it
+  at 9.2 once 9.1a is committed. Alternatively, state that 9.1a may come at any point before 9.6.
+- [ ] O-B (Low, Nice to have). Where: `design.md:1325`. Change "`planFacts`' `newestPlan`" to
+  "`planFacts`' `newestNote`", as D-21 and task 9.9 say.
+- [ ] O-C (Low, Nice to have). Where: `design.md:1167`. Row O1 still reads "not taken here … has the
+  adr-author align it before the approval", but the record is now aligned (`docs/adr/release-at-merge-step-record.md:63-85`).
+  The row could say "taken by the adr-author".
 
 ## 11. Explicitly out of scope
-- [ ] Moving the ten open changes to notes; removing the old rule.
-- [ ] The panel (an unknown step shows by its id).
-- [ ] The archive check's pin-line rule, `PIN_LINE_FILES`, `pinLinesOnly` and the pin test: `archive-release-pin`,
-  merged (ADR 0027, ADR 0030).
+- [ ] The follow-ups at `tasks.md:487-492`.
+- [ ] The decision text of `ADR [release-at-merge]`, which is accepted and not edited. Only 9.1a's
+  header line is added.
 
 ## 12. Mandatory review questions
-1. Is the problem objectively defined? Yes (`proposal.md` Why; `requirements.md`).
-2. Is the result measurable? Yes: 15 acceptance criteria, each with a test file or a real-run case (tasks table).
-3. Are error behaviors defined? Yes: exit codes and messages for the step and the join, `blocked` reasons for the
-   checker, the planner stop with its key; every D-8 row has a scenario.
-4. Are edge cases covered? Yes for the note, the numbering, the consumer variants, the old rule and the missing base;
-   the one open edge (A1 with two causes) is Low and listed.
-5. Are dependencies clear? Yes: `archive-release-pin` and `release-merge-leftovers` are in the base; nothing waits.
-6. Are contracts defined? Yes: the note, the step's JSON, the rows, the approval line, the module boundary and its
-   three tests.
-7. Can two developers interpret this differently? Not on anything that changes behavior; the wording points of
-   section 10 do not.
-8. Are any decisions implicit instead of written? No; the four owner-overturnable decisions and F-1 to F-7 are
-   written.
-9. Do the tasks fully deliver the intended outcome? Yes: phases 2 to 5 build it, phases 6 and 7 prove each case
-   and each agent variant (including the failure path through `guard.mjs subagent-stop`), phase 8 bootstraps and runs
-   the suite.
-10. What will be discovered too late if implementation starts now? Nothing found; the one thing that can move is the
-    base, and task 1.1 catches it before task 2.2.
+1. Is the problem objectively defined? Yes.
+2. Is the result measurable? Yes. Every task in phase 9 has a command-level done condition, 9.1a and
+   9.6 included.
+3. Are error behaviors defined? Yes. The give-back's exit 2 has its scenario and its test.
+4. Are edge cases covered? Yes. They include a citation in one record's header naming the other record
+   of the same change (new guard), slug-prefixed records, and a merge-base value equal to the
+   record's.
+5. Are dependencies clear? Yes. The base is `a815222` or later, 9.1a comes after 9.1 and before 9.6,
+   and the second record is committed with the approval.
+6. Are contracts defined? Yes. `reassign` holds state keys only, and the trailers, `stepRecord` and
+   the give-back are specified.
+7. Can two developers interpret this differently? Only on when to stop for 9.1a (O-A), and 9.17's
+   check catches a miss.
+8. Are any decisions implicit instead of written? No. The `Amended by` line is now written as a
+   decision (D-20, F-8).
+9. Do the tasks fully deliver the intended outcome? Yes.
+10. What will be discovered too late if implementation starts now? Nothing material. At worst, 9.1a is
+    found missing at 9.17.
 
 ## 13. Final conclusion
-- Can we start? Yes, after the owner approves the plan (with the `- Release note:` line, task 1.2).
-- What must be fixed? Nothing before implementation; the three Low items of section 10 can be done in the first
-  phase that touches those lines.
-- Main risk if ignored? A reader of the `trainCheck` sentence edits a message no test pins; nothing breaks.
+- Can we start? Yes, once the owner approves the plan. The approval commit includes
+  `docs/adr/release-at-merge-step-record.md`, as the paragraph before 9.1 says.
+- What must be fixed? Nothing mandatory. N1 and O1 to O5 of attempt 5 are closed. O-A to O-C are
+  optional.
+- Main risk if ignored: 9.1a happens late or is skipped mid-phase, and 9.17's done condition catches
+  it, at the cost of one more commit before review.
