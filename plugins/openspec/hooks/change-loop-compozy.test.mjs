@@ -13,6 +13,7 @@ import {
   transcriptOf,
 } from './test-fixtures.mjs';
 import { approvalState } from './deliver-check.mjs';
+import * as DC from './deliver-check.mjs';
 import { pinsIn } from './release-merge.mjs';
 import * as guardModule from './guard.mjs';
 import * as changeLoopModule from './change-loop.mjs';
@@ -1914,7 +1915,8 @@ test('change-loop compozy record-approval: it writes approval.md in the form of 
   const text = readFileSync(changeFile(root, 'approval.md'), 'utf8');
   const sha = git(root, 'rev-parse', 'HEAD').trim();
   const readiness = approvalState(join(root, 'openspec', 'changes', 'feat')).readiness;
-  assert.equal(text, `<!-- devkit-stage approval result=passed attempt=1 commit=${sha} -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${readiness}\n- Date: ${today()}\n- Owner's words: "\`Looks good, go ahead\`"\n`);
+  const plan = DC.planDigest?.(join(root, 'openspec', 'changes', 'feat'));
+  assert.equal(text, `<!-- devkit-stage approval result=passed attempt=1 commit=${sha} -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${readiness}\n- Plan: ${plan}\n- Date: ${today()}\n- Owner's words: "\`Looks good, go ahead\`"\n`);
   assert.equal(approvalState(join(root, 'openspec', 'changes', 'feat')).ok, true);
   assert.deepEqual(['view', 'approval'].length, 2);
 });

@@ -15,8 +15,9 @@ import {
   planChange, transcriptOf, typedLine, runLine, toolResultLine, stopInput, sandbox, cleanEnvLoop as cleanEnv,
   cmd, FLAGS, projectWith, roadmapText, putRun, stateOf, runFileOf,
   git, put, commitAll, head as stageHead, rowOf, run, endOf, scenario, conflictOnTest, mergeIntoSupport, resolveSupport, reviewResolution,
+  gitRepo, fakeGh, tasksText,
 } from './test-fixtures.mjs';
-import { hook, skillText, section, deliveredChange, check, next as loopNext, parsed, build, TDD, REPO_ROOT } from './change-loop-fixtures.mjs';
+import { hook, skillText, section, deliveredChange, check, next as loopNext, parsed, build, TDD, REPO_ROOT, prJson } from './change-loop-fixtures.mjs';
 import { inFlight, sessionSkillMd } from './roadmap-loop-fixtures.mjs';
 import * as CL from './change-loop.mjs';
 import * as DC from './deliver-check.mjs';
@@ -561,4 +562,233 @@ test('coordinator-loop-fixes AC-13 T50 the ship-change row holds the merge sente
   assert.ok(item.includes('the dispatch sentence of the `ship-change` row of that name'), item);
   assert.ok(item.includes('`Outcome: failure` goes back to `next`, as for any agent.'), item);
   assert.ok(!item.includes('role-failed'), item);
+});
+
+// ---------------------------------------------------------------- AC-8: a plan revised after the start (D-7)
+// Invariant: once a task is ticked, an approval that records the plan's digest sends a revised plan back to the readiness reviewer
+// ("out of date"), then asks the owner again with the readiness hash and the plan digest, in the Claude and the CompozyOS driver
+// alike; the CompozyOS driver writes the digest of the plan files it approves. A merge-defect fix of a spec delta is such a revision,
+// read before the merge check. Layer: the loop CLI (`next`, `next --view compozy`, `record-approval`), `approvalText`, and the skills'
+// text. Suite: change-loop-declared.
+
+const PLAN_STAGES = ['requirements', 'decisions', 'proposal', 'specs', 'design', 'tasks', 'readiness'];
+const READINESS = 'devkit-core:plan-readiness-reviewer';
+// A `devkit` change in `pr` mode on its branch `feat`, its plan passed, task 1.1 of three ticked, and approval.md recording the
+// readiness hash and, unless `plan` is false, the plan's digest; committed, with a fake gh that knows no pull request.
+function revisedPlan({ plan = true } = {}) {
+  const root = planChange({ have: PLAN_STAGES });
+  const c0 = git(root, 'rev-parse', 'HEAD');
+  const dir = join(root, 'openspec', 'changes', 'feat');
+  git(root, 'switch', '-q', '-c', 'feat');
+  put(root, {
+    'openspec/config.yaml': 'schema: devkit\nship:\n  devkit: pr\n',
+    'openspec/changes/feat/tasks.md': `${stageHead('tasks', c0)}# Tasks\n\n## 1. First\n- [x] 1.1 a\n- [ ] 1.2 b\n- [ ] 1.3 c\n`,
+  });
+  const digest = plan ? `- Plan: ${DC.planDigest?.(dir)}\n` : '';
+  put(root, { 'openspec/changes/feat/approval.md': `${stageHead('approval', c0)}# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${DC.approvalState(dir).readiness}\n${digest}- Date: 2026-11-24\n- Owner's words: "\`go\`"\n` });
+  commitAll(root, 'the plan approved, one task ticked');
+  const gh = fakeGh();
+  gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "feat"\n' });
+  gh.set('pr-list', { stdout: [] });
+  return { root, dir, c0, gh, env: { ...cleanEnv, PATH: gh.env.PATH, FAKE_GH_DIR: gh.env.FAKE_GH_DIR } };
+}
+const reviseDesign = ({ root, c0 }) => { put(root, { 'openspec/changes/feat/design.md': `${stageHead('design', c0)}# design\n\nRevised after the start.\n` }); commitAll(root, 'a plan revision'); };
+const reviewAgain = ({ root, c0 }) => { put(root, { 'openspec/changes/feat/readiness.md': `${stageHead('readiness', c0, 'passed', 2)}# Readiness\n\n- Status: APPROVED\n\nThe revised design, reviewed.\n` }); commitAll(root, 'the readiness review again'); };
+const compozyView = (cwd, env) => CL.main(['next', '--change', 'feat', '--lang', 'en', '--view', 'compozy'], { cwd, env });
+
+test('coordinator-loop-fixes AC-8 T60 loop: the revised plan hands the readiness reviewer "out of date"; after its rewrite, the owner is asked again with the readiness and the plan', () => {
+  const p = revisedPlan();
+  const before = parsed(loopNext(p.root, [], p.env)).action;
+  assert.deepEqual([before.kind, before.agent, before.step], ['agent', TDD, 'implement'], 'the approved plan goes on');
+  reviseDesign(p);
+  const revised = parsed(loopNext(p.root, [], p.env)).action;
+  assert.deepEqual([revised.kind, revised.agent, revised.stage], ['agent', READINESS, 'readiness']);
+  assert.match(revised.brief, /readiness is out of date: bring it up to date/);
+  reviewAgain(p);
+  const again = parsed(loopNext(p.root, [], p.env)).action;
+  assert.deepEqual([again.kind, again.end?.state, again.end?.why], ['end', 'waiting-for-owner', 'waiting-approval-again']);
+  assert.equal(again.detail.readiness, DC.approvalState(p.dir).readiness);
+  assert.match(String(again.detail.plan), /^sha256:[0-9a-f]{12}$/);
+  assert.equal(again.detail.plan, DC.planDigest(p.dir));
+});
+
+test('coordinator-loop-fixes AC-8 T61 ship-change\'s stop-plan-approval row writes - Plan: <next.plan>; the devkit skill names ask.action.detail.plan', () => {
+  const ship = readFileSync(join(REPO_ROOT, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
+  const row = ship.split('\n').find((l) => l.startsWith('| `stop-plan-approval` |'));
+  assert.ok(row, 'the stop-plan-approval row');
+  assert.ok(row.includes('`- Readiness: <next.readiness>`, `- Plan: <next.plan>` (omitted when `next.plan` is null), `- Date: <YYYY-MM-DD>`'), row);
+  assert.ok(ship.includes('A change whose tasks are already ticked is resumed without it, unless its approval records a plan the plan files no longer match.'));
+  const perChange = section(skillText(), '### A session per change', '### Every change in this session');
+  assert.ok(perChange.includes('`ask.action.detail.readiness`, `ask.action.detail.plan`'), 'A session per change names the plan digest beside the readiness hash');
+});
+
+test('coordinator-loop-fixes AC-8 T115 approvalText writes the plan line right after the readiness line; record-approval writes the digest of the plan it approves', () => {
+  const fields = { id: 'feat', attempt: 2, commit: 'a'.repeat(40), readiness: 'sha256:111111111111', date: '2026-11-24', words: 'go' };
+  const today = `<!-- devkit-stage approval result=passed attempt=2 commit=${'a'.repeat(40)} -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: sha256:111111111111\n- Date: 2026-11-24\n- Owner's words: "\`go\`"\n`;
+  assert.equal(CL.approvalText(fields), today, 'no plan: today\'s text byte for byte');
+  assert.equal(CL.approvalText({ ...fields, plan: null }), today);
+  assert.equal(CL.approvalText({ ...fields, plan: 'sha256:222222222222' }), today.replace('- Readiness: sha256:111111111111\n', '- Readiness: sha256:111111111111\n- Plan: sha256:222222222222\n'));
+  const p = revisedPlan();
+  reviseDesign(p);
+  reviewAgain(p);
+  assert.equal(JSON.parse(compozyView(p.root, p.env).stdout).kind, 'approval');
+  const r = CL.main(['record-approval', '--change', 'feat', '--words', 'go', '--lang', 'en'], { cwd: p.root, env: p.env });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const text = readFileSync(join(p.dir, 'approval.md'), 'utf8');
+  assert.ok(text.includes(`- Readiness: ${DC.approvalState(p.dir).readiness}\n- Plan: ${DC.planDigest(p.dir)}\n`), text);
+  assert.equal(DC.planRevision(p.dir).changed, false);
+});
+
+test('coordinator-loop-fixes AC-8 T116 the CompozyOS view of a revised plan: the readiness reviewer, then the approval; a tick alone gives the implementation', () => {
+  const p = revisedPlan();
+  reviseDesign(p);
+  const first = JSON.parse(compozyView(p.root, p.env).stdout);
+  assert.deepEqual([first.kind, first.stage], ['agent', 'readiness']);
+  assert.match(first.brief, /readiness is out of date/);
+  reviewAgain(p);
+  assert.equal(JSON.parse(compozyView(p.root, p.env).stdout).kind, 'approval');
+  const ticked = revisedPlan();
+  const tasks = join(ticked.dir, 'tasks.md');
+  writeFileSync(tasks, readFileSync(tasks, 'utf8').replace('- [ ] 1.2', '- [x] 1.2'));
+  commitAll(ticked.root, 'a tick');
+  const third = JSON.parse(compozyView(ticked.root, ticked.env).stdout);
+  assert.deepEqual([third.kind, third.stage], ['agent', 'implementation']);
+});
+
+// A `devkit` change delivered up to its open pull request (`deliveredChange` with its script switched to `devkit` and the plan
+// stages added), its approval recording the plan's digest unless `plan` is false, then a merge of origin/main into its branch.
+function mergedDevkitChange({ plan = true } = {}) {
+  const d = deliveredChange({ checks: [check('build', 'pending')] });
+  const sha = git(d.wt, 'rev-parse', 'HEAD');
+  const dir = join(d.wt, 'openspec', 'changes', 'feat');
+  put(d.wt, {
+    'openspec/changes/feat/.openspec.yaml': 'schema: devkit\n',
+    'openspec/changes/feat/decisions.md': `${stageHead('decisions', sha)}# Decisions\n`,
+    'openspec/changes/feat/design.md': `${stageHead('design', sha)}# Design\n`,
+    'openspec/changes/feat/readiness.md': `${stageHead('readiness', sha)}# Readiness\n\n- Status: APPROVED\n`,
+  });
+  const digest = plan ? `- Plan: ${DC.planDigest?.(dir)}\n` : '';
+  put(d.wt, { 'openspec/changes/feat/approval.md': `${stageHead('approval', sha)}# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${DC.approvalState(dir).readiness}\n${digest}- Date: 2026-11-24\n` });
+  commitAll(d.wt, 'the devkit plan files');
+  // The base moves on in openspec/ alone (a file outside it would make the evidence stale, which this test is not about).
+  const file = 'openspec/specs/other/spec.md';
+  put(d.t.main, { [file]: '# Other\n' });
+  git(d.t.main, 'add', '--', file);
+  git(d.t.main, 'commit', '-q', '-m', 'main moves on', '--', file);
+  git(d.t.main, 'push', '-q', 'origin', 'main');
+  git(d.wt, 'merge', '-q', '--no-ff', '--no-edit', 'origin/main');
+  const reheaded = () => d.gh.set('pr-view', { stdout: prJson('feat', { headRefOid: git(d.wt, 'rev-parse', 'HEAD') }) });
+  reheaded();
+  // The check of the plan after that merge, red at the current files (a fake CLI that reports one issue).
+  const red = () => ({ status: 1, stdout: JSON.stringify({ items: [{ id: 'feat', valid: false, issues: [{ level: 'ERROR', path: 'specs/s/spec.md', message: 'a scenario the base added is missing' }] }] }), stderr: '' });
+  assert.equal(CL.mergeCheck(d.wt, 'feat', { env: d.env, openspec: red }).result, 'red');
+  const spec = join(dir, 'specs', 's', 'spec.md');
+  writeFileSync(spec, `${readFileSync(spec, 'utf8')}\n### Requirement: copied from the base\n`);
+  commitAll(d.wt, 'the merge-defect fix of the spec delta');
+  reheaded();
+  return d;
+}
+
+test('coordinator-loop-fixes AC-8 T134 a merge-defect fix of the spec delta goes to the readiness reviewer when the approval records the plan, else to the merge check', () => {
+  const withPlan = mergedDevkitChange();
+  const revised = parsed(loopNext(withPlan.t.main, [], withPlan.env)).action;
+  assert.deepEqual([revised.kind, revised.agent, revised.stage], ['agent', READINESS, 'readiness'], JSON.stringify(revised));
+  assert.match(revised.brief, /readiness is out of date/);
+  assert.notEqual(revised.step, 'merge-check');
+  assert.notEqual(revised.step, 'merge-defect');
+  const without = mergedDevkitChange({ plan: false });
+  const checked = parsed(loopNext(without.t.main, [], without.env)).action;
+  assert.deepEqual([checked.kind, checked.step], ['session', 'merge-check'], JSON.stringify(checked));
+});
+
+// ---------------------------------------------------------------- AC-9: a task for the conducting session (D-6)
+// Invariant: the delivery checker's `conductor-task` row is a session step of the implementation, and every text that hands tasks
+// (the implementer, the ship-change rows, the schemas' tasks instruction) names the `Conductor:` marker. Layer: `decide` and the
+// texts. Suite: change-loop-declared.
+
+test('coordinator-loop-fixes AC-9 T68 decide on a conductor-task row is a session step of the implementation', () => {
+  const a = build(rowOf('conductor-task', { phase: 4, tasks: ['4.1', '4.2'] }));
+  assert.deepEqual([a.kind, a.step, a.stage], ['session', 'conductor-task', 'implementation']);
+  assert.deepEqual([a.detail.phase, a.detail.tasks], [4, ['4.1', '4.2']]);
+});
+
+const SCHEMA_SENTENCE = 'A task only the conducting session can do (a run in the host, a host setting, a real session) starts its description with `Conductor:`; the loop never hands it to the implementer.';
+const oneLine = (text) => text.replace(/\s+/g, ' ');
+
+test('coordinator-loop-fixes AC-9 T69 the implementer, the ship-change rows, the devkit session item and both schemas name the Conductor: marker', () => {
+  const tdd = readFileSync(join(REPO_ROOT, 'plugins', 'core', 'agents', 'tdd-implementer.md'), 'utf8');
+  assert.ok(oneLine(tdd).includes('A task whose description starts with `Conductor:` is the conducting session\'s: never do it or tick it; stop before the first open one, report the phase as stopped there, and return `success` for the tasks before it.'), 'tdd-implementer');
+  const ship = readFileSync(join(REPO_ROOT, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8').split('\n');
+  const conductor = ship.find((l) => l.startsWith('| `conductor-task` |'));
+  assert.ok(conductor, 'a conductor-task row');
+  assert.ok(conductor.includes('Do each task of `next.tasks` yourself in the worktree, as its text says, and tick it in `tasks.md` when it is done; never edit product code for it, the edit lock refuses it. A task you cannot do is declared with `reply waiting-owner-decision --param id=<id> --param decision="<the task in plain words>"`.'), conductor);
+  const implement = ship.find((l) => l.startsWith('| `implement` |'));
+  assert.ok(implement.includes('with `next.stopAt`, stop before that task'), implement);
+  const session = section(skillText(), '## Loop', '## Owner gates').split('\n').find((l) => l.startsWith('- `session`'));
+  assert.ok(session.includes('`conductor-task`'), session);
+  for (const f of ['plugins/openspec/schemas/devkit/schema.yaml', 'plugins/openspec/schemas/devkit-lite/schema.yaml', 'openspec/schemas/devkit/schema.yaml', 'openspec/schemas/devkit-lite/schema.yaml']) {
+    assert.ok(oneLine(readFileSync(join(REPO_ROOT, f), 'utf8')).includes(SCHEMA_SENTENCE), f);
+  }
+});
+
+// ---------------------------------------------------------------- AC-17, AC-18: the delivered change found and walked after the merge (D-20, D-21)
+// Invariant: `next` on a change delivered by its merged pull request reaches the retro, for a change whose id starts with
+// `archive-` seen from the default branch, and for a change whose own branch was advanced into the base. Layer: the loop CLI on a
+// git fixture with a fake gh. Suite: change-loop-declared.
+
+// A `devkit-lite` change `id` in `pr` mode, every stage passed at the code's commit and every task ticked, committed on main;
+// `branch` (when given) is cut from it. The fake gh answers merged pull request #31 of head `head` as the change's own, every task
+// ticked on main, and an archive not started.
+function deliveredOnMain(id, { head: headName = id } = {}) {
+  const root = gitRepo({ config: 'schema: devkit-lite\nship:\n  devkit-lite: pr\n' });
+  const dir = (f) => `openspec/changes/${id}/${f}`;
+  put(root, { [dir('.openspec.yaml')]: 'schema: devkit-lite\n', 'src/a.ts': 'code\n' });
+  const sha = commitAll(root, 'code');
+  const review = `Verdict: approved\nCommit: ${sha}\n\n# Review\n`;
+  put(root, {
+    [dir('requirements.md')]: `${stageHead('requirements', sha)}# Requirements\n`,
+    [dir('proposal.md')]: `${stageHead('proposal', sha)}# Proposal\n\n## Why\n\nx\n\n## Acceptance criteria\n\n- AC-1: a thing\n`,
+    [dir('specs/s/spec.md')]: `${stageHead('specs', sha)}# Spec\n`,
+    [dir('tasks.md')]: `${stageHead('tasks', sha)}# Tasks\n\n## 1. First\n- [x] 1.1 code\n`,
+    [dir('evidence.md')]: `${stageHead('evidence', sha)}Commit: ${sha}\n\n# Evidence\n\n### Acceptance\n| AC | proof | result |\n|---|---|---|\n| AC-1 | proof | pass: t |\n`,
+    [dir('review.md')]: `${stageHead('review', sha)}Consensus: PASS (round 1/2)\n\n# Review\n`,
+    [dir('reviews/code-quality-reviewer.md')]: review, [dir('reviews/test-coverage-reviewer.md')]: review,
+  });
+  const reviewed = commitAll(root, 'reviews, evidence and stage headers');
+  const gh = fakeGh();
+  const pr = { number: 31, url: 'https://github.com/o/r/pull/31', state: 'MERGED', headRefName: headName, headRefOid: reviewed, baseRefName: 'main', mergedAt: '2026-11-24T10:00:00Z', mergeable: 'UNKNOWN', autoMergeRequest: null, mergeStateStatus: 'UNKNOWN', body: '' };
+  gh.set('pr-list-state-merged', { stdout: [pr] });
+  gh.set('pr-view', { stdout: pr });
+  gh.prFiles(31, [dir('tasks.md'), 'src/a.ts']);
+  gh.set('api-GET-repos__owner___repo_', { stdout: { default_branch: 'main' } });
+  gh.tasksOnDefault(id, tasksText({ ticked: ['1.1'] }));
+  gh.set('api-GET-repos__owner___repo__contents_openspec_changes_archive_ref=main', { stdout: [] });
+  gh.set(`api-GET-repos__owner___repo__contents_openspec_changes_${id}_ref=main`, { stdout: { name: id } });
+  gh.set(`pr-list-head-chore_archive-${id}`, { stdout: [] });
+  return { root, gh, reviewed, env: { ...cleanEnv, PATH: gh.env.PATH, FAKE_GH_DIR: gh.env.FAKE_GH_DIR } };
+}
+const nextOfId = (cwd, id, env) => CL.main(['next', '--change', id, '--lang', 'en'], { cwd, env });
+const isRetro = (a) => a.kind === 'session' && a.step === 'retro' && a.stage === 'retro';
+
+test('coordinator-loop-fixes AC-17 T124 next on a change archive-x whose own pull request merged, from the default branch, is the retro', () => {
+  const d = deliveredOnMain('archive-x');
+  const r = nextOfId(d.root, 'archive-x', d.env);
+  const { action } = parsed(r);
+  assert.ok(isRetro(action), `${JSON.stringify(action)}\n${r.stderr}`);
+  assert.notEqual(action.step, 'open-pr');
+});
+
+test('coordinator-loop-fixes AC-18 T130 next on a delivered change whose own branch was advanced into the base is the retro, with no verify or review', () => {
+  const d = deliveredOnMain('feat');
+  git(d.root, 'switch', '-q', '-c', 'feat');
+  git(d.root, 'switch', '-q', 'main');
+  put(d.root, { 'src/a.ts': 'the base edits a after the merge\n' });
+  git(d.root, 'update-ref', 'refs/remotes/origin/main', commitAll(d.root, 'a base commit after the merge'));
+  git(d.root, 'switch', '-q', 'feat');
+  git(d.root, 'merge', '-q', '--ff-only', 'main');
+  const r = loopNext(d.root, [], d.env);
+  const { action } = parsed(r);
+  assert.ok(isRetro(action), `${JSON.stringify(action)}\n${r.stderr}`);
+  for (const step of ['verify', 'review']) assert.notEqual(action.step, step);
+  assert.notEqual(action.kind, 'agent', 'no reviewer hand-off');
 });

@@ -2723,3 +2723,236 @@ test('coordinator-loop-fixes AC-7 T141 collectState: an uncommitted declared.jso
   assert.deepEqual(s.planDirty, ['openspec/changes/feat/design.md']);
   assert.deepEqual([...s.folderDirty].sort(), [record, 'openspec/changes/feat/design.md'].sort());
 });
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: a plan revised after the start (D-7)
+// Invariant: planDigest is the one digest of the plan files (proposal.md, design.md, tasks.md with every checkbox read as `[ ]`,
+// and the .md files under specs/), and planRevision compares it with approval.md's `- Plan:` line; nextStep keeps the plan
+// approval stop for a started change only when its approval records a plan the files no longer match. Layer: deliver-check's
+// exported functions and nextStep on a built state. Suite: deliver-check.
+
+const PLAN_TEXT = {
+  'proposal.md': '# Proposal\n\nWhy.\n',
+  'design.md': '# Design\n\nD-1 a decision.\n',
+  'tasks.md': '# Tasks\n\n## 1. One\n- [ ] 1.1 code\n- [ ] 1.2 Gate: `true` green\n',
+  'specs/s/spec.md': '## ADDED Requirements\n\n### Requirement: A thing\n',
+};
+// A change folder holding `files` (PLAN_TEXT by default; a null value leaves the file out).
+const planDir = (files = {}) => {
+  const dir = tmpFolder('devkit-plan-digest-');
+  for (const [f, body] of Object.entries({ ...PLAN_TEXT, ...files })) {
+    if (body === null) continue;
+    mkdirSync(join(dir, f, '..'), { recursive: true });
+    writeFileSync(join(dir, f), body);
+  }
+  return dir;
+};
+const digestOf = (files) => DC.planDigest?.(planDir(files));
+
+test('coordinator-loop-fixes AC-8 T51 planDigest: ticking a task ([x], [X], [ x]) leaves it equal', () => {
+  const before = digestOf();
+  assert.match(String(before), /^sha256:[0-9a-f]{12}$/);
+  for (const mark of ['[x]', '[X]', '[ x]']) {
+    assert.equal(digestOf({ 'tasks.md': PLAN_TEXT['tasks.md'].replace('- [ ] 1.1', `- ${mark} 1.1`) }), before, mark);
+  }
+  assert.equal(digestOf({ 'tasks.md': PLAN_TEXT['tasks.md'].replaceAll('- [ ]', '- [x]') }), before, 'every task ticked');
+});
+
+test('coordinator-loop-fixes AC-8 T52 planDigest: an edit of design.md, of proposal.md, of a spec delta, and a new task line each change it', () => {
+  const before = digestOf();
+  const edits = {
+    'design.md': { 'design.md': `${PLAN_TEXT['design.md']}D-2 another.\n` },
+    'proposal.md': { 'proposal.md': `${PLAN_TEXT['proposal.md']}More.\n` },
+    'a spec delta': { 'specs/s/spec.md': `${PLAN_TEXT['specs/s/spec.md']}#### Scenario: one\n` },
+    'a new task line': { 'tasks.md': `${PLAN_TEXT['tasks.md']}- [ ] 1.3 more\n` },
+  };
+  for (const [label, files] of Object.entries(edits)) assert.notEqual(digestOf(files), before, label);
+});
+
+test('coordinator-loop-fixes AC-8 T53 planDigest: evidence.md, review.md, reviews/x.md and declared.json leave it equal', () => {
+  const before = digestOf();
+  const after = digestOf({
+    'evidence.md': '# Evidence\n', 'review.md': 'Consensus: PASS\n', 'reviews/x.md': 'Verdict: approved\n',
+    'declared.json': JSON.stringify({ version: 1, steps: [] }), 'approval.md': '- Status: APPROVED\n',
+  });
+  assert.equal(after, before);
+});
+
+test('coordinator-loop-fixes AC-8 T54 planDigest: a missing design.md and an empty one differ; no specs/ folder adds nothing', () => {
+  assert.notEqual(digestOf({ 'design.md': null }), digestOf({ 'design.md': '' }));
+  const noSpecs = DC.planDigest?.(planDir({ 'specs/s/spec.md': null }));
+  const emptySpecs = planDir({ 'specs/s/spec.md': null });
+  fsRm(join(emptySpecs, 'specs'), { recursive: true, force: true });
+  assert.match(String(noSpecs), /^sha256:[0-9a-f]{12}$/);
+  assert.equal(DC.planDigest?.(emptySpecs), noSpecs, 'an absent specs/ folder and one with no .md file give the same digest');
+});
+
+test('coordinator-loop-fixes AC-8 T55 planRevision: no - Plan: line gives changed false; an equal one false; a different one true', () => {
+  const dir = planDir();
+  const plan = DC.planDigest?.(dir);
+  const approval = (line) => writeFileSync(join(dir, 'approval.md'), `# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: sha256:000000000000\n${line}- Date: 2026-11-24\n`);
+  approval('');
+  assert.deepEqual(DC.planRevision?.(dir), { plan, recorded: null, changed: false });
+  approval(`- Plan: ${String(plan).toUpperCase().replace('SHA256', 'sha256')}\n`);
+  assert.deepEqual(DC.planRevision?.(dir), { plan, recorded: plan, changed: false }, 'an equal one, read without case');
+  approval('- Plan: sha256:000000000000\n');
+  assert.deepEqual(DC.planRevision?.(dir), { plan, recorded: 'sha256:000000000000', changed: true });
+});
+
+const startedState = (plan) => state({
+  schema: 'devkit', needsReadiness: true, readiness: 'APPROVED', started: true,
+  approval: { status: 'APPROVED', recorded: 'sha256:111111111111', readiness: 'sha256:222222222222', ok: false },
+  plan,
+  phases: [{ n: 2, title: 'Two', open: ['2.1'], conductor: [], gate: { id: '2.2', done: false, command: 'true' } }],
+});
+
+test('coordinator-loop-fixes AC-8 T56 nextStep: a started change whose approval records another plan stops for the approval, with its plan', () => {
+  const n = nextStep(startedState({ plan: 'sha256:aaaaaaaaaaaa', recorded: 'sha256:bbbbbbbbbbbb', changed: true }));
+  assert.equal(n.step, 'stop-plan-approval');
+  assert.equal(n.plan, 'sha256:aaaaaaaaaaaa');
+  assert.equal(n.readiness, 'sha256:222222222222');
+  const same = nextStep(startedState({ plan: 'sha256:aaaaaaaaaaaa', recorded: 'sha256:aaaaaaaaaaaa', changed: false }));
+  assert.equal(same.step, 'implement', 'started, approval not ok, plan not changed: no stop');
+});
+
+test('coordinator-loop-fixes AC-8 T94 nextStep on a devkit-lite change: state.plan is null and no stop-plan-approval is given', () => {
+  const t = shipRepo();
+  put(t.root, {
+    'openspec/changes/feat/tasks.md': '## 1. First\n- [x] 1.1 code\n- [ ] 1.2 more\n',
+    'openspec/changes/feat/approval.md': '# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: sha256:000000000000\n- Plan: sha256:000000000000\n',
+    'openspec/changes/feat/design.md': '# Design\n\nEdited after the tick.\n',
+  });
+  const s = collectState(t.root, 'feat', { env: t.env });
+  assert.equal(s.plan, null);
+  assert.notEqual(nextStep(s).step, 'stop-plan-approval');
+});
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: a task for the conducting session (D-6)
+// Invariant: a task whose description starts with `Conductor:` is the conducting session's: parseTasks marks it, readPhases lists
+// the open ones of a phase, nextStep hands them as `conductor-task` when they lead the phase and stops the implementer before the
+// first one otherwise; an unticked one holds the gate like any task. Layer: deliver-check's parsers, nextStep and tasksItem.
+// Suite: deliver-check.
+
+const CONDUCTOR_TASKS = [
+  '## 1. One',
+  '- [ ] 1.1 Conductor: run R10 in a real session',
+  '- [ ] 1.2 Write the code; the note says Conductor: in passing',
+  '- [ ] 1.3 Gate: `true` green',
+  '- [x] 1.4 Conductor: done already',
+].join('\n');
+
+test('coordinator-loop-fixes AC-9 T62 parseTasks: Conductor: at the start is marked; mid-sentence is not; a Gate: task is not', () => {
+  const tasks = parseTasks(CONDUCTOR_TASKS);
+  assert.deepEqual(tasks.map((t) => [t.id, t.isConductor]), [['1.1', true], ['1.2', false], ['1.3', false], ['1.4', true]]);
+  assert.equal(parseTasks('- [ ] 1.1 Gate: `true` Conductor: x\n')[0].isConductor, false);
+});
+
+test('coordinator-loop-fixes AC-9 T63 readPhases: conductor lists the open marked ids; [] when none', () => {
+  const root = base();
+  put(root, { 'openspec/changes/feat/tasks.md': `# Tasks\n\n${CONDUCTOR_TASKS}\n\n## 2. Two\n- [ ] 2.1 code\n- [ ] 2.2 Gate: \`true\`\n` });
+  const phases = readPhases(join(root, 'openspec/changes/feat/tasks.md'));
+  assert.deepEqual(phases.map((p) => [p.n, p.open, p.conductor]), [[1, ['1.1', '1.2'], ['1.1']], [2, ['2.1'], []]]);
+});
+
+const phaseState = (open, conductor) => state({ phases: [{ n: 3, title: 'Three', open, conductor, gate: { id: '3.9', done: false, command: 'true' } }] });
+
+test('coordinator-loop-fixes AC-9 T64 nextStep: a phase whose first open task is marked gives conductor-task with the leading marked ids', () => {
+  const n = nextStep(phaseState(['3.1', '3.2', '3.3', '3.4'], ['3.1', '3.2', '3.4']));
+  assert.deepEqual([n.step, n.phase, n.tasks], ['conductor-task', 3, ['3.1', '3.2']]);
+  assert.equal(n.reason, 'phase 3 has tasks the conducting session does: 3.1, 3.2');
+});
+
+test('coordinator-loop-fixes AC-9 T65 nextStep: an unmarked task before a marked one gives implement with stopAt', () => {
+  const n = nextStep(phaseState(['3.1', '3.2', '3.3'], ['3.2', '3.3']));
+  assert.deepEqual([n.step, n.phase, n.stopAt], ['implement', 3, '3.2']);
+});
+
+test('coordinator-loop-fixes AC-9 T66 nextStep: no marked task gives implement with exactly { phase }', () => {
+  const n = nextStep(phaseState(['3.1', '3.2'], []));
+  assert.deepEqual(n, { step: 'implement', reason: 'phase 3 has unticked tasks: 3.1, 3.2', phase: 3 });
+});
+
+test('coordinator-loop-fixes AC-9 T67 an unticked marked task holds the gate and is listed unticked by tasksItem; ticked, the gate follows', () => {
+  const root = base();
+  const text = (mark) => `# Tasks\n\n## 1. One\n- [x] 1.1 code\n- [${mark}] 1.2 Conductor: run R10 in a real session\n- [ ] 1.3 Gate: \`true\` green\n`;
+  const file = join(root, 'openspec/changes/feat/tasks.md');
+  put(root, { 'openspec/changes/feat/tasks.md': text(' ') });
+  assert.deepEqual(tasksItem(root, 'feat').details.unticked, ['1.2', '1.3']);
+  let n = nextStep(state({ phases: readPhases(file) }));
+  assert.deepEqual([n.step, n.tasks], ['conductor-task', ['1.2']]);
+  put(root, { 'openspec/changes/feat/tasks.md': text('x') });
+  assert.deepEqual(tasksItem(root, 'feat').details.unticked, ['1.3']);
+  n = nextStep(state({ phases: readPhases(file) }));
+  assert.deepEqual([n.step, n.task], ['gate', '1.3']);
+});
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: a delivered change on a branch advanced into the base (D-21)
+// Invariant: headInBase tells whether the checkout's head is contained in origin/<facts.base>; ownFiles gives up on such a head as
+// before; prItem's merged arm meets a merged pull request whose head is an ancestor of a local head in the base, and still blocks
+// a local head with a commit of its own. Layer: deliver-check's exported functions on a real git fixture. Suite: deliver-check.
+
+// main with one commit; branch feat with commit P (the pull request's head); main merges feat and adds a base commit M, and
+// origin/main is set to M. The checkout is left on feat at P.
+function advancedRepo() {
+  const root = gitRepo({ changes: { feat: { 'tasks.md': '- [x] 1.1 a\n' } }, files: { 'src/a.ts': 'a\n' } });
+  git(root, 'switch', '-q', '-c', 'feat');
+  put(root, { 'src/a.ts': 'feat\n' });
+  const P = commitAll(root, 'the change');
+  git(root, 'switch', '-q', 'main');
+  git(root, 'merge', '-q', '--no-ff', '-m', 'merge feat', 'feat');
+  put(root, { 'src/b.ts': 'b\n' });
+  const M = commitAll(root, 'a base commit after the merge');
+  git(root, 'update-ref', 'refs/remotes/origin/main', M);
+  git(root, 'switch', '-q', 'feat');
+  return { root, P, M };
+}
+const factsOn = (root, base = 'main') => gitFacts(root, { base });
+
+test('coordinator-loop-fixes AC-18 T125 headInBase: a head equal to or behind origin/main is in the base; a head of its own, or no head, base or ref, is not', () => {
+  const { root, M } = advancedRepo();
+  assert.equal(DC.headInBase?.(root, factsOn(root)), true, 'a head behind origin/main');
+  git(root, 'merge', '-q', '--ff-only', 'main');
+  assert.equal(git(root, 'rev-parse', 'HEAD'), M);
+  assert.equal(DC.headInBase?.(root, factsOn(root)), true, 'the head equal to its tip');
+  put(root, { 'src/c.ts': 'c\n' });
+  commitAll(root, 'a commit of its own');
+  assert.equal(DC.headInBase?.(root, factsOn(root)), false, 'a head with a commit of its own');
+  git(root, 'reset', '-q', '--hard', M);
+  assert.equal(DC.headInBase?.(root, { ...factsOn(root), head: null }), false, 'no head');
+  assert.equal(DC.headInBase?.(root, factsOn(root, null)), false, 'no facts.base');
+  assert.equal(DC.headInBase?.(root, factsOn(root, 'develop')), false, 'no origin/develop');
+});
+
+test('coordinator-loop-fixes AC-18 T126 ownFiles with the head in the base is null, as before; with the head ahead it is the own-files object', () => {
+  const { root } = advancedRepo();
+  git(root, 'merge', '-q', '--ff-only', 'main');
+  assert.equal(DC.ownFiles(root, 'feat', factsOn(root)), null);
+  put(root, { 'src/c.ts': 'c\n' });
+  commitAll(root, 'a commit of its own');
+  const own = DC.ownFiles(root, 'feat', factsOn(root));
+  assert.equal(own?.base, 'main');
+  assert.equal(own.isOwn('src/c.ts'), true);
+});
+
+test('coordinator-loop-fixes AC-18 T131 prItem (merge): a merged pull request on a branch advanced into the base is met; a head of its own still blocks', () => {
+  const { root, P, M } = advancedRepo();
+  const merged = (headRefOid) => ({ pr: { number: 12, url: 'u', state: 'MERGED', headRefOid }, via: 'branch' });
+  const five = (headRefOid) => prItem(root, 'feat', merged(headRefOid), factsOn(root), { merge: true });
+  assert.equal(five(P).status, 'met', 'at the local head');
+  git(root, 'merge', '-q', '--ff-only', 'main');
+  const advanced = five(P);
+  assert.equal(advanced.status, 'met', advanced.reason);
+  assert.equal(advanced.details.merged, true);
+  put(root, { 'src/c.ts': 'c\n' });
+  const own = commitAll(root, 'a commit of its own');
+  const blocked = five(P);
+  assert.equal(blocked.status, 'blocked');
+  assert.equal(blocked.reason, `PR #12 merged at ${P.slice(0, 7)}; local head ${own.slice(0, 7)} differs`);
+  git(root, 'reset', '-q', '--hard', M);
+  git(root, 'switch', '-q', '-c', 'side', P);
+  put(root, { 'src/d.ts': 'd\n' });
+  const side = commitAll(root, 'a pull request head off the base');
+  git(root, 'switch', '-q', 'feat');
+  const notAncestor = five(side);
+  assert.equal(notAncestor.status, 'blocked', 'the local head in the base, the pull request head not its ancestor');
+  assert.equal(notAncestor.reason, `PR #12 merged at ${side.slice(0, 7)}; local head ${M.slice(0, 7)} differs`);
+});

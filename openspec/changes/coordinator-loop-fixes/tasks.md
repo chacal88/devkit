@@ -215,7 +215,7 @@ every task with `git status --short`.
   contradicts the plan stops the phase, reported, without a guess. A failing test the base added is reported as a row for
   D-15 and one plan revision. Check: `git merge-base --is-ancestor origin/main HEAD` exits 0, the runs of 2.4's Check that gate 2.5 held (its `Then` part, with the `^jira-entry-followups AC-10 ` call) pass again, and `python3 scripts/check.py` passes (D-17: gate 2.5's whole suite is the conducting session's, never this task's).
 
-- [ ] 3.1 Write T51 to T69, T93, T94, T115, T116, T119 to T131, T133 and T134 of D-16 in `plugins/openspec/hooks/deliver-check.test.mjs`,
+- [x] 3.1 Write T51 to T69, T93, T94, T115, T116, T119 to T131, T133 and T134 of D-16 in `plugins/openspec/hooks/deliver-check.test.mjs`,
   `deliver-check-archive.test.mjs`, `flow-check.test.mjs` and `change-loop-declared.test.mjs`, and make the D-15 update of `change-loop compozy
   record-approval: it writes approval.md in the form of the ship-change row, and approvalState reads it back as ok`
   (`change-loop-compozy.test.mjs`; the expected text gains the `- Plan:` line).

@@ -2396,3 +2396,74 @@ test('loop-evidence 14: collectState lists the folder\'s modified, staged, untra
   const dirty = [...(collectState(t.root, 'feat', { env: t.env }).folderDirty ?? [])].sort();
   assert.deepEqual(dirty, [`${FOLDER}/notes.md`, `${FOLDER}/proof/x.txt`, `${FOLDER}/proposal-old.md`, `${FOLDER}/tasks.md`]);
 });
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: an id that starts with archive- keeps its own pull request (D-20)
+// Invariant: a head equal to the change's own id is that change's branch, whatever its prefix; any other head isArchiveHead accepts
+// is an archive head and never the change's own pull request. isOwnPr and the merged-list search of findChangePr read it through
+// foreignArchiveHead; the file rule is unchanged. Layer: deliver-check's exported functions, findChangePr with a fake gh.
+// Suite: deliver-check-archive.
+
+const D20_ROWS = [
+  ['archive-x', 'archive-x', false],
+  ['archive-x', 'chore/archive-archive-x', true],
+  ['archive-x', 'archive-archive-x', true],
+  ['x', 'chore/archive-x', true],
+  ['x', 'archive-x', true],
+  ['archive-x', 'archive-y', true],
+  ['x', 'archive-y', true],
+  ['x', 'ship/x', false],
+];
+
+test('coordinator-loop-fixes AC-17 T119 foreignArchiveHead: every row of the D-20 table, and an absent head is false', () => {
+  assert.equal(typeof DC.foreignArchiveHead, 'function');
+  for (const [id, head, want] of D20_ROWS) assert.equal(DC.foreignArchiveHead(id, head), want, `${id} / ${head}`);
+  assert.equal(DC.foreignArchiveHead('archive-x', undefined), false);
+  assert.equal(DC.foreignArchiveHead('archive-x', null), false);
+});
+
+const ownOf = (id, head, files) => DC.isOwnPr(id, { headRefName: head }, files);
+
+test('coordinator-loop-fixes AC-17 T120 isOwnPr: a change named archive-x owns the pull request of its own head; its archive heads do not', () => {
+  const files = ['openspec/changes/archive-x/tasks.md'];
+  assert.equal(ownOf('archive-x', 'archive-x', files), true);
+  assert.equal(ownOf('archive-x', 'chore/archive-archive-x', files), false);
+  assert.equal(ownOf('archive-x', 'archive-archive-x', files), false);
+});
+
+test('coordinator-loop-fixes AC-17 T121 isOwnPr: the archive heads of change x stay foreign, and ship/x stays its own', () => {
+  const files = ['openspec/changes/x/tasks.md'];
+  assert.equal(ownOf('x', 'chore/archive-x', files), false);
+  assert.equal(ownOf('x', 'archive-x', files), false);
+  assert.equal(ownOf('x', 'ship/x', files), true);
+});
+
+test('coordinator-loop-fixes AC-17 T122 isOwnPr: a foreign archive head is never own, and the own head still needs a file of the change', () => {
+  assert.equal(ownOf('archive-x', 'archive-y', ['openspec/changes/archive-x/tasks.md']), false);
+  assert.equal(ownOf('x', 'archive-y', ['openspec/changes/x/tasks.md']), false);
+  assert.equal(ownOf('archive-x', 'archive-x', ['openspec/changes/other/tasks.md']), false, 'the file rule');
+});
+
+const ARCHIVE_X = { number: 31, url: 'https://github.com/o/r/pull/31', state: 'MERGED', headRefName: 'archive-x', headRefOid: 'c'.repeat(40), baseRefName: 'main', mergedAt: '2026-11-20T10:00:00Z', mergeable: 'UNKNOWN', body: '' };
+const ARCHIVE_OF_X = { ...ARCHIVE_X, number: 32, headRefName: 'chore/archive-archive-x', mergedAt: '2026-11-21T10:00:00Z' };
+function archiveIdRepo(prs) {
+  const root = gitRepo({ changes: { 'archive-x': { '.openspec.yaml': 'schema: devkit-lite\n' } } });
+  const gh = fakeGh();
+  gh.set('pr-list-state-merged', { stdout: prs });
+  gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch\n' });
+  for (const p of prs) gh.prFiles(p.number, ['openspec/changes/archive-x/tasks.md', 'src/a.ts']);
+  gh.set('api-GET-repos__owner___repo_', { stdout: { default_branch: 'main' } });
+  gh.tasksOnDefault('archive-x', tasksText({ ticked: ['1.1', '1.2'] }));
+  return { root, gh, find: (branch) => findChangePr(makeGh(root, gh.env), root, 'archive-x', { ship: 'merge', branch, env: {} }) };
+}
+
+test('coordinator-loop-fixes AC-17 T123 findChangePr (merge): the merged pull request of head archive-x is the change archive-x\'s, from main and on its branch', () => {
+  const list = archiveIdRepo([ARCHIVE_X]).find('main');
+  assert.equal(list.pr?.number, 31, JSON.stringify(list));
+  assert.equal(list.via, 'list');
+  const t = archiveIdRepo([ARCHIVE_X]);
+  t.gh.set('pr-view', { stdout: ARCHIVE_X });
+  const own = t.find('archive-x');
+  assert.equal(own.pr?.number, 31, JSON.stringify(own));
+  assert.equal(own.none, undefined);
+  assert.deepEqual(archiveIdRepo([ARCHIVE_OF_X]).find('main'), { none: true }, 'only the archive of archive-x');
+});
