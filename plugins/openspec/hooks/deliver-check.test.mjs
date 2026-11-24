@@ -2780,8 +2780,7 @@ test('coordinator-loop-fixes AC-8 T53 planDigest: evidence.md, review.md, review
 test('coordinator-loop-fixes AC-8 T54 planDigest: a missing design.md and an empty one differ; no specs/ folder adds nothing', () => {
   assert.notEqual(digestOf({ 'design.md': null }), digestOf({ 'design.md': '' }));
   const noSpecs = DC.planDigest?.(planDir({ 'specs/s/spec.md': null }));
-  const emptySpecs = planDir({ 'specs/s/spec.md': null });
-  fsRm(join(emptySpecs, 'specs'), { recursive: true, force: true });
+  const emptySpecs = planDir({ 'specs/s/spec.md': null, 'specs/s/notes.txt': 'not a spec\n' });
   assert.match(String(noSpecs), /^sha256:[0-9a-f]{12}$/);
   assert.equal(DC.planDigest?.(emptySpecs), noSpecs, 'an absent specs/ folder and one with no .md file give the same digest');
 });

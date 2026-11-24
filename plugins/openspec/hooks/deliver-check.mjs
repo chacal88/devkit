@@ -6,7 +6,7 @@
 
 import { readFileSync, existsSync, readdirSync, statSync, realpathSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, basename } from 'node:path';
+import { join, basename, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -1803,6 +1803,43 @@ export function approvalState(dir) {
   return { status, recorded, readiness, ok: status === 'APPROVED' && readiness !== null && recorded === readiness };
 }
 
+// The .md files under the change folder's specs/, by their path relative to the folder ('specs/<...>.md'), sorted.
+function specFiles(dir) {
+  const specs = join(dir, 'specs');
+  if (!existsSync(specs)) return [];
+  return readdirSync(specs, { recursive: true })
+    .map((p) => `specs/${String(p).split(sep).join('/')}`)
+    .filter((rel) => rel.endsWith('.md') && statSync(join(dir, rel)).isFile())
+    .sort();
+}
+
+// The one digest of the plan (coordinator-loop-fixes D-7): SHA-256 over proposal.md, design.md, tasks.md and every .md file
+// under specs/ sorted by its path, each entry `<relative path>\0<bytes>\0` and a missing file `<relative path>\0<missing>\0`,
+// with every checkbox of tasks.md read as `[ ]` (a tick is no plan edit). `sha256:<first 12 hex>`.
+export function planDigest(dir) {
+  const hash = createHash('sha256');
+  const entry = (rel, bytes) => {
+    hash.update(`${rel}\0`);
+    hash.update(bytes ?? '<missing>');
+    hash.update('\0');
+  };
+  const read = (rel) => (existsSync(join(dir, rel)) ? readFileSync(join(dir, rel)) : null);
+  entry('proposal.md', read('proposal.md'));
+  entry('design.md', read('design.md'));
+  const tasks = read('tasks.md');
+  entry('tasks.md', tasks === null ? null : Buffer.from(tasks.toString('utf8').replace(/^(\s*[-*]\s+\[)[^\]\n]*(\])/gm, '$1 $2')));
+  for (const rel of specFiles(dir)) entry(rel, read(rel));
+  return `sha256:${hash.digest('hex').slice(0, 12)}`;
+}
+
+// The plan the owner approved against the plan files now (D-7): { plan, recorded, changed }. `recorded` is approval.md's
+// "- Plan:" value, lowercased, or null; with no such line nothing is changed (an approval written before this rule).
+export function planRevision(dir) {
+  const plan = planDigest(dir);
+  const recorded = readValue(join(dir, 'approval.md'), 'Plan')?.toLowerCase() ?? null;
+  return { plan, recorded, changed: recorded !== null && recorded !== plan };
+}
+
 // The keys of the steps the main session records with `change-loop.mjs declare` (coordinator-loop-fixes D-1): the `declare`
 // rows of change-loop.mjs's DECLARED, which this module cannot import (change-loop.mjs imports it); a test ties the two.
 export const RECORDED_KEYS = ['gate-red', 'review-round'];
@@ -1877,10 +1914,12 @@ export function nextStep(state) {
   if (state.needsReadiness && state.readiness !== 'APPROVED') {
     return step('stop-not-approved', `readiness.md Status is ${state.readiness || 'missing'}, expected APPROVED; the plan needs its approval first`);
   }
-  if (state.needsReadiness && state.readiness === 'APPROVED' && state.approval && !state.approval.ok && !state.started) {
+  // A started change is resumed without its approval, unless that approval records a plan the plan files no longer match (D-7).
+  if (state.needsReadiness && state.readiness === 'APPROVED' && state.approval && !state.approval.ok && (!state.started || state.plan?.changed)) {
     const earlier = state.approval.status === 'APPROVED' && state.approval.recorded;
     return step('stop-plan-approval', earlier ? 'approval.md is for an earlier readiness.md' : 'no recorded owner approval', {
       readiness: state.approval.readiness,
+      plan: state.plan?.plan ?? null,
       file: `openspec/changes/${state.id}/approval.md`,
     });
   }
@@ -2186,6 +2225,8 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     needsReadiness,
     readiness: needsReadiness ? readValue(join(dir, 'readiness.md'), 'Status') : null,
     approval: needsReadiness ? approvalState(dir) : null,
+    // The plan the approval records against the plan files now (D-7); null for a flow with no readiness.
+    plan: needsReadiness ? planRevision(dir) : null,
     started: existsSync(join(dir, 'tasks.md')) && parseTasks(readFileSync(join(dir, 'tasks.md'), 'utf8')).some((t) => t.done),
     phases: readPhases(join(dir, 'tasks.md')),
     reviewMd: readReviewMd(join(dir, 'review.md')),

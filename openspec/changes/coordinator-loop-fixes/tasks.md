@@ -241,7 +241,7 @@ every task with `git status --short`.
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 plugins/compozy/skills/compozy-setup/scripts/gen-agents.test.mjs plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs`
   passes; `git status --short` lists the template of `tdd-implementer` under `plugins/compozy/skills/compozy-setup/templates/agents/`,
   its copy under `.compozy/agents/` and `.compozy/kit-manifest.json`, and no other file of the kit.
-- [ ] 3.4 D-7 in `plugins/openspec/hooks/deliver-check.mjs` (`planDigest`, `planRevision`, `collectState`'s `plan`,
+- [x] 3.4 D-7 in `plugins/openspec/hooks/deliver-check.mjs` (`planDigest`, `planRevision`, `collectState`'s `plan`,
   `nextStep`'s plan-approval row and detail). Check: T51 to T56 and T94 pass, and "stop-plan-approval: a change with a ticked
   task keeps running without approval.md (the started exemption)", "stop-plan-approval: APPROVED readiness with no
   approval.md waits for the owner, naming the readiness hash (AC-5)" and "approvalState: no file, a current file and
