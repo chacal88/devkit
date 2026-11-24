@@ -1,9 +1,9 @@
 // node --test --test-name-pattern="^version-pin" plugins/openspec/hooks/version-pin.test.mjs
-// change-version-pin: the flow a change opened with. Imported by guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// change-version-pin: the flow a change opened with. Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/hooks/version-pin.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, cpSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, cpSync, rmSync, copyFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -14,8 +14,7 @@ import * as ROADMAP from './roadmap-loop.mjs';
 import * as PL from './project-loop.mjs';
 import * as DC from './deliver-check.mjs';
 import { tmpFolder } from './test-tmp.mjs';
-import { gitRepo, put, commitAll, git, fakeGh } from './deliver-check.test.mjs';
-import { roundRepo } from './conduct-check.test.mjs';
+import { gitRepo, put, commitAll, git, fakeGh, roundRepo } from './test-fixtures.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..', '..', '..');
@@ -28,10 +27,23 @@ const ENV = { ...process.env, ...ENV_SET };
 
 // ---------------------------------------------------------------- helpers (one per mechanism)
 
-const treeFlow = (schema = 'devkit') => JSON.parse(readFileSync(join(PLUGIN_SCHEMAS, schema, 'flow.json'), 'utf8'));
+// Invariant (T-21, D-13): a change keeps the flow it opened with across an upgrade, and the repository check refuses a flow change that keeps its version.
+// Layer: the version-pin fixtures. Suite: version-pin. Each fixture stands for a project installed at release 1 of the pack, as this suite was written:
+// `devkit` and `devkit-lite` are at flow version 1, `treeFlow` reads `flows/1.json`, and `flows/2.json` does not exist until a test writes the synthetic
+// version 2 of `flowV2()`. The tree ships version 2 of both scripts since devkit-openspec 0.33.0 (the triage); `upfront AC-5 open` and `version-pin AC-7
+// check: the tree's flows pass` read the tree as it is.
+const RELEASE_1_SCRIPTS = ['devkit', 'devkit-lite'];
+const treeFlow = (schema = 'devkit') => JSON.parse(readFileSync(join(PLUGIN_SCHEMAS, schema, 'flows', '1.json'), 'utf8'));
+// Puts release 1 into the `schemas` folder at `folder` (a copy of the tree's): flow.json is flows/1.json and there is no flows/2.json.
+function installRelease1(folder) {
+  for (const script of RELEASE_1_SCRIPTS) {
+    copyFileSync(join(folder, script, 'flows', '1.json'), join(folder, script, 'flow.json'));
+    rmSync(join(folder, script, 'flows', '2.json'), { force: true });
+  }
+}
 
 // The version 2 of `devkit` the upgrade tests install: a stage added after design, the readiness removed, a lower review ceiling.
-export function flowV2() {
+function flowV2() {
   const flow = treeFlow();
   const stages = flow.stages
     .filter((s) => s.id !== 'readiness')
@@ -45,7 +57,7 @@ export function flowV2() {
 }
 
 // A re-install of the schemas that ships version 2, as merged into the change's branch.
-export function upgradeTo2(checkout) {
+function upgradeTo2(checkout) {
   const text = JSON.stringify(flowV2(), null, 2);
   const folder = join(checkout, 'openspec', 'schemas', 'devkit');
   mkdirSync(join(folder, 'flows'), { recursive: true });
@@ -60,6 +72,7 @@ function makePackV2() {
   cpSync(join(HERE, '..'), dir, { recursive: true });
   const manifest = join(dir, '.claude-plugin', 'plugin.json');
   writeFileSync(manifest, JSON.stringify({ ...JSON.parse(readFileSync(manifest, 'utf8')), version: '9.9.9' }, null, 2));
+  installRelease1(join(dir, 'schemas'));
   const text = JSON.stringify(flowV2(), null, 2);
   mkdirSync(join(dir, 'schemas', 'devkit', 'flows'), { recursive: true });
   writeFileSync(join(dir, 'schemas', 'devkit', 'flow.json'), text);
@@ -67,10 +80,10 @@ function makePackV2() {
   return dir;
 }
 const PACK_V2 = makePackV2();
-export const packV2 = () => PACK_V2;
+const packV2 = () => PACK_V2;
 
 // The headed stage files of a change, written into `dir`; `c0` is the commit every header names.
-export function planFiles(dir, stages, c0) {
+function planFiles(dir, stages, c0) {
   const head = (stage, result = 'passed', attempt = 1) => `<!-- devkit-stage ${stage} result=${result} attempt=${attempt} commit=${c0} -->\n`;
   const tasks = `# Tasks\n\n${[1, 2, 3, 4, 5, 6].map((n) => `- [x] 1.${n} step ${n}`).join('\n')}\n`;
   const files = {
@@ -93,7 +106,7 @@ export function planFiles(dir, stages, c0) {
 }
 
 // The bytes of a change's .openspec.yaml, compared before and after a command.
-export const pinOf = (dir) => readFileSync(join(dir, '.openspec.yaml'), 'utf8');
+const pinOf = (dir) => readFileSync(join(dir, '.openspec.yaml'), 'utf8');
 
 const PLAN_V1 = ['requirements', 'proposal', 'specs', 'design', 'tasks']; // no readiness yet: the next stage of version 1 is the readiness
 const FULL_V1 = [...PLAN_V1, 'readiness', 'approval', 'evidence', 'review']; // the code review failed at attempt 1
@@ -105,8 +118,9 @@ const yamlOf = (schema, pin) => `schema: ${schema}\ncreated: 2026-11-22\n${pin =
 
 // A committed project holding change(s) `feat` (pinned as `pin`) and the extra `others` ({ id: pin }); `to2` installs version 2 after the change files.
 function scratch({ pin = null, to2 = false, stages = PLAN_V1, schema = 'devkit', others = {}, config = `schema: ${schema}\n`, ship = false } = {}) {
-  const root = gitRepo({ config, files: { 'src/a.js': 'a\n' } });
-  const c0 = git(root, 'rev-parse', 'HEAD');
+  const root = gitRepo({ config, files: { 'src/a.js': 'a\n' }, commit: false });
+  installRelease1(join(root, 'openspec', 'schemas'));
+  const c0 = commitAll(root, 'initial');
   for (const [id, p] of Object.entries({ feat: pin, ...others })) {
     const dir = join(root, 'openspec', 'changes', id);
     mkdirSync(dir, { recursive: true });
@@ -538,7 +552,17 @@ const SKILL = readFileSync(join(HERE, '..', 'skills', 'devkit', 'SKILL.md'), 'ut
 const PROJECT_CONFIG = 'schema: devkit\nship:\n  devkit-project: merge\n';
 
 // A project with a bare origin; `files` are committed on origin/main (an upgrade, a removed flow, a broken one).
-const openProject = ({ files = {}, config = 'schema: devkit\n' } = {}) => roundRepo({ roadmap: '# Roadmap\n', config, files });
+// It is installed at release 1 (T-21): `files` still win, so a test that installs version 2 on origin gets it.
+const openProject = ({ files = {}, config = 'schema: devkit\n' } = {}) => {
+  const release1 = Object.fromEntries(RELEASE_1_SCRIPTS.map((script) => [`openspec/schemas/${script}/flow.json`, readFileSync(join(PLUGIN_SCHEMAS, script, 'flows', '1.json'), 'utf8')]));
+  const t = roundRepo({ roadmap: '# Roadmap\n', config, files: { ...release1, ...files } });
+  for (const script of RELEASE_1_SCRIPTS) {
+    if (!(`openspec/schemas/${script}/flows/2.json` in files)) rmSync(join(t.main, 'openspec', 'schemas', script, 'flows', '2.json'), { force: true });
+  }
+  commitAll(t.main, 'release 1 of the pack');
+  git(t.main, 'push', '-q', 'origin', 'main');
+  return t;
+};
 const openChange = (t, id, script = 'devkit') => CL.main(['open', id, '--script', script, '--why', 'doubt', '--lang', 'en'], { cwd: t.main, env: ENV, stdin: 'Add a CSV export\n' });
 const openedDir = (t, r, id) => {
   assert.equal(r.code, 0, r.stdout + r.stderr);
@@ -561,6 +585,22 @@ test('version-pin AC-1 open: a devkit and a devkit-lite change record the pack a
     const status = spawnSync('openspec', ['status', '--change', id], { cwd: dirname(dirname(dirname(dir))), env: ENV, encoding: 'utf8' });
     assert.doesNotMatch(status.stdout + status.stderr, /Unrecognized key/, `${script}: ${status.stdout}${status.stderr}`);
   }
+});
+
+// Invariant (AC-5, D-17): the tree ships flow version 2 of devkit and devkit-lite, so a change of either opened on the tree's own schemas records
+// x-devkit-flow 2 (and gets the triage), while a project slice, whose script did not change, records 1. Layer: the open, over a project with the
+// tree's schemas as they are (not the release-1 fixtures of `openProject`). Suite: version-pin.
+test('upfront AC-5 open: a devkit and a devkit-lite change opened on the tree\'s schemas record x-devkit-flow 2, and a project slice 1', () => {
+  const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
+  for (const [id, script] of [['full-one', 'devkit'], ['lite-one', 'devkit-lite']]) {
+    const dir = openedDir(t, openChange(t, id, script), id);
+    assert.ok(pinOf(dir).endsWith(`x-devkit-version: ${PACK_VERSION}\nx-devkit-flow: 2\n`), `${script}: ${JSON.stringify(pinOf(dir))}`);
+  }
+  const slices = roundRepo({ roadmap: '# Roadmap\n', config: PROJECT_CONFIG });
+  const r = PL.main(['open', 'billing', '--lang', 'en'], { cwd: slices.main, env: ENV, gh: OFFLINE });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const slice = join(JSON.parse(r.stdout).worktree, 'openspec', 'changes', 'billing');
+  assert.ok(pinOf(slice).endsWith(`x-devkit-version: ${PACK_VERSION}\nx-devkit-flow: 1\n`), pinOf(slice));
 });
 
 test('version-pin AC-1 open: a project slice records the devkit-project flow', () => {
@@ -821,12 +861,19 @@ const CHECK_PY = join(REPO, 'scripts', 'check.py');
 const sha = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const FLOWS_REL = join('plugins', 'openspec', 'schemas');
 
-// A scratch root holding the pack's schemas and scripts/released-flows.json as the tree has them.
-function checkScratch() {
+// A scratch root holding the pack's schemas and scripts/released-flows.json at release 1 (T-21): the version 2 files and digests of devkit and
+// devkit-lite are left out. With `tree`, as the tree has them.
+function checkScratch({ tree = false } = {}) {
   const root = tmpFolder('devkit-version-pin-check-');
   cpSync(PLUGIN_SCHEMAS, join(root, FLOWS_REL), { recursive: true });
   mkdirSync(join(root, 'scripts'), { recursive: true });
   cpSync(join(REPO, 'scripts', 'released-flows.json'), join(root, 'scripts', 'released-flows.json'));
+  if (!tree) {
+    installRelease1(join(root, FLOWS_REL));
+    const released = JSON.parse(readFileSync(join(root, 'scripts', 'released-flows.json'), 'utf8'));
+    for (const script of RELEASE_1_SCRIPTS) delete released[script]['2'];
+    writeFileSync(join(root, 'scripts', 'released-flows.json'), `${JSON.stringify(released, null, 2)}\n`);
+  }
   return root;
 }
 const flowPath = (root, script = 'devkit', ...more) => join(root, FLOWS_REL, script, ...(more.length ? more : ['flow.json']));
@@ -848,7 +895,7 @@ function raiseTo(root, version, { keep = true, digest = true } = {}) {
 }
 
 test('version-pin AC-7 check: the tree\'s flows pass', () => {
-  const root = checkScratch();
+  const root = checkScratch({ tree: true });
   const r = runCheck(root);
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /all checks passed/);

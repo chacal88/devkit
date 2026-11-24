@@ -1,5 +1,5 @@
 // Tests for changes-under-way.mjs and the schema upgrade over changes under way (field-fixes 7, design D-7).
-// Imported by hooks/guard.test.mjs so that `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// Run by `node scripts/test-suite.mjs`, in a process of its own; alone: `node scripts/test-suite.mjs plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs`.
 // The scratch project starts on the v0.13.0 schemas (a committed fixture: CI checks out without tags).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,7 +9,7 @@ import { tmpFolder } from '../../../hooks/test-tmp.mjs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { gitRepo, put, commitAll, git, fakeGh } from '../../../hooks/deliver-check.test.mjs';
+import { gitRepo, put, commitAll, git, fakeGh } from '../../../hooks/test-fixtures.mjs';
 import * as flowCheck from '../../../hooks/flow-check.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -197,10 +197,12 @@ test('field-fixes 7 upgrade: without the owner answer no schema is replaced and 
   for (const dir of [t.root, t.started, t.planready]) assert.equal(git(dir, 'status', '--porcelain'), '');
 });
 
+// Invariant (T-26, D-13): readFlowFile reads a flow.json by path as the file declares it, readFlow reads the same flow by schema, and a malformed file
+// names its path; layer: flow-check's readers; suite: changes-under-way. The version it expects is the one the file declares, not release 1's.
 test('field-fixes 7 flow-check: readFlowFile reads a flow.json by path, readFlow still reads it by schema, and a malformed one names the path', () => {
   const file = join(here, '..', '..', '..', 'schemas', 'devkit', 'flow.json');
   const flow = flowCheck.readFlowFile(file);
-  assert.equal(flow.version, 1);
+  assert.equal(flow.version, JSON.parse(readFileSync(file, 'utf8')).version);
   assert.deepEqual(flow, flowCheck.readFlow(gitRepo({ config: 'schema: devkit\n' }), 'devkit'));
   const dir = tmpFolder('devkit-flow-');
   mkdirSync(join(dir, 'x'));

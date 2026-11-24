@@ -13,6 +13,11 @@ reviewer round as one Workflow script still holds as decided here: no round of t
 removes it yet, and whether the review stage keeps the Workflow path in the Claude driver is open in
 docs/coordination-design.md. ADR 0010 adds no other use of the Workflow tool.
 
+Note (compozy-driver, 2026-11-23): decision 5 gains a third path, on the CompozyOS driver only: the
+round's three stages run as parallel CompozyOS sessions over `review-round.mjs`, one session per
+reviewer, with the same rules and the same files ([ADR 0024](0024-compozy-runs-the-short-loop.md),
+proposed, decision 5). The Workflow script and the Agent-tool path are unchanged on the Claude driver.
+
 ADR 0001 lets devkit coordinate, never through a harness: a coordinating skill runs only the next
 step as a subagent of the session the owner typed in, with no state outside the repository and
 GitHub. The reviewer round is one such step, and the costliest: the matrix picks two to six

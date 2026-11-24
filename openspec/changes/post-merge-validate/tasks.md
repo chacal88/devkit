@@ -82,7 +82,7 @@ no project rule asks for it.
   T-16's docs part passes and `python3 scripts/check.py` exits 0.
 - [x] 3.4 D-8: the trimmed `post-merge-validate` line of `openspec/roadmap.md`, unticked. Check:
   T-16's roadmap part passes.
-- [ ] 3.5 D-11: release. Merge `origin/main` first, then take the next minor after `origin/main`'s
+- [x] 3.5 D-11: release. Merge `origin/main` first, then take the next minor after `origin/main`'s
   devkit-openspec version and the next minor after its marketplace `metadata.version` (the next free
   numbers on origin/main at the last merge before review); set them in
   `plugins/openspec/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`, move the three

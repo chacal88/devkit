@@ -7,8 +7,8 @@ import { dirname, join, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader, FlowUsageError, readFlow, readFlowFile, FLOW_LANGS, changeFlow } from './guard.mjs';
-import { gitFacts, staleness, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads } from './deliver-check.mjs';
+import { findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader, FlowUsageError, readFlow, readFlowFile, FLOW_LANGS, changeFlow, changeSchemaAt, parseDevkitBlock, budgetValue, spendOf, spendSources, spendLines } from './guard.mjs';
+import { gitFacts, staleness, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads, trainFacts, isDevkitScript } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
 // The flow file reader and its error live in guard.mjs (the CI job downloads that file, not this one); one reader, re-exported.
@@ -194,7 +194,9 @@ function offOwnBranch(root, id, branch) {
 // { state: 'passed' } | { next: { stage, reasonCode, params } } | { end: { state, reasonCode, params } }.
 // In `two-prs` (`twoPrs` given) the pull request to the test branch is read too: it is merged first, and the base pull request's own
 // `devkit-reviews` check waits for it, so the base checks count only once it has merged (delivery-models D-5).
-function readDelivery({ ship, gh, head, delivery, twoPrs = null }) {
+// With the delivery train (`train` given: reads the train facts of the pull request head) a change boards instead of merging:
+// pending checks do not hold it, a train that took it off sends it back, one that carries it is a wait on GitHub (delivery-train D-2).
+function readDelivery({ ship, gh, head, delivery, twoPrs = null, train = null }) {
   const next = (stage, reasonCode, params = {}) => ({ next: { stage, reasonCode, params } });
   const end = (state, reasonCode, params = {}) => ({ end: { state, reasonCode, params } });
   if (ship === 'plan') return end('waiting-for-owner', 'ship-plan');
@@ -219,6 +221,13 @@ function readDelivery({ ship, gh, head, delivery, twoPrs = null }) {
       return end('waiting-for-owner', 'owner-merges-test-branch', { number: test.pr.number, branch: twoPrs.testBranch, base: twoPrs.base });
     }
   }
+  const boarding = train ? train(pr.headRefOid) : null;
+  if (boarding?.error) return end('blocked', 'gh-error', { error: boarding.error });
+  if (boarding?.left) {
+    const { n, number, state } = boarding.left;
+    if (state === 'OPEN') return end('waiting-on-github', 'on-train', { number });
+    return next('implementation', 'left-train', { train: n, number });
+  }
   const checks = checksItem(found, gh);
   if (checks.status === 'blocked') {
     const old = checks.details.ghTooOld;
@@ -226,6 +235,10 @@ function readDelivery({ ship, gh, head, delivery, twoPrs = null }) {
     return end('blocked', 'checks-unreadable', { error: checks.reason });
   }
   if (checks.details.failing.length) return next('implementation', 'check-failing', { checks: checks.details.failing.map((c) => `${c.name} (${c.link})`).join(', ') });
+  if (boarding) {
+    if (pr.autoMergeRequest != null) return next('delivery', 'disable-auto-merge', { number: pr.number });
+    return boarding.onTrain ? end('waiting-on-github', 'on-train', { number: boarding.onTrain.number }) : end('waiting-for-owner', 'boarded');
+  }
   if (checks.details.pending.length) return end('waiting-on-github', 'checks-pending', { checks: checks.details.pending.join(', ') });
   if (twoPrs) return end('waiting-for-owner', 'owner-merges-base', { number: pr.number, base: twoPrs.base });
   if (ship === 'pr') return end('waiting-for-owner', 'owner-merges', { number: pr.number });
@@ -263,7 +276,8 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   const branch = currentBranch(root, env);
   let lookup = null;
   const two = config.model === 'two-prs';
-  const delivery = () => (lookup ??= deliveryOf(gh, root, id, { ship: config.ship, branch, env, located, ...(two ? { base: config.base } : {}) }));
+  const trainOn = config.train !== null && isDevkitScript(schema);
+  const delivery = () => (lookup ??= deliveryOf(gh, root, id, { ship: config.ship, branch, env, located, mergeFields: config.ship === 'merge' || trainOn, ...(trainOn ? { trainSuite: config.train } : {}), ...(two ? { base: config.base } : {}) }));
   let testLookup = null;
   const twoPrs = two ? { base: config.base, testBranch: config.testBranch, testPr: () => (testLookup ??= findTestPr(gh, { id, testBranch: config.testBranch })) } : null;
   const postMerge = config.ship !== 'plan' && offOwnBranch(root, id, branch) && delivery().delivered;
@@ -271,7 +285,7 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
     head: gf.head, dirty: gf.dirty, fingerprint: fingerprint(root, gf.head), postMerge,
     staleness: (sha) => (postMerge ? null : sha === 'none' ? 'the header records no commit' : staleness(root, { sha, uncommitted: false }, gf)),
     staleReviewers: () => (postMerge ? [] : readReviews(root, id, gf).filter((r) => r.why).map((r) => r.name)),
-    delivery: () => readDelivery({ ship: config.ship, gh, head: gf.head, delivery, twoPrs }),
+    delivery: () => readDelivery({ ship: config.ship, gh, head: gf.head, delivery, twoPrs, train: trainOn ? (prHead) => trainFacts(gh, root, id, { suite: config.train, prHead, kind: 'change' }) : null }),
   });
   const status = openspecJson(openspec, ['status', '--change', id, '--json'], 'artifacts');
   facts.skipped = status.artifacts.filter((a) => a.status === 'skipped').map((a) => a.id);
@@ -349,6 +363,10 @@ export const TEXT = {
     'enable-auto-merge': (p) => `pull request #${p.number} is green; auto-merge is not on yet`,
     'pr-closed': (p) => `pull request #${p.number} was closed without merging`,
     'tasks-left-after-merge': (p) => `pull request #${p.number} merged with tasks left (${p.tasks}); they go in a further pull request`,
+    boarded: () => 'every check of the contract is met; the change waits for the next delivery train',
+    'on-train': (p) => `the change rides a delivery train; pull request #${p.number} of the train is open`,
+    'left-train': (p) => `delivery train ${p.train} took the change off: it merges the base and fixes what the train's record says`,
+    'disable-auto-merge': (p) => `auto-merge is on for pull request #${p.number}, and a change of a delivery train never merges by itself`,
   },
   'pt-BR': {
     passed: (p) => (p.attempt > 1 ? `passou na tentativa ${p.attempt}` : 'passou'),
@@ -402,6 +420,10 @@ export const TEXT = {
     'enable-auto-merge': (p) => `o pull request #${p.number} está verde; o auto-merge ainda não está ligado`,
     'pr-closed': (p) => `o pull request #${p.number} foi fechado sem mesclar`,
     'tasks-left-after-merge': (p) => `o pull request #${p.number} foi mesclado com tarefas pendentes (${p.tasks}); elas vão num novo pull request`,
+    boarded: () => 'todos os itens do contrato estão cumpridos; a change espera o próximo trem de entrega',
+    'on-train': (p) => `a change vai num trem de entrega; o pull request #${p.number} do trem está aberto`,
+    'left-train': (p) => `o trem de entrega ${p.train} tirou a change: ela mescla a base e corrige o que o registro do trem diz`,
+    'disable-auto-merge': (p) => `o auto-merge está ligado no pull request #${p.number}, e uma change de trem de entrega nunca mescla sozinha`,
   },
 };
 export const reasonText = (lang, code, params = {}, names = {}) => (TEXT[lang] ?? TEXT.en)[code](params, names);
@@ -654,6 +676,31 @@ export function renderText(report, flow, lang = 'pt-BR') {
   return `${lines.join('\n')}\n`;
 }
 
+// ---------------------------------------------------------------- the spend block (stage-models D-7)
+
+// The token cap of change `id`: its own `budget:`, else the project's; null when none is set or the value is no cap (a file that cannot
+// be read and an invalid value show no cap here: the loop's own `next` is what refuses them).
+function capOf(root, id) {
+  const budgetIn = (file) => { try { return budgetValue(parseDevkitBlock(readFileSync(file, 'utf8')).budget); } catch { return null; } };
+  const dir = locateChange(root, id)?.dir ?? join(root, 'openspec', 'changes', id);
+  const picked = budgetIn(join(dir, '.openspec.yaml')) ?? budgetIn(join(root, 'openspec', 'config.yaml'));
+  return picked?.cap ?? null;
+}
+
+// The lines of the spend block of change `id` in its checkout `root` (none when no token was counted), the stages named by their titles
+// in `lang` as the change's flow gives them (`flow` when the caller has read it). It writes nothing.
+export function spendBlock(root, id, { lang = 'pt-BR', env = process.env, flow } = {}) {
+  let stages = flow;
+  if (stages === undefined) {
+    try {
+      const dir = locateChange(root, id)?.dir ?? join(root, 'openspec', 'changes', id);
+      stages = readFlow(root, changeSchemaAt(root, dir));
+    } catch { stages = null; }
+  }
+  const titleOf = (stage) => { const title = stages?.stages.find((s) => s.id === stage)?.title; return title?.[lang] ?? title?.en ?? stage; };
+  try { return spendLines(lang, spendOf(spendSources(env, root), id), { cap: capOf(root, id), titleOf }); } catch { return []; }
+}
+
 // ---------------------------------------------------------------- the command line (design D-6)
 
 const USAGE = 'usage: flow-check.mjs <change-id> [--json] [--lang pt-BR|en] [--after <progress-key>]';
@@ -703,7 +750,9 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
     const { facts, flow } = collectFlow(root, opts.id, { env, openspec: run, ...(gh ? { gh } : {}) });
     const report = computeFlow(facts, flow, { after: opts.after });
     const code = report.end ? EXIT[report.end.state] : 0;
-    return { code, stdout: json ? `${JSON.stringify(report, null, 2)}\n` : renderText(report, flow, opts.lang), stderr: '' };
+    const spend = json ? [] : spendBlock(root, opts.id, { lang: opts.lang, env, flow });
+    const text = json ? `${JSON.stringify(report, null, 2)}\n` : `${renderText(report, flow, opts.lang)}${spend.length ? `\n${spend.join('\n')}\n` : ''}`;
+    return { code, stdout: text, stderr: '' };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return { code: 3, stdout: json ? `${JSON.stringify({ version: 1, error: message })}\n` : '', stderr: `flow-check: ${message}\n` };
