@@ -1,0 +1,729 @@
+### node --test plugins/openspec/hooks/deliver-check.test.mjs
+✔ test helpers: commits work without a global git identity and return the head sha (75.972198ms)
+✔ parseShip: no key, empty key and unrelated keys give an empty map (2.177715ms)
+✔ parseShip: block map (1.067398ms)
+✔ parseShip: flow map (1.066003ms)
+✔ parseShip: quotes, comments and blank lines are ignored (0.507266ms)
+✔ parseShip: tolerates CRLF line endings (0.354527ms)
+✔ parseShip: merge is a mode now, in block and flow maps, for both schemas (AC-1) (0.488057ms)
+✔ parseMergeMethod: no key or an empty one is squash; the three methods are read with quotes and comments (AC-8) (0.617143ms)
+✔ parseMergeMethod: an unknown value or a nested value is a ShipConfigError naming the key (AC-1) (1.061287ms)
+✔ shipConfig: reads the mode for the schema and the method, and validates both keys whatever the schema (design D2) (122.864612ms)
+✔ parseShip: unknown mode names the key and the allowed values (0.827315ms)
+✔ parseShip: scalar, nested map and duplicate key are errors naming the key (0.735131ms)
+✔ shipMode: no config file, no key or a schema absent from the map give plan (AC-1) (140.070723ms)
+✔ shipMode: reads the mode for the schema (34.526659ms)
+✔ shipMode: an invalid entry fails the whole config, whatever the schema asked for (36.713302ms)
+✔ guard session, edit, bash and ci behave identically with and without ship (AC-1) (4401.098978ms)
+✔ parseCommitLine: reads the header only, with the uncommitted marker (1.169746ms)
+✔ staleness: the head, and later commits touching only openspec/, are current (AC-7) (113.730384ms)
+✔ staleness: a later commit touching src/ or openspecx/ makes it stale (AC-7) (317.855639ms)
+✔ staleness: a commit mixing openspec/ and src/ is stale (82.575667ms)
+✔ staleness: a merge from the base branch that brings product code is stale; openspec-only is current (303.929069ms)
+✔ staleness: an unresolvable, non-ancestor or non-sha value is stale (174.572551ms)
+✔ staleness: uncommitted work outside openspec/ and .claude/ makes everything stale (406.265901ms)
+✔ merge-staleness 1: a merge of main that brings only openspec/ into a branch with product commits before the record is current (274.988231ms)
+✔ merge-staleness 2: a merge of main that brings a product file is stale and names it (229.028669ms)
+✔ merge-staleness 3: a merge commit that changes a product file while resolving is stale and names it (178.268425ms)
+✔ merge-staleness 4: a merge that moves a product file under openspec/ is stale and names the old path (176.458745ms)
+✔ merge-staleness 5: a product commit the merge brings in is stale even when the merge itself brings only openspec/ (188.69517ms)
+✔ merge-staleness 6: a merge whose first parent is the base is read against that parent (149.234464ms)
+✔ merge-staleness 7: a root commit a merge brings in is judged by its own files (185.036879ms)
+✔ merge-staleness 8: a plain product commit after an openspec-only merge is still stale (215.063262ms)
+✔ item 2: met when both required reviewers are approved at the head (73.477567ms)
+✔ item 2: reviews written before an openspec/-only commit are still met (129.852752ms)
+✔ item 2: a product commit after the reviews lists the stale reviewers (AC-7) (151.628539ms)
+✔ item 2: missing required reviewers, a rejected review and a missing Commit: line are open (133.945109ms)
+✔ item 2: no reviews directory means both required reviewers are missing (46.680644ms)
+✔ item 2: declined is accepted when its Commit: is current, and stale otherwise (153.27174ms)
+✔ item 2: uncommitted product work makes every review stale (49.710166ms)
+✔ item 1: unticked task ids are listed (46.938886ms)
+✔ item 1: met when everything is ticked and each gate sub-command has a passing row at a current commit (59.084403ms)
+✔ item 1: a gate sub-command without a passing row is open (missing, failing, or no row at all) (182.283242ms)
+✔ item 1: missing or stale evidence is open (135.184476ms)
+✔ item 1: no tasks.md, or a gate task without a backticked command, is blocked (58.726924ms)
+✔ item 1: lines that are not checkbox tasks never count (66.421894ms)
+✔ parseTasks: only a description that starts with Gate: is a gate; a mid-sentence `Gate:` is not (0.451943ms)
+✔ item 1: a task describing the Gate: rule yields no stray command, and repeated gates are listed once (74.788359ms)
+✔ readPhases: each phase reports its real gate, not a task that merely mentions Gate: (40.514274ms)
+✔ item 3: blocking and important findings need a fixed-in sha or a refutation; nits and praise are ignored (63.179181ms)
+✔ item 3: an undisposed finding lists reviewer and excerpt; a fix sha outside history does not count (72.637647ms)
+✔ item 3: no reviews, or reviews without findings, are met (70.786076ms)
+✔ item 4: met when every id has a pass or verified row at a current commit (87.601277ms)
+✔ item 4: ids come only from the Acceptance criteria section of the proposal (58.756606ms)
+✔ item 4: falls back to requirements.md when the proposal has no ids or no file (113.556519ms)
+✔ item 4: AC-1 is not proven by a row for AC-12, and AC-12 is not proven by AC-1 (83.326305ms)
+✔ item 4: a fail or defect row is open even beside a pass row (129.58123ms)
+✔ item 4: an id with only "no proof" rows is blocked; a pass row beside it clears it (89.611008ms)
+✔ item 4: missing or stale evidence is open (160.657432ms)
+✔ item 4: no AC ids anywhere is blocked (69.528941ms)
+✔ fake gh: answers from a fixture with stdout, stderr and exit code (110.090407ms)
+✔ fake gh: a per-call fixture wins for that call, then the default applies (188.78456ms)
+✔ fake gh: a missing fixture fails loudly (exit 99, names the key) (96.227433ms)
+✔ fake gh: api fixtures are keyed by method and path with / { } ? replaced by _ (auto-merge 2.1) (157.053299ms)
+✔ fake gh: api graphql keeps its key, and a missing api fixture fails loudly naming the key (auto-merge 2.1) (107.549309ms)
+✔ fake gh: pr list calls get their own keys by --head and --state, and an existing pr-list fixture still answers them (archive-after-merge 2.1) (309.945242ms)
+✔ fake gh: a pr list call with no fixture fails loudly naming its most specific key (archive-after-merge 2.1) (182.331106ms)
+✔ fake gh: sleep delays the answer (356.63542ms)
+✔ locateChange: active folder, newest dated archive folder with the exact id, or null (D3) (46.619811ms)
+✔ schemaOf: an archived change reads its own .openspec.yaml, so a devkit change in a devkit-lite project keeps ship.devkit (D3) (43.589558ms)
+✔ item 5: no pull request for the branch is open, not blocked (120.445087ms)
+✔ item 5: an OPEN PR whose head is the local head is met; asks gh for the documented fields (130.39455ms)
+✔ item 5: local commits ahead of the PR head are open (148.03452ms)
+✔ item 5: a PR head missing from local history is blocked, whether unknown or on another branch (251.158454ms)
+✔ item 5: a CLOSED or MERGED PR, or a merge conflict, is blocked (401.656243ms)
+✔ item 5: gh missing, not authenticated or failing is blocked with the error text (278.669326ms)
+✔ item 5: uncommitted files in the change folder are open even when the heads match (113.36086ms)
+✔ item 6: asks for --required first; all pass or skipping is met (161.452877ms)
+✔ item 6: with no required checks, falls back to all checks (432.228939ms)
+✔ item 6: no checks at all is met, and says so (209.514294ms)
+✔ item 6: pending checks are open and named (gh exit 8) (156.095457ms)
+✔ item 6: fail and cancel are open with names and links, even when gh exits 1 with the list (220.524578ms)
+✔ item 6: a gh error, an unknown bucket or unreadable output is blocked; no PR is open, not blocked (663.24734ms)
+✔ gh-version 5: an unknown --json flag on gh 2.46.0 is blocked with its own reason (AC-1) (294.881917ms)
+✔ gh-version 6: an unknown --required flag is told apart the same way (AC-1) (253.917744ms)
+✔ gh-version 7: an unreadable version still names the old gh, as an unknown version (AC-5) (534.32673ms)
+✔ gh-version 8: every other failure keeps today's reason and asks for no version (AC-6) (459.429388ms)
+✔ gh-version 9: a readable answer asks for no version (AC-6) (460.227166ms)
+✔ item 7: nothing to answer is met; the query asks for the viewer and the PR number (155.078602ms)
+✔ item 7: an unresolved thread whose last comment is not the viewer is open; resolved or viewer-last is met (644.9831ms)
+✔ item 7: a bot's unresolved review thread counts like a person's (202.83559ms)
+✔ item 7: a person's top-level comment or review body newer than the viewer's latest is open (937.187795ms)
+✔ item 7: a viewer reply inside a thread does not answer earlier top-level comments or review bodies (162.384ms)
+✔ item 7: a later top-level viewer comment or review answers a person's top-level comment (266.011931ms)
+✔ item 7: only OWNER, MEMBER and COLLABORATOR people count; outside authors are ignored (3652.86081ms)
+✔ item 7: the query asks for authorAssociation (139.231205ms)
+✔ item 7: a bot's top-level comment and review body are ignored, however new (158.647334ms)
+✔ item 7: CHANGES_REQUESTED is open before a reply and blocked after, for people and bots (561.388552ms)
+✔ item 7: a later approval or dismissal by the same reviewer clears CHANGES_REQUESTED (302.457087ms)
+✔ item 7: more than 100 threads is blocked (146.716551ms)
+✔ item 7: a gh error is blocked and no PR is open (253.381463ms)
+✔ item 8: a body naming the change id, every AC id and the evidence link is met (101.983805ms)
+✔ item 8: lists what the body misses; AC-1 is not covered by AC-12 (211.203379ms)
+✔ item 8: no PR is open and a gh error is blocked (153.276129ms)
+✔ nextStep: all eight met is ready (row 21) (1.797244ms)
+✔ nextStep row 1: a schema whose ship mode is plan stops, before anything else (AC-1) (0.497312ms)
+✔ nextStep row 1: a merge-mode change does not stop as plan mode (design D2) (0.283172ms)
+✔ nextStep row 2: a branch that does not select the change stops (0.229003ms)
+✔ nextStep row 3: a devkit change without APPROVED readiness stops (AC-3); devkit-lite is not asked (0.350991ms)
+✔ nextStep row 4: the first phase with an unticked non-gate task is implemented, never a later one (0.298966ms)
+✔ nextStep row 5: a phase whose tasks are ticked but whose gate is not runs the gate (0.249674ms)
+✔ nextStep row 6: uncommitted changes outside openspec/ are committed first (0.234518ms)
+✔ nextStep row 8: a rejected review at a current commit goes to fix-review with its findings (0.362496ms)
+✔ nextStep row 7: FAIL (round 2/2) with a current rejected review stops (AC-4) (0.250673ms)
+✔ nextStep rows 7 and 9: after a later product commit the rejected review is stale, so the run resumes as round 1 (AC-5) (0.430952ms)
+✔ nextStep row 9: after FAIL (round 1/2) and a fix commit the rejected reviewer is re-run as round 2 (0.243692ms)
+✔ nextStep row 9: reviewers stale only after an approval re-run at round 1, and only the stale ones (AC-7) (1.133392ms)
+✔ nextStep row 9: missing reviewers and approved reviewers with undisposed findings are reviewed (0.521787ms)
+✔ nextStep: an approved review at the current commit with an undisposed important finding goes to fix-review with that finding (AC-6) (102.269547ms)
+✔ nextStep: a rejected review and an approved one with an open finding give one fix-review with both reviewers and both findings (53.488759ms)
+✔ nextStep: an approved but stale review with an undisposed finding is still reviewed (47.92723ms)
+✔ review round: findingsItem reads findingLine's refuted line as refuted and its open line as undisposed (45.245146ms)
+✔ review round: readReviewMd reads consolidate's Consensus line and round (40.964101ms)
+✔ nextStep row 10: a fail or defect row at current evidence goes to fix-defect (0.346156ms)
+✔ nextStep row 11: missing or stale evidence, or a missing gate or AC row, goes to verify (0.344206ms)
+✔ nextStep row 11 before row 10: a defect row on stale evidence is verified again, not fixed (0.192628ms)
+✔ AC-1 evidence-first: missing or stale evidence with both reviewers missing or stale goes to verify, not review (0.409921ms)
+✔ AC-1 evidence-first: current evidence with no defect and the reviewers missing goes to review with both, round 1 (0.296563ms)
+✔ AC-2 defect-before-review: a defect row at current evidence goes to fix-defect with the reviewers missing, stale, or approved (0.259014ms)
+✔ D2: a current rejected review beside a current defect gives fix-review, before fix-defect (0.182313ms)
+✔ D2: a round-2 deadlock stays first, with the evidence missing (0.193631ms)
+✔ D2: a no-proof criterion at current evidence still reviews, then blocks at item 4 (0.26777ms)
+✔ nextStep row 12: a blocked item 1 to 4 stops with that item (0.246954ms)
+✔ nextStep row 13: no PR opens one (item 5 none) (0.199394ms)
+✔ nextStep row 14: a blocked item 5 stops (0.204266ms)
+✔ nextStep row 15: local ahead or uncommitted change files push (0.273186ms)
+✔ nextStep row 16: an incomplete PR body is edited (1.245419ms)
+✔ nextStep row 17: failing checks go to fix-checks with names and links, before open conversation (0.281408ms)
+✔ nextStep row 18: an open conversation is answered, listing threads and comments (0.509827ms)
+✔ nextStep row 19: a blocked item 6 or 7 stops (0.359797ms)
+✔ nextStep row 20: pending checks wait (0.215028ms)
+✔ nextStep: open work on a blocked-and-open item 7 is answered before the stop (0.183716ms)
+✔ summarize: ready only at 8/8, else the lowest blocked item, else the lowest open item (AC-8) (0.354243ms)
+✔ AC-3: a devkit change without readiness.md stops as not approved (211.376786ms)
+✔ AC-3: a devkit change whose readiness Status is not APPROVED stops as not approved (667.875157ms)
+✔ AC-3: an APPROVED readiness lets a devkit change proceed past the stop (176.216496ms)
+✔ AC-3: a schema without a readiness artifact never asks for readiness.md (152.528952ms)
+✔ CLI --json: a devkit change reports next.step stop-not-approved, then moves on when APPROVED (388.881395ms)
+✔ stop-plan-approval: APPROVED readiness with no approval.md waits for the owner, naming the readiness hash (AC-5) (298.459891ms)
+✔ stop-plan-approval: the row sits after stop-not-approved and before the merge setup stop (503.574493ms)
+✔ stop-plan-approval: a current approval.md lets implement start (AC-5) (170.275577ms)
+✔ stop-plan-approval: an approval of an earlier readiness.md asks the owner again (AC-5) (558.408288ms)
+✔ stop-plan-approval: a change with a ticked task keeps running without approval.md (the started exemption) (375.975011ms)
+✔ stop-plan-approval: devkit-lite never gets this row, and its JSON has no approval object (176.70838ms)
+✔ stop-plan-approval: the CLI exits 1 with the summary and the approval object (496.68004ms)
+✔ approvalState: no file, a current file and a stale file (43.047015ms)
+✔ --ci output is unchanged by the approval row: no approval object, same pass or fail (AC-5) (71.876888ms)
+✔ branchOk: the default branch and an unrelated branch stop with stop-branch; the change branch does not (438.678624ms)
+✔ currentBranch: DEVKIT_BRANCH wins over GITHUB_HEAD_REF, which wins over the git branch (556.447964ms)
+✔ resume: phase 1 gate ticked and phase 2 half done continues phase 2 and never redoes phase 1 (AC-5) (326.327785ms)
+✖ resume: code committed with one review current runs only the other reviewer (AC-5, AC-7) (473.989535ms)
+✔ resume: reviews and evidence current and no PR opens the PR (AC-5) (499.996135ms)
+✖ walkthrough: a devkit-lite change goes from no ticked task to ready without a stop step (AC-2) (1866.106368ms)
+✖ resume: a round-2 deadlock on disk stops while current and re-reviews as round 1 after the owner's product commit (AC-4, AC-5) (860.99477ms)
+✖ AC-3 fix-restales-both (a): after a rejected review and its fix commit, verify comes first and then review at round 2 (2905.85619ms)
+✖ AC-3 fix-restales-both (b): after a fail row and its fix commit, verify comes first and then review (2889.304411ms)
+✖ AC-3 fix-restales-both (c): after a failing check and its fix commit, verify, then review, then push (2903.986558ms)
+✔ AC-4 no-mutual-staleness: reviews written after the evidence leave the evidence current, uncommitted and committed (629.801666ms)
+✔ AC-4 no-mutual-staleness: evidence written after the reviews leave item 2 met, uncommitted and committed (674.70668ms)
+✔ AC-4 no-mutual-staleness: control, a product commit in between does make them stale (692.369063ms)
+✔ merge facts: fetchPr asks for autoMergeRequest and mergeStateStatus only in merge mode (137.096739ms)
+✔ item 5 (merge): a MERGED PR at the local head is met; at another head it is blocked naming both shas (185.490141ms)
+✔ item 5 (merge): OPEN and BEHIND is open with details.behind; in pr mode BEHIND is not read and MERGED stays blocked (541.844566ms)
+✔ merge mode through the collector: a MERGED PR at the head meets items 5, 6 and 7 and asks gh for neither checks nor the conversation (3892.497949ms)
+✔ plan and pr modes: the PR is asked with the 0.4.0 fields, no settings are read and the JSON has no merge facts (design D6) (4068.589335ms)
+✔ merge mode through the collector: the settings are read and state carries setup, method and the PR merge facts (3663.207083ms)
+✔ nextStep: a merged PR leads to the archive steps and never to a final "merged" step, before every other row (archive-after-merge R-9) (1.60199ms)
+✔ nextStep row 0b: auto-merge on and any item not met disables it first, ahead of every stop and of push (AC-3) (0.552436ms)
+✔ nextStep row 0b: auto-merge on at 8/8 waits; auto-merge off never disables; a closed PR does not disable (0.333189ms)
+✔ nextStep row 0b: outside merge mode the auto-merge flag is never read (0.207473ms)
+✔ nextStep row 3a: merge setup missing stops after the approval stops and before any work (AC-6) (0.40683ms)
+✔ nextStep row 15a: behind the base, and nothing else open, updates the branch; ahead as well pushes first (0.370104ms)
+✔ nextStep row 17a: devkit-reviews failing while items 1-4 are met stops as blocked item 6, in every mode (R-7) (0.490045ms)
+✔ nextStep rows 21, 21a, 21b: ready for pr; enable-auto-merge with number, method and head; wait-merge with what it waits for (AC-2, AC-8) (0.390319ms)
+✔ waitingFor: the wait text per mergeStateStatus (design D6) (0.175573ms)
+✔ AC-2: with any one of items 1-8 open or blocked and the other seven met, auto-merge is never enabled (0.437065ms)
+✔ merge setup stops: each missing piece goes through collectState and the CLI to stop-merge-setup, exit 2, and gh pr merge is never called (AC-6) (4027.554071ms)
+✔ merge setup stops: merge_method rebase with rebase merges off goes through the collector to stop-merge-setup, naming the method (AC-6, AC-8) (321.979485ms)
+✔ merge setup stops: an unreadable repository fails closed as a stop, not as a pass (AC-6) (208.618824ms)
+✔ merge mode keeps the human plan gate: a devkit change without APPROVED readiness stops as not approved, even with a prepared repository (AC-3 of round 1) (1504.767415ms)
+✔ merge mode: 8/8 with auto-merge off is exit 0, step enable-auto-merge, summary ready, and the merge object (AC-2, AC-8) (4171.618346ms)
+✔ merge mode: merge_method rebase reaches the step (AC-8) (3832.130123ms)
+✔ merge mode: 8/8 with auto-merge on is exit 0 and "auto-merge on: waiting for ..." with the reason from mergeStateStatus (AC-4) (4213.034836ms)
+✔ merge mode: a MERGED PR is the first archive step (retro), exit 0, and the merge object says so (AC-1) (4591.760853ms)
+✔ merge mode: a PR behind its base is update-branch with the item 5 reason (3737.84454ms)
+✔ carry-over: after an immediate merge the branch no longer finds the PR; it is looked up by head branch among merged PRs and leads to the retro (AC-4, AC-1) (3666.939105ms)
+✔ carry-over: the head-branch lookup prefers an open PR over an older merged or closed one (3721.304911ms)
+✔ carry-over: once the number is known the PR is read by number, so a changed or deleted branch cannot hide it (3301.661745ms)
+✔ carry-over: pr mode with a MERGED PR leads to the archive steps (R-3), plan mode still stops, and plan mode never looks the PR up by branch (2495.428499ms)
+✔ merge mode: an unresolved thread and a failing check, read by the collector, answer / fix-checks and never enable-auto-merge (R-2, AC-3) (9280.271454ms)
+✔ merge mode: auto-merge already on with an unresolved thread or a failing check disables it first (R-2, AC-3) (6394.661075ms)
+✔ --watch at wait-merge: polls gh pr view <n> until MERGED, then collects again and goes on to the retro (AC-4, AC-1) (3472.002674ms)
+✔ --watch at wait-merge: the cap ends the wait with "auto-merge on: waiting for ..." (AC-4) (4589.879592ms)
+✔ --watch at wait-merge: stops early when auto-merge goes off, and the next step is enable-auto-merge again (3409.015095ms)
+✔ --watch at wait-merge: stops early when the PR head changes (a push), and item 5 is no longer met (3431.5095ms)
+✔ --watch at wait-merge: a gh error while polling stops the wait and the state is collected again (3454.233552ms)
+✔ makeGh: a gh call that outlives its timeout is cut, reported as timedOut and read as "timed out" (one runner in merge-setup.mjs) (404.172704ms)
+✔ one gh runner: deliver-check.mjs and github-setup.mjs do not spawn gh themselves (architecture) (1.169708ms)
+✔ --watch at wait-merge: one stalled gh poll is cut at the cap, so the wait ends near it and not when gh answers (R-4) (4978.496816ms)
+✔ --watch outside wait-merge never polls (enable-auto-merge, and no --watch at all) (6244.653524ms)
+✖ walkthrough (merge): enable at 8/8, wait, a product commit disables first, the loop re-runs, enable again, then the retro (2791.331244ms)
+✔ CLI: eight item lines, the N/8 summary and next (189.329359ms)
+✔ CLI --json carries the items, phases and next, with version 1 (222.977227ms)
+✔ CLI: exit 0 only at 8/8, with the PR in the JSON (1849.394185ms)
+✔ CLI: exit 2 when an item is blocked (154.879592ms)
+✔ CLI: exit 3 for an unknown change, a missing id, no openspec/ and an archived-only change (697.458645ms)
+✔ CLI: openspec/ without a git repo is a clear usage error, not a raw git fatal (55.40042ms)
+✔ CLI: runs from a subdirectory of the repo (205.966239ms)
+✔ CLI: an invalid ship or merge_method is exit 3 with the key named, and { version, error } in JSON (AC-1) (288.205328ms)
+✔ CLI: ship merge no longer exits 3 and does not stop as plan mode (AC-1, design D2 row 1) (551.80446ms)
+✔ CLI: DEVKIT_BYPASS=1 changes nothing (522.772809ms)
+✔ CLI: a plan-mode project reports stop-plan-mode, with the items still computed (164.052829ms)
+✔ host: app for the desktop entrypoint, cli otherwise, DEVKIT_HOST overrides (0.231576ms)
+✔ CLI: host in the JSON follows the environment (515.970401ms)
+✔ watchMinutes: default 9, capped at 30, positive numbers only (0.544914ms)
+✔ CLI --watch: one gh pr checks --watch --interval 30 (required), then 8/8 when the checks turn green (AC-9) (1843.134441ms)
+✔ CLI --watch: a watch that outlives its cap is killed and the result is in progress: item 6 (AC-9) (3245.518228ms)
+✔ CLI --watch: a bare --watch uses the default; --watch=abc is a usage error (1924.694077ms)
+✔ CLI --watch: no PR, or a step before waiting, never starts a watch (1749.106184ms)
+✔ CLI without --watch never watches (1621.381335ms)
+✔ field-fixes 9 watch: at stop-merge-setup with a check pending, one gh pr checks --watch runs and the report shows the final checks (AC-1) (6724.763276ms)
+✔ field-fixes 9 watch: the cap stops the watch, item 6 still names the pending check and the step is stop-merge-setup (AC-1) (4583.216205ms)
+✔ field-fixes 9 watch: no pending check, or no pull request, starts no watch (AC-1) (3410.216405ms)
+✔ field-fixes 9 watch: without --watch no watch starts at stop-merge-setup (AC-1) (3013.772088ms)
+✔ field-fixes 9 watch: no watch target in the archive phase or for a MERGED or CLOSED pull request, even with a check pending (AC-1) (2920.342749ms)
+✔ format: code-quality-reviewer Output block has Verdict first and Commit: second (0.395469ms)
+✔ format: code-quality-reviewer documents the Commit line, its uncommitted marker, and dispositions (0.18228ms)
+✔ format: test-coverage-reviewer Output block has Verdict first and Commit: second (0.215495ms)
+✔ format: test-coverage-reviewer documents the Commit line, its uncommitted marker, and dispositions (0.437564ms)
+✔ format: security-reviewer Output block has Verdict first and Commit: second (0.143501ms)
+✔ format: security-reviewer documents the Commit line, its uncommitted marker, and dispositions (0.122467ms)
+✔ format: architecture-reviewer Output block has Verdict first and Commit: second (0.119355ms)
+✔ format: architecture-reviewer documents the Commit line, its uncommitted marker, and dispositions (0.141388ms)
+✔ format: adr-reviewer Output block has Verdict first and Commit: second (0.113998ms)
+✔ format: adr-reviewer documents the Commit line, its uncommitted marker, and dispositions (0.102662ms)
+✔ format: spec-reviewer Output block has Verdict first and Commit: second (0.140484ms)
+✔ format: spec-reviewer documents the Commit line, its uncommitted marker, and dispositions (0.106927ms)
+✔ format: security-reviewer declined output carries the Commit line (0.216561ms)
+✔ format: pr-verifier names the Commit line, the Gates table and the per-AC rows (0.273991ms)
+✔ format: pr-verifier puts the Commit line before the first heading of evidence.md, where parseCommitLine reads it (0.207063ms)
+✔ format: every reviewer agent puts Commit on the second line of its verdict file (0.294142ms)
+✔ format: commit-and-pr names commit-only, an open PR, and the PR body contents (0.260213ms)
+✔ format: tdd-implementer reports the gate in Validation, not in evidence.md (0.155377ms)
+✔ format: review-change defines stale by the Commit line, dispositions, scoped calls and rounds (0.691048ms)
+✔ format: ship-change skill exists, says "Use when", and its deliver-check path resolves (0.276205ms)
+✔ AC-6 instructions-follow: the schema copies are identical and dispatch pr-verifier before review-change (0.45615ms)
+✔ AC-6 instructions-follow: configs, ship-change, devkit, flow doc and READMEs name evidence before review (1.279288ms)
+✔ AC-6 instructions-follow: no tracked file outside the records still says review before evidence (49.747725ms)
+✔ format: ship-change names every next.step the checker can return (3.7842ms)
+✔ format: ship-change enables auto-merge with one exact command, only at enable-auto-merge, and disables it at disable-auto-merge (AC-2, AC-3, AC-8) (0.4375ms)
+✔ --ci: passes at the head when items 1 to 4 are met, with the D5 human output (AC-5) (171.539956ms)
+✔ --ci --json: version 1, mode ci, change, schema, head, readiness, items 1 to 4 and pass (design D5) (177.655529ms)
+✔ --ci: a product commit after the reviews makes them stale and fails with exit 1 (AC-5) (310.011017ms)
+✔ AC-5 guards-kept: --ci with only the reviews re-recorded at a later product commit fails with items 1 and 4 (212.40836ms)
+✔ AC-5 guards-kept: --ci with only the evidence re-recorded at a later product commit fails with item 2 (227.902055ms)
+✔ --ci: fails for each of an undisposed blocking finding, an AC without a pass row, a no proof AC and a gate without a passing row (AC-5) (771.548411ms)
+✔ --ci: a devkit change whose readiness is not APPROVED fails; APPROVED passes (AC-5) (519.863379ms)
+✔ --ci: ship and merge_method are not read, so a typo there does not fail the check (design D2, D5) (173.330499ms)
+✔ --ci: DEVKIT_BYPASS=1 changes nothing (457.890672ms)
+✔ --ci --watch is a usage error (exit 3) (217.202647ms)
+✔ --ci: a repo without openspec/ passes with a note, like guard.mjs ci; a repo that has not adopted OpenSpec is never broken (R-3) (155.831364ms)
+✔ --ci: openspec/ without a git repository is exit 3 (58.913905ms)
+✔ --ci selection 1: <change-id> and DEVKIT_CHANGE select; an unknown or archived change is exit 3 (751.931788ms)
+✔ --ci selection 2: the branch tail, or the single change the branch contains, selects; several contained fail (502.258935ms)
+✔ --ci selection 3: with GITHUB_BASE_REF the one active change the PR diff touches is selected, two are each judged (R-3) (477.430635ms)
+✔ --ci selection 3: a squash-merged change still active on the base and untouched by the PR is not checked; the run passes with a note (AC-5, R-3) (354.438971ms)
+✔ --ci on an archive branch: the PR that moves a squash-merged change passes when every file is named and every proposal answered, even beside an open change `merge` (archive-after-merge D2, AC-9) (780.793438ms)
+✔ --ci on an archive branch: a changed file no approved proposal names fails the check, naming it (review blocker 3) (1031.289662ms)
+✔ --ci on an archive branch: an unanswered proposal, a retro without the section and a missing retro fail the check (review blocker 3) (570.605715ms)
+✔ --ci: a PR that archives nothing, or a run without GITHUB_BASE_REF, keeps the "nothing to check" note (review blocker 3) (281.208216ms)
+✔ --ci on an archive branch never takes a contained open change, and a PR touching an active change's folder still selects it (264.522643ms)
+✔ --ci selection 3: GITHUB_BASE_REF without an origin/<base> ref is exit 3 naming the ref (133.244241ms)
+✔ --ci selection 4: without GITHUB_BASE_REF the only open change is checked; several are ambiguous (exit 1) (416.59531ms)
+✔ field-fixes 3 reviews-check: a change on another schema passes with a note from both entries, whatever it lacks (371.648235ms)
+✔ field-fixes 3 reviews-check: a devkit-lite change with a missing review still fails naming it (136.848754ms)
+✔ field-fixes 3 reviews-check: two delivered changes both passing print one result each and pass (450.713126ms)
+✔ field-fixes 3 reviews-check: one of two delivered changes failing prints both results, names what it lacks and fails (340.786615ms)
+✔ field-fixes 3 reviews-check: a plan and a change on another schema ride along as notes and fail nothing (488.17606ms)
+✔ field-fixes 3 reviews-check: the branch named after one change still selects it, and the other touched change is not judged (213.45017ms)
+✔ field-fixes 3 reviews-check: one plan-only change is judged as before and fails on its unticked tasks (150.979802ms)
+✔ field-fixes 3 reviews-check: several plan-only changes fail saying the pull request delivers no change, naming both (315.057169ms)
+✔ field-fixes 3 reviews-check: a pull request touching only changes on other schemas passes with one note each (322.976006ms)
+✔ field-fixes 3 reviews-check: the archive of a change on another schema passes with a note from both entries, with no retro (259.255996ms)
+✔ field-fixes 3 reviews-check: the archive of a devkit change with an unanswered proposal still fails naming it (257.646412ms)
+✔ field-fixes 3 reviews-check: a missing retro and a retro without the section each say what the file holds and which step writes it (320.916056ms)
+✔ --ci preflight: a shallow clone is exit 3 naming fetch-depth: 0 (234.930344ms)
+✔ --ci preflight: a PR head sha that is not HEAD is exit 3 naming the ref: fix; the matching sha passes (462.265475ms)
+✔ docs sweep: "never merges" and "the merge is the owner's" lines name a ship mode or are about commit-and-pr (2.779549ms)
+✔ ADR 0002 exists, is cited by README and docs/openspec-flow.md, and says Status: accepted (0.721619ms)
+✔ the pin in docs/openspec-flow.md is the commit sha of v + the devkit-openspec version, with the tag in a comment, never the tag in the URL (R-10, security) (0.896656ms)
+✔ AC-8 release-ready: every pack version matches its marketplace entry, the doc pin names the devkit-openspec version and CONTRIBUTING holds the tag rule (0.787246ms)
+✔ findChangePr: this repository's history — id auto-merge is PR #5, never the archive PR #6 nor feat/auto-merge-docs, from main and from chore/archive-auto-merge (D4) (457.739018ms)
+✔ findChangePr: a head name is never proof of ownership; the files are (D4, field-fixes D-4) (407.358213ms)
+✔ findChangePr: among several own PRs the newest mergedAt wins; a body link is not proof (D4, field-fixes D-4) (376.362037ms)
+✔ findChangePr: on the change branch a MERGED PR is found by pr view, and by pr list --head --state all once the branch is deleted, in pr mode too (D4) (822.084848ms)
+✔ findChangePr: plan mode makes no list call, and a number reads the PR by number (D4) (263.785246ms)
+✔ findChangePr: a failing list is an error, never a silent none (D4) (71.608547ms)
+✔ findChangePr: lists light fields only and reads the files of one candidate at a time, newest first, so 100 long bodies never overflow the buffer (review finding 4, field-fixes D-4) (3971.033032ms)
+✔ findChangePr: a files read that cannot be read is an error, never a silent miss (review finding 4, field-fixes D-4) (110.63064ms)
+✔ findChangePr: on a branch that names neither the change nor an archive head the merged PR is still found by its files, never reported as none (compozy-loop-v2 retro, field-fixes D-4) (143.580387ms)
+✔ makeGh/ghError: output past maxBuffer is named, not a bare exit code (review finding 4) (66.900082ms)
+✔ readRetro: proposals are the ### headings under ## Proposed updates, with targets, kind, answer and applied (D6) (1.268667ms)
+✔ readRetro: the last Answer: and the last Applied: line of a block count; unknown answers are unanswered (D6) (0.395418ms)
+✔ readRetro: None. is zero proposals; no ## Proposed updates is unreadable; a missing file does not exist (D6) (0.48502ms)
+✔ readRetro: diff lines are never read as answers, and headings outside the section are not proposals (D6, AC-2) (0.279997ms)
+✔ post-merge: the default branch name comes from repos/{owner}/{repo}, read once in merge mode (D4) (765.196309ms)
+✔ post-merge: the archive listing on the default branch makes the change archived; else the folder is active (200) or absent (HTTP 404) (D4) (1627.552154ms)
+✔ post-merge: any other read error, or a stalled gh, is stop-archive read-default-branch naming the first stderr line or "gh timed out" (D4, AC-7) (2546.550134ms)
+✔ post-merge: the archive PR is the OPEN one, else the newest MERGED, else the newest CLOSED; an OPEN one carries its checks (D4) (2289.921072ms)
+✔ gh-version 20: an old gh on the open archive PR is named in the collected checks error, not reported as an unreadable GitHub (AC-1) (532.270186ms)
+✔ AC-1: a merged change PR with the folder still on the default branch is "retro", in pr and merge mode, with all eight items met and nothing read from tasks or reviews (1590.247023ms)
+✔ P0: archived on the default branch is "archived" from main, from the change branch and from chore/archive-<id>, exit 0 (AC-6) (4050.856574ms)
+✔ P0: archived on the default branch needs no merged PR and no retro, and wins over everything below it (541.159107ms)
+✔ P1: an unreadable default branch is stop-archive, summary "blocked: archive (read-default-branch)", exit 2 (AC-7) (755.180405ms)
+✔ P1b: on the change branch, a PR merged at another head than the local head is blocked item 5 (design D4) (928.295856ms)
+✔ P2: merge mode with the repository not prepared stops at stop-merge-setup after the default branch is read (design D7) (1269.690728ms)
+✔ P3a: an open archive PR with auto-merge on is disabled first when it conflicts, fails a check, is not at the local head or has uncommitted files (design D7) (2346.906519ms)
+✔ P3b, P3c, P3e: an open archive PR that conflicts, is not in local history or fails a check is stop-archive archive-pr, exit 2 (AC-7) (1906.69625ms)
+✔ P3d: an open archive PR with the local branch ahead of it, or uncommitted files, goes back to open-archive-pr (push) (design D7) (932.05703ms)
+✔ P3j: an open archive PR is held to the file check at the same head, with local ahead and with a dirty tree (review blocker 1) (2760.427823ms)
+✔ P3j: with auto-merge on, an unnamed file disables it first, in every case; a named file does not (review blocker 1) (1855.326966ms)
+✔ P3j: an open archive PR with an unanswered proposal is stop-retro-answers, and a rejected proposal does not name its file (review blocker 1) (1396.748849ms)
+✔ P3j: an open archive PR whose folder is not archived locally, or whose archived retro is unreadable, never reaches enable-auto-merge (review round 2, security) (2698.105567ms)
+✔ P3f, P3g, P3h: merge mode — BEHIND updates the branch, clean enables auto-merge with method and head, auto-merge on waits (AC-5) (2516.23404ms)
+✔ P3i: pr mode with the archive PR open is archive-pr-ready and no pr merge is ever called (AC-5) (797.806447ms)
+✔ P4, P5: a merged archive PR whose folder is not on the default branch, and a closed one, are stop-archive archive-pr (AC-7) (1225.608205ms)
+✔ P6, P7: no retro.md is "retro"; a retro.md without ## Proposed updates is stop-archive retro (AC-1, AC-7) (1224.533416ms)
+✔ P8 / AC-2: any proposal without an Answer: stops at stop-retro-answers listing it, and no archive PR is ever opened or merged, whichever one is left out (5366.322207ms)
+✔ P9: a change still active locally, all answered, is "archive" with the branch, base and whether to create it (AC-1) (1302.01743ms)
+✔ P10: archived in the working tree of another branch is stop-archive archive (AC-7) (1190.867716ms)
+✔ P11, AC-4: tick-roadmap only when the roadmap lists the change unticked; nothing when it is not listed or already ticked (3229.893567ms)
+✔ P12, AC-3: apply-proposals lists only the approved and unapplied proposals (827.669701ms)
+✔ P14: everything answered, applied and committed is open-archive-pr with branch, base and title (AC-4) (1303.285013ms)
+✔ plan mode with a merged PR still stops at stop-plan-mode and reads nothing after the merge (design D7) (259.902321ms)
+✔ P13 passes to open-archive-pr: an exact path, ./path normalised, a regression gate with both files, the release files, and openspec/changes/** and openspec/roadmap.md (AC-3) (2531.325149ms)
+✔ P13 stops with stop-archive apply-proposals listing every offending path (AC-3) (10905.026874ms)
+✔ unnamedFiles: the canonical spec of a capability the archived folder has a delta for is part of the archive record; nothing else under openspec/specs/ is (0.31125ms)
+✔ P13 passes to open-archive-pr when the archived change has a delta and the tree changes its canonical spec; any other canonical file stops (archive record) (1248.149646ms)
+✔ --ci on an archive branch: the canonical spec of a delta the archived folder holds passes; a canonical spec it has no delta for fails, naming it (archive record) (422.644032ms)
+✔ P13: a file named only by a rejected proposal stops; so do uncommitted and untracked product files (AC-3) (831.243549ms)
+✔ P13: origin/<base> that does not resolve stops with the fetch hint (AC-3) (400.941876ms)
+✔ JSON: the archive object appears only after the merge, version stays 1, and merged is never a next.step (3610.054089ms)
+✔ human output: a post-merge run shows the next archive step (design D7) (1373.983434ms)
+✔ deliver-check on an id that is only archived does not exit 3; an id in neither place does, with the new message; --ci ignores archived changes (AC-6) (452.464104ms)
+✔ the schema of an archived change comes from its own folder: a devkit change in a devkit-lite project reads ship.devkit (D3) (246.450935ms)
+✔ --watch at wait-merge on the archive PR polls gh pr view <archive PR> until MERGED, then reports archived once the listing has the folder (AC-5, AC-6) (843.901463ms)
+✔ --watch at wait-merge on the archive PR: at the cap it reports "archive PR open: waiting for <what>" (AC-5) (2111.245883ms)
+✔ --watch at wait-merge on the archive PR: merged but the default branch does not list the folder yet is P4, not archived (R1) (900.219476ms)
+✔ walkthrough (merge): enable at 8/8, merged, retro, owner answers, archive, tick, apply, open the archive PR, enable, wait, archived (AC-1..AC-7, AC-9 pre-merge) (5982.682016ms)
+✔ walkthrough (pr): the same run ends at archive-pr-ready, then archived after the owner merges it (AC-5, AC-6) (565.356569ms)
+✔ format: ship-change archive rows name the commands and the owner-answer rule (3.1, AC-2, AC-3, AC-4) (0.712817ms)
+✔ format: ship-change reused merge rows say next.number is the archive PR after the merge, and the enable command stays verbatim (3.1, AC-5) (1.114233ms)
+✔ format: ship-change Start takes the id from a chore/archive-<id> branch, Stops, Never and Hosts cover the archive (3.1, AC-6, AC-7) (0.726795ms)
+✔ round trip: on chore/archive-x with x moved, archiveBranchChange finds x, resolveChange returns null, and deliver-check x answers (3.1, AC-6) (593.572497ms)
+✔ format: the retro Output example, parsed by readRetro, yields the proposals, targets, kinds, answers and applied flags it shows (3.2, AC-2, AC-3) (1.411438ms)
+✔ format: retro says every changed file is a proposal target, the caller writes Answer, whoever applies writes Applied, and names ship-change (3.2) (0.26322ms)
+✔ format: commit-and-pr has an archive call: precondition 1 kept, 3 waived, the title form and the body contents (3.3, AC-4, AC-7) (0.452353ms)
+✔ format: tdd-implementer has an apply-proposals call: exactly the approved proposals, Applied: yes, no phase and no tasks.md (3.4, AC-3) (0.498007ms)
+✔ collectState: pr facts carry the PR head, state and mergeable in pr mode too (conduct-check reads them) (188.174034ms)
+✔ release list: RELEASE_FILE is unchanged and unnamedFiles still reports docs/openspec-flow.md (AC-7) (0.347619ms)
+✔ field-fixes 4 fake gh: an unset pull request files or tasks key fails loudly naming the key (135.700156ms)
+✔ field-fixes 4 delivered: isArchiveHead is true for every change's archive head and for nothing else (0.25989ms)
+✔ field-fixes 4 delivered: isOwnPr needs a file of the change folder, no archive folder and no archive head (0.287729ms)
+✔ field-fixes 4 delivered: prFiles reads the files of a pull request by number, paginated, and a failure is an error (121.033182ms)
+✔ field-fixes 4 delivered: tasksOnDefault reads the tasks left on the default branch, absent on a 404 and an error otherwise (173.220768ms)
+✔ field-fixes 4 delivered: a body that links the evidence is not the change's own pull request (103.734982ms)
+✔ field-fixes 4 delivered: another change's archive pull request that names the change is not its own (80.474779ms)
+✔ field-fixes 4 delivered: an unrelated head that ends in the id and touches no file of the change is not its own (108.225151ms)
+✔ field-fixes 4 delivered: a head that does not name the change is its own when it changes a file of the change folder (106.704774ms)
+✔ field-fixes 4 delivered: among several own pull requests the newest mergedAt wins, and a body link is not proof (111.616722ms)
+✔ field-fixes 4 delivered: a files read that fails is an error, never a silent miss (121.148394ms)
+✔ field-fixes 4 delivered: with tasks left on the default branch the change's own merged PR leads to no archive step, and stop-branch names the PR, the tasks and the branch (819.549552ms)
+✔ field-fixes 4 delivered: a pull request that only links the evidence leads to no archive step (301.720548ms)
+✔ field-fixes 4 delivered: another change's archive pull request that names the change leads to no archive step (439.812735ms)
+✔ field-fixes 4 delivered: on the change's branch with the work ticked and no open pull request the step is open-pr (3048.182332ms)
+✔ field-fixes 4 delivered: a further open pull request on the same head after a merge with tasks left is the pull request, not open-pr (3147.520928ms)
+✔ field-fixes 4 delivered: with no open pull request on the head after a merge with tasks left, the answer names the merged one and the tasks (2860.130242ms)
+✔ field-fixes 4 delivered: with every task ticked on the default branch the change's own merged PR answers the retro, even a further PR whose head does not name the change (439.397983ms)
+✔ field-fixes 4 delivered: a tasks.md absent on the default branch is not delivered, and one that cannot be read blocks the pull request item (700.974576ms)
+✔ field-fixes 10 verdict: item 2 counts the first Verdict line, approved then rejected, and prints nothing about the second (AC-3) (454.522307ms)
+✔ field-fixes 10 verdict: item 2 counts the first Verdict line, rejected then approved, and reports the reviewer as rejected (AC-3) (248.472634ms)
+✔ field-fixes 10 verdict: the devkit-reviews check from both entries passes on approved then rejected and fails on the reverse naming the reviewer (AC-3) (660.066922ms)
+✔ review-writer-prompt AC-9 an unticked checkbox inside a backtick fence is not a task of the delivery checker (42.42854ms)
+✔ review-writer-prompt AC-9 a gate inside a fence has no command to run and is not a gate of any phase (36.934881ms)
+✔ review-writer-prompt AC-9 a tilde fence hides the checkbox too, and a fenced heading does not start a phase (0.28063ms)
+✔ review-writer-prompt AC-9 a checkbox after the closing fence is counted (0.179224ms)
+✔ review-writer-prompt AC-9 a fenced unticked line on the default branch still answers the retro (414.945326ms)
+✔ review-writer-prompt AC-9 fencedLines is exported by deliver-check.mjs and flow-check.mjs holds no copy (0.492096ms)
+✔ review-writer-prompt AC-9 fencedLines: an opening line with no closing line opens no fence (0.750006ms)
+✔ review-writer-prompt AC-9 fencedLines: a closed fence after an unclosed one still hides its own lines (0.138279ms)
+✔ review-writer-prompt AC-9 parseTasks counts the task and the gate after an unclosed fence (0.143891ms)
+✔ review-writer-prompt AC-9 readPhases gives the gate after an unclosed fence to its phase (34.433067ms)
+✔ review-writer-prompt AC-9 tasksItem lists the tasks after an unclosed fence as unticked (40.992094ms)
+✔ review-writer-prompt AC-9 nextStep is implement and names 1.2 after an unclosed fence (132.302945ms)
+✔ review-writer-prompt AC-9 the stage checker counts the tasks after an unclosed fence as pending (0.425007ms)
+✔ review-writer-prompt AC-8 isTestFile names the test paths of the spec and refuses the others (0.232541ms)
+✔ review-writer-prompt AC-8 a commit of tests only stales only the two reviewers that read tests (147.220877ms)
+✖ review-writer-prompt AC-8 after a test-only commit the evidence goes stale first, then the review step names the two reviewers (1307.86238ms)
+✔ review-writer-prompt AC-8 the evidence keeps the default rule and goes stale after a test-only commit (279.448274ms)
+✔ review-writer-prompt AC-8 a product commit later in the range stales all six reviewers (147.870475ms)
+✔ review-writer-prompt AC-8 a commit that mixes a test file and a product file stales all six (137.330172ms)
+✔ review-writer-prompt AC-8 an uncommitted product edit stales all six after a test-only commit (73.359791ms)
+✔ review-writer-prompt AC-8 a reviewer outside the six keeps the default rule (104.917295ms)
+✔ review-writer-prompt AC-8 staleness takes an allowed option and keeps the default without it (82.389249ms)
+✔ review-writer-prompt AC-8 a merge whose first-parent diff is only test files is current with allowed and stale without it (142.074504ms)
+✔ review-writer-prompt AC-8 the devkit-reviews check from both entries names only the two reviewers after a test-only commit (471.611557ms)
+✔ review-openspec-fix 1: a rejected verdict is stale after a commit that touches only openspec/ outside the change's review record (125.01567ms)
+✔ review-openspec-fix 2: a commit of the change's reviews/ folder only leaves a rejected verdict current (99.993144ms)
+✔ review-openspec-fix 3: a commit of review.md only leaves a rejected verdict current (98.144986ms)
+✔ review-openspec-fix 4: a commit of evidence.md only leaves a rejected verdict current (101.753739ms)
+✔ review-openspec-fix 5: a commit of the record together with another openspec/ file makes a rejected verdict stale and names that file (95.407136ms)
+✔ review-openspec-fix 6: paths that only look like the change's review record make a rejected verdict stale (470.186084ms)
+✔ review-openspec-fix 7: a test-spared reviewer's rejected verdict is stale after a commit of test files only, and its approved peers stay current (144.824405ms)
+✔ review-openspec-fix 8: a verdict file with no Verdict line is stale after an openspec/-only commit (98.716444ms)
+✔ review-openspec-fix 9: a rejecting reviewer outside the six is stale after an openspec/-only commit (122.708496ms)
+✔ review-openspec-fix 10: approved and declined verdicts stay current after an openspec/-only commit outside the record (110.757621ms)
+✔ review-openspec-fix 11: a test-spared reviewer's approved verdict stays current after a commit of test files only (145.379825ms)
+✔ review-openspec-fix 12: a plan fix written and not committed leaves a rejected verdict current (85.726033ms)
+✔ review-openspec-fix 13: a merge of main that brings only openspec/ makes a rejected verdict stale and names the merge (124.112603ms)
+✔ review-openspec-fix 14: a rejected round fixed by an openspec/-only commit gets review at round 2 naming only the rejecting reviewer (1845.110803ms)
+✔ review-openspec-fix 15: committing a rejecting round's record alone, twice, keeps fix-review (2008.043204ms)
+✔ review-openspec-fix 16: a round-2 rejection committed with its record stops on stop-review-deadlock (1567.080757ms)
+✔ review-openspec-fix 17: after the round-2 stop, an openspec/-only commit opens a review at round 1, as a product commit does (1804.18949ms)
+✔ review-openspec-fix 18: the devkit-reviews check fails a rejected review after an openspec/-only fix and names it stale (594.027666ms)
+✔ commit-attribution AC-2 T26 the agent's Receives names the attribution block (0.314273ms)
+✔ commit-attribution AC-2 T27 with lines given the agent writes exactly those and no other (0.266318ms)
+✔ commit-attribution AC-2 T28 with none the agent writes no attribution line (0.127596ms)
+✔ commit-attribution AC-2 T29 with no block the agent keeps its earlier rule (0.179286ms)
+✔ commit-attribution AC-2 T30 the caller's block wins over the agent's environment (0.120558ms)
+✔ commit-attribution AC-2 T31 Method steps 3 and 5 point to Attribution and drop the environment rule (0.1462ms)
+✔ commit-attribution AC-2 T32 Never forbids a line the block does not give (0.170946ms)
+✔ commit-attribution AC-1 T33 the ship-change commit row ends the prompt with the attribution block (0.140622ms)
+✔ commit-attribution AC-1 T34 the ship-change open-pr row ends the prompt with the attribution block (0.110989ms)
+✔ commit-attribution AC-1 T35 the ship-change open-archive-pr row ends the prompt with the attribution block (0.105316ms)
+✔ commit-attribution AC-1 T36 the ship-change Attribution section holds the block and names no model (0.279467ms)
+✔ loop-evidence 1: a dirty change folder before review answers commit with no paths (0.273413ms)
+✔ loop-evidence 2: with the folder clean or the field absent the review answer is unchanged (0.31977ms)
+✔ loop-evidence 3: product paths dirty with the folder answer the product commit once (1.05486ms)
+✔ loop-evidence 4: a dirty folder never comes before verify, fix-defect, fix-review or the round-2 stop (0.209944ms)
+✔ loop-evidence 5: a dirty folder with no reviewer to run changes nothing (0.244478ms)
+✔ loop-evidence 6: the reason names at most three folder paths (0.172991ms)
+✔ loop-evidence 7: evidence.md uncommitted alone answers commit, and once committed review with the same reviewers and round (522.569304ms)
+✔ loop-evidence 8: a modified evidence.md alone answers commit (300.354136ms)
+✔ loop-evidence 9: a ticked tasks.md uncommitted alone answers commit (403.938001ms)
+✔ loop-evidence 10: an untracked file, then the same file staged, answer commit and are named (545.060602ms)
+✔ loop-evidence 11: product code dirty with the folder: the product commit, verify, the folder commit, then review (730.23473ms)
+✔ loop-evidence 12: paths outside the change folder do not count (420.731934ms)
+✔ loop-evidence 13: a round recorded after the commit step is current; one marked uncommitted is not (577.028792ms)
+✔ loop-evidence 14: collectState lists the folder's modified, staged, untracked and renamed paths (286.729504ms)
+ℹ tests 457
+ℹ suites 0
+ℹ pass 449
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 317511.234933
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:1991:1
+✖ resume: code committed with one review current runs only the other reviewer (AC-5, AC-7) (473.989535ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'commit',
+  +   undefined,
+  +   undefined
+  -   'review',
+  -   [
+  -     'test-coverage-reviewer'
+  -   ],
+  -   1
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:1998:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'commit', undefined, undefined ],
+    expected: [ 'review', [ 'test-coverage-reviewer' ], 1 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2056:1
+✖ walkthrough: a devkit-lite change goes from no ticked task to ready without a stop step (AC-2) (1866.106368ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'implement',
+      'gate',
+      'implement',
+      'gate',
+      'commit',
+      'verify',
+  +   'commit',
+      'review',
+      'open-pr',
+      'ready'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:2057:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [
+      'implement', 'gate',
+      'implement', 'gate',
+      'commit',    'verify',
+      'commit',    'review',
+      'open-pr',   'ready'
+    ],
+    expected: [
+      'implement', 'gate',
+      'implement', 'gate',
+      'commit',    'verify',
+      'review',    'open-pr',
+      'ready'
+    ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2060:1
+✖ resume: a round-2 deadlock on disk stops while current and re-reviews as round 1 after the owner's product commit (AC-4, AC-5) (860.99477ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'commit',
+  +   undefined
+  -   'review',
+  -   1
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:2073:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'commit', undefined ],
+    expected: [ 'review', 1 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2085:1
+✖ AC-3 fix-restales-both (a): after a rejected review and its fix commit, verify comes first and then review at round 2 (2905.85619ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'commit',
+  +   undefined,
+  +   undefined
+  -   'review',
+  -   2,
+  -   [
+  -     'code-quality-reviewer',
+  -     'test-coverage-reviewer'
+  -   ]
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:2094:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'commit', undefined, undefined ],
+    expected: [ 'review', 2, [ 'code-quality-reviewer', 'test-coverage-reviewer' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2097:1
+✖ AC-3 fix-restales-both (b): after a fail row and its fix commit, verify comes first and then review (2889.304411ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'commit'
+  -   'review'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:2104:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'commit' ],
+    expected: [ 'review' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2107:1
+✖ AC-3 fix-restales-both (c): after a failing check and its fix commit, verify, then review, then push (2903.986558ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'commit',
+  +   undefined
+  -   'review',
+  -   [
+  -     'code-quality-reviewer',
+  -     'test-coverage-reviewer'
+  -   ]
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:2116:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'commit', undefined ],
+    expected: [ 'review', [ 'code-quality-reviewer', 'test-coverage-reviewer' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2688:1
+✖ walkthrough (merge): enable at 8/8, wait, a product commit disables first, the loop re-runs, enable again, then the retro (2791.331244ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'implement',
+      'gate',
+      'implement',
+      'gate',
+      'commit',
+      'verify',
+  +   'commit',
+      'review',
+      'open-pr',
+      'enable-auto-merge'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:2691:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'implement', 'gate', 'implement', 'gate', 'commit', 'verify', 'commit', 'review', 'open-pr', 'enable-auto-merge' ],
+    expected: [ 'implement', 'gate', 'implement', 'gate', 'commit', 'verify', 'review', 'open-pr', 'enable-auto-merge' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5248:1
+✖ review-writer-prompt AC-8 after a test-only commit the evidence goes stale first, then the review step names the two reviewers (1307.86238ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'commit',
+  +   undefined
+  -   'review',
+  -   [
+  -     'code-quality-reviewer',
+  -     'test-coverage-reviewer'
+  -   ]
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:5261:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'commit', undefined ],
+    expected: [ 'review', [ 'code-quality-reviewer', 'test-coverage-reviewer' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+### exit 1
+### node --test --test-name-pattern="^flow-check AC-6: deliver-check gives the same step" plugins/openspec/hooks/flow-check.test.mjs
+✖ flow-check AC-6: deliver-check gives the same step with and without stage headers (1801.713754ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12561.70446
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/flow-check.test.mjs:344:1
+✖ flow-check AC-6: deliver-check gives the same step with and without stage headers (1801.713754ms)
+  AssertionError [ERR_ASSERTION]: review without headers
+  
+  'commit' !== 'review'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/flow-check.test.mjs:351:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'commit',
+    expected: 'review',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+### exit 1

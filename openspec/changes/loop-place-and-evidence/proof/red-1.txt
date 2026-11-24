@@ -1,0 +1,222 @@
+✖ loop-evidence 1: a dirty change folder before review answers commit with no paths (14.567716ms)
+✔ loop-evidence 2: with the folder clean or the field absent the review answer is unchanged (0.852731ms)
+✔ loop-evidence 3: product paths dirty with the folder answer the product commit once (0.556722ms)
+✔ loop-evidence 4: a dirty folder never comes before verify, fix-defect, fix-review or the round-2 stop (0.86608ms)
+✔ loop-evidence 5: a dirty folder with no reviewer to run changes nothing (0.469711ms)
+✖ loop-evidence 6: the reason names at most three folder paths (0.595504ms)
+✖ loop-evidence 7: evidence.md uncommitted alone answers commit, and once committed review with the same reviewers and round (339.04539ms)
+✖ loop-evidence 8: a modified evidence.md alone answers commit (348.387793ms)
+✖ loop-evidence 9: a ticked tasks.md uncommitted alone answers commit (355.892931ms)
+✖ loop-evidence 10: an untracked file, then the same file staged, answer commit and are named (345.649517ms)
+✖ loop-evidence 11: product code dirty with the folder: the product commit, verify, the folder commit, then review (752.682679ms)
+✖ loop-evidence 12: paths outside the change folder do not count (332.165632ms)
+✔ loop-evidence 13: a round recorded after the commit step is current; one marked uncommitted is not (858.735797ms)
+✖ loop-evidence 14: collectState lists the folder's modified, staged, untracked and renamed paths (468.542871ms)
+✔ loop-evidence 15: a commit row with no paths goes to the commit agent, as one with paths does (2.655707ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 6
+ℹ fail 9
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4081.619978
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5630:1
+✖ loop-evidence 1: a dirty change folder before review answers commit with no paths (14.567716ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'review',
+  +   undefined
+  -   'commit',
+  -   []
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:5632:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'review', undefined ],
+    expected: [ 'commit', [] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5676:1
+✖ loop-evidence 6: the reason names at most three folder paths (0.595504ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'review' !== 'commit'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:5678:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'review',
+    expected: 'commit',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5684:1
+✖ loop-evidence 7: evidence.md uncommitted alone answers commit, and once committed review with the same reviewers and round (339.04539ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - [
+  -   'openspec/changes/feat/evidence.md'
+  - ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:5687:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [ 'openspec/changes/feat/evidence.md' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5695:1
+✖ loop-evidence 8: a modified evidence.md alone answers commit (348.387793ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'review',
+  +   undefined
+  -   'commit',
+  -   []
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:5701:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'review', undefined ],
+    expected: [ 'commit', [] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5704:1
+✖ loop-evidence 9: a ticked tasks.md uncommitted alone answers commit (355.892931ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'review',
+  +   undefined
+  -   'commit',
+  -   []
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:5714:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'review', undefined ],
+    expected: [ 'commit', [] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5720:1
+✖ loop-evidence 10: an untracked file, then the same file staged, answer commit and are named (345.649517ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'review' !== 'commit'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:5726:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'review',
+    expected: 'commit',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5736:1
+✖ loop-evidence 11: product code dirty with the folder: the product commit, verify, the folder commit, then review (752.682679ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'review',
+  +   undefined
+  -   'commit',
+  -   []
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:5746:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'review', undefined ],
+    expected: [ 'commit', [] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5752:1
+✖ loop-evidence 12: paths outside the change folder do not count (332.165632ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  
+  undefined !== []
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:5757:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5774:1
+✖ loop-evidence 14: collectState lists the folder's modified, staged, untracked and renamed paths (468.542871ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   'openspec/changes/feat/notes.md',
+  -   'openspec/changes/feat/proof/x.txt',
+  -   'openspec/changes/feat/proposal-old.md',
+  -   'openspec/changes/feat/tasks.md'
+  - ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:5784:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'openspec/changes/feat/notes.md', 'openspec/changes/feat/proof/x.txt', 'openspec/changes/feat/proposal-old.md', 'openspec/changes/feat/tasks.md' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,77 @@
+post-merge-validate, task 3.6: the real run (design D-10)
+
+Scratch repositories under /var/tmp/devkit-post-merge-validate/{red,green}, built outside this repository: a bare origin, a clone on branch probe (devkit-lite change, one ticked task, passed stage headers), base main moved in a second clone and merged into probe. Fake gh first on PATH (the script of deliver-check.test.mjs), no pull request set. Command per case: claude -p --plugin-dir <wt>/plugins/openspec --plugin-dir <wt>/plugins/core --output-format stream-json --verbose --permission-mode bypassPermissions, prompt of D-10 step 5.
+
+Permission denial: the first red run, without a permission mode, was refused by the session's permissions on its first Bash and Read calls (the skill file and the script lie outside the scratch folder) and printed no action, so the run was made again, with --permission-mode bypassPermissions in the scratch folder only (D-10 step 5). Both proof streams below are from that second form. The first, refused stream is not kept.
+
+== RED case (base added the scenario 'Second added on main' to 'Thing works'; stream: real-run-red.jsonl)
+init: devkit-openspec /home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec (0.32.0); devkit-core /home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/core (0.13.3); permission mode bypassPermissions
+next #1: kind=session step=merge-check agent=- stage=evidence end=-
+bash call of the merge-check command by the session: yes
+merge-check command: result=red reds=1
+next #2: kind=agent step=merge-defect agent=devkit-core:change-planner stage=specs end=-
+agent call (session): devkit-core:change-planner; prompt holds "merge defect": true
+next #3: kind=session step=merge-check agent=- stage=evidence end=-
+bash call of the merge-check command by the session: yes
+merge-check command: result=green reds=0
+next #4: kind=agent step=verify agent=devkit-core:pr-verifier stage=evidence end=-
+trusted (D-10 step 8): true
+
+git diff -- openspec/changes/probe/specs (the scenario copied by the planner):
+diff --git a/openspec/changes/probe/specs/cap/spec.md b/openspec/changes/probe/specs/cap/spec.md
+index 60aec91..9563842 100644
+--- a/openspec/changes/probe/specs/cap/spec.md
++++ b/openspec/changes/probe/specs/cap/spec.md
+@@ -7,3 +7,7 @@ The system SHALL make the thing work, and say so.
+ #### Scenario: First
+ - **WHEN** the thing is used
+ - **THEN** it works and says so
++
++#### Scenario: Second added on main
++- **WHEN** the thing is used twice
++- **THEN** it still works
+devkit-stage lines of the change folder, before vs after (diff):
+(empty: unchanged)
+record .git/devkit/merge-check/probe.json after the case:
+{
+  "version": 1,
+  "change": "probe",
+  "merge": "3e46bf6ac2584bc9cd18b60f5b60c958ed0fd149",
+  "result": "green",
+  "reds": 0,
+  "fingerprint": "c643d293ee74",
+  "errors": null,
+  "error": null,
+  "at": "2026-11-24T03:29:55.723Z"
+}
+
+
+== GREEN case (base added a new requirement 'Other thing'; delta untouched; stream: real-run-green.jsonl)
+init: devkit-openspec /home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec (0.32.0); devkit-core /home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/core (0.13.3); permission mode bypassPermissions
+next #1: kind=session step=merge-check agent=- stage=evidence end=-
+bash call of the merge-check command by the session: yes
+merge-check command: result=green reds=0
+next #2: kind=agent step=verify agent=devkit-core:pr-verifier stage=evidence end=-
+trusted (D-10 step 8): true
+
+git diff -- openspec/changes/probe/specs:
+(empty: the delta was not touched)
+devkit-stage lines of the change folder, before vs after (diff):
+(empty: unchanged)
+record .git/devkit/merge-check/probe.json after the case:
+{
+  "version": 1,
+  "change": "probe",
+  "merge": "8310cf612df237a3ee2bf8ae8cc27910bb3db0d0",
+  "result": "green",
+  "reds": 0,
+  "fingerprint": "754e699ced1e",
+  "errors": null,
+  "error": null,
+  "at": "2026-11-24T03:30:43.568Z"
+}
+
+
+Pass condition (D-10): red = merge-check -> the session's command -> Agent call to devkit-core:change-planner whose prompt holds 'merge defect' -> merge-check -> the command -> the verify hand-off; green = merge-check -> the command -> verify; header lines unchanged; both streams trusted by step 8. Result: met in both cases.
+
+Redaction (conducting session, before the commit): the repository is public, so the init event of each stream lost its lists of tools, MCP servers, slash commands, agents, skills and the other plugins, and the home folder reads /home/<user>. The kept fields are the ones D-10 step 8 reads (the devkit-openspec and devkit-core plugins and their paths). The Agent call, the Bash calls and the next-action lines are as the run printed them.
