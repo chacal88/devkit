@@ -1903,3 +1903,50 @@ test('coordinator-loop-fixes AC-1 T104 another change\'s declared.json is refuse
   assert.equal(GUARD.declareViolation?.(DECLARE_LINE, ''), null);
   assert.equal(typeof GUARD.declareViolation?.(DECLARE_LINE, 'tdd-implementer'), 'string');
 });
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: the verifier's proof folder (D-8)
+// Invariant: pr-verifier writes evidence.md and any file under the active change's proof/ folder, by Write and by shell redirect,
+// and nothing else; its refusal names those two places; every other writer's rule under proof/ is as before. Layer: guard's
+// inProofFolder and writeViolation, through `guard edit` and `guard bash`. Suite: guard.
+
+const PROOF = 'openspec/changes/feat/proof';
+const VERIFIER_PLACES = /evidence\.md.*proof\//;
+
+test('coordinator-loop-fixes AC-12 T70 pr-verifier writes proof/run.txt and proof/runs/a.jsonl of the active change: allowed', () => {
+  const root = repo({ changes: { feat: approved } });
+  for (const f of [`${PROOF}/run.txt`, `${PROOF}/runs/a.jsonl`]) {
+    const r = edit(root, f, 'pr-verifier');
+    assert.equal(r.code, 0, `${f}: ${r.err}`);
+  }
+  assert.equal(GUARD.inProofFolder?.(root, 'feat', `${PROOF}/runs/a.jsonl`), true, 'inProofFolder');
+  assert.equal(GUARD.inProofFolder?.(root, 'feat', join(root, PROOF, 'run.txt')), true, 'an absolute path');
+  assert.equal(GUARD.inProofFolder?.(root, 'feat', 'openspec/changes/feat/proofs/a.txt'), false, 'a folder whose name only starts with proof');
+  assert.equal(GUARD.inProofFolder?.(root, 'feat', 'openspec/changes/other/proof/a.txt'), false, 'another change');
+});
+
+test('coordinator-loop-fixes AC-12 T71 pr-verifier redirects into proof/out.txt: allowed; into design.md: refused', () => {
+  const root = repo({ changes: { feat: approved } });
+  const into = bash(root, `node run.mjs > ${PROOF}/out.txt`, 'pr-verifier');
+  assert.equal(into.code, 0, into.err);
+  const design = bash(root, 'echo x > openspec/changes/feat/design.md', 'pr-verifier');
+  assert.equal(design.code, 2, design.err);
+  assert.match(design.err, VERIFIER_PLACES);
+});
+
+test('coordinator-loop-fixes AC-12 T72 pr-verifier writes proposal.md, other/proof/a.txt and src/a.ts: each refused', () => {
+  const root = repo({ changes: { feat: approved, other: approved }, branch: 'feat' });
+  for (const f of ['openspec/changes/feat/proposal.md', 'other/proof/a.txt', 'src/a.ts', 'openspec/changes/other/proof/a.txt']) {
+    const r = edit(root, f, 'pr-verifier');
+    assert.equal(r.code, 2, `${f}: ${r.err}`);
+    assert.match(r.err, VERIFIER_PLACES, f);
+  }
+});
+
+test('coordinator-loop-fixes AC-12 T73 tdd-implementer and the main session write under proof/ as before; change-planner writing evidence.md is still refused', () => {
+  const root = repo({ changes: { feat: approved } });
+  assert.equal(edit(root, `${PROOF}/run.txt`, 'tdd-implementer').code, 0, 'tdd-implementer');
+  assert.equal(edit(root, `${PROOF}/run.txt`).code, 0, 'the main session');
+  assert.equal(bash(root, `echo x > ${PROOF}/out.txt`).code, 0, 'the main session by redirect');
+  assert.equal(edit(root, 'openspec/changes/feat/evidence.md', 'change-planner').code, 2, 'change-planner');
+  assert.equal(edit(root, `${PROOF}/run.txt`, 'code-quality-reviewer').code, 2, 'a reviewer');
+});

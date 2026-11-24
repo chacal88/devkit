@@ -8,7 +8,7 @@
 // loads before an export it tests exists; every folder it makes goes through test-tmp.mjs (by the fixtures' helpers).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpFolder } from './test-tmp.mjs';
 import {
@@ -791,4 +791,174 @@ test('coordinator-loop-fixes AC-18 T130 next on a delivered change whose own bra
   assert.ok(isRetro(action), `${JSON.stringify(action)}\n${r.stderr}`);
   for (const step of ['verify', 'review']) assert.notEqual(action.step, step);
   assert.notEqual(action.kind, 'agent', 'no reviewer hand-off');
+});
+
+// ---------------------------------------------------------------- AC-4: the agent map from the pack table (D-9)
+// Invariant: the loop's agent of every role is `<pack>:<role>` with the pack PACKS names for it, from the one helper agentOf;
+// a drift between the map and PACKS fails; project-loop's ADR reviewer comes from the same helper. Layer: change-loop.mjs and
+// project-loop.mjs exports and project-loop's decideSlice. Suite: change-loop-declared.
+
+const NINE_ROLES = ['change-planner', 'plan-readiness-reviewer', 'tdd-implementer', 'pr-verifier', 'commit-and-pr', 'screen-designer', 'adr-author', 'test-runner', 'e2e-tester'];
+const mapOf = (packs) => Object.fromEntries(NINE_ROLES.map((r) => [r, `${packs[r]}:${r}`]));
+
+test('coordinator-loop-fixes AC-4 T75 every role of AGENT_ROLES has the agent PACKS names, and COMMIT_AGENT is agentOf(commit-and-pr)', () => {
+  assert.deepEqual(CL.AGENT_ROLES, NINE_ROLES, 'the nine roles of the map');
+  for (const role of CL.AGENT_ROLES) assert.equal(CL.AGENT[role], `${CL.PACKS[role]}:${role}`, role);
+  assert.deepEqual(Object.keys(CL.AGENT), NINE_ROLES);
+  assert.equal(CL.COMMIT_AGENT, CL.agentOf('commit-and-pr'));
+  assert.ok(Object.isFrozen(CL.AGENT), 'the shipped map is frozen');
+});
+
+test('coordinator-loop-fixes AC-4 T76 a map built from a PACKS with one pack changed differs from the shipped one; agentOf(owner) is undefined', () => {
+  assert.equal(typeof CL.agentOf, 'function', 'agentOf is exported');
+  assert.deepEqual({ ...CL.AGENT }, mapOf(CL.PACKS), 'the shipped map is the one PACKS gives');
+  const drifted = mapOf({ ...CL.PACKS, 'pr-verifier': 'devkit-openspec' });
+  assert.notDeepEqual({ ...CL.AGENT }, drifted, 'a drift fails');
+  assert.equal(CL.agentOf('owner'), undefined);
+  assert.equal(CL.agentOf('review-bench'), undefined);
+});
+
+test('coordinator-loop-fixes AC-4 T77 project-loop\'s ADR reviewer agent is agentOf(adr-reviewer)', async () => {
+  const PL = await import('./project-loop.mjs');
+  const a = PL.decideSlice({
+    ctx: { slice: 'billing', root: tmpFolder('devkit-declared-slice-'), branch: 'billing', lang: 'en', filesLanguage: 'en', base: 'main' }, flow: null, after: null,
+    fingerprint: 'f', kind: 'active', report: { next: { stage: 'review', reasonCode: 'no-file' } }, rounds: { passed: false, ids: [], missing: [] },
+    dirty: [], verdict: { usable: false }, docs: [],
+  });
+  assert.deepEqual([a.kind, a.step], ['agent', 'review'], JSON.stringify(a));
+  assert.equal(typeof CL.agentOf, 'function', 'agentOf is exported');
+  assert.equal(a.agent, CL.agentOf('adr-reviewer'));
+});
+
+// ---------------------------------------------------------------- AC-5: the Note of ADR 0011 (D-12)
+// Invariant: ADR 0011 carries a dated Note of this change on the stop lock after a recorded end, linking the change's ADR by the
+// number its file has, and its `## Decision` section is the text held here. Layer: the ADR document. Suite: change-loop-declared.
+
+const ADR_DIR = join(REPO_ROOT, 'docs', 'adr');
+const ADR_0011 = join(ADR_DIR, '0011-the-change-coordinator-is-the-owners-session.md');
+const ADR_0011_DECISION = `## Decision
+
+1. In the Claude driver the change coordinator is the session the owner typed /devkit change in.
+2. Its product edits, by an edit tool or a shell write, and its hand-offs to any agent whose role
+   the change's script does not list are refused by a hook while a /devkit change run is under
+   way. A run is under way when the newest slash command typed in the session is /devkit change
+   and the loop has named the change after it, both read from the session's transcript.
+3. That refusal replaces "it has no edit tool" as the reason there is no side door. Product code
+   is still written only by the implementer role under the same hooks; the rest of decision 8,
+   and decisions 1 to 7 of ADR 0010, are unchanged.
+
+`;
+
+test('coordinator-loop-fixes AC-5 T78 ADR 0011 has the dated Note on the stop lock and its Decision section is unchanged', () => {
+  const adr = readFileSync(ADR_0011, 'utf8');
+  const file = readdirSync(ADR_DIR).find((f) => /^\d{4}-the-loop-declares-the-decisions-outside-the-stage-gates\.md$/.test(f));
+  assert.ok(file, 'the change\'s ADR file');
+  const number = file.slice(0, 4);
+  const context = section(adr, '## Context', '## Decision');
+  const note = context.split('\n\n').map((p) => p.replace(/\s+/g, ' ')).find((p) => p.startsWith('Note (coordinator-loop-fixes, '));
+  assert.ok(note, 'a Note of this change in Context');
+  assert.match(note, /^Note \(coordinator-loop-fixes, \d{4}-\d{2}-\d{2}\): /);
+  assert.ok(note.includes('the stop lock lets the session end its turn after a recorded end only when that end\'s `devkit-end:` line names the run\'s change'), note);
+  assert.ok(note.includes(`the ends a session declares outside the stage gates are those of [ADR ${number}](${file}).`), note);
+  assert.ok(note.includes('Decisions 1 to 3 are unchanged.'), note);
+  const notes = context.split('\n\n').filter((p) => p.startsWith('Note ('));
+  assert.ok(notes.at(-1).startsWith('Note (coordinator-loop-fixes, '), 'after the last Note');
+  assert.equal(section(adr, '## Decision', '## Consequences'), ADR_0011_DECISION);
+});
+
+// ---------------------------------------------------------------- AC-6: the person's language never set (D-11)
+// Invariant: with the language option never set (an empty value, or the unsubstituted `${user_config.language}`), every reply the
+// loop prints is the one of the default devkit-openspec's plugin.json declares, with no placeholder left. Layer: normalizeLang and
+// the loop CLI. Suite: change-loop-declared.
+
+const PLACEHOLDER = '${user_config.language}';
+const pluginDefault = () => JSON.parse(readFileSync(join(REPO_ROOT, 'plugins', 'openspec', '.claude-plugin', 'plugin.json'), 'utf8')).userConfig.language.default;
+const REPLY_PARAMS = {
+  blocked: { id: 'feat', why: 'tests-red', phase: '1' },
+  'waiting-pr-decision': { id: 'feat', number: '12', url: 'https://example.test/pr/12' },
+  'waiting-pause': { id: 'feat' },
+  'waiting-owner-decision': { id: 'feat', decision: DECISION },
+};
+const paramArgs = (params) => Object.entries(params).flatMap(([k, v]) => ['--param', `${k}=${v}`]);
+
+test('coordinator-loop-fixes AC-6 T79 normalizeLang\'s fallback equals the language default of devkit-openspec\'s plugin.json', () => {
+  const fallback = pluginDefault();
+  for (const value of [undefined, '', PLACEHOLDER]) assert.equal(CL.normalizeLang(value), fallback, String(value));
+});
+
+test('coordinator-loop-fixes AC-6 T80 each declared reply key with the placeholder or an empty language equals the pt-BR text, with no ${ left', () => {
+  const keys = Object.keys(CL.DECLARED).filter((k) => CL.DECLARED[k].via === 'reply');
+  assert.deepEqual(keys.slice().sort(), Object.keys(REPLY_PARAMS).sort(), 'every reply key has its parameters here');
+  for (const key of keys) {
+    const args = paramArgs(REPLY_PARAMS[key]);
+    const ptBR = reply([key, ...args], 'pt-BR');
+    assert.equal(ptBR.code, 0, `${key}: ${ptBR.stdout}`);
+    for (const lang of [PLACEHOLDER, '']) {
+      const r = reply([key, ...args], lang);
+      assert.equal(r.code, 0, `${key} ${JSON.stringify(lang)}: ${r.stdout}`);
+      assert.equal(r.stdout, ptBR.stdout, `${key} ${JSON.stringify(lang)}`);
+      assert.ok(!r.stdout.includes('${'), `${key}: ${r.stdout}`);
+    }
+  }
+});
+
+test('coordinator-loop-fixes AC-6 T81 next with the unsubstituted language gives the pt-BR reply of the same action', () => {
+  const d = deliveredChange({ checks: [check('build', 'pending')] });
+  const at = (lang) => parsed(CL.main(['next', '--change', 'feat', '--lang', lang], { cwd: d.t.main, env: d.env })).action;
+  const unset = at(PLACEHOLDER);
+  const ptBR = at('pt-BR');
+  assert.equal(typeof unset.reply, 'string', JSON.stringify(unset));
+  assert.deepEqual(unset, ptBR);
+  assert.ok(!unset.reply.includes('${'), unset.reply);
+  assert.notEqual(unset.reply, at('en').reply, 'not the English reply');
+});
+
+// ---------------------------------------------------------------- AC-11: a host with its own pull-request monitor (D-10)
+// Invariant: the devkit skill's `## Waiting on GitHub` keeps its first paragraph and adds the host-monitor exception (no wait, one
+// sentence saying so, end the turn, the next turn runs `next`); devkit-session's item 3 holds the same exception. Layer: the
+// skills' text. Suite: change-loop-declared.
+
+const WAIT_FIRST = 'When `next` ends waiting on GitHub, start the wait with the Bash tool\'s background option, then say `reply`:';
+const WAIT_AFTER = 'The wait has no time limit of its own and exits as soon as GitHub\'s answer changes the decision; its end starts the next turn, which then runs `next` and goes on. Calling `/devkit change` again at any time is safe: it re-reads everything and starts a new wait if GitHub still waits.';
+const HOST_MONITOR = 'When the host\'s own instructions to this session say it has a pull-request monitor that wakes the session, and tell it not to poll the checks, start no wait: say `reply`, add one sentence saying that the host\'s pull-request monitor holds the wait and that no wait was started, and end the turn. The turn the host\'s event or the owner\'s next message starts runs `next` and goes on.';
+
+test('coordinator-loop-fixes AC-11 T82 Waiting on GitHub holds the host-monitor paragraph after its first one; devkit-session item 3 the same exception', () => {
+  const wait = section(skillText(), '## Waiting on GitHub', '## Train');
+  const paragraphs = wait.split('\n\n').map((p) => p.trim());
+  assert.equal(paragraphs[1], WAIT_FIRST, 'the first paragraph is unchanged');
+  const after = paragraphs.indexOf(WAIT_AFTER);
+  assert.ok(after > 1, 'the wait paragraph is unchanged');
+  assert.equal(paragraphs[after + 1], HOST_MONITOR, 'the host-monitor paragraph follows');
+  const item3 = section(sessionSkillMd(), '## Loop', '## Never').split('\n').find((l) => l.startsWith('3. '));
+  const clause = item3.slice(item3.indexOf('`waiting-on-github` starts'));
+  assert.ok(clause.includes('roadmap-loop.mjs wait --change <id>'), 'the background wait stays');
+  for (const part of ['the host\'s own instructions to this session say it has a pull-request monitor that wakes the session', 'not to poll the checks',
+    'starts no wait', 'the host\'s pull-request monitor holds the wait and that no wait was started', 'ends the turn']) {
+    assert.ok(clause.includes(part), `item 3 says: ${part}`);
+  }
+});
+
+// ---------------------------------------------------------------- AC-15, AC-16: the two devkit-lite decisions, recorded only (D-12)
+// Invariant: docs/openspec-flow.md's devkit-lite section records that the script has no plan approval of its own by decision and
+// that a first-spec change follows the ordinary choice rule; the devkit-lite flow keeps the stages it had. Layer: the flow page and
+// the script's flow.json. Suite: change-loop-declared.
+
+const LITE_STAGES = [
+  ['open', 'change-coordinator', 'folder'], ['requirements', 'change-coordinator', 'artifact'], ['proposal', 'change-planner', 'artifact'],
+  ['specs', 'change-planner', 'artifact'], ['tasks', 'change-planner', 'artifact'], ['implementation', 'tdd-implementer', 'tasks'],
+  ['unit-tests', 'test-runner', 'artifact'], ['e2e-tests', 'e2e-tester', 'artifact'], ['evidence', 'pr-verifier', 'artifact'],
+  ['review', 'review-bench', 'artifact'], ['delivery', 'commit-and-pr', 'github'], ['retro', 'change-coordinator', 'artifact'],
+];
+
+test('coordinator-loop-fixes AC-15 T83 the devkit-lite section of the flow page records both decisions', () => {
+  const lite = section(readFileSync(join(REPO_ROOT, 'docs', 'openspec-flow.md'), 'utf8'), '## The `devkit-lite` schema', '## The `devkit-project` schema').replace(/\s+/g, ' ');
+  assert.ok(lite.includes('`devkit-lite` has no plan approval of its own, by decision: the owner\'s message that sends the change is its go-ahead.'), 'the plan approval decision');
+  assert.ok(lite.includes('A change that creates the project\'s first spec follows the ordinary choice rule (the `why` codes of `change-loop.mjs`, `WHY_CODES`): the first spec is not a reason of its own.'), 'the first-spec decision');
+});
+
+test('coordinator-loop-fixes AC-16 T84 the devkit-lite flow declares the same stages as before', () => {
+  for (const root of [join(REPO_ROOT, 'plugins', 'openspec', 'schemas'), join(REPO_ROOT, 'openspec', 'schemas')]) {
+    const flow = JSON.parse(readFileSync(join(root, 'devkit-lite', 'flow.json'), 'utf8'));
+    assert.deepEqual(flow.stages.map((s) => [s.id, s.role, s.source]), LITE_STAGES, root);
+  }
 });

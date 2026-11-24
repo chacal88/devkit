@@ -2955,3 +2955,15 @@ test('coordinator-loop-fixes AC-18 T131 prItem (merge): a merged pull request on
   assert.equal(notAncestor.status, 'blocked', 'the local head in the base, the pull request head not its ancestor');
   assert.equal(notAncestor.reason, `PR #12 merged at ${side.slice(0, 7)}; local head ${M.slice(0, 7)} differs`);
 });
+
+// ---------------------------------------------------------------- coordinator-loop-fixes AC-12: the verifier's proof folder in its text (D-8)
+// Invariant: pr-verifier.md tells the verifier it writes evidence.md and the output of the runs it records under the change's
+// proof/ folder, naming each file in its row, and no longer says evidence.md is the only file it writes. Layer: the agent's
+// text. Suite: deliver-check.
+
+test('coordinator-loop-fixes AC-12 T74 pr-verifier.md names the proof/ folder and no longer says "the only file you write"', () => {
+  const md = readFileSync(join(here, '..', '..', 'core', 'agents', 'pr-verifier.md'), 'utf8');
+  const delivers = md.slice(md.indexOf('## Delivers'));
+  assert.ok(delivers.replace(/\s+/g, ' ').includes('you are its only writer; besides it you write only the output of the runs you record, under the change\'s `proof/` folder, and you name each such file in its row'), 'the Delivers sentence');
+  assert.ok(!md.includes('the only file you write'), 'the old sentence is gone');
+});

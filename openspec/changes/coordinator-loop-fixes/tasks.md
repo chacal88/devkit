@@ -314,7 +314,7 @@ every task with `git status --short`.
   `<scratch>` and the home folder `<home>`, and the `r10` line is appended only after `grep -c` of each of those three
   paths over `proof/r10-*` prints 0. An implementer handed phase 4 with this task open stops and reports it, without
   doing it. Check: `grep -c "^r10 .*: pass$" openspec/changes/coordinator-loop-fixes/proof/checks.txt` prints 1.
-- [ ] 4.2 Write T70 to T84 of D-16 in `plugins/openspec/hooks/guard.test.mjs`, `deliver-check.test.mjs` and
+- [x] 4.2 Write T70 to T84 of D-16 in `plugins/openspec/hooks/guard.test.mjs`, `deliver-check.test.mjs` and
   `change-loop-declared.test.mjs`. T78 holds ADR 0011's `## Decision` section as a constant
   copied from the file at this commit. Check: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^coordinator-loop-fixes AC-12 " --test-name-pattern="^coordinator-loop-fixes AC-4 " --test-name-pattern="^coordinator-loop-fixes AC-11 " --test-name-pattern="^coordinator-loop-fixes AC-5 " --test-name-pattern="^coordinator-loop-fixes AC-15 " --test-name-pattern="^coordinator-loop-fixes AC-6 " --test-name-pattern="^coordinator-loop-fixes AC-16 " plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/change-loop-declared.test.mjs`
   exits 1 with no import error; T73, T76's negative, T79 to T81 and T84 pin what holds today and may pass
