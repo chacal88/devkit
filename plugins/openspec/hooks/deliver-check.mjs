@@ -252,9 +252,10 @@ function reviewRecord(id) {
 
 // Which later commits leave reviewer `name`'s verdict current (review-openspec-fix D-1): for an approved or
 // declined verdict, commits of openspec/ (and of test files, for the test-spared reviewers), as before;
-// for any other verdict, a missing one included, commits of the change's own review record only.
-function verdictAllowed(id, name, verdict) {
-  if (!approved(verdict)) return reviewRecord(id);
+// for any other verdict, a missing one included, and for an approved one that still lists an undisposed
+// finding (`open`), commits of the change's own review record only (jira-entry-followups D-2).
+function verdictAllowed(id, name, verdict, open = false) {
+  if (!approved(verdict) || open) return reviewRecord(id);
   return TEST_SPARED_REVIEWERS.includes(name) ? (p) => isOpenspec(p) || isTestFile(p) : isOpenspec;
 }
 
@@ -411,13 +412,13 @@ export function verdictFiles(dir) {
 
 // Every reviews/*.md: { name, verdict, why } where why is null when its
 // Commit: is current and the reason otherwise. Which later commits leave it
-// current is the rule verdictAllowed picks from its name and verdict.
+// current is the rule verdictAllowed picks from its name, its verdict and whether it lists an undisposed finding.
 export function readReviews(root, id, facts = gitFacts(root)) {
-  return verdictFiles(join(changeDir(root, id), 'reviews')).map(({ name, verdict, commit }) => ({
-    name,
-    verdict,
-    why: staleness(root, commit, facts, { allowed: verdictAllowed(id, name, verdict), own: approved(verdict) ? ownFiles(root, id, facts) : null }),
-  }));
+  const dir = join(changeDir(root, id), 'reviews');
+  return verdictFiles(dir).map(({ name, verdict, commit }) => {
+    const open = approved(verdict) && undisposedIn(root, join(dir, `${name}.md`), facts.head).length > 0;
+    return { name, verdict, why: staleness(root, commit, facts, { allowed: verdictAllowed(id, name, verdict, open), own: approved(verdict) && !open ? ownFiles(root, id, facts) : null }) };
+  });
 }
 
 // Item 2: every review approved (or declined) at the head.
@@ -549,24 +550,39 @@ function tableRows(text) {
     .map((l) => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim()));
 }
 
-// The [blocking] / [important] findings of the *.md files of a folder, by disposition: { fixed, refuted, undisposed }.
+// The [blocking] / [important] findings of one verdict file, by disposition: { fixed, refuted, undisposed }.
 // A "fixed in <sha>" counts only when the sha is in the history of `head`.
-export function findingsIn(root, dir, head) {
-  const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
+function findingsOfFile(root, file, head) {
+  const reviewer = basename(file, '.md');
   const undisposed = [];
   let fixed = 0;
   let refuted = 0;
-  for (const f of files) {
-    const reviewer = basename(f, '.md');
-    for (const line of readFileSync(join(dir, f), 'utf8').split(/\r?\n/)) {
-      if (!/^\s*(?:[-*+]|\d+[.)])\s+\**\[(?:blocking|important)\]/i.test(line)) continue;
-      const fix = line.match(/·\s*fixed in\s+([0-9a-f]{7,40})\b/i);
-      if (fix && inHistory(root, fix[1], head)) { fixed++; continue; }
-      if (!fix && /·\s*refuted:\s*\S/.test(line)) { refuted++; continue; }
-      undisposed.push({ reviewer, excerpt: line.trim().replace(/^(?:[-*+]|\d+[.)])\s+/, '').slice(0, 100) });
-    }
+  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+    if (!/^\s*(?:[-*+]|\d+[.)])\s+\**\[(?:blocking|important)\]/i.test(line)) continue;
+    const fix = line.match(/·\s*fixed in\s+([0-9a-f]{7,40})\b/i);
+    if (fix && inHistory(root, fix[1], head)) { fixed++; continue; }
+    if (!fix && /·\s*refuted:\s*\S/.test(line)) { refuted++; continue; }
+    undisposed.push({ reviewer, excerpt: line.trim().replace(/^(?:[-*+]|\d+[.)])\s+/, '').slice(0, 100) });
   }
   return { fixed, refuted, undisposed };
+}
+
+// The findings of one verdict file that have no disposition: [{ reviewer, excerpt }] (jira-entry-followups D-2).
+export function undisposedIn(root, file, head) {
+  return findingsOfFile(root, file, head).undisposed;
+}
+
+// The [blocking] / [important] findings of the *.md files of a folder, by disposition: { fixed, refuted, undisposed }.
+export function findingsIn(root, dir, head) {
+  const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
+  const total = { fixed: 0, refuted: 0, undisposed: [] };
+  for (const f of files) {
+    const one = findingsOfFile(root, join(dir, f), head);
+    total.fixed += one.fixed;
+    total.refuted += one.refuted;
+    total.undisposed.push(...one.undisposed);
+  }
+  return total;
 }
 
 // Item 3: every [blocking] / [important] finding has a disposition.
@@ -2040,6 +2056,9 @@ export function nextStep(state) {
       rejectedNow.length ? `${rejectedNow.join(', ')} rejected at the current commit` : '',
       approvedOpen.length ? `${approvedOpen.join(', ')} approved with an undisposed finding` : '',
     ].filter(Boolean).join('; ');
+    // A fix written in the change folder and not committed goes to commit first (jira-entry-followups D-2).
+    const planDirty = state.planDirty ?? [];
+    if (planDirty.length) return step('commit', `the fix for ${fix.join(', ')} is not committed: ${planDirty.slice(0, 3).join(', ')}`, { paths: planDirty });
     return step('fix-review', reason, {
       reviewers: fix,
       findings: it(3).details.undisposed.filter((f) => fix.includes(f.reviewer)),
@@ -2265,6 +2284,7 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
       phases: [],
       reviewMd: null,
       reviews: [],
+      planDirty: [],
       pr: prFacts(fetched),
       ...(two ? { twoPrs: twoPrsOf([], null) } : {}),
       archive,
@@ -2309,6 +2329,8 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     phases: readPhases(join(dir, 'tasks.md')),
     reviewMd: readReviewMd(join(dir, 'review.md')),
     reviews: readReviews(root, id, facts).map((r) => ({ name: r.name, verdict: r.verdict, current: !r.why })),
+    // The change folder's files edited and not committed, outside its own review record: a plan fix waiting for its commit.
+    planDirty: changedUnder(root, `openspec/changes/${id}`).filter((p) => !reviewRecord(id)(p)),
     // The change folder's uncommitted paths (loop-place-and-evidence D-1): the review round waits for their commit.
     folderDirty: changedUnder(root, `openspec/changes/${id}`),
     pr: prFacts(fetched),

@@ -132,7 +132,14 @@ DEVKIT_ARGS
 
 - On `ask: true`, keep `question` for the message that ends the turn. Ask it as plain text, never with AskUserQuestion, because that would hold the turn and with it the delivery. Then carry out the action.
 - Only the owner's own typed message answers. Map it to one `choices[].choice`; an answer that maps to none gets the question said again. Then run `node <skill-dir>/../../hooks/change-loop.mjs write-back answer <id> --choice <choice> --lang ${user_config.language}`.
-- On `write: true`, add `comment` to the task and then apply `transition.id` when present, and say `reply`. On a connector failure, run `node <skill-dir>/../../hooks/change-loop.mjs reply write-back-failed --param key=<KEY> --param error="<message>" --lang ${user_config.language}` and say it; the write is not retried. On `write: false`, say `reply`.
+- On `write: true`, add `comment` to the task and then apply `transition.id` when present, and say `reply`. On a connector failure, run the call below with the connector's error message on standard input, through the quoted heredoc and its terminator rule, and say what it prints; the write is not retried. On `write: false`, say `reply`.
+
+```
+node <skill-dir>/../../hooks/change-loop.mjs reply write-back-failed --param key=<KEY> --stdin error --lang ${user_config.language} <<'DEVKIT_ARGS'
+<the connector's error message>
+DEVKIT_ARGS
+```
+
 - Then go on: when no wait on GitHub is running and the run has not ended, run `next`.
 
 ## Owner gates

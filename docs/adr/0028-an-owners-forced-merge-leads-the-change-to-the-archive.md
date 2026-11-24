@@ -11,8 +11,8 @@
   (0012-the-reviews-check-follows-the-change-script.md), ADR 0016
   (0016-stage-roles-write-their-own-files.md), ADR 0017 (0017-a-change-state-is-derived-in-one-place.md),
   ADR 0019 (0019-the-delivery-loop-tags-the-release-it-merged.md); amends none of them
-- Number: 0025 and 0026 are on `origin/main` and 0027 is held by the sibling change
-  archive-release-pin, so 0028 is the next free number after it; it is taken again at the last
+- Number: 0027, 0029 and 0030 are on `origin/main`, and 0028 is the number this ADR holds
+  between 0027 and 0029; it is taken again at the last
   merge of `main` before the review (`openspec/config.yaml`, rules), and the file is renamed if a
   sibling change took it
 

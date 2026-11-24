@@ -2039,6 +2039,24 @@ test('review-writer-prompt AC-8 every reviewer current under a current header le
   assert.equal(stageOf(liveReport(root), 'review').state, 'passed');
 });
 
+test('jira-entry-followups AC-4 the stage readout offers the review again after an approved verdict\'s finding is fixed in the plan', () => {
+  const root = liveChange();
+  const a = git(root, 'rev-parse', 'HEAD');
+  put(root, {
+    'openspec/changes/feat/reviews/code-quality-reviewer.md': reviewFile(a),
+    'openspec/changes/feat/reviews/test-coverage-reviewer.md': `${reviewFile(a)}- [important] x\n`,
+  });
+  commitAll(root, 'reviewers');
+  assert.equal(stageOf(liveReport(root), 'review').state, 'passed', 'control: the approved verdict is current');
+  const design = join(root, 'openspec', 'changes', 'feat', 'design.md');
+  writeFileSync(design, `${readFileSync(design, 'utf8')}\nfixed\n`);
+  commitAll(root, 'plan fix');
+  const review = stageOf(liveReport(root), 'review');
+  assert.equal(review.state, 'stale');
+  assert.equal(review.reasonCode, 'stale-reviewers');
+  assert.deepEqual(review.params.names, ['test-coverage-reviewer']);
+});
+
 test('review-writer-prompt AC-8 the review stage without a staleReviewers fact keeps today\'s result', () => {
   assert.equal(stageOf(walk({}), 'review').state, 'passed');
   const named = walk({ retro: null }, { staleReviewers: () => ['spec-reviewer', 'adr-reviewer'] });
