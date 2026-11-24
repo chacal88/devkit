@@ -11,8 +11,9 @@
   merge brought in is not fetched, the merge is of another branch or the head is already in the base;
   the base is `GITHUB_BASE_REF`, else the configured `two-prs` base, else `origin/HEAD`, else `main` or
   `master`. A release merge that brings only release files no longer sends the loop back to `verify`
-  and `review`: it hands the plain push. The pull request's required `check` CI is the backstop for a
-  base change the change depends on without touching its files
+  and `review`: it hands the plain push. The delivery train judges each boarded change by the same
+  rule, against the base of the train's pull request. The pull request's required `check` CI is the
+  backstop for a base change the change depends on without touching its files
   ([ADR 0025](docs/adr/0025-a-base-merge-stales-only-on-the-changes-own-files.md), which amends
   [ADR 0002](docs/adr/0002-merge-without-the-owner-opt-in.md)). The CI snippet now pins `v0.37.0`, the
   release's tag.

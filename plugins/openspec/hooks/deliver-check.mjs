@@ -2515,7 +2515,9 @@ function judgeBoarded(root, entry, base, parts) {
     if (!existsSync(join(wt, 'openspec', 'changes', entry.id))) return { problems: [`openspec/changes/${entry.id}/ does not exist at that head`] };
     const schema = changeSchema(wt, entry.id);
     if (!isDevkitScript(schema)) return { problems: [`${entry.id} is on the ${schema} script, not a devkit script (${DEVKIT_SCHEMAS.join(', ')})`] };
-    const one = checkOne(wt, entry.id, gitFacts(wt), null, { trainParts: parts });
+    // The base is the train pull request's, with an empty env so the process's own GITHUB_BASE_REF does not change the answer:
+    // the boarded change gets the own-files rule its own pull request's check applies (stale-only-on-own-files, ADR 0025).
+    const one = checkOne(wt, entry.id, gitFacts(wt, { base: stalenessBase(wt, {}, base) }), null, { trainParts: parts });
     const open = [...(one.report.readiness.met ? [] : [`readiness: Status ${one.report.readiness.status || 'missing'}`]), ...one.report.items.filter((i) => i.status !== 'met').map((i) => `${LABELS[i.id - 1]}: ${i.reason}`)];
     return { problems: open, report: one.report };
   });

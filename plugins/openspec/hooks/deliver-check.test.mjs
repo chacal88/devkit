@@ -5633,6 +5633,7 @@ const ownEvidence = (sha) => `Commit: ${sha}\n\n# Evidence\n\n### Gates\n| gate 
 const ownUnrelated = (root) => { put(root, { 'src/other.ts': 'changed on main\n', 'openspec/changes/other/tasks.md': '- [ ] 1.1 x\n' }); commitAll(root, 'unrelated on main'); };
 const ownMergeMain = (root) => git(root, 'merge', '-q', '--no-ff', '-m', 'merge main', 'main');
 const ownFacts = (root) => gitFacts(root, { base: 'main' });
+const ownGitOk = (root, ...args) => { try { git(root, ...args); return true; } catch { return false; } };
 const evWhy = (root, facts) => acceptanceItem(root, 'feat', facts).reason.match(/evidence\.md is stale \(([^)]*)\)/)?.[1] ?? null;
 const reviewWhys = (root, facts) => Object.fromEntries(DC.readReviews(root, 'feat', facts).map((r) => [r.name, r.why]));
 const allCurrent = Object.fromEntries(OWN_REVIEWERS.map((n) => [n, null]));
@@ -5707,7 +5708,7 @@ test('own-files AC-1 rule: the base commits a merge brings in are exempt unless 
   assert.ok(!evWhy(own.root, ownFacts(own.root)).includes(s7(own.merged)), 'it names a commit of the base, not the merge');
 });
 
-test('own-files AC-1 next: collectState hands neither verify nor review after an unrelated merge', () => {
+test('own-files AC-1 next: collectState hands open-pr, not verify or review, after an unrelated merge', () => {
   const gh = fakeGh();
   gh.set('pr-list', { stdout: [] });
   gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "feat"\n' });
@@ -5717,7 +5718,7 @@ test('own-files AC-1 next: collectState hands neither verify nor review after an
     return nextStep(collectState(root, 'feat', { env })).step;
   };
   const config = 'schema: devkit-lite\nship:\n  devkit-lite: pr\n';
-  assert.ok(!['verify', 'review', 'fix-review'].includes(step(config, ownUnrelated)), 'unrelated merge');
+  assert.equal(step(config, ownUnrelated), 'open-pr', 'unrelated merge: the records are current, the pull request is the next step');
   assert.equal(step(config, ownBrings({ 'src/a.ts': ownLines('line 1', 'main 12') })), 'verify', 'own-file merge');
 });
 
@@ -5831,6 +5832,44 @@ test('own-files AC-7 rule: a file the branch changed then restored is not own', 
   assert.deepEqual(reviewWhys(root, facts), allCurrent);
 });
 
+test('own-files AC-7 rule: a head that is a merge made on the base, both parents already in origin/<base>, is judged as without a base', () => {
+  const root = gitRepo({ config: 'schema: devkit-lite\n', changes: { feat: changeFilesOf() }, files: { 'src/x.ts': 'x\n' } });
+  const R = head(root);
+  put(root, { ...ownReviews(R), 'openspec/changes/feat/evidence.md': ownEvidence(R) });
+  commitAll(root, 'reviews and evidence');
+  put(root, { 'openspec/changes/other/tasks.md': '- [ ] 1.1 x\n' });
+  commitAll(root, 'main moves');
+  git(root, 'switch', '-q', '-c', 'side');
+  put(root, { 'src/y.ts': 'y\n' });
+  const tip = commitAll(root, 'the base goes on with a product file');
+  git(root, 'update-ref', 'refs/remotes/origin/main', tip);
+  // the branch merges the base's newest commit into its own first parent: the merge is the branch's, but both parents are in the base
+  git(root, 'switch', '-q', '-c', 'feat', 'main');
+  git(root, 'merge', '-q', '--no-ff', '-m', 'merge side on the branch', 'side');
+  for (const parent of git(root, 'rev-list', '--parents', '-n', '1', 'HEAD').split(' ').slice(1)) {
+    assert.ok(ownGitOk(root, 'merge-base', '--is-ancestor', parent, 'refs/remotes/origin/main'), 'both parents are in the base');
+  }
+  const facts = ownFacts(root);
+  assert.ok(DC.ownFiles(root, 'feat', facts), 'the rule applies: the head itself is not in the base');
+  assert.equal(DC.ownFiles(root, 'feat', facts).isOwn('src/y.ts'), false, 'the merge brings no own file');
+  const today = evWhy(root, gitFacts(root));
+  assert.equal(today, `${s7(R)} is behind ${s7(head(root))}, which touches src/y.ts`, 'the verdict without a base names the merge');
+  assert.equal(evWhy(root, facts), today, 'the merge is not exempted as a merge of the base');
+  assert.deepEqual(reviewWhys(root, facts), reviewWhys(root, gitFacts(root)));
+});
+
+test('own-files AC-7 rule: histories with no merge base give ownFiles null and today\'s verdict', () => {
+  const { root } = ownFilesRepo({ origin: 'none' });
+  const orphan = git(root, 'commit-tree', git(root, 'hash-object', '-t', 'tree', '/dev/null'), '-m', 'unrelated root');
+  git(root, 'update-ref', 'refs/remotes/origin/main', orphan);
+  assert.ok(!ownGitOk(root, 'merge-base', 'HEAD', orphan), 'the base shares no history with the head');
+  assert.equal(DC.ownFiles(root, 'feat', ownFacts(root)), null);
+  const today = evWhy(root, gitFacts(root));
+  assert.ok(today, 'the verdict without a base is stale');
+  assert.equal(evWhy(root, ownFacts(root)), today);
+  assert.deepEqual(reviewWhys(root, ownFacts(root)), reviewWhys(root, gitFacts(root)));
+});
+
 test('own-files AC-7 base: stalenessBase reads GITHUB_BASE_REF, then the configured base, then origin/HEAD, then main or master, else null', () => {
   const repo = (refs = []) => {
     const root = gitRepo();
@@ -5846,6 +5885,44 @@ test('own-files AC-7 base: stalenessBase reads GITHUB_BASE_REF, then the configu
   assert.equal(DC.stalenessBase(repo(['master']), none, null), 'master');
   assert.equal(DC.stalenessBase(repo(['master', 'main']), none, null), 'main', 'main first');
   assert.equal(DC.stalenessBase(repo(), none, null), null);
+});
+
+// origin/develop holds the base tip the merge brought (unrelated files only) and origin/main an older commit, so a
+// run that judges against `main` instead of `develop` finds the unrelated merge off the base and calls the records stale.
+const OWN_TWO_PRS = 'schema: devkit-lite\ndevkit:\n  delivery:\n    model: two-prs\n    base: develop\n    test_branch: staging\n';
+function ownDevelopRepo(config) {
+  const r = ownFilesRepo({ config, origin: 'none' });
+  git(r.root, 'update-ref', 'refs/remotes/origin/develop', r.tip);
+  git(r.root, 'update-ref', 'refs/remotes/origin/main', r.initial);
+  return r.root;
+}
+const ownStateOf = (root, env = {}) => {
+  const gh = fakeGh();
+  gh.set('pr-list', { stdout: [] });
+  gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "feat"\n' });
+  const state = collectState(root, 'feat', { env: { ...gh.env, ...CI_ENV, ...env } });
+  return { evidence: state.items[0].details.evidence, staleReviews: state.reviews.filter((x) => !x.current).map((x) => x.name) };
+};
+const OWN_JUDGED_CURRENT = { evidence: 'current', staleReviews: [] };
+
+test('own-files AC-7 collectState: the configured base (two-prs) is the branch whose merges the rule exempts, not main', () => {
+  assert.deepEqual(ownStateOf(ownDevelopRepo(OWN_TWO_PRS)), OWN_JUDGED_CURRENT, 'base develop: the unrelated merge stays current');
+  const viaMain = ownStateOf(ownDevelopRepo('schema: devkit-lite\n'));
+  assert.equal(viaMain.evidence, 'stale', 'without the configured base the main fallback judges the same repository stale');
+  assert.deepEqual(viaMain.staleReviews, [...OWN_REVIEWERS].sort());
+});
+
+test('own-files AC-7 collectState: GITHUB_BASE_REF is the base, ahead of main', () => {
+  const root = ownDevelopRepo('schema: devkit-lite\n');
+  assert.deepEqual(ownStateOf(root, { GITHUB_BASE_REF: 'develop' }), OWN_JUDGED_CURRENT, 'GITHUB_BASE_REF=develop');
+  assert.equal(ownStateOf(root, {}).evidence, 'stale', 'the same repository without it falls back to main');
+});
+
+test('own-files AC-7 collectState: GITHUB_BASE_REF wins over the configured base', () => {
+  const root = ownDevelopRepo(OWN_TWO_PRS);
+  git(root, 'update-ref', 'refs/remotes/origin/trunk', git(root, 'rev-parse', 'refs/remotes/origin/main'));
+  assert.equal(ownStateOf(root, { GITHUB_BASE_REF: 'trunk' }).evidence, 'stale', 'the pull request base trunk is judged, not the configured develop');
+  assert.deepEqual(ownStateOf(root, {}), OWN_JUDGED_CURRENT, 'the configured develop when no pull request base is set');
 });
 
 test('own-files AC-7 own: ownFiles leaves out release files, keeps the change folder and both sides of a move', () => {

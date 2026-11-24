@@ -2445,6 +2445,44 @@ test('delivery-train AC-6: devkit-reviews judges each boarded change at its own 
   assert.match(bare.out, /openspec\/trains\/5\.md is missing[^\n]*the departure writes it: \/devkit train/);
 });
 
+// Twelve lines whose first and last differ, so a branch and the base edit one file without a conflict.
+const sharedLines = (first = 'line 1', last = 'line 12') => `${Array.from({ length: 12 }, (_, i) => (i === 0 ? first : i === 11 ? last : `line ${i + 1}`)).join('\n')}\n`;
+
+test('delivery-train own-files AC-8: a boarded change is judged by the own-files rule of its own pull request, so its head that merged only unrelated base files stays current', () => {
+  const p = project({ train: 'true', files: { 'src/shared.txt': sharedLines() } });
+  addChange(p, 'alpha');
+  addChange(p, 'beta', { files: { 'src/shared.txt': sharedLines('beta 1') } });
+  const mergeBase = (id) => {
+    const wt = p.changes[id].wt;
+    git(wt, 'merge', '--no-ff', '-q', '-m', `merge main into ${id}`, 'origin/main');
+    git(wt, 'push', '-q', 'origin', id);
+    return git(wt, 'rev-parse', 'HEAD');
+  };
+  // main moves from a scratch worktree: the main checkout holds the change worktrees, which `git add -A` would commit
+  const onMain = (files, message) => {
+    const wt = join(tmpFolder('devkit-train-main-'), 'w');
+    git(p.t.main, 'worktree', 'add', '-q', '--detach', wt, 'origin/main');
+    put(wt, files);
+    commitAll(wt, message);
+    git(wt, 'push', '-q', 'origin', 'HEAD:main');
+    git(p.t.main, 'worktree', 'remove', '--force', wt);
+  };
+  onMain({ 'src/unrelated.txt': 'brought by the base\n' }, 'an unrelated file on main');
+  mergeBase('alpha');
+  onMain({ 'src/shared.txt': sharedLines('line 1', 'main 12') }, 'a file beta changed, on main');
+  const betaMerge = mergeBase('beta');
+
+  const r = ciOf(handTrain(p, 1, ['alpha', 'beta']));
+  assert.equal(r.code, 1, r.out + r.err);
+  const alpha = trainLines(r).filter((l) => /^ {2}change alpha /.test(l));
+  assert.equal(alpha.length, 1, r.out);
+  assert.match(alpha[0], /pass$/, 'alpha merged only an unrelated base file and stays current');
+  assert.doesNotMatch(r.out, /alpha[^\n]*stale/);
+  const beta = trainLines(r).filter((l) => /^ {2}change beta /.test(l));
+  assert.equal(beta.length, 1, r.out);
+  assert.match(beta[0], new RegExp(`stale code-quality-reviewer \\([0-9a-f]{7} is behind ${betaMerge.slice(0, 7)}, which touches src/shared\\.txt\\)`), 'beta merged a base commit that touches its own file');
+});
+
 test('delivery-train P11: a record that is unreadable, red or older than the head fails, and a release file after it does not hide behind failure 4', () => {
   const p = project({ train: 'true' });
   addChange(p, 'alpha');
