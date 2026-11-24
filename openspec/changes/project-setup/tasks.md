@@ -176,7 +176,7 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
 
 ## 3. The verb, the driver list and the messages (AC-1, AC-2, AC-6)
 
-- [ ] 3.1 Write N-1 to N-5 and N-8 in `plugins/openspec/hooks/change-loop.test.mjs`, N-9 in
+- [x] 3.1 Write N-1 to N-5 and N-8 in `plugins/openspec/hooks/change-loop.test.mjs`, N-9 in
   `plugins/openspec/hooks/project-loop.test.mjs`, and N-18 in
   `plugins/openspec/hooks/delivery-train.test.mjs` beside `delivery-train P9 N7`. Reach
   `BUILT_DRIVERS`, `SETUP_POINTER` and `withoutSetupPointer` through each file's namespace import or
@@ -186,16 +186,16 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^setup AC-" plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/delivery-train.test.mjs`
   on the code as it is. Check: `openspec/changes/project-setup/proof/red-3.txt` holds the run, and
   N-1 to N-5, N-8, N-9 and N-18 fail in it.
-- [ ] 3.2 In `plugins/openspec/hooks/change-loop.mjs`, add the `setup` branch of `startMode` and
+- [x] 3.2 In `plugins/openspec/hooks/change-loop.mjs`, add the `setup` branch of `startMode` and
   the `setup-no-repo` reply in both languages (D-1), and export `BUILT_DRIVERS` (D-2). Check: N-1 to
   N-5 pass.
-- [ ] 3.3 Change the replies of D-8 in `change-loop.mjs`: `not-set-up`, `verb-unknown`,
+- [x] 3.3 Change the replies of D-8 in `change-loop.mjs`: `not-set-up`, `verb-unknown`,
   `design-pack-missing`, `blocked-why.merge-setup`, `blocked-why.merge-setup-missing` and
   `compozy-kit-missing`, in `en` and `pt-BR`; `verb-unknown` lists the six verbs with `setup` right
   after `status` and keeps its `/devkit train` ending (D-7, D-8). Check: N-8, T-14, T-18, T-19, T-20
   and `delivery-train P13: the reply to an unknown verb names /devkit train, in order, in both
   languages` (T-30) pass.
-- [ ] 3.4 Change the other texts of D-8: `flow-check.mjs` `schema-without-declaration` (both
+- [x] 3.4 Change the other texts of D-8: `flow-check.mjs` `schema-without-declaration` (both
   languages), the `FlowUsageError` text of `changeFlow` in `guard.mjs`, `merge-setup.mjs`
   (`SETUP_POINTER` exported, the comment above the ruleset that names `openspec-setup`, and the new
   export `withoutSetupPointer`), the pointer strip of `decideSlice` in `project-loop.mjs` and the one
@@ -206,12 +206,12 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   N-9, N-18, T-7, T-8, T-17, T-21, T-22 and `delivery-train P9 N7` pass, and
   `grep -c "run the openspec" plugins/openspec/hooks/train-loop.mjs plugins/openspec/hooks/project-loop.mjs`
   prints 0 for each file.
-- [ ] 3.5 Write N-6 and N-7 in `plugins/openspec/hooks/guard.test.mjs`. They pin that `runOf` and
+- [x] 3.5 Write N-6 and N-7 in `plugins/openspec/hooks/guard.test.mjs`. They pin that `runOf` and
   `roadmapRunOf` end on a typed `/devkit setup` and that `/devkit status` does not end a roadmap
   run. Write N-16 in `plugins/openspec/hooks/change-loop.test.mjs`: `setup` with an
   `openspec/config.yaml` that cannot be read ends with the usage error and exit 3 (D-1). All three
   pass on the base, so they are not in the red file. Check: the three pass.
-- [ ] 3.6 Gate: `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^setup AC-" --test-name-pattern="^change-loop start" --test-name-pattern="^roadmap-loop start" --test-name-pattern="^project-loop start" --test-name-pattern="^project-loop next: S23" --test-name-pattern="^nextStep row 3a" --test-name-pattern="^mergeSetup" --test-name-pattern="^flow-check AC-7" --test-name-pattern="^compozy-driver readiness" --test-name-pattern="^field-fixes 7 apply" --test-name-pattern="^delivery-train P13" --test-name-pattern="^delivery-train P9 N7" plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/merge-setup.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/compozy-driver.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs` green; covers AC-1 (the verb, typed only), AC-2 (the replies and both pointer strips), AC-6 (the driver list).
+- [x] 3.6 Gate: `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^setup AC-" --test-name-pattern="^change-loop start" --test-name-pattern="^roadmap-loop start" --test-name-pattern="^project-loop start" --test-name-pattern="^project-loop next: S23" --test-name-pattern="^nextStep row 3a" --test-name-pattern="^mergeSetup" --test-name-pattern="^flow-check AC-7" --test-name-pattern="^compozy-driver readiness" --test-name-pattern="^field-fixes 7 apply" --test-name-pattern="^delivery-train P13" --test-name-pattern="^delivery-train P9 N7" plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/merge-setup.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/compozy-driver.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs` green; covers AC-1 (the verb, typed only), AC-2 (the replies and both pointer strips), AC-6 (the driver list).
 
 ## 4. The block writer and the kit finder (AC-3 to AC-7)
 

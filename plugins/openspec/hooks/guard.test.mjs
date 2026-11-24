@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap, findRoot, changeSchema, changeDir, archiveBranchChange, commandSegments, classify, DEVKIT_SCHEMAS, projectSchema, optedIn } from './guard.mjs';
 
 import * as GUARD from './guard.mjs';
-import { gitRepo, put, commitAll, git as gitIn, openspecStub } from './test-fixtures.mjs'; // ship-modes tests ride on the same command
+import { gitRepo, put, commitAll, git as gitIn, openspecStub, typedLine, toolResultLine, transcriptOf } from './test-fixtures.mjs'; // ship-modes tests ride on the same command
 
 const here = dirname(fileURLToPath(import.meta.url));
 const guard = join(here, 'guard.mjs');
@@ -1776,4 +1776,27 @@ test('upfront AC-5 docs: the flow doc names the released flow versions, the 0.37
     'a change on flow 1 (opened before devkit-openspec 0.33.0, or with no recorded flow) keeps its grill with no triage until the owner moves it',
   ]) assert.ok(note.includes(part), `ADR 0021's Note says: ${part}`);
   assert.match(adr, /^- Status: accepted$/m, 'its status stays');
+});
+
+// ---------------------------------------------------------------- /devkit setup (project-setup D-1)
+
+// A transcript of `lines`, as the hooks read it.
+const setupTranscript = (...lines) => ({ transcript_path: transcriptOf(lines) });
+
+// Invariant: a typed /devkit setup ends the hold of a /devkit change run, as any other typed command does, with no code of its own.
+// Layer: guard.mjs#runOf. Suite: guard. Passes on the base (project-setup D-1).
+test('setup AC-1 guard: a typed /devkit setup ends a /devkit change run', () => {
+  const marker = toolResultLine('devkit-run: feat\n{"version":1}');
+  assert.equal(GUARD.runOf(setupTranscript(typedLine('change add an export'), marker))?.change, 'feat', 'the fixture is a change run');
+  assert.equal(GUARD.runOf(setupTranscript(typedLine('change add an export'), marker, typedLine('setup'))), null);
+  assert.equal(GUARD.runOf(setupTranscript(typedLine('change add an export'), marker, typedLine('setup', '/devkit-openspec:devkit'))), null, 'plugin-scoped');
+});
+
+// Invariant: a typed /devkit setup ends the hold of a /devkit roadmap run, and a typed /devkit status keeps it. Layer:
+// guard.mjs#roadmapRunOf. Suite: guard. Passes on the base (project-setup D-1).
+test('setup AC-1 guard: a typed /devkit setup ends a /devkit roadmap run and /devkit status does not', () => {
+  const marker = toolResultLine('devkit-roadmap: 2\n{}');
+  assert.deepEqual(GUARD.roadmapRunOf(setupTranscript(typedLine('roadmap 2'), marker, typedLine('status'))), { command: 'roadmap 2', stopping: false }, 'status keeps the run');
+  assert.equal(GUARD.roadmapRunOf(setupTranscript(typedLine('roadmap 2'), marker, typedLine('setup'))), null);
+  assert.equal(GUARD.roadmapRunOf(setupTranscript(typedLine('roadmap 2'), marker, typedLine('status'), typedLine('setup'))), null, 'status, then setup');
 });

@@ -547,7 +547,7 @@ export function changeFlow(root, dir) {
     const rel = kept ? relative(root, kept) : '';
     const shown = kept ? (rel.startsWith('..') ? kept : rel) : `openspec/schemas/${schema}/flows/${want}.json`;
     if (!kept || !existsSync(kept)) {
-      throw new FlowUsageError(`${basename(dir)} follows flow ${want} of the ${schema} script, and this checkout has no ${shown}: re-run openspec-setup with a devkit-openspec that ships it`);
+      throw new FlowUsageError(`${basename(dir)} follows flow ${want} of the ${schema} script, and this checkout has no ${shown}: re-run /devkit setup with a devkit-openspec that ships it`);
     }
     flow = readFlowFile(kept, `${schema} flow ${want}`);
     if (flow.version !== want) throw new FlowUsageError(`${shown} declares version ${flow.version}, not ${want}`);

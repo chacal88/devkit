@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Lists the changes under way before openspec-setup replaces a project's devkit schemas, and says what the upgrade
+// Lists the changes under way before /devkit setup replaces a project's devkit schemas, and says what the upgrade
 // changes for each (design D-7). Read-only without --apply.
 //   node changes-under-way.mjs <project-root> [--json] [--apply --owner-answer "<text>"]
 // --apply writes approval.md, as not applying, for every full-script change whose implementation started before the
@@ -93,7 +93,7 @@ function approvalNotApplicable(row, answer) {
     '',
     '- Status: not applicable',
     `- Date: ${today()}`,
-    '- Why: the implementation of this change had started (tasks ticked in tasks.md) when openspec-setup replaced the devkit schemas, before the script asked for this approval. No approval is recorded here.',
+    '- Why: the implementation of this change had started (tasks ticked in tasks.md) when /devkit setup replaced the devkit schemas, before the script asked for this approval. No approval is recorded here.',
     `- Owner's words: "${words}"`,
     '',
   ].join('\n');

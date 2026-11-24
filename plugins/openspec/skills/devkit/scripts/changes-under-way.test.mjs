@@ -139,7 +139,7 @@ test('field-fixes 7 apply: with the owner answer only the started full-script ch
   assert.match(text, /^# Plan approval: started$/m);
   assert.match(text, /^- Status: not applicable$/m);
   assert.match(text, /^- Date: \d{4}-\d{2}-\d{2}$/m);
-  assert.match(text, /^- Why: the implementation of this change had started \(tasks ticked in tasks\.md\) when openspec-setup replaced the devkit schemas, before the script asked for this approval\. No approval is recorded here\.$/m);
+  assert.match(text, /^- Why: the implementation of this change had started \(tasks ticked in tasks\.md\) when \/devkit setup replaced the devkit schemas, before the script asked for this approval\. No approval is recorded here\.$/m);
   assert.match(text, /^- Owner's words: "Sim, pode atualizar"$/m);
   assert.doesNotMatch(text, /APPROVED/);
   assert.equal(git(t.root, 'status', '--porcelain'), '', 'the main checkout (short, custom) gets nothing');

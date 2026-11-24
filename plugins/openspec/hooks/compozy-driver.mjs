@@ -19,7 +19,7 @@ export const CHANGE_LOOP = 'devkit-change';
 const FIX = {
   'not-installed': 'brew install compozy/compozy/compozy',
   'daemon-stopped': 'compozy daemon start',
-  'kit-missing': 'the compozy-setup skill (/compozy-setup) installs the devkit kit into this project',
+  'kit-missing': '/devkit setup installs the devkit kit into this project (answer yes to the kit question)',
 };
 
 const defaultExec = (command, args, { cwd, env }) => spawnSync(command, args, { cwd, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });

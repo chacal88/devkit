@@ -166,9 +166,9 @@ test('delivery-train P13: /devkit train starts the verb, with text after it is r
 });
 
 test('delivery-train P13: the reply to an unknown verb names /devkit train, in order, in both languages', () => {
-  assert.match(render('en', 'verb-unknown'), /So far \/devkit change, \/devkit roadmap, \/devkit status, \/devkit project and \/devkit train exist/);
+  assert.match(render('en', 'verb-unknown'), /So far \/devkit change, \/devkit roadmap, \/devkit status, \/devkit setup, \/devkit project and \/devkit train exist/);
   assert.match(render('en', 'verb-unknown'), /or \/devkit train to send the boarded changes on one train\.$/);
-  assert.match(render('pt-BR', 'verb-unknown'), /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit project e \/devkit train/);
+  assert.match(render('pt-BR', 'verb-unknown'), /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit setup, \/devkit project e \/devkit train/);
   assert.match(render('pt-BR', 'verb-unknown'), /\/devkit train para mandar as changes embarcadas em um trem só\.$/);
   const unknown = startRun(configRepo(optedIn(trunkAuto(`"${SUITE}"`))), 'teleport');
   assert.equal(unknown.body.mode, 'unknown-verb');

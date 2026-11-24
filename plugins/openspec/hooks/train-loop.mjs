@@ -19,7 +19,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { collectState, nextStep, parseTrainRecord, staleness, checksItem, makeGh, readContents, branchNamesChange, listWorktrees, RELEASE_FILE, TRAIN_BRANCH } from './deliver-check.mjs';
-import { mergeSetup, ghError } from './merge-setup.mjs';
+import { mergeSetup, ghError, withoutSetupPointer } from './merge-setup.mjs';
 import { readDevkitSettings, projectGate, render, normalizeLang, cleanOf, mainRoot, defaultBase, exitCodeOf } from './change-loop.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -549,7 +549,7 @@ function nextAction(ctx) {
     if (problem) return blocked(problem, at);
     if (ctx.model === 'trunk-auto') {
       const setup = mergeSetup(gh, root, 'merge');
-      if (!setup.ok) return blocked(`${setup.missing.map((m) => m.replace(/;\s*run the openspec-setup skill.*$/, '')).join('; ')}; github-setup.mjs --method merge allows merge commits and auto-merge`, at);
+      if (!setup.ok) return blocked(`${setup.missing.map(withoutSetupPointer).join('; ')}; github-setup.mjs --method merge allows merge commits and auto-merge`, at);
       if (!open.autoMergeRequest) return sessionAction('enable-auto-merge', { ...at, head: open.headRefOid, command: ['gh', 'pr', 'merge', String(open.number), '--auto', '--merge', '--match-head-commit', open.headRefOid] });
       return endAction('waiting-on-github', 'train-auto-merge-on', ctx.say('train-auto-merge-on', at), at);
     }
