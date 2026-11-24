@@ -106,7 +106,7 @@ where D-7 names it. Leave no backup or scratch file in the tree; end every task 
 - [x] 3.7 Run `claude plugin validate .` and save its output to
   `${TMPDIR%/}/devkit-validate-stale-only-on-own-files/phase-3.txt`. Done when the file holds
   `Validation passed`.
-- [ ] 3.8 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate stale-only-on-own-files --strict && grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-stale-only-on-own-files/phase-3.txt"` green, the whole suite once as a background command at the final commit (after the last merge of `origin/main`, with the tests `main` added since `5d255b1` run by name first, CONTRIBUTING); covers every acceptance criterion's tests together and AC-9.
+- [x] 3.8 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate stale-only-on-own-files --strict && grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-stale-only-on-own-files/phase-3.txt"` green, the whole suite once as a background command at the final commit (after the last merge of `origin/main`, with the tests `main` added since `5d255b1` run by name first, CONTRIBUTING); covers every acceptance criterion's tests together and AC-9.
 
 ## Workflow follow-up
 
