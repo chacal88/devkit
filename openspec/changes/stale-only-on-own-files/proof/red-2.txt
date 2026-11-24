@@ -1,0 +1,24 @@
+# Red run on the plan base 5d255b1 (code unchanged, tests added)
+# env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^own-files .* stages" plugins/openspec/hooks/flow-check.test.mjs
+✖ own-files AC-1 stages: an unrelated merge of origin/main keeps unit-tests, evidence and review passed (584.177139ms)
+✔ own-files AC-2 stages: an own-file merge reports the first code-bound stage stale-code naming the merge (683.54248ms)
+ℹ tests 2
+ℹ pass 1
+ℹ fail 1
+✖ failing tests:
+✖ own-files AC-1 stages: an unrelated merge of origin/main keeps unit-tests, evidence and review passed (584.177139ms)
+
+# env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^release-merge-conflict 8" plugins/openspec/hooks/conduct-check.test.mjs
+✖ release-merge-conflict 8: after a release merge that is not pushed, the records stay current and push hands a plain git push (1534.662144ms)
+✔ release-merge-conflict 8b: after a release merge that also brings a file the branch changed, verify and review run again, then push hands a plain git push (2476.642528ms)
+ℹ tests 2
+ℹ pass 1
+ℹ fail 1
+✖ failing tests:
+✖ release-merge-conflict 8: after a release merge that is not pushed, the records stay current and push hands a plain git push (1534.662144ms)
+  + actual - expected
+  + 'verify'
+  - 'blocked'
+
+# Note: `own-files AC-2 stages` and `release-merge-conflict 8b` pass on the plan base on purpose: today every merge that
+# brings a product file stales the records, so they guard that the rule keeps this verdict (the AC-2 side of the rule).

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader, FlowUsageError, readFlow, readFlowFile, FLOW_LANGS, changeFlow, changeSchemaAt, parseDevkitBlock, budgetValue, spendOf, spendSources, spendLines } from './guard.mjs';
-import { gitFacts, staleness, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads, trainFacts, isDevkitScript } from './deliver-check.mjs';
+import { gitFacts, staleness, ownFiles, stalenessBase, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads, trainFacts, isDevkitScript } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
 // The flow file reader and its error live in guard.mjs (the CI job downloads that file, not this one); one reader, re-exported.
@@ -269,7 +269,7 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
     if (e instanceof ShipConfigError) throw new FlowUsageError(e.message);
     throw e;
   }
-  const gf = gitFacts(root);
+  const gf = gitFacts(root, { base: stalenessBase(root, env, config.base) });
   // The change's pull request, asked once and only when needed. Off the change's own branch a merged pull
   // request switches to the post-merge walk: the header commits were squashed away, so the stale check and
   // the task count give way to the headers themselves.
@@ -283,7 +283,7 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   const postMerge = config.ship !== 'plan' && offOwnBranch(root, id, branch) && delivery().delivered;
   Object.assign(facts, {
     head: gf.head, dirty: gf.dirty, fingerprint: fingerprint(root, gf.head), postMerge,
-    staleness: (sha) => (postMerge ? null : sha === 'none' ? 'the header records no commit' : staleness(root, { sha, uncommitted: false }, gf)),
+    staleness: (sha) => (postMerge ? null : sha === 'none' ? 'the header records no commit' : staleness(root, { sha, uncommitted: false }, gf, { own: ownFiles(root, id, gf) })),
     staleReviewers: () => (postMerge ? [] : readReviews(root, id, gf).filter((r) => r.why).map((r) => r.name)),
     delivery: () => readDelivery({ ship: config.ship, gh, head: gf.head, delivery, twoPrs, train: trainOn ? (prHead) => trainFacts(gh, root, id, { suite: config.train, prHead, kind: 'change' }) : null }),
   });
