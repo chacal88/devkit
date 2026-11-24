@@ -233,7 +233,7 @@ merge before review"; the numbers at the plan base are given only to locate the 
   suite "the guard suite". Check: `grep -c "v0.33.0" docs/openspec-flow.md` prints 0, and
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="change-loop docs: the design records the answers|release-merge-conflict 15" plugins/openspec/hooks/change-loop.test.mjs`
   passes.
-- [ ] 3.3 Prove AC-1 before the pull request: copy `openspec/` into a fresh folder
+- [x] 3.3 Prove AC-1 before the pull request: copy `openspec/` into a fresh folder
   (`d="$(mktemp -d)" && cp -R openspec "$d/"`), run `openspec archive release-merge-leftovers --yes`
   inside `$d`, and read `$d/openspec/specs/commit-attribution/spec.md`: `grep -c "push-rebased"` prints
   0, `grep -c "own rebase rewrote"` prints 0, `grep -c "^#### Scenario:"` prints 17 (18 at the plan
