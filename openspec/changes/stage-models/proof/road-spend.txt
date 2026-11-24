@@ -1,0 +1,39 @@
+Change proof-road (devkit-lite script)
+
+ 1  Open the change         passed
+ 2  Requirements (grill)    passed
+ 3  Proposal                passed
+ 4  Specs                   passed
+ 5  Tasks                   passed
+ 6  Implementation          passed: 1 of 1 tasks done
+ 7  Unit tests              passed
+ 8  E2E tests               pending: e2e-tests.md does not exist yet
+ 9  Demonstration           blocked: waits for stage 8
+10  Code review             blocked: waits for stage 9
+11  Delivery                blocked: waits for stage 10
+12  Retro and archive       blocked: waits for stage 11
+
+Next stage: 8 E2E tests
+Who runs it: e2e-tester
+Why: e2e-tests.md does not exist yet.
+
+Spend of proof-road, in tokens:
+Stage Unit tests: haiku 14182, sonnet 14944
+Stage E2E tests: sonnet 2740, opus 2860
+Stage Unit tests, a retry from haiku to sonnet: 14944
+Stage E2E tests, a retry from sonnet to opus: 2860
+Total: 34726 tokens; no budget is set
+
+$ roadmap-loop.mjs status
+Roadmap: 1 open of 1 · 0 in the queue · 0 archived
+
+Under way
+  proof-road   E2E tests
+
+proof-road
+  Spend of proof-road, in tokens:
+  Stage Unit tests: haiku 14182, sonnet 14944
+  Stage E2E tests: sonnet 2740, opus 2860
+  Stage Unit tests, a retry from haiku to sonnet: 14944
+  Stage E2E tests, a retry from sonnet to opus: 2860
+  Total: 34726 tokens; no budget is set

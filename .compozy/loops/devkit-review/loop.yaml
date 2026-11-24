@@ -1,0 +1,301 @@
+# One review round of a change, in the three stages of the `review-change` skill, run by CompozyOS.
+#
+# `devkit-change` starts it (a `run-loop` node) when the checker says the change needs its review. The
+# rules are the ones of `review-round.mjs` (reached through .compozy/bin/devkit-kit review-round) and the
+# prompts are the ones it writes: a coordinator sets the round up and writes each job's prompt to a file,
+# each job runs as its own CompozyOS session (a seat that hands the prompt to the Claude agent of the
+# reviewer, so every agent judges in its own context), and the exchange between the stages is JSON files in
+# a folder under the system temp directory, as the skill's `agents` path does. The verdict rule is the
+# script's: any open blocking finding rejects. The files of the review (`reviews/<reviewer>.md`, `review.md`)
+# are written by the roles of the devkit, never by this loop.
+apiVersion: compozy.loop/v1
+kind: Loop
+meta:
+  name: devkit-review
+  description: One review round of a change with the devkit bench, in three stages (the reviewers, three verifiers for each finding that needs them, the writers of the verdicts), ending in review.md.
+  catalog:
+    use_when: "The devkit checker says a change needs its review round before it ships; devkit-change starts it."
+    keywords: [devkit, review, bench]
+    category: Engineering
+
+concurrency: allow
+
+inputs:
+  change_id:
+    type: string
+    required: true
+    description: The OpenSpec change id whose round this is.
+  lang:
+    type: string
+    enum: [en, pt-BR]
+    default: pt-BR
+    description: The language the person is addressed in.
+  root:
+    type: string
+    required: true
+    description: The absolute path of the checkout the change is built in (its task worktree).
+
+contract:
+  goal: "Run one review round of the change {{ .inputs.change_id }}."
+  definition_of_done: >
+    The reviewers of the bench judged the change {{ .inputs.change_id }}, every finding that needed a
+    verification has its votes, each reviewer's verdict file is written, and review.md carries the round's
+    consolidated section.
+  iteration_cap: 1
+  stop_when: "generation >= 1"
+
+graph:
+  nodes:
+    # The bench: steps 1 to 4 of the skill. A failed structural check writes review.md as the skill says and returns no job.
+    - id: bench
+      class: action
+      kind: run-agent
+      params:
+        agent: change-coordinator
+        environment:
+          mode: directory
+          directory: "{{ .inputs.root }}"
+        prompt: |
+          Run steps 1 to 4 of the `review-change` skill for the change {{ .inputs.change_id }}, in this checkout, on its `agents` path, and stop before any reviewer runs.
+
+          First read what this review is for: run `.compozy/bin/devkit-kit change-loop next --change {{ .inputs.change_id }} --lang {{ .inputs.lang }}`, which only reads. When its `step` is `review-resolution`, this is a resolution call: follow the skill's section "Resolution calls" with the support branch `next.support`, the newest commit `next.commit`, the diff commands `next.diffs` and the round `next.round`. Otherwise it is the change's own round.
+
+          1. Capture the surface: the change's diff against the default branch, its files and the commit at HEAD.
+          2. Run the structural check first. When it fails, write review.md as the skill says for a structural failure, return `structural` FAIL with no job, and stop.
+          3. Pick the bench by the surface, by the skill's matrix, or as the scoped call asks.
+          4. Build `args` with `head` (the commit at HEAD) and set `path` to `agents`. Make the folder <temp>/devkit-review/{{ .inputs.change_id }}/<head>/ under the system temp directory and write `args.json` in it. Run `.compozy/bin/devkit-kit review-round stage1 --input <that folder>/args.json` and write each job's prompt to `prompts/<reviewer>.md` in that folder.
+
+          Return `structural` (PASS or FAIL), `dir` (that folder, absolute) and `jobs`: one per reviewer, with `reviewer` (its agent name), `prompt_file` (the absolute path of its prompt) and `save_to` (the absolute path <dir>/stage1/<reviewer>.json, where its stage-1 object goes). Write to the person in {{ if eq .inputs.lang "en" }}English{{ else }}Brazilian Portuguese{{ end }}.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [structural, dir, jobs]
+          properties:
+            structural: { type: string, enum: [PASS, FAIL] }
+            dir: { type: string }
+            jobs:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [reviewer, prompt_file, save_to]
+                properties:
+                  reviewer: { type: string }
+                  prompt_file: { type: string }
+                  save_to: { type: string }
+      retry:
+        max_attempts: 1
+      timeout: 1h
+
+    # Stage 1: every reviewer in its own session, in parallel.
+    - id: reviewers
+      class: control
+      kind: fan-out
+      collection: "{{ .nodes.bench.output.jobs }}"
+      max_fan_out: 6
+      max_parallel: 6
+
+    - id: review_lane
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .item.reviewer }}"
+        environment:
+          mode: directory
+          directory: "{{ .inputs.root }}"
+        prompt: |
+          This is one reviewer's stage-1 review of the change {{ .inputs.change_id }}. Read the prompt in {{ .item.prompt_file }} and hand its text, unchanged, to your Claude agent as the brief. Create the folder of {{ .item.save_to }} if it is missing and save the JSON object the agent returns, exactly as returned, to {{ .item.save_to }}. Report done, with that path in the summary; when the agent returns no object, report failure.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [outcome, summary]
+          properties:
+            outcome: { type: string, enum: [done, failure] }
+            summary: { type: string }
+      retry:
+        max_attempts: 1
+      timeout: 2h
+
+    - id: reviewed
+      class: control
+      kind: collect
+
+    # Stage 2 plan: the verifier jobs for every blocking or important finding that has no disposition.
+    - id: verify_plan
+      class: action
+      kind: run-agent
+      params:
+        agent: change-coordinator
+        environment:
+          mode: directory
+          directory: "{{ .inputs.root }}"
+        prompt: |
+          Plan the verification stage of the review round of the change {{ .inputs.change_id }}. The bench returned `structural` {{ .nodes.bench.output.structural }} and the folder {{ .nodes.bench.output.dir }}. When `structural` is FAIL there is nothing to verify: return an empty list of jobs.
+
+          Otherwise collect the stage-1 objects saved in {{ .nodes.bench.output.dir }}/stage1/ into one JSON object keyed by reviewer, run `.compozy/bin/devkit-kit review-round verify --input <file>` with the `args` of {{ .nodes.bench.output.dir }}/args.json and that object, and write each verifier job's prompt to `prompts/verify-<reviewer>-<id>-<k>.md` in {{ .nodes.bench.output.dir }}. A reviewer with no saved object failed its stage: the script names it.
+
+          Return `jobs`: one per verifier call, with `reviewer`, `id`, `k`, `prompt_file` (the absolute path of the prompt) and `save_to` (the absolute path {{ .nodes.bench.output.dir }}/votes/<reviewer>-<id>-<k>.json).
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [jobs]
+          properties:
+            jobs:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [reviewer, id, k, prompt_file, save_to]
+                properties:
+                  reviewer: { type: string }
+                  id: { type: string }
+                  k: { type: number }
+                  prompt_file: { type: string }
+                  save_to: { type: string }
+      retry:
+        max_attempts: 1
+      timeout: 1h
+
+    # Stage 2: three refuting verifiers for each such finding, in parallel.
+    - id: verifiers
+      class: control
+      kind: fan-out
+      collection: "{{ .nodes.verify_plan.output.jobs }}"
+      max_fan_out: 90
+      max_parallel: 9
+
+    - id: verify_lane
+      class: action
+      kind: run-agent
+      params:
+        agent: finding-verifier
+        environment:
+          mode: directory
+          directory: "{{ .inputs.root }}"
+        prompt: |
+          This is one verifier's vote on a finding of the change {{ .inputs.change_id }}. Read the prompt in {{ .item.prompt_file }} and follow it as your brief. Create the folder of {{ .item.save_to }} if it is missing and save the JSON object you return as your vote, exactly as returned, to {{ .item.save_to }}. Report done, with that path in the summary; when you cannot vote, report failure.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [outcome, summary]
+          properties:
+            outcome: { type: string, enum: [done, failure] }
+            summary: { type: string }
+      retry:
+        max_attempts: 1
+      timeout: 1h
+
+    - id: verified
+      class: control
+      kind: collect
+
+    # Stage 3 plan: the outcomes (the script's rules over the stage-1 objects and the votes) and the writers' prompts.
+    - id: outcomes
+      class: action
+      kind: run-agent
+      params:
+        agent: change-coordinator
+        environment:
+          mode: directory
+          directory: "{{ .inputs.root }}"
+        prompt: |
+          Plan the writing stage of the review round of the change {{ .inputs.change_id }}, in the folder {{ .nodes.bench.output.dir }}. When the bench returned `structural` FAIL ({{ .nodes.bench.output.structural }}), there is nothing to write: return an empty list of jobs.
+
+          Otherwise collect the stage-1 objects ({{ .nodes.bench.output.dir }}/stage1/) keyed by reviewer and the verifier votes ({{ .nodes.bench.output.dir }}/votes/), run `.compozy/bin/devkit-kit review-round outcomes --input <file>` with the `args` of {{ .nodes.bench.output.dir }}/args.json, keep its whole answer in {{ .nodes.bench.output.dir }}/outcomes.json, and write each writer job's prompt to `prompts/write-<reviewer>.md` in {{ .nodes.bench.output.dir }}.
+
+          Return `jobs`: one per reviewer that must write a verdict file, with `reviewer`, `prompt_file` (the absolute path of its prompt) and `save_to` (the absolute path of its file, openspec/changes/{{ .inputs.change_id }}/reviews/<reviewer>.md under {{ .inputs.root }}).
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [jobs]
+          properties:
+            jobs:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [reviewer, prompt_file, save_to]
+                properties:
+                  reviewer: { type: string }
+                  prompt_file: { type: string }
+                  save_to: { type: string }
+      retry:
+        max_attempts: 1
+      timeout: 1h
+
+    # Stage 3: each reviewer's own agent writes its verdict file, in parallel.
+    - id: writers
+      class: control
+      kind: fan-out
+      collection: "{{ .nodes.outcomes.output.jobs }}"
+      max_fan_out: 6
+      max_parallel: 6
+
+    - id: write_lane
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .item.reviewer }}"
+        environment:
+          mode: directory
+          directory: "{{ .inputs.root }}"
+        prompt: |
+          This is one reviewer's verdict file for the change {{ .inputs.change_id }}. Read the prompt in {{ .item.prompt_file }} and hand its text, unchanged, to your Claude agent as the brief; the agent writes its file {{ .item.save_to }} (the folder is openspec/changes/{{ .inputs.change_id }}/reviews/). Report done, with that path in the summary; when the file is not written, report failure.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [outcome, summary]
+          properties:
+            outcome: { type: string, enum: [done, failure] }
+            summary: { type: string }
+      retry:
+        max_attempts: 1
+      timeout: 2h
+
+    - id: written
+      class: control
+      kind: collect
+
+    # The consolidation: check each file, then the verdict by the script's rule, then review.md. A check that finds a
+    # mismatch cannot return done: the outcome enum has no other word, so the node fails before review.md is written, the
+    # review loop fails, and devkit-change asks the owner to retry the round from the files.
+    - id: consolidate
+      class: action
+      kind: run-agent
+      params:
+        agent: change-coordinator
+        environment:
+          mode: directory
+          directory: "{{ .inputs.root }}"
+        prompt: |
+          Consolidate the review round of the change {{ .inputs.change_id }}, in the folder {{ .nodes.bench.output.dir }}. When the bench returned `structural` FAIL ({{ .nodes.bench.output.structural }}), review.md is already written: return done and change nothing.
+
+          Otherwise run `.compozy/bin/devkit-kit review-round check-file --input <file>` for each reviewer's file under openspec/changes/{{ .inputs.change_id }}/reviews/. On any mismatch, write nothing and return failure. Then run `.compozy/bin/devkit-kit review-round consolidate --input <file>` with `args` from {{ .nodes.bench.output.dir }}/args.json and `outcomes`, `failed` and `notes` from {{ .nodes.bench.output.dir }}/outcomes.json, and write review.md with its stage header, naming the path `agents`, as the `review` row of the `ship-change` skill says.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [outcome, summary]
+          properties:
+            outcome: { type: string, enum: [done] }
+            summary: { type: string }
+      retry:
+        max_attempts: 1
+      timeout: 1h
+
+  edges:
+    - { from: bench, to: reviewers }
+    - { from: reviewers, to: review_lane }
+    - { from: review_lane, to: reviewed }
+    - { from: reviewed, to: verify_plan }
+    - { from: verify_plan, to: verifiers }
+    - { from: verifiers, to: verify_lane }
+    - { from: verify_lane, to: verified }
+    - { from: verified, to: outcomes }
+    - { from: outcomes, to: writers }
+    - { from: writers, to: write_lane }
+    - { from: write_lane, to: written }
+    - { from: written, to: consolidate }
+
+start:
+  - kind: cli
+  - kind: uds

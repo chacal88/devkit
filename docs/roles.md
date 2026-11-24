@@ -7,24 +7,25 @@ any harness that can run the role. This document says what each role does, what 
 never does, which stages name it, and who plays it in Claude Code today.
 
 In Claude Code a role is the `devkit-core` agent of the same name where one exists; the sections say
-where it does not. A helper is a role that a stage's main role may call on; it delivers to that role
+where it does not. On the CompozyOS driver a role is the CompozyOS agent of the same name, a seat that
+hands its work to that Claude agent ([docs/compozy-kit.md](compozy-kit.md)). A helper is a role that a stage's main role may call on; it delivers to that role
 and not to the change folder.
 
 ## change-coordinator
 
-In `docs/coordination-design.md` this role is the team's `tech-lead`; the CompozyOS kit's `tech-lead` is a different role, its planner, renamed `planner` in round 21.
+In `docs/coordination-design.md` this role is the team's `tech-lead`; the first CompozyOS kit's `tech-lead` shell, which is gone, was a different role, its planner, today `change-planner`.
 
-- Does: Runs the change from its opening to its retro: opens the folder, grills the owner for the requirements, hands each stage to its role, reads the checker after every stage and asks the owner only where a stage says so.
+- Does: Runs the change from its opening to its retro: opens the folder, grills the owner for the requirements, hands each stage to its role, reads the checker after every stage and asks the owner only where a stage says so. In a project with a delivery train it also departs the train on `/devkit train` (the `train-loop.mjs` script), when the owner types it.
 - Delivers: The change folder, `requirements.md` and `retro.md`, each with its stage header.
 - Never: Writes product code, approves its own change, or skips a stage the checker has not passed.
 - Stages: `open`, `requirements`, `retro` (both scripts).
-- Played today by: The main session running `/devkit change` (the `devkit` skill of devkit-openspec), or `/devkit roadmap` for every open change of its run, held by the stop and hand-off locks (in the desktop app each change of a run has a session of its own, which plays the change coordinator, [ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md); a run opens every change at its start and its session runs on the run's ticket through the `devkit-session` skill, [ADR 0021](adr/0021-a-roadmap-run-opens-every-change-at-its-start.md)); `ship-change` still finishes a change begun under the previous script. The `requirements-grill` and `retro` skills carry its two writing steps.
+- Played today by: The agent `devkit-openspec:change-coordinator` on the CompozyOS driver; in Claude Code, the main session running `/devkit change` (the `devkit` skill of devkit-openspec), or `/devkit roadmap` for every open change of its run, held by the stop and hand-off locks (in the desktop app each change of a run has a session of its own, which plays the change coordinator, [ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md); a run opens every change at its start and its session runs on the run's ticket through the `devkit-session` skill, [ADR 0021](adr/0021-a-roadmap-run-opens-every-change-at-its-start.md)); `ship-change` still finishes a change begun under the previous script. The `requirements-grill` and `retro` skills carry its two writing steps.
 
 ## roadmap-coordinator
 
 In `docs/coordination-design.md` this role is the team's `manager`.
 
-- Does: Reads `openspec/roadmap.md`, starts every change whose `after:` dependencies are archived up to the number the owner set for the run, holds a start while the machine is loaded, and keeps the changes it holds open going while the owner answers another one.
+- Does: Reads `openspec/roadmap.md`, starts every change whose `after:` dependencies are archived up to the number the owner set for the run, holds a start while the machine is loaded, and keeps the changes it holds open going while the owner answers another one. In a project with a delivery train it departs the train on `/devkit train`, as the roadmap run's session.
 - Delivers: Nothing of its own: the changes it starts, and the run's event lines and board.
 - Never: Writes product code, starts a change the loop did not return, hands two stages of one change at once, or answers an owner gate itself.
 - Stages: none; it starts changes.
@@ -38,7 +39,7 @@ In `docs/coordination-design.md` this role is the team's `tech-lead` for a new p
 - Delivers: The slice's stage records, each with its stage header, and the documents under `docs/design/<slice>/` and the new ADRs the owner approved.
 - Never: Writes product code, sets a stage record to passed without the owner's approval, edits `openspec/roadmap.md` by hand, edits a flat `docs/design/` or another slice's folder, or merges.
 - Stages: `open`, `business`, `domain-model`, `architecture`, `implementation-plan`, `roadmap` (`devkit-project` only).
-- Played today by: The main session running `/devkit project` (the `devkit` skill of devkit-openspec); it has no agent file, as `change-coordinator` has none.
+- Played today by: The main session running `/devkit project` (the `devkit` skill of devkit-openspec); it has no agent file.
 
 ## owner
 
@@ -46,7 +47,7 @@ In `docs/coordination-design.md` this role is the team's `tech-lead` for a new p
 - Delivers: The answers the stages record: the requirements answers, `approval.md` and the retro answers.
 - Never: Is replaced by an agent: no role records an approval for the owner.
 - Stages: `requirements` (answers), `approval` (`devkit` only), `retro` (answers).
-- Played today by: The human, asked one question at a time by the session.
+- Played today by: The human, asked one question at a time by the session, or on CompozyOS as the requests of the run.
 
 ## screen-designer
 
@@ -118,7 +119,7 @@ In `docs/coordination-design.md` this role is the team's `tech-lead` for a new p
 - Delivers: `reviews/<reviewer>.md` from each reviewer and `review.md` with the round's consensus and a stage header.
 - Never: Writes product code or reviews its own work.
 - Stages: `review`.
-- Played today by: The `review-change` skill, which dispatches the reviewer agents.
+- Played today by: The `review-change` skill, which dispatches the reviewer agents; on CompozyOS, the `devkit-review` loop, which runs the same round as parallel sessions.
 
 ## commit-and-pr
 
