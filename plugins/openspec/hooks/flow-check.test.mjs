@@ -1059,17 +1059,45 @@ test('own-files AC-2 stages: an own-file merge reports the first code-bound stag
 const MERGED_OWN = { number: 12, url: 'https://github.com/o/r/pull/12', state: 'MERGED', headRefOid: 'f'.repeat(40), baseRefName: 'main', mergeable: 'UNKNOWN', autoMergeRequest: null, mergeStateStatus: 'UNKNOWN', headRefName: 'feat', mergedAt: '2026-11-19T10:00:00Z', body: 'evidence: openspec/changes/feat/evidence.md' };
 const repoMain = { stdout: { default_branch: 'main' } };
 
+// The rules of the default branch and the rollup of merged pull request #12, as the forced-merge read asks for them.
+const REQUIRED_RULES = { stdout: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'check' }, { context: 'devkit-reviews' }] } }] };
+const NO_CLASSIC = { exit: 1, stderr: 'gh: Branch not protected (HTTP 404)\n' };
+const runOf = (name, conclusion) => ({ __typename: 'CheckRun', name, status: 'COMPLETED', conclusion });
+
 test('field-fixes 4 delivered: a merged pull request with tasks left is not delivered; the next stage is the implementation naming the pull request and the tasks', () => {
   const { report } = deliveryReport({ branch: 'main', fill: (set) => {
     set('pr-list-state-merged', { stdout: [MERGED_OWN] });
     set('api-GET-repos__owner___repo_', repoMain);
     set(PR_FILES_KEY(12), filesFixture(['openspec/changes/feat/tasks.md', 'src/a.ts']));
     set(TASKS_ON_KEY('feat'), tasksFixture(tasksText({ ticked: ['1.1'], unticked: ['3.1', '3.2'] })));
+    // Every required check was green on the merged head: not an owner's forced merge, so the readout keeps its partial-merge answer.
+    set('api-GET-repos__owner___repo__rules_branches_main', REQUIRED_RULES);
+    set('api-GET-repos__owner___repo__branches_main_protection_required_status_checks', NO_CLASSIC);
+    set('pr-view-12', { stdout: { statusCheckRollup: [runOf('check', 'SUCCESS'), runOf('devkit-reviews', 'SUCCESS')] } });
   } });
   assert.deepEqual(outcome(report), { next: 'implementation', reasonCode: 'tasks-left-after-merge' });
   assert.match(report.next.reason, /#12/);
   assert.match(report.next.reason, /3\.1, 3\.2/);
   assert.notEqual(report.stages.find((s) => s.id === 'delivery').state, 'passed');
+});
+
+test('forced-merge-path 1: a forced merge read that fails ends the readout blocked gh-error, quoting the error', () => {
+  for (const [name, fill] of Object.entries({
+    'a rollup read that fails': (set) => set('pr-view-12', { exit: 1, stderr: 'gh: boom\n' }),
+    'a rollup with no check list': (set) => set('pr-view-12', { stdout: { number: 12 } }),
+  })) {
+    const { report } = deliveryReport({ branch: 'main', fill: (set) => {
+      set('pr-list-state-merged', { stdout: [MERGED_OWN] });
+      set('api-GET-repos__owner___repo_', repoMain);
+      set('api-GET-repos__owner___repo__rules_branches_main', REQUIRED_RULES);
+      set('api-GET-repos__owner___repo__branches_main_protection_required_status_checks', NO_CLASSIC);
+      set(PR_FILES_KEY(12), filesFixture(['openspec/changes/feat/tasks.md', 'src/a.ts']));
+      set(TASKS_ON_KEY('feat'), tasksFixture(tasksText({ ticked: ['1.1'], unticked: ['3.1'] })));
+      fill(set);
+    } });
+    assert.deepEqual(outcome(report), { end: 'blocked', reasonCode: 'gh-error' }, name);
+    assert.match(report.end.params.error, /boom|statusCheckRollup/, name);
+  }
 });
 
 test('field-fixes 4 delivered: a pull request that only links the evidence does not switch to the walk after the merge', () => {
