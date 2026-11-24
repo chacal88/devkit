@@ -124,7 +124,7 @@ task with `git status --short`.
   cases only.
 - [x] 3.5 Remove the scratch repositories of 3.4. Check: `ls /var/tmp/devkit-stage-ceiling-consecutive`
   lists none of them, and `git status --short` shows only the change's files.
-- [ ] 3.6 Gate: `mkdir -p /var/tmp/devkit-stage-ceiling-consecutive && env TMPDIR=/var/tmp/devkit-stage-ceiling-consecutive GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate stage-ceiling-consecutive --strict`
+- [x] 3.6 Gate: `mkdir -p /var/tmp/devkit-stage-ceiling-consecutive && env TMPDIR=/var/tmp/devkit-stage-ceiling-consecutive GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate stage-ceiling-consecutive --strict`
   green, the suite run as a background command of the tool; covers AC-1 to AC-7 and AC-9 with every
   other suite at once.
 
