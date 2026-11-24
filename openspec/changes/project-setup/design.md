@@ -3,9 +3,12 @@
 
 Change: `project-setup` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
 (motivation: `proposal.md`; requirements: `requirements.md`; decision record:
-`docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md`). Base:
-`origin/main` at `c1ac8c4`, read on 2026-11-23, and the local branch `compozy-driver` at `cb39d27`
-(not fetched; first read at `9c95942`, re-read at `cb39d27` after the readiness review).
+`docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md`). Base: the branch
+`project-setup` after its merge of `origin/main` at `f84bc6e` (`main` then held `compozy-driver`,
+`delivery-train` and `stage-models`, merged and not archived), re-read at `fa2969b` on 2026-11-24
+with no fetch. The first draft was written against `origin/main` at `c1ac8c4` and the local branch
+`compozy-driver` at `cb39d27`; every fact below was re-read on the merged tree, and line numbers
+are hints (the tests are the contract).
 
 ## Context
 
@@ -15,21 +18,37 @@ Change: `project-setup` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / t
   config and the GitHub step. `plugins/compozy/skills/compozy-setup/` (`SKILL.md`, `install-kit.mjs`,
   templates, tests) installs `.compozy/`.
 - The verbs of `/devkit` are decided by `startMode` in `plugins/openspec/hooks/change-loop.mjs`. Its
-  verb list is checked at line 1727 (`['change', 'roadmap', 'status', 'project']`) and the project
-  gate `projectGate` runs right after it, so a verb that must run in a project that is not set up has
-  to be answered before that gate. The replies that name the old skill are at lines 141, 309, 353
-  and 388 (`en`) and 396, 564, 608 and 643 (`pt-BR`).
-- The drivers: `DRIVERS = ['claude', 'compozy', 'script']` (line 58) and
-  `DRIVER_ROUND = { compozy: 21, script: 22 }` (line 1680). On the branch `compozy-driver`,
-  `DRIVER_ROUND` is `{ script: 22 }`, so `compozy` runs. That branch also rewrites `compozy-setup`:
-  21 generated agents, three loops, `gen-agents.mjs`, retired-file handling. It adds the reply
-  `compozy-kit-missing` and `compozy-driver.mjs`'s fix text `kit-missing`, both naming
-  `/compozy-setup`, and imports five `compozy-setup` test files into `guard.test.mjs`. CI gains
+  verb list is checked at line 1902 (`['change', 'roadmap', 'status', 'project', 'train']`) and the
+  project gate `projectGate` runs right after it, so a verb that must run in a project that is not set
+  up has to be answered before that gate. The replies that name the old skills are at lines 205, 221,
+  397, 446 and 481 (`en`) and 490, 506, 682, 731 and 766 (`pt-BR`); `verb-unknown` is at 204 and 489.
+- The drivers: `DRIVERS = ['claude', 'compozy', 'script']` (line 63, exported) and
+  `DRIVER_ROUND = { script: 22 }` (line 1852), so `compozy` runs. `compozy-driver` rewrote
+  `compozy-setup`: 21 generated agents, three loops, `gen-agents.mjs`, retired-file handling. It added
+  the reply `compozy-kit-missing` and `compozy-driver.mjs`'s fix text `kit-missing`, both naming
+  `/compozy-setup`, and imports five `compozy-setup` test files into `guard.test.mjs`. CI runs
   `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check`, and `CLAUDE.md` names
-  it. At `cb39d27` ("renumber compozy-driver above main") its ADR is
-  `docs/adr/0022-compozy-runs-the-short-loop.md` (now `docs/adr/0024-compozy-runs-the-short-loop.md`
-  on `main`), devkit-openspec is 0.34.0 and the marketplace 0.38.0. This change's record carries the
-  number 0025, so no two records share a number; task 6.6 checks it against `origin/main`.
+  it. Its record is `docs/adr/0024-compozy-runs-the-short-loop.md`. At the merge `f84bc6e`,
+  devkit-openspec is 0.36.0 and the marketplace 0.40.0; these are read again at every later merge
+  (D-12). This change's record takes the next free number on `origin/main` at the last merge before
+  review; its file name carries that number today, and every reference to it names the file.
+- `delivery-train` (merged, not archived) added a sixth verb, `/devkit train`, with the replies
+  `train-args` and the train replies, a `## Train` section of the `devkit` skill right after
+  `## Waiting on GitHub`, the script `plugins/openspec/hooks/train-loop.mjs` and the suite
+  `plugins/openspec/hooks/delivery-train.test.mjs` (imported by `guard.test.mjs`). `verb-unknown` now
+  lists `change, roadmap, status, project, train`, and the skill's `argument-hint` reads
+  `... | status | train | project [<name>]`. `train-loop.mjs` line 552 strips the old setup pointer
+  from `mergeSetup`'s facts with its own copy of `project-loop.mjs`'s regex (D-8). Its delta
+  MODIFIES the same `change-coordination` requirement as this change (D-12, step 7).
+- `stage-models` (merged, not archived) added the `models:` table and `stage-models.test.mjs`. It
+  names neither old skill and touches no file this plan edits beyond what D-13 lists; the setup asks
+  no `models` key (requirements, Out of scope).
+- The `devkit` skill's `##` headings on the merged tree, as `change-loop.test.mjs` line 2472 pins
+  them: `Settings, Start, On the CompozyOS driver, A new change, Loop, Owner gates, Waiting on
+  GitHub, Train, Roadmap, Status, Project, Never`. `## Start`'s first item ends "When the JSON's
+  `settings.driver` is `compozy`, read the next section instead of the lines below", and
+  `## On the CompozyOS driver` lists `new`, `resume`, `choose`, `ask-unfinished`, `roadmap`, `status`
+  and `driver-no-project` only (D-7).
 - devkit-compozy also ships the skills `screen-design` and `screen-demo`. They stay (round 24 removes
   them, `docs/coordination-design.md`).
 - The project's config is read with one-level parsers that this change reuses and does not change:
@@ -45,7 +64,8 @@ Change: `project-setup` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / t
 - Decisions this design follows: ADR 0004 (per-project opt-in; amended), ADR 0009 (CompozyOS as a
   second driver; its Decision kept), ADR 0010 decision 1 (what lives under the project's `openspec/`),
   ADR 0018 (delivery model; and its rejected fourth downloaded checker file), ADR 0002 (merge mode
-  by opt-in), ADR 0019 (the release tag), the proposed ADR 0025.
+  by opt-in), ADR 0019 (the release tag), the proposed record
+  `docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md`.
 
 ## Goals / Non-Goals
 
@@ -84,13 +104,16 @@ request could not be read) is the part that applies. The words
 after `setup` are ignored (the `text` field carries them, unused). `setups` and other words stay
 `unknown-verb`.
 
-The verb list at line 1727 stays as it is, because the branch above answers `setup` before that
-check is reached. Only the `verb-unknown` reply gains `/devkit setup` (D-8).
+The verb list at line 1902 (`['change', 'roadmap', 'status', 'project', 'train']`) stays as it is,
+because the branch above answers `setup` before that check is reached. Only the `verb-unknown`
+reply gains `/devkit setup` (D-8). `setup` answers the same way whatever `settings.driver` holds;
+the skill's `## Start` then sends it to the Setup section on every driver (D-7).
 
 Typed only: the `devkit` skill keeps `disable-model-invocation: true` (the host refuses a model call
-of the skill), as for `/devkit change`. `guard.mjs` already ends a `/devkit change` run and a
-`/devkit roadmap` run on any other typed command but `/devkit status` (`runOf`, `roadmapRunOf`), so a
-typed `/devkit setup` ends their hold with no code change. Two tests (N-6, N-7) pin that.
+of the skill), as for `/devkit change`. `guard.mjs` already ends a `/devkit change` run on any other
+typed command (`runOf`), and a `/devkit roadmap` run on any other typed command but `/devkit status`
+and `/devkit train` (`roadmapRunOf`, lines 1243-1254), so a typed `/devkit setup` ends their hold with
+no code change. Two tests (N-6, N-7) pin that.
 
 Rejected: a separate script `setup-loop.mjs` for the start. The verb list and its reply live in
 `change-loop.mjs`, as for `roadmap` and `project`, which also hand off to their own script after the
@@ -109,7 +132,7 @@ builds `script`.
 ### D-3 The block writer: `plugins/openspec/skills/devkit/scripts/setup-block.mjs`
 
 A new script with no dependency, importing the readers listed in Context, `BUILT_DRIVERS` and
-`LANGUAGE_TAG`. `LANGUAGE_TAG` (the language-tag regex, `change-loop.mjs` line 59) becomes an export
+`LANGUAGE_TAG`. `LANGUAGE_TAG` (the language-tag regex, `change-loop.mjs` line 64) becomes an export
 of `change-loop.mjs`, unchanged, so the loop and the writer check a language with one regex (the
 project rule "one shared helper per mechanism").
 
@@ -121,7 +144,7 @@ project rule "one shared helper per mechanism").
 | `config` | `absent` or `present` (`openspec/config.yaml`) |
 | `block` | `absent` or `present` (a column-0 `devkit:` line) |
 | `present` | the values already held: `language`, `driver`, `delivery`, `tests`, `ship` (the map), `merge_method`, `release_tag` |
-| `kept` | the present values the loop refuses (`readDevkitSettings(root).unknown` and `.missing`), each `{ setting, value, accepted }` |
+| `kept` | the present values the loop refuses, each `{ setting, value, accepted }`: every entry of `readDevkitSettings(root).unknown` and `.missing`, and, when `readDevkitSettings(root).train.problem` is `{ kind: 'train-model' }` (a `delivery.train` with no model or with `two-prs`, which `projectGate` refuses with `train-model` or `train-no-model`), one entry `{ setting: 'delivery.train', value: <the train value>, accepted: 'trunk, trunk-auto' }` |
 | `missing` | one entry per key to ask, in this order: `language`, `driver`, `delivery`, `tests.unit`, `tests.coverage.command`, `tests.coverage.target`, `tests.e2e`, `ship`, `merge_method`, `release_tag`. Each entry is `{ key, default, proposed, options }` |
 | `drivers` | `BUILT_DRIVERS` |
 | `driverNotBuilt` | `{ driver, round }` when a present `driver` has a round, else `null` |
@@ -145,7 +168,11 @@ The rules for `missing`:
 - `delivery`: `devkit.delivery.model` absent and no `ship:` map present. Default none (no model),
   options `none`, `trunk`, `trunk-auto`, `two-prs`. `two-prs` also needs `base` and `test_branch`;
   `base` is proposed from `git symbolic-ref --short refs/remotes/origin/HEAD` without `origin/`, else
-  `main`.
+  `main`. When `kept` holds the `delivery.train` entry, the options are only `trunk` and `trunk-auto`
+  and the default is `trunk`: the two models the train runs with, so an answer leaves the project
+  runnable; `none` and `two-prs` are then refused by `apply` as outside the options. The step never
+  writes or removes `delivery.train` (Out of scope); with `model: two-prs` present, `delivery` is not
+  in `missing`, and the step only says the `kept` fact (the owner edits the block by hand).
 - `tests.*`: each key absent. `proposed` comes from the root's `package.json` scripts (`test`,
   `coverage`, and `e2e` or `test:e2e`, run with the package manager its lockfile names: `npm`,
   `pnpm` or `yarn`) and from a `Makefile` `test:` target (`make test`). `tests.e2e` is proposed only
@@ -260,9 +287,10 @@ installer into devkit-openspec (ADR 0025, alternative 4, rejected).
 
 - The kit question is asked when `kit` is `absent` and the driver answer is not `compozy`. A no
   writes nothing for the kit, and the question is asked again on a later run.
-- A yes, or the answer `compozy`, runs `kit-installer.mjs <root>` with the inputs
-  `substitutions.json` lists that the manifest does not record (after `compozy-driver`:
-  `__TIMEZONE__`, asked once). The installer prints one line per file. For each `edited` or `kept`
+- A yes, or the answer `compozy`, runs `kit-installer.mjs <root>`. The only input the step asks is
+  `__TIMEZONE__`, once, when the manifest does not record it. `substitutions.json` also lists
+  `__SCREEN_MAP__` and `__MOCKUP__`; no template uses them and the installer records their defaults,
+  so they are never asked. The installer prints one line per file. For each `edited` or `kept`
   file the step shows the difference and asks one question; it re-runs with `--accept` for the files
   that got a yes, as `compozy-setup` did. Then the opt-in adds `devkit-compozy`.
 - `kit: installed` on a re-run: the installer runs again with no kit question, so the kit's
@@ -273,24 +301,41 @@ installer into devkit-openspec (ADR 0025, alternative 4, rejected).
 
 ### D-7 The skill text: `plugins/openspec/skills/devkit/SKILL.md`
 
-- Frontmatter. `description` adds one sentence: "`/devkit setup` sets the project up for the devkit
-  flow, or updates its setup: the opt-in, the schemas, the `devkit:` block, the GitHub step of
-  `merge` mode and, on request, the CompozyOS kit." The "Use when" list adds `/devkit setup`.
-  `argument-hint` becomes
-  `"change [<request> | <change-id> | <Jira key or link>] | roadmap [<n> | stop] | status | setup | project [<name>]"`.
+- The position of `setup` among the verbs, named once here and used by every list of them (the
+  `argument-hint`, the "Use when" list, the `verb-unknown` reply of D-8 and the spec delta of
+  `change-coordination`): `setup` comes right after `status`. Every other verb keeps its place in
+  each list, `train` included.
+- Frontmatter. `description` adds one short sentence, right after the sentence "/devkit train
+  departs the boarded changes of a project with a delivery train, together on one train." (kept
+  word for word, `delivery-train.test.mjs` line 2331): "/devkit setup sets the project up for the
+  devkit flow, or updates its setup." The "Use when" list becomes "... /devkit status, /devkit setup,
+  /devkit train or /devkit project [<name>]." `argument-hint` becomes
+  `"change [<request> | <change-id> | <Jira key or link>] | roadmap [<n> | stop] | status | setup | train | project [<name>]"`.
   The last part stays `| project [<name>]`, which T-24 pins. `disable-model-invocation: true` stays.
 - `## Start`: the mode list adds `setup-no-repo` to the "say `reply` and end the turn" item, and an
-  item "`setup`: the Setup section below, in `root`".
-- A new `## Setup` section between `## Waiting on GitHub` and `## Roadmap`. It is the only new `##`
+  item "`setup`: the Setup section below, in `root`, whatever the driver". The sentence that ends
+  the first item, "When the JSON's `settings.driver` is `compozy`, read the next section instead of
+  the lines below", becomes "When the JSON's `settings.driver` is `compozy` and the mode is neither
+  `setup` nor `setup-no-repo`, read the next section instead of the lines below." So a re-run of
+  `/devkit setup` on a project whose driver is `compozy` runs the Setup section as on every other
+  driver (AC-4, R-5), and `## On the CompozyOS driver` gains no item and is not otherwise edited.
+  N-11 pins the new sentence and the `setup` item.
+- A new `## Setup` section right after `## Train` and right before `## Roadmap`. `## Train` stays the
+  heading right after `## Waiting on GitHub` (`delivery-train.test.mjs` line 2327). It is the only new `##`
   heading: the old skill's `# Set up the devkit flow in a project` title and its `## Steps` heading
   are not carried, its intro and path list become the section's first paragraph, and its steps are
   the numbered list items below, with no `##` or `###` heading of their own. Its `## Never` items
   join the skill's `## Never` (below). So the skill's `##` headings become `## Settings`, `## Start`,
-  `## A new change`, `## Loop`, `## Owner gates`, `## Waiting on GitHub`, `## Setup`, `## Roadmap`,
-  `## Status`, `## Project`, `## Never`: the list T-28 pins, whose last three stay `## Status`,
-  `## Project`, `## Never` (T-24). The section stays out of every slice the tests take
+  `## On the CompozyOS driver`, `## A new change`, `## Loop`, `## Owner gates`,
+  `## Waiting on GitHub`, `## Train`, `## Setup`, `## Roadmap`, `## Status`, `## Project`,
+  `## Never`: the list T-28 pins, whose last three stay `## Status`, `## Project`, `## Never`
+  (T-24). The section stays out of the slices the tests take with negative assertions
   (`## Start`..`## A new change`, `## Roadmap`..`## Status`, `## Status`..`## Never`,
-  `## Project`..`## Never`). Paths are `<skill-dir>/scripts/...` and
+  `## Project`..`## Never`, and the text before `## Roadmap`, which T-28 checks for the Roadmap's
+  tools). Two slices hold it and assert only what they must find: `## Train`..`## Roadmap`
+  (`delivery-train.test.mjs` line 2328, the train section's words) and `## Waiting on
+  GitHub`..`## Never` (`change-loop.test.mjs` line 2452, the background wait); the Setup text adds
+  lines to them and removes none. Paths are `<skill-dir>/scripts/...` and
   `<skill-dir>/templates/...`. Its steps keep the headings and the sentences of the old skill that
   tests pin (D-13): `1. **Check the CLI.**`, `2. **Opt the project in.**`, `3. **Initialize
   OpenSpec**`, `4. **Install the schemas**`, `5. **Write \`openspec/config.yaml\`.**`,
@@ -321,7 +366,7 @@ installer into devkit-openspec (ADR 0025, alternative 4, rejected).
     workflow-pin bullets as they are.
 - Two moved sentences are reworded, because a skill-wide test reads them (T-26):
   - Step 4's "(`change-loop.mjs flow`, only on the owner's request)" becomes "(the `flow` command of
-    `/devkit change`, only on the owner's request)": `change-loop.test.mjs` line 2341 requires every
+    `/devkit change`, only on the owner's request)": `change-loop.test.mjs` line 2360 requires every
     line naming `change-loop.mjs flow` to carry `--lang ${user_config.language}`, and this line is
     not a call.
   - Step 7's "(add `--method <squash|merge|rebase>` for another merge method, ...)" becomes "(add
@@ -330,7 +375,7 @@ installer into devkit-openspec (ADR 0025, alternative 4, rejected).
     `rebase` through step 5's options.
 - Constraints the whole file must keep (tests T-26): no `--lang en`/`--lang pt-BR`, no unquoted
   heredoc, no `rebase`, `push-rebased` or `--force` anywhere in the file
-  (`change-loop.test.mjs` line 2539, `release-merge-conflict 16`, unchanged: its invariant is that
+  (`change-loop.test.mjs` line 2570, `release-merge-conflict 16`, unchanged: its invariant is that
   the skill never describes a history rewrite, and the two rewordings above keep the Setup text
   inside it), no `CronCreate`, `conduct-check` or `wake_when_done` before `## Roadmap`. Every
   `change-loop.mjs` call carries `--lang ${user_config.language}`.
@@ -348,7 +393,7 @@ installer into devkit-openspec (ADR 0025, alternative 4, rejected).
 | Where | Key or line | New text (`en`; `pt-BR` below it) |
 |---|---|---|
 | `change-loop.mjs` | `not-set-up` | `This project is not set up for devkit yet: type /devkit setup first. Nothing was run.` / `Este projeto ainda não está preparado para o devkit: digite /devkit setup primeiro. Nada foi executado.` |
-| `change-loop.mjs` | `verb-unknown` | `So far /devkit change, /devkit roadmap, /devkit status, /devkit setup and /devkit project exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, /devkit setup to set this project up or update its setup, or /devkit project and a name to plan a new project or slice.` / `Por enquanto existem /devkit change, /devkit roadmap, /devkit status, /devkit setup e /devkit project: digite /devkit change e o que você quer fazer, /devkit roadmap para rodar o roadmap, /devkit status para ver onde está tudo, /devkit setup para preparar este projeto ou atualizar a preparação, ou /devkit project e um nome para planejar um projeto ou uma fatia nova.` |
+| `change-loop.mjs` | `verb-unknown` (all six verbs, `setup` right after `status`, D-7) | `So far /devkit change, /devkit roadmap, /devkit status, /devkit setup, /devkit project and /devkit train exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, /devkit setup to set this project up or update its setup, /devkit project and a name to plan a new project or slice, or /devkit train to send the boarded changes on one train.` / `Por enquanto existem /devkit change, /devkit roadmap, /devkit status, /devkit setup, /devkit project e /devkit train: digite /devkit change e o que você quer fazer, /devkit roadmap para rodar o roadmap, /devkit status para ver onde está tudo, /devkit setup para preparar este projeto ou atualizar a preparação, /devkit project e um nome para planejar um projeto ou uma fatia nova, ou /devkit train para mandar as changes embarcadas em um trem só.` The ending of each text (the `/devkit train` clause) is the one `delivery-train.test.mjs` lines 2290 and 2292 pin, unchanged. |
 | `change-loop.mjs` | `setup-no-repo` (new) | `/devkit setup runs inside a git repository: open the project's folder, or create its repository there first. Nothing was run.` / `/devkit setup roda dentro de um repositório git: abra a pasta do projeto, ou crie o repositório dele ali primeiro. Nada foi executado.` |
 | `change-loop.mjs` | `design-pack-missing` | `The project flow needs the devkit-design pack in this project: type /devkit setup and enable the devkit-design pack, then call /devkit project again. Nothing was run.` / `O fluxo de projeto precisa do pacote devkit-design neste projeto: digite /devkit setup, ative o pacote devkit-design e chame /devkit project de novo. Nada foi executado.` |
 | `change-loop.mjs` | `blocked-why.merge-setup` | `the repository is not prepared for automatic merging yet, which the GitHub step of /devkit setup does` / `o repositório ainda não está preparado para o merge automático, que a etapa do GitHub de /devkit setup prepara` |
@@ -356,9 +401,10 @@ installer into devkit-openspec (ADR 0025, alternative 4, rejected).
 | `change-loop.mjs` (from `compozy-driver`) | `compozy-kit-missing` | `run /compozy-setup first, then call /devkit again` becomes `type /devkit setup and answer yes to the kit, then call /devkit again`; `rode /compozy-setup primeiro e chame /devkit de novo` becomes `digite /devkit setup, responda sim ao kit e chame /devkit de novo`. The rest of each text is kept. |
 | `compozy-driver.mjs` | `FIX['kit-missing']` | `/devkit setup installs the devkit kit into this project (answer yes to the kit question)` |
 | `flow-check.mjs` | `schema-without-declaration` | `the schema has no flow.json: the project has not re-run /devkit setup` / `o schema não tem flow.json: o projeto ainda não rodou /devkit setup de novo` |
-| `guard.mjs` line 499 | `FlowUsageError` text | `... re-run /devkit setup with a devkit-openspec that ships it` |
-| `merge-setup.mjs` line 22 | `POINTER`, now exported as `SETUP_POINTER` | `; run the GitHub step of /devkit setup to configure it`. Line 143's comment names `/devkit setup`. |
-| `project-loop.mjs` line 254 | the strip of the pointer | `m.endsWith(SETUP_POINTER) ? m.slice(0, -SETUP_POINTER.length) : m`, importing `SETUP_POINTER`: one source for the text (behaviour unchanged) |
+| `guard.mjs` line 539 | `FlowUsageError` text | `... re-run /devkit setup with a devkit-openspec that ships it` |
+| `merge-setup.mjs` line 22 | `POINTER`, now exported as `SETUP_POINTER`, and a new export `withoutSetupPointer(m)` | `; run the GitHub step of /devkit setup to configure it`. `withoutSetupPointer(m)` returns `m.endsWith(SETUP_POINTER) ? m.slice(0, -SETUP_POINTER.length) : m`: the one helper both strips below call (the project rule "one shared helper per mechanism"). Line 143's comment names `/devkit setup`. |
+| `project-loop.mjs` line 254 | the strip of the pointer | `setup.missing.map(withoutSetupPointer)`, importing it from `merge-setup.mjs` in place of the regex `/; run the openspec-setup skill.*$/` (behaviour unchanged) |
+| `train-loop.mjs` line 552 (from `delivery-train`) | the strip of the pointer in the blocked train reply | `setup.missing.map(withoutSetupPointer)`, added to the file's existing `merge-setup.mjs` import, in place of the regex `/;\s*run the openspec-setup skill.*$/` (behaviour unchanged: the reply lists the missing facts, then `github-setup.mjs --method merge allows merge commits and auto-merge`). N-18 pins it |
 | `changes-under-way.mjs` lines 2 and 96 | comment and the `- Why:` line written into `approval.md` | `... when /devkit setup replaced the devkit schemas ...`. An `approval.md` already written keeps its text. |
 | `templates/config.yaml` line 14 | comment | `` `merge` needs the GitHub step of /devkit setup first (workflow, `` |
 
@@ -424,7 +470,7 @@ unchanged (`install-schemas.sh`'s `src`, every `test-tmp.mjs` import). The kit m
 these change:
 
 - `install-kit.mjs`: `PACK_JSON` becomes `join(here, '..', '..', '.claude-plugin', 'plugin.json')`.
-- `gen-agents.mjs` (line numbers on `compozy-driver` at `cb39d27`): `DEFAULT_ROOT` (line 20) goes
+- `gen-agents.mjs` (line numbers on the merged tree at `f84bc6e`): `DEFAULT_ROOT` (line 20) goes
   from five levels up to four, `resolve(here, '..', '..', '..', '..')`; `AGENTS_AT` (line 21)
   becomes `['plugins', 'compozy', 'kit', 'templates', 'agents']`; `SELF` (line 25) becomes
   `plugins/compozy/kit/scripts/gen-agents.mjs`. The generated header line of every agent changes,
@@ -457,10 +503,12 @@ for the kit (a folder under `skills/` is read as a skill, and `scripts/check.py`
 
 ### D-11 Documents and the records
 
-- ADR 0025 is the adr-author's record. Its number is final unless a later merge of `main` takes it;
-  then the implementation renumbers it to the next free number on `origin/main` at the last merge
-  before review (the loop's `renumber-adr` step), moving every link.
-  It sets the status to `accepted` with the plan approval's words, as earlier changes did.
+- The record `docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md` is the adr-author's.
+  Its number is the next free number on `origin/main` at the last merge before review; its file name
+  carries that number today. When a later merge of `main` takes it, the loop's `renumber-adr` step
+  at that merge renames the file and moves every link. The implementation sets the status to
+  `accepted` with the plan approval's words, as earlier changes did. In the texts below, `<n>` is
+  that number.
 - ADR 0004, after plan approval, by the implementation: a header line
   `- Amended by ADR <n> (<file>)` under the existing one, and a dated Note at the top of its Context:
   "Note (project-setup, <date>): the setup is the verb `/devkit setup` of the `devkit` skill
@@ -487,15 +535,18 @@ for the kit (a folder under `skills/` is read as a skill, and `scripts/check.py`
   are not edited by hand: the archive of this change applies the delta to them after the merge, and
   until then N-10 skips exactly the blocks the delta MODIFIES (D-9, point 3).
 
-### D-12 This change beside `compozy-driver`
+### D-12 This change beside `compozy-driver` and `delivery-train`
 
-`compozy-driver` merges into `main` first (the owner's order; requirements, assumption 4). The plan
-is written against that branch, read locally with no fetch.
+`compozy-driver` merged into `main` first (the owner's order; requirements, assumption 4), and
+`main` was merged into `project-setup` at `f84bc6e`, with `delivery-train` and `stage-models`.
 
-1. Before the first task, the implementation fetches, merges `origin/main` into `project-setup`
-   and re-reads every file this design names from `compozy-driver`. The first re-read checks the
-   sibling's ADR number and versions against `cb39d27` (`0024-compozy-runs-the-short-loop.md` on `main`,
-   devkit-openspec 0.34.0, marketplace 0.38.0) and fixes this plan where they moved. Gate 1.4 checks that
+1. That merge is done (`f84bc6e`). Task 1.1 confirms it and runs no second merge; task 1.2
+   re-reads, on the merged tree, every file this design names from `compozy-driver`,
+   `delivery-train` and `stage-models`. The re-read checks the siblings' record numbers and the
+   versions as read at the last merge (at `f84bc6e`: `0024-compozy-runs-the-short-loop.md`,
+   devkit-openspec 0.36.0, marketplace 0.40.0) and fixes this plan where they moved. This change's
+   record keeps the rule of D-11: the next free number on `origin/main` at the last merge before
+   review. Gate 1.4 checks that
    `DRIVER_ROUND` holds no `compozy`, that `plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs`
    exists, and that the merge is in the branch. If `compozy` is still not built on `main`, the
    change stops for the owner. The requirement's condition ("if `driver: compozy` is built") would
@@ -512,17 +563,28 @@ is written against that branch, read locally with no fetch.
    ("A re-run removes the retired files the project did not edit", "A retired file the project
    edited stays and is named", "Inputs the kit no longer uses are dropped"), with the installer
    named and no other change.
-5. Its ADR takes its number at its merge. This change's record takes the next free one at its last
-   merge (D-11).
-6. Any later merge of `main` (task 6.5's, and the one before the last verify and review) repeats
+5. Its ADR took its number at its merge (0024). This change's record takes the next free number on
+   `origin/main` at the last merge before review (D-11).
+6. Any later merge of `main` (task 6.5's, task 6.6's, and the one before the last verify and review) repeats
    step 1's re-read for these files (the project's rule: merge the base before the final review),
    and repeats gate 1.4's content checks at the paths phase 2 left:
    `test -f plugins/openspec/hooks/compozy-driver.mjs && test -f plugins/compozy/kit/scripts/gen-agents.mjs && test ! -e plugins/compozy/skills/compozy-setup && test ! -e plugins/openspec/skills/openspec-setup && grep -q "const DRIVER_ROUND = { script: 22 };" plugins/openspec/hooks/change-loop.mjs`.
    A red part means `main` moved under the plan: the change stops for the owner.
+7. `delivery-train` and this change MODIFY the same `change-coordination` requirement, "The devkit
+   command reads its verb". Whichever archives second replaces the other's block, so each block must
+   hold both verbs. This change's block is `delivery-train`'s text with `setup` added (the verb
+   sentence with all six verbs, `delivery-train`'s two train scenarios, the unknown-verb scenario
+   listing six commands in the order of D-7, and this change's two setup scenarios); no sentence of
+   `delivery-train`'s block is dropped or reworded. Task 6.6, beside 6.5, checks that `origin/main`
+   holds the archive of `delivery-train`, merges it, and re-reads the canonical requirement: if the
+   archived text differs from `delivery-train`'s delta as read here, the block is written again from
+   the canonical text plus `setup`, with no other change. `stage-models`'s `change-coordination`
+   delta MODIFIES another requirement ("Every end of a run is marked in the session's record"), so
+   it does not overlap.
 
 ### D-13 Existing tests this change touches
 
-Every row was found by grepping the test files of both trees (this branch and `compozy-driver`) for
+Every row was found by grepping the test files of the merged tree (`f84bc6e`: this branch with `compozy-driver`, `delivery-train` and `stage-models`) for
 `openspec-setup`, `compozy-setup`, `skills/devkit/SKILL.md`, the old reply texts and the skill
 sentences. Each row names the invariant, the layer that owns it and the suite. All run through
 `plugins/openspec/hooks/guard.test.mjs`.
@@ -546,24 +608,29 @@ sentences. Each row names the invariant, the layer that owns it and the suite. A
 | T-15 | `github-setup.test.mjs` 329, 487 (moved) | `format: openspec-setup has the GitHub step: ...`; `field-fixes 5 skill: step 7 ...` | renamed `format: the Setup section has the GitHub step: ...`; the `only if the owner asks` assertion becomes `/\`ship\` and \`merge_method\` are asked in step 5, \`merge\` suggested/`; the rest reads the devkit skill unchanged | one question per GitHub item, nothing applied unconfirmed (skill text) |
 | T-16 | `gh-version.test.mjs` 74 (moved) | `gh-version 19: step 1 of SKILL.md names the script and 2.50.0 and says the setup goes on (AC-7)` | none: `../SKILL.md` now resolves to the devkit skill, whose step 1 keeps the text | the `gh` warning never stops the setup (skill text) |
 | T-17 | `changes-under-way.test.mjs` 142 (moved) | `field-fixes 7 apply: with the owner answer only the started full-script change gets an approval.md that records no approval; ...` (its `- Why:` line) | `when \/devkit setup replaced the devkit schemas` | the not-applicable approval says why (setup script) |
-| T-18 | `change-loop.test.mjs` 972-981 | `change-loop start: S2 no verb or an unknown verb names the commands that exist` | line 979's `pt-BR` prefix becomes `^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit setup e \/devkit project` (the twin of T-19); line 980's `en` regex and the render equalities hold with the new text unchanged | an unknown verb names the verbs (start) |
-| T-19 | `roadmap-loop.test.mjs` 816 | `roadmap-loop start: roadmap and status are routed` | the `pt-BR` prefix becomes `^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit setup e \/devkit project` | the `pt-BR` verb list (start) |
+| T-18 | `change-loop.test.mjs` 973-983 | `change-loop start: S2 no verb or an unknown verb names the commands that exist` | line 980's `pt-BR` prefix becomes `^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit setup, \/devkit project e \/devkit train` (the twin of T-19 and T-30); line 981's `en` regex (`change.*roadmap.*status.*project`) and the render equalities hold with the new text unchanged | an unknown verb names the verbs, `train` included (start) |
+| T-19 | `roadmap-loop.test.mjs` 823 | `roadmap-loop start: roadmap and status are routed` | the `pt-BR` prefix becomes `^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit setup, \/devkit project e \/devkit train`; line 822's `en` regex holds unchanged | the `pt-BR` verb list (start) |
 | T-20 | `project-loop.test.mjs` 754 | `project-loop start: step 2 without the design pack nothing runs and the reply names the pack` | `/\/devkit setup/` matched | the missing design pack names the setup (project start) |
 | T-21 | `project-loop.test.mjs` 1192 | `project-loop next: S23 ship merge with the repository not prepared ends blocked and names what is missing` | none; N-9 adds the negative | the blocked reply lists the missing facts (project loop) |
 | T-22 | `compozy-driver.test.mjs` 95 on `compozy-driver` | `compozy-driver readiness: kit-missing when the change loop is not in the workspace` | `/\/devkit setup/` matched | the missing kit names its fix (CompozyOS module) |
 | T-23 | the kit tests (`install-kit`, `adoption`, `gen-agents`, `devkit-kit`, `loop-templates`) | their paths (D-10) | paths and first-line comments only; assertions unchanged | the kit installs and regenerates as before (kit) |
-| T-24 | `project-loop.test.mjs` 1567 | `project-loop skill: the section sits between Status and Never and every call carries the language` | none: `| setup` goes before `| project [<name>]`, and `## Setup` before `## Roadmap` | the skill's last sections and hint (skill text) |
-| T-25 | `change-loop.test.mjs` 2329, `guard.test.mjs` 1578 | `change-loop skill: the frontmatter`; `stage-roles gates: the devkit skill names the mock-up ...` | none: the description keeps `/devkit change`, `Use when` and "the grill, the mock-up, the plan approval, the retro answers" | the skill's frontmatter (skill text) |
-| T-26 | `change-loop.test.mjs` 2341-2351 (`every change-loop command and the readout carry the person's language`), 2363, 2459, 2539 (`release-merge-conflict 16: the flow doc and the skill describe the release step as a merge and a plain push`); `roadmap-loop.test.mjs` 1830-1838, 3015-3022 | the skill-wide negatives | none. The Setup text is written to obey them, by D-7's two rewordings: step 4 names "the `flow` command of `/devkit change`", not `change-loop.mjs flow` (line 2341's `--lang` rule on every line naming that call), and step 7's `--method` takes "the merge_method answer of step 5" while step 5 offers the plan's `options` from the JSON, so the file never holds `rebase` (line 2539). Task 2.2 applies both when it moves the text, so gate 2.9 is green | the skill's calls carry the settings, and the skill never describes a history rewrite (skill text) |
+| T-24 | `project-loop.test.mjs` 1589-1594 | `project-loop skill: the section sits between Status and Never and every call carries the language` | none: `| setup` goes right after `| status`, so the hint still ends `| train | project [<name>]`, and `## Setup` sits before `## Roadmap` | the skill's last sections and hint (skill text) |
+| T-25 | `change-loop.test.mjs` 2349, `guard.test.mjs` 1627 | `change-loop skill: the frontmatter`; `stage-roles gates: the devkit skill names the mock-up ...` | none: the description keeps `/devkit change`, `Use when` and "the grill, the mock-up, the plan approval, the retro answers"; the setup sentence is added after the train sentence, which stays word for word (T-30) | the skill's frontmatter (skill text) |
+| T-26 | `change-loop.test.mjs` 2360-2370 (`every change-loop command and the readout carry the person's language`), 2383, 2480, 2570 (`release-merge-conflict 16: the flow doc and the skill describe the release step as a merge and a plain push`); `roadmap-loop.test.mjs` 1837-1845, 3251-3253 | the skill-wide negatives | none. The Setup text is written to obey them, by D-7's two rewordings: step 4 names "the `flow` command of `/devkit change`", not `change-loop.mjs flow` (line 2360's `--lang` rule on every line naming that call), and step 7's `--method` takes "the merge_method answer of step 5" while step 5 offers the plan's `options` from the JSON, so the file never holds `rebase` (line 2570). Task 2.2 applies both when it moves the text, so gate 2.9 is green | the skill's calls carry the settings, and the skill never describes a history rewrite (skill text) |
 | T-27 | `review-round.test.mjs` 2 | a comment naming the setup tests | the comment names the devkit skill's setup tests | none (comment) |
-| T-28 | `change-loop.test.mjs` 2448-2451 | `change-loop skill: the sections of D-3 to D-9 and the modes of start` | the `deepEqual` list of `##` headings gains `'## Setup'` between `'## Waiting on GitHub'` and `'## Roadmap'`; the mode list and the negatives before and after `## Roadmap` are unchanged (the Setup steps carry no `##` heading, D-7). Applied in task 2.2, which adds the heading | the devkit skill has exactly these sections, in this order (skill text) |
-| T-29 | `roadmap-loop.test.mjs` 1844-1851 | `roadmap-loop skill: the frontmatter and the start modes name the roadmap and the status` | the exact `argument-hint` regex gains the verb `setup`, with its escaped separator, between `status` and `project`, so it matches D-7's hint exactly and nothing else; the rest unchanged. Applied in task 5.3 | the skill's hint lists the verbs, in order (skill text) |
+| T-28 | `change-loop.test.mjs` 2469-2480 | `change-loop skill: the sections of D-3 to D-9 and the modes of start` | the `deepEqual` list of `##` headings becomes the merged tree's twelve headings with `'## Setup'` between `'## Train'` and `'## Roadmap'`: `'## Settings', '## Start', '## On the CompozyOS driver', '## A new change', '## Loop', '## Owner gates', '## Waiting on GitHub', '## Train', '## Setup', '## Roadmap', '## Status', '## Project', '## Never'`; the mode list (`train` and `train-args` included) and the negatives before and after `## Roadmap` are unchanged (the Setup steps carry no `##` heading and name no Roadmap tool, D-7). Applied in task 2.2, which adds the heading | the devkit skill has exactly these sections, in this order (skill text) |
+| T-29 | `roadmap-loop.test.mjs` 1848-1851 | `roadmap-loop skill: the frontmatter and the start modes name the roadmap and the status` | the exact `argument-hint` regex gains the verb `setup`, with its escaped separator, right after `status` and before `train`: `... \| status \| setup \| train \| project \[<name>\]"$`, so it matches D-7's hint exactly and nothing else; the rest unchanged. Applied in task 5.3 | the skill's hint lists the verbs, in order (skill text) |
+| T-30 | `delivery-train.test.mjs` 2288-2295, 2310-2333 (from `delivery-train`) | `delivery-train P13: the reply to an unknown verb names /devkit train, in order, in both languages`; `delivery-train docs: the documents follow` | P13: line 2289's `en` prefix becomes `So far \/devkit change, \/devkit roadmap, \/devkit status, \/devkit setup, \/devkit project and \/devkit train exist` and line 2291's `pt-BR` prefix `^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit setup, \/devkit project e \/devkit train`; lines 2290 and 2292 (the train clause at the end) are unchanged. Docs: line 2330's exact hint regex becomes `... \| status \| setup \| train \| project \[<name>\]"` (D-7's hint, as T-29); line 2327 (`## Train` right after `## Waiting on GitHub`), line 2328's `## Train`..`## Roadmap` slice (now holding the Setup section, positive matches only), line 2331 (the train sentence of the description) and the start modes are unchanged and hold with D-7's placement. Applied in task 3.3 (P13) and task 5.3 (the hint) | an unknown verb and the hint list every verb, `train` included, in order; `## Train` follows `## Waiting on GitHub` (start, skill text) |
 
 Searched and left unchanged: `guard.test.mjs` 632 (T-3) and `github-setup.test.mjs` 487 (T-15)
 slice from `## Never` and from `GitHub (merge mode)`, which the moved text keeps;
 `gh-version.test.mjs` 74 (T-16) and the T-5 slices find their steps by the step headings, which the
 devkit skill holds once; no test pins step 7's `--method <squash|merge|rebase>` text, so D-7's
-rewording breaks none.
+rewording breaks none. `delivery-train.test.mjs` `delivery-train P9 N7` (line 1943) asserts the
+train's blocked reply names `github-setup.mjs --method merge`, which `withoutSetupPointer` keeps;
+`project-loop.test.mjs` line 1572 and the `en` regexes of T-18 and T-19 match the new
+`verb-unknown` unchanged; `change-loop.test.mjs` line 2452 (the `## Waiting on GitHub`..`## Never`
+slice) asserts only words of the wait, which the Setup text leaves in place.
 
 New tests. Every name starts `setup AC-<n> <area>: `. Each fails on the base, except N-6, N-7 and
 N-16, which pin behaviour that already holds; their task says so.
@@ -580,13 +647,14 @@ N-16, which pin behaviour that already holds; their task says so.
 | N-8 | `change-loop.test.mjs` | `setup AC-2 replies: no reply key renders openspec-setup or compozy-setup in either language, and not-set-up, design-pack-missing and both merge-setup reasons name /devkit setup` |
 | N-9 | `project-loop.test.mjs` | `setup AC-2 project: the S23 reply lists the missing facts without the setup pointer` (negative of the strip) |
 | N-10 | `guard.test.mjs` | `setup AC-2 tree: no file outside the history names the removed setup skills, and neither skill folder exists` |
-| N-11 | `guard.test.mjs` | `setup AC-1 skill: the hint lists setup before project, the description names /devkit setup, the skill stays not model-invocable, and Start sends setup to the Setup section` |
+| N-11 | `guard.test.mjs` | `setup AC-1 skill: the hint lists setup right after status, the description names /devkit setup, the skill stays not model-invocable, and Start sends setup to the Setup section on every driver` (asserts the `setup` item of `## Start` and the sentence "When the JSON's `settings.driver` is `compozy` and the mode is neither `setup` nor `setup-no-repo`, read the next section instead of the lines below." of D-7, and that `## On the CompozyOS driver` holds no `setup` item) |
 | N-12 | `guard.test.mjs` | `setup AC-6 skill: step 8 asks the kit apart from the driver, runs kit-installer on yes and enables devkit-compozy, writes nothing on no, and the compozy driver installs the kit` |
 | N-13 | `guard.test.mjs` | `setup AC-5 skill: the Setup section copies no checker, names the version, the packs not enabled and a CI pin that differs` |
 | N-14 | `guard.test.mjs` | `setup AC-7 skill: step 5 asks the ship mode with merge suggested and step 7 asks one question per item` |
 | N-15 | `guard.test.mjs` | `setup AC-8 old project: the configuration the old skill wrote opens a change with no setup step and its readout reads` (fixture `plugins/openspec/skills/devkit/scripts/fixtures/old-setup/`, the template's bytes at `c1ac8c4` and its `.claude/settings.json`) |
 | N-16 | `change-loop.test.mjs` | `setup AC-1 start: setup with an openspec/config.yaml that cannot be read ends with the usage error and exit 3, as the other verbs do` (the fixture holds `openspec/changes/` beside `openspec/config.yaml` made a folder, so `findRoot` finds the root; without it the verb answers `setup` with exit 0. Passes on the base) |
 | N-17 | `guard.test.mjs` | `setup AC-4 skill: step 5 writes schema, context, rules and operations only where fill names them, and the block only through setup-block.mjs apply` (pins D-7's step 5 sentence; reads the step through the `5. **Write`..`6. **Check.**` slice of T-5) |
+| N-18 | `delivery-train.test.mjs` | `setup AC-2 train: the blocked train reply lists the missing merge facts without the setup pointer` (beside `delivery-train P9 N7`, with its fixture: reads `SETUP_POINTER` and `withoutSetupPointer` through a namespace import of `merge-setup.mjs`, asserts the pointer names `/devkit setup`, and that the `train-blocked` reply holds neither the pointer nor the words "run the GitHub step" and still ends with `github-setup.mjs --method merge allows merge commits and auto-merge`; fails on the base, where neither export exists) |
 | B-1 | `setup-block.test.mjs` (new) | `setup AC-3 block plan: no config gives every key missing with its default, drivers claude and compozy` |
 | B-2 | `setup-block.test.mjs` | `setup AC-6 block plan: a present driver: script is kept with its round and never offered` |
 | B-3 | `setup-block.test.mjs` | `setup AC-3 block apply: a first answer set appends the block, readDevkitSettings reads it with no unknown, and budget and design stay comments` |
@@ -603,6 +671,7 @@ N-16, which pin behaviour that already holds; their task says so.
 | B-14 | `setup-block.test.mjs` | `setup AC-3 block apply: an invalid language, model, ship, merge_method or target, and two-prs without base or test_branch, are refused with exit 3 and nothing written` (one case each: `xx_bad`, `trunk-x`, `auto`, `fast`, `101`, `two-prs` alone) |
 | B-15 | `setup-block.test.mjs` | `setup AC-4 block plan: fill names schema, context, rules and operations only when absent, another schema or a context placeholder, and is empty on a filled config` (cases: no config, the template as is, a filled config, a config with `schema: spec-driven`) |
 | B-16 | `setup-block.test.mjs` | `setup AC-3 block apply: a usage error exits 2 with nothing written` (an unknown subcommand, standard input that is not one JSON object; the refusals' exit 3 is B-6, B-7, B-12 and B-14) |
+| B-17 | `setup-block.test.mjs` | `setup AC-4 block plan: a delivery.train the loop refuses is kept, and the delivery question then offers only trunk and trunk-auto` (cases: `train` with no model gives the `delivery.train` entry in `kept` and a `delivery` entry with options `trunk`, `trunk-auto` and default `trunk`, and `apply` refuses `two-prs` with exit 3; `train` with `model: two-prs` gives the `kept` entry and no `delivery` entry; `train` with `model: trunk` gives no `kept` entry) |
 | K-1 | `kit-installer.test.mjs` (new) | `setup AC-6 kit: the sibling compozy pack is found` |
 | K-2 | `kit-installer.test.mjs` | `setup AC-6 kit: the highest installed version wins and a tie goes to the last path` (under a `CLAUDE_CONFIG_DIR` in a temporary folder) |
 | K-3 | `kit-installer.test.mjs` | `setup AC-6 kit: no devkit-compozy exits 3 naming the pack and every location tried` |
@@ -631,7 +700,7 @@ transcript lines and the commands' outputs are saved to
 | R-2 | re-run, nothing missing | R-1's project | `shasum -a 256 openspec/config.yaml` before and after, equal; no block question asked; the kit question asked again and answered no |
 | R-3 | `merge` mode | a scratch clone of a GitHub repository the owner administers | the ship answer `merge`, the GitHub plan, one question per item, each answered no, and the plan run again unchanged: nothing applied |
 | R-4 | kit yes | a new git repository | `.compozy/` and its manifest, `devkit-compozy@devkit` enabled, the installer's per-file lines |
-| R-5 | driver `compozy` | a new git repository | `compozy` and `claude` offered, `script` not; `compozy` chosen; the kit installed with no kit question |
+| R-5 | driver `compozy` | a new git repository | `compozy` and `claude` offered, `script` not; `compozy` chosen; the kit installed with no kit question; then `/devkit setup` typed again in that project (driver `compozy`) runs the Setup section, starts no CompozyOS run, asks no block question and no kit question, and leaves `openspec/config.yaml`'s `shasum -a 256` unchanged (D-7, `## Start` on every driver) |
 | R-6 | the conducting session's own part | R-1's project | a `-p` session asked in plain words to set the project up runs no setup (no file changes, `git status --short` empty); the typed `/devkit setup` of R-1 is the one that ran |
 
 A run that cannot happen (no GitHub repository for R-3, the host refusing) is recorded in its file
@@ -660,7 +729,7 @@ installed again after the devkit-compozy bump, so its manifest records the new p
 - [The block writer meets a hand-written block in a shape it does not read] → it refuses with
   nothing written (B-12); the owner edits by hand.
 - [A typed `/devkit setup` in a roadmap session ends the run's hold] → that is the existing rule for
-  any typed command but `/devkit status`, pinned by N-7; `/devkit roadmap` resumes.
+  any typed command but `/devkit status` and `/devkit train`, pinned by N-7; `/devkit roadmap` resumes.
 - [Owners who learned `/openspec-setup`] → every message names `/devkit setup`; ADR 0025 accepts it.
 
 ## Migration Plan
@@ -676,7 +745,8 @@ Order: the start mode and the driver list (no dependency), then the scripts, the
 skill text, then documents and release, then the real runs.
 
 - **devkit-openspec (hooks)**: `change-loop.mjs` (D-1, D-2, D-8), `flow-check.mjs`, `guard.mjs`,
-  `merge-setup.mjs`, `project-loop.mjs`, `compozy-driver.mjs` (D-8).
+  `merge-setup.mjs`, `project-loop.mjs`, `train-loop.mjs`, `compozy-driver.mjs` (D-8); the suites
+  of D-13, `delivery-train.test.mjs` included (T-30, N-18).
 - **devkit-openspec (skill)**: `skills/devkit/SKILL.md` (D-7), the moved `scripts/` and `templates/`,
   `setup-block.mjs`, `kit-installer.mjs` and their tests, the old-setup fixture;
   `skills/ship-change/SKILL.md`; `skills/openspec-setup/` removed.
@@ -692,18 +762,18 @@ Files to delete: `plugins/openspec/skills/openspec-setup/SKILL.md`,
 `plugins/compozy/skills/compozy-setup/SKILL.md`. Files to move: D-10. Files to modify: D-7, D-8,
 D-10, D-11, D-13.
 
-Estimate: optimistic 26 h, likely 36 h, pessimistic 52 h (the pessimistic case: a second sibling
-merge, or the real runs needing host workarounds).
+Estimate: optimistic 27 h, likely 37 h, pessimistic 54 h (the pessimistic case: a second sibling
+merge, two archive merges in phase 6, or the real runs needing host workarounds).
 
 | Component | Hours | Type | Risk |
 |---|---|---|---|
-| Merge of `main` after `compozy-driver`, re-read (task group 1) | 1.5 | Integration | MEDIUM |
-| `setup-block.mjs` with its tests B-1 to B-16 | 9 | Core | MEDIUM |
+| Confirm the merge `f84bc6e`, re-read the merged tree (task group 1) | 1 | Integration | LOW |
+| `setup-block.mjs` with its tests B-1 to B-17 | 9.5 | Core | MEDIUM |
 | `kit-installer.mjs` with K-1 to K-5, P-1 | 3 | Core | LOW |
-| Start mode, `BUILT_DRIVERS`, replies and messages, N-1 to N-9, T-7 to T-22 | 5 | Core | LOW |
+| Start mode, `BUILT_DRIVERS`, replies and messages, the two pointer strips, N-1 to N-9, N-18, T-7 to T-22, T-30 (P13) | 5.5 | Core | LOW |
 | Moves, path fixes, regenerated agents, `.compozy/`, CI (D-10, T-1 to T-5, T-23, T-28) | 4 | Migration | MEDIUM |
-| The `## Setup` section, `## Never`, ship-change, N-10 to N-17 | 5 | Core | MEDIUM |
-| Documents, ADRs, Purpose edits, delta revision, catalog, changelog, versions | 3.5 | Documentation | LOW |
+| The `## Setup` section, `## Start` on every driver, `## Never`, ship-change, N-10 to N-17, T-29, T-30 (hint) | 5.5 | Core | MEDIUM |
+| Documents, ADRs, Purpose edits, the two delta re-reads (6.5, 6.6), catalog, changelog, versions | 4 | Documentation | LOW |
 | Whole suite runs and fixes | 2 | Testing | MEDIUM |
 | Real runs R-1 to R-6 | 2.5 | Testing | MEDIUM |
 
@@ -711,24 +781,31 @@ merge, or the real runs needing host workarounds).
 |---|---|---|---|
 | `compozy-driver` not merged, or merged with `compozy` still not built | LOW | HIGH | gate 1.4 stops the change before any code; the owner decides |
 | `compozy-driver` merged but not archived by the last phase | MEDIUM | MEDIUM | task 6.5 waits on it, after the documents; the delta revision and N-10's green run are the only things that need it |
+| `delivery-train` and this change archive in either order and one block of "The devkit command reads its verb" replaces the other | MEDIUM | HIGH | this change's block is `delivery-train`'s text plus `setup` (D-12, step 7), so either order keeps all six verbs; task 6.6 re-reads the archived text and rewrites the block from it |
+| A sibling's copy of a mechanism this plan changes is missed (as `train-loop.mjs`'s pointer strip was) | LOW | MEDIUM | one helper `withoutSetupPointer` for every strip (D-8); N-10 fails on any old name left in a script; task 1.2's re-read greps every file the siblings added |
 | A pinned text missed by the grep | MEDIUM | LOW | the whole suite in gates 2.9 and 7.8; N-10 fails on any old name left |
 | Regenerated agents drift from `.compozy/` | LOW | MEDIUM | `gen-agents.mjs --check` and `adoption.test.mjs` in the gates |
 | The host's `-p` mode cannot run a typed skill with answers by `--resume` | LOW | MEDIUM | D-14: an interactive session run instead, recorded the same way |
 | The suite's long run on a full machine | MEDIUM | LOW | the whole suite runs only in gates 2.9 and 7.8, as a background command of the tool |
 | A re-run edits `openspec/config.yaml` outside the block | LOW | HIGH | `fill` (D-3) decides it in a script, B-15 tests it, N-17 pins step 5's sentence, R-2 compares the bytes |
-| A later merge of `main` takes the number 0025 of this change's record | LOW | LOW | every link to this change's record names its file, not only its number; task 6.6 checks the number against `origin/main` and renumbers it with every link (D-11) |
+| A later merge of `main` takes the number this change's record carries today | LOW | LOW | every link to the record names its file; the record's number is the next free number on `origin/main` at the last merge before review, and the loop's renumber step at that merge moves every link (D-11, task 6.7) |
 
 Assumptions (where the plan breaks if reality differs):
 
-- `compozy-driver` lands as on its branch at `cb39d27`: `DRIVER_ROUND = { script: 22 }`, the kit
+- `main` holds `compozy-driver` as merged at `f84bc6e`: `DRIVER_ROUND = { script: 22 }`, the kit
   under `skills/compozy-setup/` with `gen-agents.mjs`, its record
-  `0022-compozy-runs-the-short-loop.md` (now `0024-compozy-runs-the-short-loop.md` on `main`) (requirements, assumption 4; gate 1.4; task 1.2).
+  `docs/adr/0024-compozy-runs-the-short-loop.md` (requirements, assumption 4; gate 1.4; task 1.2).
+- `delivery-train` stays as merged at `f84bc6e` until its archive: the verb `train`, the `## Train`
+  section right after `## Waiting on GitHub`, `train-loop.mjs` and its change-coordination delta
+  (D-12, step 7; task 6.6).
 - `--plugin-dir` places packs as siblings named by folder (`plugins/openspec`, `plugins/compozy`),
   as earlier live checks used it (`openspec/changes/archive/2026-11-22-project-phases/tasks.md`,
   task 5.2).
 - The host refuses a model call of a skill with `disable-model-invocation: true`
   (`roadmap-loop.test.mjs` line 2993 relies on it for the `devkit` skill).
 
-Dependencies: `compozy-driver` merged (D-12; its archive for task 6.5); the archived
+Dependencies: `compozy-driver` merged (D-12; its archive for task 6.5); `delivery-train` merged
+(the verb `train`, D-7, D-8; its archive for task 6.6); `stage-models` merged (no overlap, D-12
+step 7); the archived
 `delivery-models` (the delivery keys and `MODEL_SHIP`), `change-version-pin` (the pin this step
 leaves) and `gh-version-check` (step 1's `gh` line).

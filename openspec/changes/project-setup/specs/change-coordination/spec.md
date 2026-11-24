@@ -5,11 +5,12 @@
 
 ### Requirement: The devkit command reads its verb
 `/devkit` SHALL read the first word of its arguments as the verb and the rest as the request. Only
-the verbs `change`, `roadmap`, `status`, `setup` and `project` SHALL run anything (`roadmap` and
-`status` as the roadmap-coordination capability says, `project` as the project-definition capability
-says, `setup` as the project-setup capability says); every other verb SHALL answer in one plain
-sentence and create or run nothing. `setup` outside a git repository SHALL answer in one plain
-sentence that it runs inside one, and run nothing.
+the verbs `change`, `roadmap`, `status`, `setup`, `project` and `train` SHALL run anything (`roadmap`
+and `status` as the roadmap-coordination capability says, `project` as the project-definition
+capability says, `train` as the delivery-train capability says, `setup` as the project-setup
+capability says); every other verb SHALL answer in one plain sentence and create or run nothing.
+`setup` outside a git repository SHALL answer in one plain sentence that it runs inside one, and run
+nothing.
 
 #### Scenario: A verb of a later round
 - **WHEN** the person types `/devkit help`
@@ -23,9 +24,17 @@ sentence that it runs inside one, and run nothing.
 - **WHEN** the person types `/devkit project` or `/devkit project billing` in a project set up for devkit with the `claude` driver
 - **THEN** the command's script answers the `project` mode with the rest of the arguments, creates nothing itself, and the session carries on as the project-definition capability says
 
+#### Scenario: The train verb
+- **WHEN** the person types `/devkit train` in a project set up for devkit with the `claude` driver
+- **THEN** the command's script answers the `train` mode, creates nothing itself, and the session carries on as the delivery-train capability says
+
+#### Scenario: The train verb with words after it
+- **WHEN** the person types `/devkit train now`
+- **THEN** the reply says in one sentence that `/devkit train` takes no words after it, and nothing is created or run
+
 #### Scenario: The setup verb
-- **WHEN** the person types `/devkit setup` in any folder of a git repository, set up for devkit or not, whatever its driver and the values of its settings, with an `openspec/config.yaml` that is absent or can be read
-- **THEN** the command's script answers the `setup` mode, creates nothing itself, and the session carries on as the project-setup capability says
+- **WHEN** the person types `/devkit setup` in any folder of a git repository, set up for devkit or not, whatever its driver (`compozy` included) and the values of its settings, with an `openspec/config.yaml` that is absent or can be read
+- **THEN** the command's script answers the `setup` mode, creates nothing itself, and the session carries on as the project-setup capability says, on every driver
 
 #### Scenario: The setup verb outside a git repository
 - **WHEN** the person types `/devkit setup` in a folder that is in no git repository
@@ -33,7 +42,7 @@ sentence that it runs inside one, and run nothing.
 
 #### Scenario: No verb or an unknown verb
 - **WHEN** the person types `/devkit` alone or `/devkit` with a word that is not a verb, `/devkit setups` included
-- **THEN** the reply says in one sentence that `/devkit change`, `/devkit roadmap`, `/devkit status`, `/devkit setup` and `/devkit project` exist and what each is for, and nothing is created or run
+- **THEN** the reply says in one sentence that `/devkit change`, `/devkit roadmap`, `/devkit status`, `/devkit setup`, `/devkit project` and `/devkit train` exist and what each is for, and nothing is created or run
 
 #### Scenario: A usage error
 - **WHEN** the command's script meets an unknown option, a missing argument or an unreadable `openspec/config.yaml`

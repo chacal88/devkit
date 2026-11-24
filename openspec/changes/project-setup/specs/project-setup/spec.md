@@ -17,6 +17,10 @@ SHALL opt the project in, install the `devkit`, `devkit-lite` and `devkit-projec
 - **WHEN** `/devkit setup` is typed where `openspec/config.yaml` is absent or selects another schema
 - **THEN** the command answers with the setup step and not with the reply that the project is not set up
 
+#### Scenario: A project on the CompozyOS driver
+- **WHEN** the owner types `/devkit setup` again in a project whose `devkit:` block holds `driver: compozy`
+- **THEN** the session runs the setup step as on every other driver, starts no CompozyOS run, and asks only what is missing
+
 ### Requirement: The setup runs only from the owner's typed command
 The setup SHALL run only when the owner types `/devkit setup`. The `devkit` skill SHALL stay
 not invocable by the model, so no agent, stage or other session can start the setup.
@@ -31,7 +35,7 @@ not invocable by the model, so no agent, stage or other session can start the se
 
 #### Scenario: A typed setup ends a change run's hold
 - **WHEN** the owner types `/devkit setup` in a session that was running `/devkit change` or `/devkit roadmap`
-- **THEN** that run no longer holds the session, as for any other typed command but `/devkit status`
+- **THEN** that run no longer holds the session, as for any other typed command (a roadmap run also stays on through `/devkit status` and `/devkit train`)
 
 ### Requirement: The setup asks each key of the devkit block
 The setup SHALL ask one short question each for `devkit.language`, `devkit.driver` and the delivery
@@ -81,6 +85,10 @@ already present.
 #### Scenario: A value the loop refuses
 - **WHEN** the block holds `language: xx_bad`
 - **THEN** the setup keeps the value, names the setting, the value and the accepted values, and asks no question about it
+
+#### Scenario: A delivery train the loop refuses
+- **WHEN** the block holds `delivery.train` and no delivery `model`
+- **THEN** the setup keeps the train value and names it as needing the model `trunk` or `trunk-auto`, and the delivery-model question offers only `trunk` and `trunk-auto`
 
 ### Requirement: A re-run writes outside the block only what is unset
 Outside the `devkit:` block the setup SHALL write `schema`, `context`, `rules` and `operations` only

@@ -1,14 +1,15 @@
 <!-- devkit-stage tasks result=passed attempt=1 commit=df0beb015918e8ea5344202a3eeb41ebbfdda78c -->
 # Tasks
 
-Change: `project-setup` · Date: 2026-11-23 · Owner: Kaue (chacal88) · Base: `origin/main` at
-`c1ac8c4`, and `main` after the merge of `compozy-driver` (task 1.1)
+Change: `project-setup` · Date: 2026-11-23, revised 2026-11-24 · Owner: Kaue (chacal88) · Base:
+the branch after its merge of `origin/main` at `f84bc6e` (`compozy-driver`, `delivery-train` and
+`stage-models` merged, not archived), re-read at `fa2969b`
 
 Work only in this change's worktree, on its branch. Every rule, name, text and path is in
 `design.md`: D-1 the verb, D-2 the driver list, D-3 the block writer, D-4 the kit installer's
 finder, D-5 what the step names, D-6 the kit, D-7 the skill text, D-8 the replies, D-9 the history
-exemption, D-10 the moves, D-11 the documents, D-12 the sibling `compozy-driver`, D-13 the tests
-(T-1 to T-29 changed, N-1 to N-17, B-1 to B-16, K-1 to K-5, P-1 new), D-14 the real run, D-15 the
+exemption, D-10 the moves, D-11 the documents, D-12 the siblings `compozy-driver` and `delivery-train`, D-13 the tests
+(T-1 to T-30 changed, N-1 to N-18, B-1 to B-17, K-1 to K-5, P-1 new), D-14 the real run, D-15 the
 release. The implementer copies them and makes no design choice. A choice the design does not
 settle stops the phase and goes to the owner.
 
@@ -29,10 +30,10 @@ backup or scratch file in the tree, and end every task with `git status --short`
 
 | Id | Slug | Tasks |
 |---|---|---|
-| AC-1 | `setup-verb` | 3.1, 3.2, 3.5, 5.1, 5.2, 5.6, 7.1, 7.6, 7.8 |
-| AC-2 | `old-skills-gone` | 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.1, 3.3, 3.4, 3.6, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.9, 7.8 |
+| AC-1 | `setup-verb` | 3.1, 3.2, 3.3, 3.5, 5.1, 5.2, 5.3, 5.6, 6.6, 7.1, 7.5, 7.6, 7.8 |
+| AC-2 | `old-skills-gone` | 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.1, 3.3, 3.4, 3.6, 6.1, 6.2, 6.3, 6.4, 6.5, 6.7, 6.8, 6.10, 7.8 |
 | AC-3 | `block-written` | 4.1, 4.2, 4.5, 7.1, 7.8 |
-| AC-4 | `rerun-keeps` | 4.1, 4.2, 4.5, 5.1, 5.2, 5.6, 7.2, 7.8 |
+| AC-4 | `rerun-keeps` | 4.1, 4.2, 4.5, 5.1, 5.2, 5.3, 5.6, 7.2, 7.5, 7.8 |
 | AC-5 | `no-checker-copy` | 4.1, 4.2, 4.4, 4.5, 5.1, 5.2, 5.6, 7.1, 7.8 |
 | AC-6 | `driver-rule` | 3.1, 3.2, 3.5, 4.1, 4.2, 4.3, 4.5, 5.1, 5.2, 5.6, 7.4, 7.5, 7.8 |
 | AC-7 | `github-one-by-one` | 4.1, 4.2, 4.5, 5.1, 5.2, 5.4, 5.6, 7.3, 7.8 |
@@ -42,23 +43,33 @@ backup or scratch file in the tree, and end every task with `git status --short`
 
 ## 1. Setup: `main` after `compozy-driver`
 
-- [ ] 1.1 Fetch, then merge `origin/main` into `project-setup` once it holds the `compozy-driver`
-  merge (D-12, step 1). Resolve only conflicts in this change's own folder. A conflict elsewhere
-  stops the phase for the owner. Check: `git log --oneline -1` is the merge commit and
-  `git status --short` is empty.
-- [ ] 1.2 Re-read, on the merged tree, every file `design.md` names from `compozy-driver`:
-  `change-loop.mjs` (`DRIVER_ROUND`, `compozy-kit-missing`), `compozy-driver.mjs` (`FIX`),
-  `guard.test.mjs` imports, `plugins/compozy/skills/compozy-setup/` (scripts, templates,
-  `SKILL.md`), `.github/workflows/ci.yml`, `CLAUDE.md`, `docs/compozy-kit.md`, and the grep of D-13.
-  First check the sibling's record and versions against `cb39d27`: its ADR
-  `docs/adr/0024-compozy-runs-the-short-loop.md` (0022 on its branch), devkit-openspec 0.34.0, marketplace 0.38.0. This change's record
-  `docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md` carries its final number 0025
-  unless a later merge of `main` takes it; task 6.6 checks it again against `origin/main` and moves
-  every link if it changed. Every reference to this change's record names its file. A number or version that moved is drift. A line number that moved is drift: fix it in `design.md` and `tasks.md` without asking. A text
+- [ ] 1.1 Confirm the merge of `origin/main` that brought `compozy-driver`, `delivery-train` and
+  `stage-models` (`f84bc6e`, done before this revision; D-12, step 1). Run no fetch and no second
+  merge here: the next merges are task 6.5's, task 6.6's and the one before the last verify and
+  review. Check: `git merge-base --is-ancestor origin/main HEAD` and
+  `git merge-base --is-ancestor f84bc6e HEAD` both exit 0, and `git status --short` is empty.
+- [ ] 1.2 Re-read, on the merged tree, every file `design.md` names from the three siblings.
+  From `compozy-driver`: `change-loop.mjs` (`DRIVER_ROUND`, `compozy-kit-missing`),
+  `compozy-driver.mjs` (`FIX`), `guard.test.mjs` imports, `plugins/compozy/skills/compozy-setup/`
+  (scripts, templates, `SKILL.md`), `.github/workflows/ci.yml`, `CLAUDE.md`, `docs/compozy-kit.md`.
+  From `delivery-train`: `plugins/openspec/hooks/train-loop.mjs` (line 552's strip),
+  `plugins/openspec/hooks/delivery-train.test.mjs` (T-30, P9 N7), the `verb-unknown` texts and the
+  verb list of `change-loop.mjs`, the `## Train` and `## On the CompozyOS driver` sections and the
+  frontmatter of `plugins/openspec/skills/devkit/SKILL.md`, and
+  `openspec/changes/delivery-train/specs/change-coordination/spec.md`. From `stage-models`:
+  `plugins/openspec/hooks/stage-models.test.mjs` and the `models:` lines of `change-loop.mjs`'s
+  settings reader. Then run the grep of D-13 over every test file of the merged tree. Check the
+  siblings' records and the versions as read at the last merge (at `f84bc6e`:
+  `docs/adr/0024-compozy-runs-the-short-loop.md`, devkit-openspec 0.36.0 in
+  `plugins/openspec/.claude-plugin/plugin.json`, marketplace 0.40.0 in
+  `.claude-plugin/marketplace.json`). This change's record takes the next free number on
+  `origin/main` at the last merge before review; its file name carries that number today, and every
+  reference to the record names its file (task 6.7). A number or version that moved is drift. A line
+  number that moved is drift: fix it in `design.md` and `tasks.md` without asking. A text
   that no longer holds the old name or path, or a new file that names one, is added to the task that
   owns its kind (D-8 messages to 3.4, paths to 2.x, docs to 6.x). Check: one commit
-  `docs(openspec): re-read of project-setup after the compozy-driver merge` that holds only those
-  plan edits, or none when nothing moved.
+  `docs(openspec): re-read of project-setup on the merged tree` that holds only those plan edits, or
+  none when nothing moved.
 - [ ] 1.3 Create `openspec/changes/project-setup/proof/` with a `README.txt` that lists the files the
   phases will save there (`red-<phase>.txt`, `r1-first-install.txt` to `r6-typed-only.txt`, D-14).
   Check: `test -s openspec/changes/project-setup/proof/README.txt`.
@@ -74,18 +85,21 @@ backup or scratch file in the tree, and end every task with `git status --short`
   exits 0, and `node --test plugins/openspec/skills/devkit/scripts/install-schemas.test.mjs`
   passes.
 - [ ] 2.2 Move the old skill's text into a `## Setup` section of `plugins/openspec/skills/devkit/SKILL.md`,
-  placed between `## Waiting on GitHub` and `## Roadmap`. Keep its steps 1 to 8 and their sentences
+  placed right after `## Train` and right before `## Roadmap` (D-7; `## Train` stays right after
+  `## Waiting on GitHub`). Keep its steps 1 to 8 and their sentences
   as they are, with every path written `<skill-dir>/scripts/...` or `<skill-dir>/templates/...`, and
   its `## Never` items appended to the skill's `## Never` (D-7), with D-7's three exceptions: the old
   title and `## Steps` heading are dropped (no `##` heading but `## Setup`), step 4's
   `change-loop.mjs flow` reference becomes "the `flow` command of `/devkit change`", and step 7's
   `--method <squash|merge|rebase>` becomes `--method <the merge_method answer of step 5>`. Delete
   `plugins/openspec/skills/openspec-setup/SKILL.md` and the folder. Rewrite T-3 as D-13 says, keep
-  T-5's slices on the devkit skill, and add `'## Setup'` to the heading list of T-28. Check:
+  T-5's slices on the devkit skill, and give T-28 the thirteen headings of D-13 (`'## Setup'` between
+  `'## Train'` and `'## Roadmap'`). Check:
   `test ! -e plugins/openspec/skills/openspec-setup` exits 0, `grep -c rebase plugins/openspec/skills/devkit/SKILL.md`
   prints 0, and
   `node --test plugins/openspec/skills/devkit/scripts/gh-version.test.mjs plugins/openspec/skills/devkit/scripts/github-setup.test.mjs`
-  passes (T-15, T-16 still green with the moved text). T-26 and T-28 run in gate 2.9.
+  passes (T-15, T-16 still green with the moved text). T-26, T-28 and T-30's placement and slice
+  assertions (`delivery-train.test.mjs` lines 2327-2329) run in gate 2.9.
 - [ ] 2.3 Move `plugins/compozy/skills/compozy-setup/scripts/` to `plugins/compozy/kit/scripts/` and
   `templates/` to `plugins/compozy/kit/templates/` with `git mv`. Change `PACK_JSON` in
   `install-kit.mjs`; `DEFAULT_ROOT`, `AGENTS_AT` and `SELF` in `gen-agents.mjs`; the paths, the
@@ -124,47 +138,57 @@ backup or scratch file in the tree, and end every task with `git status --short`
 
 ## 3. The verb, the driver list and the messages (AC-1, AC-2, AC-6)
 
-- [ ] 3.1 Write N-1 to N-5 and N-8 in `plugins/openspec/hooks/change-loop.test.mjs` and N-9 in
-  `plugins/openspec/hooks/project-loop.test.mjs`. Reach `BUILT_DRIVERS` through the file's namespace
-  import or a dynamic `import()`, so the red run fails test by test. Apply the T-14, T-18, T-19,
-  T-20 and T-22 changes. N-8 and T-14 build the old skill names by concatenation (D-9). Run
+- [ ] 3.1 Write N-1 to N-5 and N-8 in `plugins/openspec/hooks/change-loop.test.mjs`, N-9 in
+  `plugins/openspec/hooks/project-loop.test.mjs`, and N-18 in
+  `plugins/openspec/hooks/delivery-train.test.mjs` beside `delivery-train P9 N7`. Reach
+  `BUILT_DRIVERS`, `SETUP_POINTER` and `withoutSetupPointer` through each file's namespace import or
+  a dynamic `import()`, so the red run fails test by test. Apply the T-14, T-18, T-19, T-20, T-22
+  changes and T-30's `delivery-train P13` prefixes (D-13). N-8 and T-14 build the old skill names by concatenation (D-9). Run
   `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node --test --test-name-pattern="^setup AC-" plugins/openspec/hooks/guard.test.mjs`
   on the code as it is. Check: `openspec/changes/project-setup/proof/red-3.txt` holds the run, and
-  N-1 to N-5, N-8 and N-9 fail in it.
+  N-1 to N-5, N-8, N-9 and N-18 fail in it.
 - [ ] 3.2 In `plugins/openspec/hooks/change-loop.mjs`, add the `setup` branch of `startMode` and
   the `setup-no-repo` reply in both languages (D-1), and export `BUILT_DRIVERS` (D-2). Check: N-1 to
   N-5 pass.
 - [ ] 3.3 Change the replies of D-8 in `change-loop.mjs`: `not-set-up`, `verb-unknown`,
   `design-pack-missing`, `blocked-why.merge-setup`, `blocked-why.merge-setup-missing` and
-  `compozy-kit-missing`, in `en` and `pt-BR`. Check: N-8, T-14, T-18, T-19 and T-20 pass.
+  `compozy-kit-missing`, in `en` and `pt-BR`; `verb-unknown` lists the six verbs with `setup` right
+  after `status` and keeps its `/devkit train` ending (D-7, D-8). Check: N-8, T-14, T-18, T-19, T-20
+  and `delivery-train P13: the reply to an unknown verb names /devkit train, in order, in both
+  languages` (T-30) pass.
 - [ ] 3.4 Change the other texts of D-8: `flow-check.mjs` `schema-without-declaration` (both
-  languages), `guard.mjs` line 499, `merge-setup.mjs` (`SETUP_POINTER` exported, line 143's
-  comment), `project-loop.mjs` line 254 (the strip through `SETUP_POINTER`), `compozy-driver.mjs`
+  languages), `guard.mjs` line 539, `merge-setup.mjs` (`SETUP_POINTER` exported, line 143's
+  comment, and the new export `withoutSetupPointer`), `project-loop.mjs` line 254 and
+  `train-loop.mjs` line 552 (each strip replaced by `setup.missing.map(withoutSetupPointer)`,
+  imported from `merge-setup.mjs`, no regex left; behaviour unchanged), `compozy-driver.mjs`
   `FIX['kit-missing']`, and `plugins/openspec/skills/devkit/scripts/changes-under-way.mjs` lines 2
-  and 96. Update T-7, T-8 and T-17. Check: N-9, T-7, T-8, T-17, T-21 and T-22 pass.
+  and 96. Update T-7, T-8 and T-17. Check: N-9, N-18, T-7, T-8, T-17, T-21, T-22 and
+  `delivery-train P9 N7` pass, and `grep -c "run the openspec" plugins/openspec/hooks/train-loop.mjs plugins/openspec/hooks/project-loop.mjs`
+  prints 0 for each file.
 - [ ] 3.5 Write N-6 and N-7 in `plugins/openspec/hooks/guard.test.mjs`. They pin that `runOf` and
   `roadmapRunOf` end on a typed `/devkit setup` and that `/devkit status` does not end a roadmap
   run. Write N-16 in `plugins/openspec/hooks/change-loop.test.mjs`: `setup` with an
   `openspec/config.yaml` that cannot be read ends with the usage error and exit 3 (D-1). All three
   pass on the base, so they are not in the red file. Check: the three pass.
-- [ ] 3.6 Gate: `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node --test --test-name-pattern="^setup AC-" --test-name-pattern="^change-loop start" --test-name-pattern="^roadmap-loop start" --test-name-pattern="^project-loop start" --test-name-pattern="^project-loop next: S23" --test-name-pattern="^nextStep row 3a" --test-name-pattern="^mergeSetup" --test-name-pattern="^flow-check AC-7" --test-name-pattern="^compozy-driver readiness" --test-name-pattern="^field-fixes 7 apply" plugins/openspec/hooks/guard.test.mjs` green; covers AC-1 (the verb, typed only), AC-2 (the replies), AC-6 (the driver list).
+- [ ] 3.6 Gate: `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node --test --test-name-pattern="^setup AC-" --test-name-pattern="^change-loop start" --test-name-pattern="^roadmap-loop start" --test-name-pattern="^project-loop start" --test-name-pattern="^project-loop next: S23" --test-name-pattern="^nextStep row 3a" --test-name-pattern="^mergeSetup" --test-name-pattern="^flow-check AC-7" --test-name-pattern="^compozy-driver readiness" --test-name-pattern="^field-fixes 7 apply" --test-name-pattern="^delivery-train P13" --test-name-pattern="^delivery-train P9 N7" plugins/openspec/hooks/guard.test.mjs` green; covers AC-1 (the verb, typed only), AC-2 (the replies and both pointer strips), AC-6 (the driver list).
 
 ## 4. The block writer and the kit finder (AC-3 to AC-7)
 
-- [ ] 4.1 Write B-1 to B-16 in a new `plugins/openspec/skills/devkit/scripts/setup-block.test.mjs`,
+- [ ] 4.1 Write B-1 to B-17 in a new `plugins/openspec/skills/devkit/scripts/setup-block.test.mjs`,
   K-1 to K-5 in a new `plugins/openspec/skills/devkit/scripts/kit-installer.test.mjs`, and P-1 in
   `plugins/openspec/skills/devkit/scripts/project-settings.test.mjs`. Import both new files from
   `plugins/openspec/hooks/guard.test.mjs` next to the other setup imports. A test that needs a
   script this phase adds spawns it, so the red run fails test by test. Run
   `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node --test --test-name-pattern="^setup AC-" plugins/openspec/hooks/guard.test.mjs`.
-  Check: `openspec/changes/project-setup/proof/red-4.txt` holds the run, and B-1 to B-16 and K-1 to
+  Check: `openspec/changes/project-setup/proof/red-4.txt` holds the run, and B-1 to B-17 and K-1 to
   K-5 fail in it. P-1 passes, because `project-settings.mjs` already reports it; its task says so.
 - [ ] 4.2 Write `plugins/openspec/skills/devkit/scripts/setup-block.mjs` as D-3 says: `plan` and
   `apply`, the `missing` rules, the `fill` field, the refusals with exit 3, the usage errors with
-  exit 2, the writing rules and the parser decisions. Export `LANGUAGE_TAG` from
+  exit 2, the writing rules and the parser decisions, the `delivery.train` entry of `kept` and
+  the `delivery` options it narrows. Export `LANGUAGE_TAG` from
   `plugins/openspec/hooks/change-loop.mjs`, unchanged, and import it, with no second copy of the
   regex. It reuses the readers named in D-3's Context and writes no YAML library. Check: B-1 to
-  B-16 pass, and `grep -c "A-Za-z]{2,3}" plugins/openspec/skills/devkit/scripts/setup-block.mjs`
+  B-17 pass, and `grep -c "A-Za-z]{2,3}" plugins/openspec/skills/devkit/scripts/setup-block.mjs`
   prints 0.
 - [ ] 4.3 Write `plugins/openspec/skills/devkit/scripts/kit-installer.mjs` as D-4 says: the sibling,
   then the installed packs by highest version and last path, `--where`, and the pass-through run.
@@ -178,7 +202,8 @@ backup or scratch file in the tree, and end every task with `git status --short`
 
 - [ ] 5.1 Write N-11 to N-15 and N-17 in `plugins/openspec/hooks/guard.test.mjs`, with the N-15 fixture
   `plugins/openspec/skills/devkit/scripts/fixtures/old-setup/` (`config.yaml`, the template's
-  bytes at `c1ac8c4` held as a file, and `settings.json` as the old skill wrote it). Apply T-15's
+  bytes at `c1ac8c4` held as a file, and `settings.json` as the old skill wrote it). N-11 pins
+  D-7's `## Start` sentence for the `compozy` driver and the `setup` item. Apply T-15's
   `ship`/`merge_method` assertion. Run
   `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node --test --test-name-pattern="^setup AC-" --test-name-pattern="^format: the Setup section" plugins/openspec/hooks/guard.test.mjs`.
   Check: `openspec/changes/project-setup/proof/red-5.txt` holds the run, and N-11 to N-14, N-17 and
@@ -193,18 +218,22 @@ backup or scratch file in the tree, and end every task with `git status --short`
   first (D-5). Step 7 runs when the mode merges. Step 8 is the kit (D-6). Step 9 reports the version
   and the first command. Keep every sentence D-13 says a test pins. Check: N-12, N-13, N-14, N-17, T-3,
   T-5, T-15 and T-16 pass, and `grep -c rebase plugins/openspec/skills/devkit/SKILL.md` prints 0.
-- [ ] 5.3 Change the frontmatter and `## Start` of the same skill as D-7 says (description,
-  argument hint with `| setup` before `| project [<name>]`, the `setup` and `setup-no-repo` modes).
-  Apply T-29 to `plugins/openspec/hooks/roadmap-loop.test.mjs` (the exact hint regex). Check: N-11,
-  T-24, T-25 and T-29 pass.
+- [ ] 5.3 Change the frontmatter and `## Start` of the same skill as D-7 says: the description
+  sentence after the train sentence (kept word for word), the "Use when" list and the argument hint
+  with `setup` right after `status` (`| status | setup | train | project [<name>]`), the `setup` and
+  `setup-no-repo` modes, and the first item's driver sentence reworded so that `setup` and
+  `setup-no-repo` stay in `## Start` on every driver (`## On the CompozyOS driver` is not edited).
+  Apply T-29 to `plugins/openspec/hooks/roadmap-loop.test.mjs` and T-30's hint regex to
+  `plugins/openspec/hooks/delivery-train.test.mjs` line 2330 (the exact hint). Check: N-11, T-24,
+  T-25, T-29 and `delivery-train docs: the documents follow` (T-30) pass.
 - [ ] 5.4 Change `plugins/openspec/skills/ship-change/SKILL.md` line 26 and the `stop-merge-setup`
   row (D-7). Check: `grep -c "openspec-setup" plugins/openspec/skills/ship-change/SKILL.md` prints
   0 and the ship-change row tests pass in gate 5.6.
 - [ ] 5.5 Check the skill-wide negatives of T-26 on the new text (no `--lang en`, no unquoted
   heredoc, no `rebase` or `--force` anywhere in the file, no line naming a `change-loop.mjs` call
   without `--lang ${user_config.language}`, nothing of the Roadmap's tools before `## Roadmap`) and
-  T-28's heading list. Check: N-15 still passes and the T-26 and T-28 tests pass in gate 5.6.
-- [ ] 5.6 Gate: `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node --test --test-name-pattern="^setup " --test-name-pattern="^format: the Setup section" --test-name-pattern="^field-fixes 5 skill" --test-name-pattern="^gh-version 19" --test-name-pattern="^stage-roles" --test-name-pattern="^change-loop skill" --test-name-pattern="^roadmap-loop skill" --test-name-pattern="^project-loop skill" --test-name-pattern="^release-merge-conflict 16" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py` green; covers AC-1 (the skill), AC-4 (step 5's `fill` rule), AC-5, AC-6 and AC-7 (the step's text) and AC-8.
+  T-28's heading list. Check: N-15 still passes and the T-26, T-28 and T-30 tests pass in gate 5.6.
+- [ ] 5.6 Gate: `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node --test --test-name-pattern="^setup " --test-name-pattern="^format: the Setup section" --test-name-pattern="^field-fixes 5 skill" --test-name-pattern="^gh-version 19" --test-name-pattern="^stage-roles" --test-name-pattern="^change-loop skill" --test-name-pattern="^roadmap-loop skill" --test-name-pattern="^project-loop skill" --test-name-pattern="^release-merge-conflict 16" --test-name-pattern="^delivery-train docs" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py` green; covers AC-1 (the skill, `## Start` on every driver), AC-4 (step 5's `fill` rule and the re-run on the `compozy` driver), AC-5, AC-6 and AC-7 (the step's text) and AC-8.
 
 ## 6. Documents, records and release (AC-2)
 
@@ -222,18 +251,18 @@ backup or scratch file in the tree, and end every task with `git status --short`
   (through the template and the installer, task 2.5's command), and the descriptions in
   `plugins/compozy/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`. Run
   `python3 scripts/gen-catalog.py`. Check: `python3 scripts/check.py` and
-  `python3 scripts/gen-catalog.py --check` exit 0, and the `docs sweep` test passes in gate 6.9.
+  `python3 scripts/gen-catalog.py --check` exit 0, and the `docs sweep` test passes in gate 6.10.
 - [ ] 6.3 Edit the Purpose of `openspec/specs/project-setup/spec.md` and
   `openspec/specs/compozy-kit-setup/spec.md` to name `/devkit setup` and the kit installer (D-11).
   Their requirement bodies are not edited: the archive applies the delta to them, and N-10 skips
   exactly the blocks the delta MODIFIES (D-9, point 3). Check: N-10's failure names neither
   Purpose.
 - [ ] 6.4 Answer the open point of `docs/coordination-design.md` (D-11). Add the ADR line to
-  `context` in `openspec/config.yaml` with the record's current number; task 6.6's renumber moves it
+  `context` in `openspec/config.yaml` with the number the record's file name carries; the renumber step of the last merge before review (task 6.7) moves it
   with every other reference.
   Check: the Open points list of `docs/coordination-design.md` holds no "Project setup" bullet, and
-  the `change-loop docs: the design records the answers` test passes in gate 6.9.
-- [ ] 6.5 Only the sibling's delta waits here, after the documents. Check that `origin/main` holds
+  the `change-loop docs: the design records the answers` test passes in gate 6.10.
+- [ ] 6.5 The delta of `compozy-driver` waits here, after the documents. Check that `origin/main` holds
   the archive of `compozy-driver` (`git fetch` then
   `git ls-tree -d --name-only origin/main openspec/changes/archive/` names a folder ending in
   `-compozy-driver`). If it does not, stop the phase and wait (D-12, step 4). Then merge
@@ -242,22 +271,37 @@ backup or scratch file in the tree, and end every task with `git status --short`
   requirements D-12 step 4 lists, copied whole from the canonical spec with `compozy-setup` replaced
   by "the kit installer". Check: `openspec validate project-setup --type change --strict` exits 0
   and N-10 passes.
-- [ ] 6.6 Only after `approval.md` holds the owner's approval of this plan: add the header line and
+- [ ] 6.6 Beside 6.5, the other overlap (D-12, step 7). Check that `origin/main` holds the archive of
+  `delivery-train` (`git fetch` then
+  `git ls-tree -d --name-only origin/main openspec/changes/archive/` names a folder ending in
+  `-delivery-train`). If it does not, stop the phase and wait. Then merge `origin/main` into the
+  branch, re-read and run the content checks of D-12 step 6, and compare the requirement "The devkit
+  command reads its verb" of `openspec/specs/change-coordination/spec.md` with the MODIFIED block of
+  `openspec/changes/project-setup/specs/change-coordination/spec.md`: every sentence and scenario
+  of the canonical block is in this change's block, which differs from it only by `setup` (the verb
+  sentence, the two setup scenarios, `/devkit setups` and `/devkit setup` in the unknown-verb
+  scenario). Where the archived text moved, write the block again from it plus `setup`, with no other
+  change. Check: `openspec validate project-setup --type change --strict` exits 0,
+  `grep -c "#### Scenario: The train verb" openspec/changes/project-setup/specs/change-coordination/spec.md`
+  prints 2, and every `#### Scenario:` line of the canonical requirement is in the block.
+- [ ] 6.7 Only after `approval.md` holds the owner's approval of this plan: add the header line and
   the dated Note of D-11 to `docs/adr/0004-devkit-per-project.md`. Set the record of
-  `decisions.md` to `accepted`, quoting `approval.md`. Its number 0025 is checked against
-  `origin/main` at the last merge before review: if a later merge took it, the record takes the next
-  free number and every link to it moves with it (the loop's renumber step does this at that merge). Check: `grep -c "Note (project-setup" docs/adr/0004-devkit-per-project.md`
+  `decisions.md` to `accepted`, quoting `approval.md`. The record's number is the next free number
+  on `origin/main` at the last merge before review; its file name carries it today. Refer to it by
+  its file name, and write `<n>` in the Note and the header line of D-11 as that number. When the
+  last merge before review finds the number taken, the loop's renumber step at that merge renames the
+  file and moves every link, the ones this task wrote included. Check: `grep -c "Note (project-setup" docs/adr/0004-devkit-per-project.md`
   prints 1 and the record's `Status:` line reads `accepted`.
-- [ ] 6.7 Bump devkit-openspec, devkit-compozy and the marketplace, each to the next free minor
+- [ ] 6.8 Bump devkit-openspec, devkit-compozy and the marketplace, each to the next free minor
   version on `origin/main` at the last merge before review. Use `plugins/openspec/.claude-plugin/plugin.json`,
   `plugins/compozy/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`. Add the
   `CHANGELOG.md` entry of D-11 and D-15. Install this repository's kit again, so its manifest
   records the new devkit-compozy version. Check: `python3 scripts/check.py` exits 0 (the changelog
   check) and `node --test plugins/compozy/kit/scripts/adoption.test.mjs` passes.
-- [ ] 6.8 Set the stage headers of `proposal.md`, `design.md`, the three spec files and `tasks.md`
+- [ ] 6.9 Set the stage headers of `proposal.md`, `design.md`, the three spec files and `tasks.md`
   to the commit of this phase only if a phase changed them, as the stage rule says. Check:
   `openspec validate project-setup --type change --strict` exits 0.
-- [ ] 6.9 Gate: `python3 scripts/check.py && python3 scripts/gen-catalog.py --check && claude plugin validate . && openspec validate project-setup --type change --strict && env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node --test --test-name-pattern="^setup AC-2" --test-name-pattern="^docs sweep" --test-name-pattern="^change-loop docs" plugins/openspec/hooks/guard.test.mjs` green; covers AC-2 (no document names the old skills; the checks pass).
+- [ ] 6.10 Gate: `python3 scripts/check.py && python3 scripts/gen-catalog.py --check && claude plugin validate . && openspec validate project-setup --type change --strict && env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node --test --test-name-pattern="^setup AC-2" --test-name-pattern="^docs sweep" --test-name-pattern="^change-loop docs" plugins/openspec/hooks/guard.test.mjs` green; covers AC-2 (no document names the old skills; the checks pass).
 
 ## 7. The real run and the whole suite (AC-10, every AC)
 
@@ -276,8 +320,11 @@ worktree's `plugins/core`, `plugins/openspec` and `plugins/compozy`. Each saves 
   unchanged.
 - [ ] 7.4 R-4, kit yes. Check: `proof/r4-kit-yes.txt` shows `.compozy/kit-manifest.json`, the
   installer's per-file lines and `devkit-compozy@devkit` enabled.
-- [ ] 7.5 R-5, driver `compozy`. Check: `proof/r5-driver-compozy.txt` shows `claude` and `compozy`
-  offered, `script` absent, and the kit installed with no kit question.
+- [ ] 7.5 R-5, driver `compozy`, then `/devkit setup` typed again in that project. Check:
+  `proof/r5-driver-compozy.txt` shows `claude` and `compozy` offered, `script` absent, the kit
+  installed with no kit question, and the re-run on the `compozy` driver running the Setup section
+  with no CompozyOS start, no block or kit question and two equal `shasum -a 256 openspec/config.yaml`
+  lines.
 - [ ] 7.6 R-6, the typed-only part. Check: `proof/r6-typed-only.txt` shows a plain-words request
   that ran no setup and an empty `git status --short`.
 - [ ] 7.7 A run that could not happen is recorded in its file with the reason (D-14). Check: each of
@@ -289,6 +336,6 @@ worktree's `plugins/core`, `plugins/openspec` and `plugins/compozy`. Each saves 
 - Merge `origin/main` before the last verify and review (D-12, step 6). After that merge, repeat
   task 1.2's re-read and the content checks of D-12 step 6 (gate 1.4's checks at the paths phase 2
   left); a red part stops the change for the owner. At that merge the record takes its number and
-  the versions are checked again as tasks 6.6 and 6.7 say.
+  the versions are checked again as tasks 6.7 and 6.8 say.
 - After the merge: tag `v<devkit-openspec version>` (the delivery loop's `tag-release` step), the
   retro, then archive and tick `project-setup` in `openspec/roadmap.md`.

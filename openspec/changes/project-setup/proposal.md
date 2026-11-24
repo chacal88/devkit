@@ -3,8 +3,8 @@
 
 Change: `project-setup` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
 (sources: `requirements.md`, `decisions.md`, the proposed record
-`docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md`, whose number 0025 is final unless
-a later merge of `main` takes it (then it takes the next free number at the change's last merge before review);
+`docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md`, whose number is the next free
+number on `origin/main` at the last merge before review (its file name carries it today);
 `docs/coordination-design.md`, Open points, "Project setup"). Roadmap line `project-setup`
 (round 26), item 3 of the `orchestrator-replan` retro.
 
@@ -41,7 +41,8 @@ install the kit when the owner wants it.
   (`screen-design`, `screen-demo`).
 - Every reply, hook message, document and test that names the old skills names `/devkit setup`.
   That covers `change-loop.mjs`, `flow-check.mjs`, `guard.mjs`, `merge-setup.mjs`, `project-loop.mjs`,
-  `compozy-driver.mjs`, `changes-under-way.mjs`, `ship-change`, the READMEs, `CONTRIBUTING.md`,
+  `train-loop.mjs` (its copy of the pointer strip), `compozy-driver.mjs`, `changes-under-way.mjs`,
+  `ship-change`, the READMEs, `CONTRIBUTING.md`,
   `CLAUDE.md`, the docs, the two capability specs and the generated catalog. Decision records,
   past `CHANGELOG.md` entries and archived changes stay as written.
 - No checker code is copied into a project. The step names the devkit-openspec version the schemas
@@ -49,7 +50,7 @@ install the kit when the owner wants it.
   uses that is not enabled in `.claude/settings.json`.
 - Documents: the open point of `docs/coordination-design.md` is answered. ADR 0004 gets a dated Note
   and an "Amended by" line, written by the implementation after plan approval. ADR 0025 is accepted
-  and its number is checked at the last merge. Releases of devkit-openspec, devkit-compozy and the marketplace.
+  with the next free number on `origin/main` at the last merge before review. Releases of devkit-openspec, devkit-compozy and the marketplace.
 
 Non-goals: everything under "Out of scope" in `requirements.md` (the `script` driver; changing or
 copying the checkers; a task-source key; writing `budget` or `design:`; re-running setup in the
@@ -94,19 +95,23 @@ None.
   `/devkit setup` on a yes to the kit question. The requirements that name `compozy-setup` name that
   installer instead, with no change of behaviour. One added requirement says the installer ships
   outside any skill folder and how `/devkit setup` finds it.
-- `change-coordination`: `/devkit` reads `setup` as a verb that runs before the project gate. The
-  reply for a project not set up names `/devkit setup`.
+- `change-coordination`: `/devkit` reads `setup` as a verb that runs before the project gate, on
+  every driver, beside the five verbs `main` holds (`train` included). The reply for a project not
+  set up names `/devkit setup`. The delta's block is `delivery-train`'s text plus `setup`, because
+  both changes modify the same requirement (`design.md` D-12, step 7).
 
 ## Impact
 
 - devkit-openspec: `hooks/change-loop.mjs` (the `setup` mode, one exported list of built drivers, the
-  replies), `hooks/flow-check.mjs`, `hooks/guard.mjs`, `hooks/merge-setup.mjs`,
-  `hooks/project-loop.mjs` and `hooks/compozy-driver.mjs` (message texts); `skills/devkit/` (the
+  replies), `hooks/flow-check.mjs`, `hooks/guard.mjs`, `hooks/merge-setup.mjs` (the pointer and its
+  one strip helper), `hooks/project-loop.mjs`, `hooks/train-loop.mjs` and `hooks/compozy-driver.mjs`
+  (message texts); `skills/devkit/` (the
   `## Setup` section, the moved scripts, templates and fixtures, the new `setup-block.mjs` and
   `kit-installer.mjs`); `skills/ship-change/SKILL.md`; `skills/openspec-setup/` removed; the suites
   `guard.test.mjs`, `change-loop.test.mjs`, `roadmap-loop.test.mjs`, `project-loop.test.mjs`,
   `deliver-check.test.mjs`, `merge-setup.test.mjs`, `delivery-models.test.mjs`, `flow-check.test.mjs`,
-  `version-pin.test.mjs` and `compozy-driver.test.mjs`.
+  `version-pin.test.mjs`, `compozy-driver.test.mjs` and `delivery-train.test.mjs` (the verb list,
+  the hint and the train's blocked reply).
 - devkit-compozy: `skills/compozy-setup/` removed; `kit/` holds `install-kit.mjs`, `gen-agents.mjs`,
   the templates and their tests; the generated agents are generated again with the new generator
   path; `README.md`, `plugin.json`.
@@ -119,14 +124,17 @@ None.
 - Versions: devkit-openspec, devkit-compozy and the marketplace each take the next free minor version
   on `origin/main` at the last merge before review. devkit-openspec is tagged `v<that version>` after
   the merge (CONTRIBUTING).
-- Dependencies: `compozy-driver` (round 21) merged into `main` before the first task, and archived
-  before its delta blocks are added in the last phase (`design.md` D-12). At its head `cb39d27` its
-  ADR was `0022-compozy-runs-the-short-loop.md` (devkit-openspec 0.34.0, marketplace 0.38.0); on
-  `main` it is `docs/adr/0024-compozy-runs-the-short-loop.md`. This change's record is 0025, so no
-  two records share a number.
+- Dependencies: `compozy-driver` (round 21), `delivery-train` and `stage-models`, all merged into
+  `main` and into this branch at `f84bc6e` before the first task (`design.md` D-12). `compozy-driver`
+  is archived before its delta blocks are added in the last phase (task 6.5); `delivery-train` is
+  archived before task 6.6 re-reads the shared `change-coordination` block. The sibling's record is
+  `docs/adr/0024-compozy-runs-the-short-loop.md`; the versions are read at the last merge (at
+  `f84bc6e`: devkit-openspec 0.36.0, marketplace 0.40.0). This change's record takes the next free
+  number on `origin/main` at the last merge before review, so no two records share a number.
   `delivery-models` (archived) for the delivery keys; `change-version-pin` (archived) for the pin
   this step does not move.
-- Decisions cited: ADR 0002, 0004, 0009, 0010 (decision 1), 0018, 0019 and the proposed ADR 0025.
+- Decisions cited: ADR 0002, 0004, 0009, 0010 (decision 1), 0018, 0019 and the proposed record
+  `docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md`.
   Open decisions inherited: none. The open point "Project setup" of `docs/coordination-design.md` is
   the one this change answers.
 
