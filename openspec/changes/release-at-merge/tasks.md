@@ -274,7 +274,7 @@ seeded files it names and the outputs to `proof/agents-run.md` under `## S-<n> `
   installed `resolve-release-conflict` or `renumber-adr`. `change-loop-compozy.test.mjs` "change-loop
   docs: the design records the answers" (T-6) checks the pins the command wrote against the manifest
   it wrote (AC-4, AC-5, AC-6).
-- [ ] 8.2 Gate: `node scripts/test-suite.mjs && python3 scripts/check.py` green at the final commit,
+- [x] 8.2 Gate: `node scripts/test-suite.mjs && python3 scripts/check.py` green at the final commit,
   run once as a background command with no other suite on the machine; the train's suite proves both
   parts.
 
