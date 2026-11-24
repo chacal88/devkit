@@ -2547,6 +2547,38 @@ test(`${FMP}: G8 a review with no Verdict line, a DECLINED one and a non-md entr
   assert.deepEqual(gatesOf(t), { gates: [{ file: 'reviews/code-quality-reviewer.md', why: 'no verdict line' }] });
 });
 
+// One currency rule (jira-entry-followups D-2): an approved verdict that still lists an undisposed [blocking] / [important] finding is
+// current only through commits of the change's own review record, on the forced path as in readReviews.
+const FIX = 'f'.repeat(40);
+const withFinding = (disposition, commit = OLD) => `Verdict: approved\nCommit: ${commit}\n\n# Review\n\n- [important] the retro under-reports a gate${disposition}\n`;
+const openGateRepo = (text, files) => {
+  const t = gatesRepo({ evidence: STAGE('passed', GHEAD), reviews: { 'code-quality-reviewer': text, 'test-coverage-reviewer': verdictText('approved', GHEAD) } });
+  t.gh.set(compareKey(OLD, GHEAD), compareFx('ahead', files));
+  return t;
+};
+
+test(`${FMP}: G11 an approved verdict that lists an undisposed finding is stale behind a commit outside the review record, and the count includes it`, () => {
+  const t = openGateRepo(withFinding(''), ['openspec/changes/feat/tasks.md']);
+  assert.deepEqual(gatesOf(t), { gates: [{ file: 'reviews/code-quality-reviewer.md', why: `${OLD.slice(0, 7)} is behind the merged head, which changes openspec/changes/feat/tasks.md` }] });
+  const pr = { number: 12, url: 'https://github.com/o/r/pull/12', headRefOid: GHEAD };
+  const f = openGateRepo(withFinding(''), ['openspec/changes/feat/tasks.md']);
+  presetSetup(f.gh);
+  f.gh.set('pr-view-12', rollupFx([OKRUN('check'), RUNOF('devkit-reviews', 'FAILURE')]));
+  const got = DC.forcedMerge(f.run, 'feat', pr, { base: 'main', unticked: [] });
+  assert.equal(got.forced.count, 2);
+  assert.ok(got.forced.items.some((i) => i.kind === 'gate' && i.file === 'reviews/code-quality-reviewer.md'));
+  // Behind only the change's own review record, it is current.
+  assert.deepEqual(gatesOf(openGateRepo(withFinding(''), ['openspec/changes/feat/reviews/code-quality-reviewer.md'])), { gates: [] });
+});
+
+test(`${FMP}: G12 the same verdict with the finding disposed (fixed in a sha in history, or refuted) is current as before`, () => {
+  const fixed = openGateRepo(withFinding(` · fixed in ${FIX.slice(0, 12)}`), ['openspec/changes/feat/tasks.md']);
+  fixed.gh.set(compareKey(FIX.slice(0, 12), GHEAD), compareFx('ahead', ['src/a.ts']));
+  assert.deepEqual(gatesOf(fixed), { gates: [] });
+  const refuted = openGateRepo(withFinding(' · refuted: the rule is the same'), ['openspec/changes/feat/tasks.md']);
+  assert.deepEqual(gatesOf(refuted), { gates: [] });
+});
+
 test(`${FMP}: G9 gatesAtHead answers an error for a contents read that fails, a folder where a file is expected and a file where the folder is expected`, () => {
   const short = GHEAD.slice(0, 7);
   const base = () => gatesRepo({ reviews: approvedAt(GHEAD) });

@@ -550,21 +550,25 @@ function tableRows(text) {
     .map((l) => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim()));
 }
 
-// The [blocking] / [important] findings of one verdict file, by disposition: { fixed, refuted, undisposed }.
-// A "fixed in <sha>" counts only when the sha is in the history of `head`.
-function findingsOfFile(root, file, head) {
-  const reviewer = basename(file, '.md');
+// The [blocking] / [important] findings of a verdict text, by disposition: { fixed, refuted, undisposed }. A "fixed in <sha>"
+// counts only when `inHead(sha)` says the sha is in the history of the head the caller reads.
+function findingsOfText(reviewer, text, inHead) {
   const undisposed = [];
   let fixed = 0;
   let refuted = 0;
-  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+  for (const line of text.split(/\r?\n/)) {
     if (!/^\s*(?:[-*+]|\d+[.)])\s+\**\[(?:blocking|important)\]/i.test(line)) continue;
     const fix = line.match(/·\s*fixed in\s+([0-9a-f]{7,40})\b/i);
-    if (fix && inHistory(root, fix[1], head)) { fixed++; continue; }
+    if (fix && inHead(fix[1])) { fixed++; continue; }
     if (!fix && /·\s*refuted:\s*\S/.test(line)) { refuted++; continue; }
     undisposed.push({ reviewer, excerpt: line.trim().replace(/^(?:[-*+]|\d+[.)])\s+/, '').slice(0, 100) });
   }
   return { fixed, refuted, undisposed };
+}
+
+// The same, for a verdict file read from disk; a "fixed in <sha>" counts only when the sha is in the history of `head`.
+function findingsOfFile(root, file, head) {
+  return findingsOfText(basename(file, '.md'), readFileSync(file, 'utf8'), (sha) => inHistory(root, sha, head));
 }
 
 // The findings of one verdict file that have no disposition: [{ reviewer, excerpt }] (jira-entry-followups D-2).
@@ -943,7 +947,18 @@ export function gatesAtHead(gh, id, head) {
     if (verdict === null) add(file, 'no verdict line');
     else if (!approved(verdict)) add(file, `verdict ${verdict}`);
     else {
-      const current = behind(parseCommitLine(read.text), verdictAllowed(id, name, verdict));
+      // The same currency rule as readReviews: an approved verdict that lists an undisposed finding is current only through
+      // commits of the change's own review record. A "fixed in <sha>" counts when the sha is in the merged head's history.
+      let historyError = null;
+      const inHead = (sha) => {
+        if (head.startsWith(sha)) return true;
+        const compare = ghJson(gh, `compare/${sha}...${head}`);
+        if (compare.error && !compare.notFound) historyError ??= compare.error;
+        return !compare.error && (compare.json?.status === 'ahead' || compare.json?.status === 'identical');
+      };
+      const open = findingsOfText(name, read.text, inHead).undisposed.length > 0;
+      if (historyError) return { error: historyError };
+      const current = behind(parseCommitLine(read.text), verdictAllowed(id, name, verdict, open));
       if (current.error) return { error: current.error };
       add(file, current.why);
     }
