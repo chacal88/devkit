@@ -36,34 +36,34 @@ task with `git status --short`.
 
 ## 1. The stage checker counts failures in a row
 
-- [ ] 1.1 Write the new tests of D-9 in `plugins/openspec/hooks/flow-check.test.mjs`: the helper
+- [x] 1.1 Write the new tests of D-9 in `plugins/openspec/hooks/flow-check.test.mjs`: the helper
   `takesChange` and the nine `stage-ceiling-consecutive …` tests, every new export reached as
   `FC.stageHistory` / `FC.failuresInARow`. Run them on today's code with
   `env TMPDIR=/var/tmp/devkit-stage-ceiling-consecutive GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^stage-ceiling-consecutive" plugins/openspec/hooks/flow-check.test.mjs`
   and save the output as `proof/red-flow-check.txt`. Check: every test whose name carries AC-1,
   AC-2, AC-3, AC-4, AC-6 or AC-7 fails there (AC-9), and the file still loads (the other tests pass).
-- [ ] 1.2 Add `stageHistory(root, rel, env)` (D-2) and `failuresInARow(current, earlier)` (D-3) to
+- [x] 1.2 Add `stageHistory(root, rel, env)` (D-2) and `failuresInARow(current, earlier)` (D-3) to
   `plugins/openspec/hooks/flow-check.mjs`, exported, and the lazy memoised `facts.history(path)` to
   `collectFlow` (D-1). Check: `stage-ceiling-consecutive: failuresInARow counts the distinct failed
   headers since the last pass` and the two `stage-ceiling-consecutive AC-4 …` subtests that call
   `FC.stageHistory` directly (F-1 no repository, F-2 no `git` on `PATH`) pass.
-- [ ] 1.3 Wire the count into `artifactState` and `computeFlow` (D-5): `failures` in the raw state and
+- [x] 1.3 Wire the count into `artifactState` and `computeFlow` (D-5): `failures` in the raw state and
   in the params of `header-failed`, `fix-after-failure` and `ceiling-reached`; the ceiling compares
   `failures`. Check: the AC-1, AC-2 (its H-6 restarted-round case included), AC-3, AC-4 and AC-7
   tests and `stage-ceiling-consecutive: the history is read only for a failed stage with a numeric
   ceiling` pass.
-- [ ] 1.4 Replace the three sentences of `TEXT.en` and `TEXT['pt-BR']` in `flow-check.mjs` with D-6's,
+- [x] 1.4 Replace the three sentences of `TEXT.en` and `TEXT['pt-BR']` in `flow-check.mjs` with D-6's,
   and edit the existing tests of D-9's table in `flow-check.test.mjs` (the three walk tests, the `P`
   table, `SAMPLE_PT` and `SAMPLE_EN`). Check: `stage-ceiling-consecutive AC-6: the readout says the
   failures in a row in both languages` and `flow-check readout: both languages cover every reason
   code` pass.
-- [ ] 1.5 Edit `version-pin AC-2 readout: the version-1 ceiling holds after the upgrade` in
+- [x] 1.5 Edit `version-pin AC-2 readout: the version-1 ceiling holds after the upgrade` in
   `plugins/openspec/hooks/version-pin.test.mjs` as D-9's table says. Check: it passes with the
   filtered run of 1.7.
-- [ ] 1.6 Documents of the checker (D-7): `docs/openspec-flow.md` line 109, `plugins/openspec/README.md`
+- [x] 1.6 Documents of the checker (D-7): `docs/openspec-flow.md` line 109, `plugins/openspec/README.md`
   line 21, `docs/coordination-design.md` lines 348-349. Check: `grep -rn "failed attempts they get\|failed-attempt ceilings" docs plugins/openspec/README.md`
   prints nothing, and `python3 scripts/check.py` passes.
-- [ ] 1.7 Gate: `mkdir -p /var/tmp/devkit-stage-ceiling-consecutive && env TMPDIR=/var/tmp/devkit-stage-ceiling-consecutive GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^flow-check" --test-name-pattern="^stage-ceiling-consecutive" --test-name-pattern="^stage-roles" --test-name-pattern="^version-pin" plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/version-pin.test.mjs && python3 scripts/check.py`
+- [x] 1.7 Gate: `mkdir -p /var/tmp/devkit-stage-ceiling-consecutive && env TMPDIR=/var/tmp/devkit-stage-ceiling-consecutive GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^flow-check" --test-name-pattern="^stage-ceiling-consecutive" --test-name-pattern="^stage-roles" --test-name-pattern="^version-pin" plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/version-pin.test.mjs && python3 scripts/check.py`
   green; covers AC-1, AC-2, AC-3, AC-4, AC-6 (the checker), AC-7 and AC-9.
 
 ## 2. The loops say the failures in a row
