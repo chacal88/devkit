@@ -180,14 +180,14 @@ merge before review"; the numbers at the plan base are given only to locate the 
 
 ## 1. The panel step vocabulary (AC-2, AC-4)
 
-- [ ] 1.1 Remove `push-rebased` from `plugins/panel/hooks/steps.ts` (the `pr` group),
+- [x] 1.1 Remove `push-rebased` from `plugins/panel/hooks/steps.ts` (the `pr` group),
   `plugins/panel/hooks/i18n.ts` (the `STEPS` line) and `plugins/panel/hooks/report.test.tsx`
   (`ACTOR_STEPS`), as "The panel step vocabulary" says, in one commit whose message names the
   invariant (every step `actorOf` names has a label, and every label's step is placed), the layer
   (the panel's step and label tables) and the suite (`plugin test plugins/panel`). Check:
   `grep -rn "push-rebased" plugins/panel` prints nothing, and `git diff --stat` shows these three
   files only, each with one line changed or removed.
-- [ ] 1.2 Gate: `"$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin test plugins/panel` green; covers AC-2 and, for the panel, AC-4.
+- [x] 1.2 Gate: `"$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin test plugins/panel` green; covers AC-2 and, for the panel, AC-4.
 
 ## 2. The two-PR override tests (AC-3, AC-4)
 
