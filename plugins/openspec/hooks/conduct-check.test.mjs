@@ -604,8 +604,8 @@ const prJson = (id, over = {}) => ({
 const check = (name, bucket) => ({ name, state: bucket.toUpperCase(), bucket, link: `https://ci/${name}` });
 const headOf = (wt) => git(wt, 'rev-parse', 'HEAD');
 const NO_TALK = { data: { viewer: { login: 'me' }, repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] }, comments: { nodes: [] }, reviews: { nodes: [] } } } } };
-const MERGE_CONFIG = 'schema: devkit-lite\nship:\n  devkit-lite: merge\n  devkit: merge\nmerge_method: squash\n';
-const MERGE_FILES = { '.github/workflows/devkit-reviews.yml': 'name: devkit-reviews\n' };
+export const MERGE_CONFIG = 'schema: devkit-lite\nship:\n  devkit-lite: merge\n  devkit: merge\nmerge_method: squash\n';
+export const MERGE_FILES = { '.github/workflows/devkit-reviews.yml': 'name: devkit-reviews\n' };
 
 function writeReviews(wt, id, sha) {
   const review = `Verdict: approved\nCommit: ${sha}\n\n# Review\n`;
@@ -623,7 +623,7 @@ function readyChange(wt, id, { files = {} } = {}) {
   writeReviews(wt, id, sha);
   commitAll(wt, 'reviews and evidence');
 }
-function presetMerge(g) {
+export function presetMerge(g) {
   g.set('api-GET-repos__owner___repo__rules_branches_main', { stdout: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'check' }, { context: 'devkit-reviews' }] } }] });
   g.set('api-GET-repos__owner___repo__branches_main_protection_required_status_checks', { exit: 1, stderr: 'gh: Branch not protected (HTTP 404)\n' });
 }

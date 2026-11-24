@@ -2,7 +2,7 @@
 // change-coordinator: the loop, its commands and its locks (phase 1: settings, replies and the decision; phase 2: start, open, script, wait; phase 3: the locks).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, symlinkSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync, utimesSync } from 'node:fs';
+import { chmodSync, mkdirSync, symlinkSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync, utimesSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { hostname } from 'node:os';
@@ -10,7 +10,7 @@ import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync, spawn } from 'node:child_process';
 import { gitRepo, put, commitAll, git, openspecStub } from './deliver-check.test.mjs';
-import { roundRepo } from './conduct-check.test.mjs';
+import { roundRepo, MERGE_CONFIG, MERGE_FILES, presetMerge } from './conduct-check.test.mjs';
 import { shipConfig, collectState, buildReport, approvalState } from './deliver-check.mjs';
 import { actorOf } from './conduct-check.mjs';
 import { pinsIn } from './release-merge.mjs';
@@ -813,19 +813,23 @@ const NO_TALK = { data: { viewer: { login: 'me' }, repository: { pullRequest: { 
 const PR_CONFIG = 'schema: devkit-lite\nship:\n  devkit-lite: pr\n  devkit: pr\n';
 const RELEASE = { 'CHANGELOG.md': '# c\n', '.claude-plugin/marketplace.json': '{"v":1}\n', 'README.md': 'r\n' };
 
-// A `devkit-lite` change `feat` in a worktree (a bare origin, a clone), every stage up to the code review passed at the
-// code commit, the reviews and the evidence current, its pull request open with `checks`. `conflicts` are the files both
-// the branch and origin/main edit (the same shape as conflictRepo in conduct-check.test.mjs, which is private to that file).
-function deliveredChange({ checks = [check('build', 'pending')], conflicts = [], mergeable = 'MERGEABLE', requirements = '# Requirements\n' } = {}) {
-  const t = roundRepo({ roadmap: '# Roadmap\n\n## Round 1: x\n- [ ] feat\n', config: PR_CONFIG, files: RELEASE });
-  const wt = t.addWt('feat');
-  const dir = (f) => `openspec/changes/feat/${f}`;
-  const own = Object.fromEntries(conflicts.map((f) => [f, `feat edits ${f}\n`]));
+// A `devkit-lite` change `id` (`feat`) in a worktree (a bare origin, a clone, or the `roundRepo` `t` a caller passes), every
+// stage up to the code review passed at the code commit, the reviews and the evidence current, its pull request open with
+// `checks`. `conflicts` are the files both the branch and origin/main edit (the same shape as conflictRepo in
+// conduct-check.test.mjs, which is private to that file). `config` and `files` are the project's settings and files.
+export function deliveredChange({
+  checks = [check('build', 'pending')], conflicts = [], mergeable = 'MERGEABLE', requirements = '# Requirements\n',
+  config = PR_CONFIG, files = RELEASE, id = 'feat', t = null, roadmap = `# Roadmap\n\n## Round 1: x\n- [ ] ${id}\n`,
+} = {}) {
+  t ??= roundRepo({ roadmap, config, files });
+  const wt = t.addWt(id);
+  const dir = (f) => `openspec/changes/${id}/${f}`;
+  const own = Object.fromEntries(conflicts.map((f) => [f, `${id} edits ${f}\n`]));
   put(wt, {
     [dir('.openspec.yaml')]: 'schema: devkit-lite\n',
     [dir('proposal.md')]: PROPOSAL, [dir('requirements.md')]: requirements, [dir('specs/s/spec.md')]: '# Spec\n',
     [dir('tasks.md')]: '# Tasks\n\n## 1. First\n- [x] 1.1 code\n',
-    'src/feat.ts': 'code\n', ...own,
+    [`src/${id}.ts`]: 'code\n', ...own,
   });
   const sha = commitAll(wt, 'code');
   const review = `Verdict: approved\nCommit: ${sha}\n\n# Review\n`;
@@ -840,7 +844,7 @@ function deliveredChange({ checks = [check('build', 'pending')], conflicts = [],
   commitAll(wt, 'reviews, evidence and stage headers');
   if (conflicts.length) t.commitOrigin(Object.fromEntries(conflicts.map((f) => [f, `origin edits ${f}\n`])), 'origin edits');
   const gh = t.ghAt(wt);
-  gh.set('pr-view', { stdout: prJson('feat', { headRefOid: git(wt, 'rev-parse', 'HEAD'), mergeable }) });
+  gh.set('pr-view', { stdout: prJson(id, { headRefOid: git(wt, 'rev-parse', 'HEAD'), mergeable }) });
   gh.set('pr-checks', { stdout: checks });
   gh.set('api-graphql', { stdout: NO_TALK });
   return { t, wt, gh, env: { ...gh.env, ...SET } };
@@ -5653,4 +5657,271 @@ test('commit-attribution AC-1 T20 the request, the ship-change skill and the age
     assert.ok(shipSection.includes(part), `the ship-change section: ${part}`);
     assert.ok(receives.includes(part), `the agent's Receives: ${part}`);
   }
+});
+
+// ================================================================ fresh-base-check: the loop fetches the base before it judges
+
+// A folder holding a `git` that logs every call with a `fetch` argument in $GIT_SHIM_LOG, sleeps for $GIT_SHIM_SLEEP seconds
+// in its place when that is set, and runs the real git for every other call. `env(base, { sleep })` puts it first on the PATH.
+export function gitShim() {
+  const dir = tmpFolder('devkit-git-shim-');
+  const log = join(dir, 'fetches.log');
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  const real = spawnSync('/bin/sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+  writeFileSync(join(bin, 'git'), [
+    '#!/bin/sh',
+    'for a in "$@"; do',
+    '  if [ "$a" = fetch ]; then',
+    '    [ -n "$GIT_SHIM_LOG" ] && printf \'%s\\n\' "$*" >> "$GIT_SHIM_LOG"',
+    '    if [ -n "$GIT_SHIM_SLEEP" ]; then exec sleep "$GIT_SHIM_SLEEP"; fi',
+    '    break',
+    '  fi',
+    'done',
+    `exec '${real}' "$@"`,
+    '',
+  ].join('\n'));
+  chmodSync(join(bin, 'git'), 0o755);
+  writeFileSync(log, '');
+  return {
+    env: (base, { sleep } = {}) => ({ ...base, PATH: `${bin}:${base.PATH}`, GIT_SHIM_LOG: log, GIT_SHIM_SLEEP: sleep === undefined ? '' : String(sleep) }),
+    fetches: () => readFileSync(log, 'utf8').split('\n').filter(Boolean),
+    clear: () => writeFileSync(log, ''),
+  };
+}
+
+// After the fixture's `commitOrigin`, the clone's `origin/main` is put one commit behind the remote's `main`
+// (`commitOrigin` pushes from the clone, which moves its `origin/main` with it): { remote, stale } are the two shas.
+export function staleBase(t) {
+  const remote = git(t.originDir, 'rev-parse', 'main');
+  const stale = git(t.originDir, 'rev-parse', `${remote}^`);
+  git(t.main, 'update-ref', 'refs/remotes/origin/main', stale);
+  return { remote, stale };
+}
+
+// A `devkit-lite` change `id` in a worktree of `t`, at the implementation stage (the build part): requirements, proposal, specs
+// and tasks passed at the commit it was cut from, the one task not ticked, committed.
+export function implementingChange(t, id) {
+  const wt = t.addWt(id);
+  const c0 = git(wt, 'rev-parse', 'HEAD');
+  const dir = (f) => `openspec/changes/${id}/${f}`;
+  put(wt, {
+    [dir('.openspec.yaml')]: 'schema: devkit-lite\n',
+    [dir('requirements.md')]: `${head('requirements', c0)}# Requirements\n`,
+    [dir('proposal.md')]: `${head('proposal', c0)}${PROPOSAL}`,
+    [dir('specs/s/spec.md')]: `${head('specs', c0)}# Spec\n`,
+    [dir('tasks.md')]: `${head('tasks', c0)}# Tasks\n\n## 1. First\n- [ ] 1.1 code\n`,
+  });
+  commitAll(wt, 'plan');
+  return wt;
+}
+
+const refsOf = (root) => git(root, 'for-each-ref', '--format=%(refname) %(objectname)');
+const fetchHeadOf = (root) => git(root, 'rev-parse', '--path-format=absolute', '--git-path', 'FETCH_HEAD');
+const MISSING = (t) => join(t.originDir, 'no-such-folder');
+
+// Merge mode, a pull request that conflicts in two release files, the clone's origin/main one commit behind the remote.
+function staleMergeFixture() {
+  const d = deliveredChange({
+    config: MERGE_CONFIG, files: { ...RELEASE, ...MERGE_FILES }, conflicts: ['CHANGELOG.md', '.claude-plugin/marketplace.json'],
+    mergeable: 'CONFLICTING', checks: [check('build', 'pass')],
+  });
+  presetMerge(d.gh);
+  return { ...d, ...staleBase(d.t) };
+}
+// What `nextAction` decides with no record of fetched bases, as `state` and the locks call it.
+const localAction = (d, extra = {}) => nextAction(d.t.main, 'feat', { env: d.env, lang: 'en', ...extra });
+
+test('fresh-base-check 1: next fetches the base before it judges, and a call with no record judges from the stale copy', () => {
+  const d = staleMergeFixture();
+  const local = localAction(d);
+  assert.deepEqual([local.kind, local.step], ['session', 'update-branch']);
+  assert.match(local.detail.reason, /merges cleanly/);
+  assert.equal(git(d.t.main, 'rev-parse', 'origin/main'), d.stale, 'no fetch record, no fetch');
+  const r = next(d.t.main, [], d.env);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const { action } = parsed(r);
+  assert.deepEqual([action.kind, action.agent, action.step], ['agent', TDD, 'resolve-release-conflict']);
+  assert.deepEqual(action.baseFetch, { ok: true, base: 'main' });
+  assert.equal('reply' in action, false, 'a good fetch says nothing');
+  assert.equal(git(d.t.main, 'rev-parse', 'origin/main'), d.remote);
+});
+
+test('fresh-base-check 2: a fetch that fails decides from the local copy, records it and says it in one line, in both languages', () => {
+  const d = staleMergeFixture();
+  git(d.t.main, 'remote', 'set-url', 'origin', MISSING(d.t));
+  const local = localAction(d);
+  const r = next(d.t.main, [], d.env);
+  const { action } = parsed(r);
+  assert.deepEqual([action.kind, action.step, r.code], [local.kind, local.step, exitCodeOf(local)]);
+  assert.equal(action.step, 'update-branch');
+  assert.equal(action.baseFetch.ok, false);
+  assert.equal(action.baseFetch.base, 'main');
+  assert.match(action.baseFetch.error, /^[^\n]+$/);
+  assert.equal(action.reply, render('en', 'base-unfetched', { base: 'main' }));
+  assert.equal(git(d.t.main, 'rev-parse', 'origin/main'), d.stale);
+  const pt = parsed(main(['next', '--change', 'feat', '--lang', 'pt-BR'], { cwd: d.t.main, env: d.env })).action;
+  assert.equal(pt.reply, render('pt-BR', 'base-unfetched', { base: 'main' }));
+  assert.match(pt.reply, /Não foi possível/);
+});
+
+test('fresh-base-check 3: a fetch that outlives its timeout fails with a plain line and writes nothing', () => {
+  const { t } = deliveredChange();
+  const before = git(t.main, 'rev-parse', 'origin/main');
+  const shim = gitShim();
+  const started = Date.now();
+  const got = changeLoopModule.refreshBase(t.main, 'main', { env: shim.env(cleanEnv, { sleep: 30 }), memo: changeLoopModule.baseFetches(), timeoutMs: 1000 });
+  assert.ok(Date.now() - started < 10_000, 'the timeout stopped it');
+  assert.deepEqual([got.ok, got.base, got.error], [false, 'main', 'timed out after 1 s']);
+  assert.equal(git(t.main, 'rev-parse', 'origin/main'), before);
+});
+
+test('fresh-base-check 4: a ref that is locked fails the fetch, and the action is the local copy\'s', () => {
+  const d = staleMergeFixture();
+  const lock = join(git(d.t.main, 'rev-parse', '--path-format=absolute', '--git-common-dir'), 'refs', 'remotes', 'origin', 'main.lock');
+  const local = localAction(d);
+  writeFileSync(lock, '');
+  try {
+    const { action } = parsed(next(d.t.main, [], d.env));
+    assert.equal(action.baseFetch.ok, false);
+    assert.match(action.baseFetch.error, /lock|already exists/i, 'git words a locked ref by version');
+    assert.deepEqual([action.kind, action.step], [local.kind, local.step]);
+    assert.equal(git(d.t.main, 'rev-parse', 'origin/main'), d.stale);
+  } finally { rmSync(lock, { force: true }); }
+});
+
+test('fresh-base-check 5: the fetch writes the one ref and nothing else', () => {
+  const { t, wt, env } = deliveredChange();
+  t.commitOrigin({ 'other.txt': 'o\n' }, 'origin moves');
+  const { remote } = staleBase(t);
+  const second = join(tmpFolder('devkit-other-'), 'second');
+  git(dirname(second), 'clone', '-q', t.originDir, second);
+  git(second, 'checkout', '-q', '-b', 'other');
+  put(second, { 'o.txt': 'x\n' });
+  commitAll(second, 'other work');
+  git(second, 'push', '-q', 'origin', 'other');
+  git(second, 'tag', 'v9');
+  git(second, 'push', '-q', 'origin', 'v9');
+  for (const root of [t.main, wt]) rmSync(fetchHeadOf(root), { force: true });
+  const snapshot = (root) => [git(root, 'status', '--porcelain'), git(root, 'ls-files', '-s')];
+  const before = { refs: refsOf(t.main), main: snapshot(t.main), wt: snapshot(wt) };
+  const r = next(t.main, [], env);
+  assert.equal(parsed(r).action.baseFetch.ok, true, r.stdout + r.stderr);
+  const after = refsOf(t.main);
+  // origin/HEAD is a symbolic ref to origin/main: it reads as the commit origin/main holds, and stays a symbolic ref to it.
+  const without = (text) => text.split('\n').filter((l) => !/^refs\/remotes\/origin\/(main|HEAD) /.test(l));
+  assert.deepEqual(without(after), without(before.refs), 'only origin/main moved');
+  assert.equal(git(t.main, 'symbolic-ref', 'refs/remotes/origin/HEAD'), 'refs/remotes/origin/main');
+  assert.ok(after.split('\n').includes(`refs/remotes/origin/main ${remote}`));
+  assert.doesNotMatch(after, /refs\/tags\/v9|refs\/remotes\/origin\/other/);
+  assert.deepEqual([snapshot(t.main), snapshot(wt)], [before.main, before.wt]);
+  for (const root of [t.main, wt]) assert.equal(existsSync(fetchHeadOf(root)), false, `no FETCH_HEAD in ${root}`);
+  git(wt, 'fetch', '-q', 'origin');
+  assert.equal(existsSync(fetchHeadOf(wt)), true, 'self-check: a plain fetch does write FETCH_HEAD');
+});
+
+test('fresh-base-check 6: a wait fetches the base at every poll', async () => {
+  const { t, gh, env } = deliveredChange();
+  const shim = gitShim();
+  const sleeps = [];
+  const sleep = async (s) => {
+    sleeps.push(s);
+    if (sleeps.length === 2) gh.set('pr-checks', { stdout: [check('build', 'pass')] });
+  };
+  const r = await runCommand(['wait', '--change', 'feat', '--lang', 'en', '--interval', '5'], { cwd: t.main, env: shim.env(env), sleep });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(parsed(r).action.end.why, 'waiting-merge');
+  assert.equal(shim.fetches().length, 3, 'three polls, three fetches');
+});
+
+test('fresh-base-check 7: state, the stop lock and a call with no record never fetch', () => {
+  const d = staleMergeFixture();
+  const shim = gitShim();
+  const env = shim.env(d.env);
+  const state = main(['state', '--change', 'feat', '--lang', 'en'], { cwd: d.t.main, env });
+  assert.equal(state.code, 0, state.stderr);
+  const entries = changeLoopModule.stateEntries(d.t.main, { id: 'feat', lang: 'en', env });
+  assert.equal(entries.length, 1);
+  const stop = changeLoopModule.stopDecision(stopInput(d.t.main, runTranscript()), { env });
+  assert.notEqual(stop.why, 'no-run', 'the lock read the change');
+  assert.deepEqual(shim.fetches(), []);
+  assert.equal(git(d.t.main, 'rev-parse', 'origin/main'), d.stale);
+});
+
+test('fresh-base-check 8: a record of fetched bases lets one call fetch a base once, and each next call fetches again', () => {
+  const { t, env: base } = deliveredChange();
+  const shim = gitShim();
+  const env = shim.env(base);
+  const memo = changeLoopModule.baseFetches();
+  nextAction(t.main, 'feat', { env, lang: 'en', fetchBase: memo });
+  nextAction(t.main, 'feat', { env, lang: 'en', fetchBase: memo });
+  assert.equal(shim.fetches().length, 1, 'two calls sharing one record fetch once');
+  shim.clear();
+  next(t.main, [], env);
+  next(t.main, [], env);
+  assert.equal(shim.fetches().length, 2, 'each next call has its own record');
+});
+
+test('fresh-base-check 9: the two checkers never fetch, and their headers say so', () => {
+  const d = staleMergeFixture();
+  const shim = gitShim();
+  const env = shim.env(d.env);
+  spawnSync(process.execPath, [join(HERE, 'conduct-check.mjs'), '--json', '--change', 'feat'], { cwd: d.t.main, env, encoding: 'utf8' });
+  spawnSync(process.execPath, [join(HERE, 'deliver-check.mjs'), 'feat', '--json'], { cwd: d.wt, env, encoding: 'utf8' });
+  assert.deepEqual(shim.fetches(), []);
+  assert.equal(git(d.t.main, 'rev-parse', 'origin/main'), d.stale);
+  for (const file of ['conduct-check.mjs', 'deliver-check.mjs']) {
+    assert.match(read(file).split('\n').slice(0, 6).join('\n'), /never fetches|or fetches/, `${file} says it does not fetch`);
+  }
+  spawnSync('git', ['-C', d.t.main, 'fetch', '-q', 'origin'], { env });
+  assert.equal(shim.fetches().length, 1, 'self-check: a fetch through the shim is logged');
+});
+
+test('fresh-base-check 10: a wait that only gains the failed-fetch line goes on waiting', async () => {
+  const wait = { kind: 'end', end: { state: 'waiting-on-github', why: 'waiting-github' }, reply: 'it waits' };
+  const unfetched = { ...wait, reply: 'it waits\nthe base was not fetched', baseFetch: { ok: false, base: 'main', error: 'x' } };
+  const done = { kind: 'session', step: 'update-branch', reply: null };
+  const polls = [wait, unfetched, done];
+  let n = 0;
+  const got = await waitLoop({ poll: async () => polls[n++], sleep: async () => {}, interval: 5, id: 'feat', lang: 'en' });
+  assert.equal(got, done);
+  assert.equal(n, 3);
+});
+
+test('fresh-base-check 16: a repository with no remote fetches nothing and decides as it did', () => {
+  const d = deliveredChange();
+  git(d.t.main, 'remote', 'remove', 'origin');
+  const shim = gitShim();
+  const env = shim.env(d.env);
+  const local = nextAction(d.wt, 'feat', { env: d.env, lang: 'en' });
+  const r = next(d.t.main, [], env);
+  const { action } = parsed(r);
+  assert.deepEqual(shim.fetches(), []);
+  assert.equal('baseFetch' in action, false);
+  assert.deepEqual([action.kind, action.step, action.reply, r.code], [local.kind, local.step, local.reply, exitCodeOf(local)]);
+  const memo = changeLoopModule.baseFetches();
+  assert.equal(changeLoopModule.refreshBase(d.t.main, 'main', { env, memo }), null);
+  assert.equal(changeLoopModule.refreshBase(d.t.main, 'main', { env, memo }), null, 'the null is memoized');
+  assert.deepEqual(shim.fetches(), []);
+});
+
+test('fresh-base-check 17: a change before its delivery fetches nothing', () => {
+  const t = roundRepo({ roadmap: '# Roadmap\n\n## Round 1: x\n- [ ] plan\n- [ ] impl\n', config: PR_CONFIG, files: RELEASE });
+  const plan = t.addWt('plan');
+  const c0 = git(plan, 'rev-parse', 'HEAD');
+  put(plan, { 'openspec/changes/plan/.openspec.yaml': 'schema: devkit-lite\n', 'openspec/changes/plan/requirements.md': `${head('requirements', c0)}# Requirements\n` });
+  commitAll(plan, 'requirements');
+  t.commitOrigin({ 'other.txt': 'o\n' }, 'origin moves');
+  const { stale } = staleBase(t);
+  const shim = gitShim();
+  const env = shim.env(cleanEnv);
+  const planned = main(['next', '--change', 'plan', '--lang', 'en'], { cwd: t.main, env, gh: t.ghFor(plan) });
+  assert.notEqual(planned.code, 3, planned.stderr);
+  assert.equal('baseFetch' in parsed(planned).action, false);
+  assert.deepEqual(shim.fetches(), []);
+  assert.equal(git(t.main, 'rev-parse', 'origin/main'), stale);
+  const impl = implementingChange(t, 'impl');
+  const building = main(['next', '--change', 'impl', '--lang', 'en'], { cwd: t.main, env, gh: t.ghFor(impl) });
+  assert.notEqual(building.code, 3, building.stderr);
+  assert.equal(shim.fetches().length, 1, 'self-check: a change in its delivery part does fetch');
 });

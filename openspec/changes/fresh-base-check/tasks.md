@@ -38,7 +38,7 @@ the tree, and end every task with `git status --short`.
 
 ## 1. The change loop fetches the base before it judges (AC-1 to AC-6)
 
-- [ ] 1.1 Check that `git merge-base --is-ancestor origin/main HEAD` exits 0 (no merge, no fetch).
+- [x] 1.1 Check that `git merge-base --is-ancestor origin/main HEAD` exits 0 (no merge, no fetch).
   Re-run the three searches of D-9 and confirm the table still lists every hit; settle a new hit
   here, in `design.md` D-9, before 1.2. In `plugins/openspec/hooks/conduct-check.test.mjs`, export
   `MERGE_CONFIG`, `MERGE_FILES` and `presetMerge`, unchanged. In
@@ -56,7 +56,7 @@ the tree, and end every task with `git status --short`.
   item 5), settle it here, in `design.md`, before 1.2. Also check that
   `node --test --test-concurrency=1 --test-name-pattern="^change-loop next" plugins/openspec/hooks/change-loop.test.mjs`
   still passes with the new `deliveredChange` defaults.
-- [ ] 1.2 In `plugins/openspec/hooks/change-loop.mjs`, add `baseFetches` and `refreshBase` (D-1)
+- [x] 1.2 In `plugins/openspec/hooks/change-loop.mjs`, add `baseFetches` and `refreshBase` (D-1)
   above `nextAction`, the `fetchBase` option and the `baseFetch` field with its reply line (D-2),
   `ownReply` and the new `decisionKey` (D-4), and the `base-unfetched` key in both languages after
   `waiting-github` (D-5). Do not add a top-level `const` that reads `LS_REMOTE_TIMEOUT_MS` or
@@ -66,14 +66,14 @@ the tree, and end every task with `git status --short`.
   or `wait` command, which passes no record until 1.3. And
   `node --test --test-concurrency=1 --test-name-pattern="^change-loop replies" plugins/openspec/hooks/change-loop.test.mjs`
   passes.
-- [ ] 1.3 In `change-loop.mjs`, pass `fetchBase: baseFetches()` from `runNext`, and a new
+- [x] 1.3 In `change-loop.mjs`, pass `fetchBase: baseFetches()` from `runNext`, and a new
   `baseFetches()` in each call of `runWait`'s `poll` (D-3). Leave `stateEntries` and `stopDecision`
   as they are. Add one sentence to the file's header comment: `next` and `wait` fetch the base of a
   change in delivery before they judge, and `state` and the locks never do. Check: tests 1, 2, 4, 5,
   6, 7, 8 and 17 pass, and 3, 10 and 16 still pass; and the code lines (not comment lines) that
   `git grep -n "fetchBase" -- plugins/openspec/hooks/change-loop.mjs` prints are in `nextAction`,
   `runNext` and `runWait` only.
-- [ ] 1.4 In `plugins/openspec/hooks/deliver-check.mjs`, change line 3 to the comment of D-6 and
+- [x] 1.4 In `plugins/openspec/hooks/deliver-check.mjs`, change line 3 to the comment of D-6 and
   nothing else. Check: test 9 passes, and `git diff --stat -- plugins/openspec/hooks/deliver-check.mjs`
   shows one line changed.
 - [ ] 1.5 Gate: `mkdir -p /var/tmp/devkit-fbc && env TMPDIR=/var/tmp/devkit-fbc GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^fresh-base-check " --test-name-pattern="^change-loop" plugins/openspec/hooks/change-loop.test.mjs && python3 scripts/check.py` green; covers AC-1, AC-2 (change loop), AC-3, AC-4, AC-5 and the one-fetch rule.
