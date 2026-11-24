@@ -1,10 +1,11 @@
 Verdict: approved
-Commit: 3a53ac94b3676d8063672b1a3b9887f806956424
+Commit: a46bf795f7bb603ae110183d20a8cd1f5630596a
 
 ## Spec review — run-status-bar
 
 ### Findings
-- [nit] openspec/changes/run-status-bar/specs/status-line/spec.md, requirement "The line is at most 100 columns", scenario "The reason is dropped"; plugins/openspec/hooks/status-line.mjs:93-99 — The spec says the reason is cut "to its first word" and ends in an ellipsis, but the code never tries `<word>…` for a one-word reason and drops it at once; the spec does not say which is meant (round 1 nit, left as is; flagged, not interpreted).
+- [nit] openspec/changes/run-status-bar/specs/status-line/spec.md:89-91 (requirement "The line is at most 100 columns", scenario "The reason is dropped"); plugins/openspec/hooks/status-line.mjs:93-99 — The spec says the reason is cut "to its first word" and ends in an ellipsis, but the code never tries `<word>…` for a one-word reason and drops it at once; the spec does not say which is meant (open since round 1, unchanged since 3a53ac9; flagged, not interpreted).
+- [nit] openspec/changes/run-status-bar/tasks.md:13-14 against tasks.md:153-158 (gate 3.4) — The preamble still says "Every gate runs with `GITHUB_HEAD_REF` and `GITHUB_BASE_REF` set", but the amended gate 3.4 is now `node scripts/test-suite.mjs && ...` with no CI branch variables (the train's text), so the plan's verification metadata contradicts itself; the preamble needs the same exception the 3.4 amendment records.
 
 In-scope specs: `openspec/changes/run-status-bar/specs/status-line/spec.md`, `openspec/changes/run-status-bar/specs/change-state/spec.md`; baseline `openspec/specs/change-state/spec.md`.
 
@@ -21,13 +22,23 @@ In-scope specs: `openspec/changes/run-status-bar/specs/status-line/spec.md`, `op
 | change-state: The state is read without GitHub on request | covered |
 
 ### Notes
-- This re-review covers my round 1 finding and the lines changed since `22230be`: `792fde6` (status-line.mjs, its tests, CHANGELOG, README, docs/openspec-flow.md), `0528b85` (tests only), `ec1b00b` (`.openspec.yaml` models table) and `3a53ac9` (design D-1/D-9, evidence). From the merge `f4bad47` it covers only the resolution in the release files and `change-loop-compozy.test.mjs`. At the coordinator's request I also opened the files of the change that did not change since round 1. For the source and test files I read the change's own diff (`git diff a347ac0...HEAD`), and I read `change-state-stages.test.mjs` whole. They confirm the round 1 coverage. Each edit traces to a requirement: `stages`/`appliedStages`/`notApplicableOf` to "Each entry lists the stages that apply to the change"; `--offline`/`OFFLINE_GH` to "The state is read without GitHub on request"; the `readStdin(waitMs)` parameter to the 1-second wait of "The session's line is chosen from its input"; the `bar.*` messages to "The line is in the person's language". The requirements' AC-1 to AC-7 and the approved mock-up's lines and cutting order match the spec deltas.
-- Requirement "The command only reads", scenarios "The state cannot be read" and "The run is aborted": the `state` child now leads its own process group, and the bar stops the whole group at the bound and on a signal (`status-line.mjs` `stateText`). This meets "no state process is left running", which now also covers what `state` starts. The design records it (D-9) and the CHANGELOG states it, so it is not a silent resolution and not scope creep.
-- New tests since round 1 cover the real signal wiring (SIGTERM, SIGINT, SIGHUP on the real bar with a fake `openspec` on `PATH`), the `--lang` hand-off to the state call (scenario "The same change in Portuguese" and the coordinator's), and the README `statusLine` command. `status-line.mjs` gained no test-only option for them.
-- The `statusLine` snippet now ends `[ -z "$f" ] || node ...` in the README, docs/openspec-flow.md and design D-1, so with no installed copy it prints nothing and exits 0. The `--lang en` note was added to both documents. Both are documentation of existing behaviour, not new behaviour.
-- Merge resolution: devkit-openspec 0.40.0 and marketplace 0.45.0 sit above main's 0.39.2/0.44.0. The CHANGELOG entry is on top, docs/openspec-flow.md pins `v0.40.0`, and `change-loop-compozy.test.mjs` asserts `v0.40.0` and refuses `v0.39.2`, as design E-3 prescribes.
-- I ran `plugins/openspec/hooks/status-line.test.mjs` once in the foreground (TMPDIR=/private/tmp/devkit-run-status-bar, GITHUB_HEAD_REF=probe-branch, concurrency 2): 184 of 184 pass. I did not run the whole suite; per the caller, it passed at `0528b85` (3165 tests, 0 fail).
-- No ADR, open decision or spec conflict is at play; `decisions.md` records no new ADR, with its reason.
+- Scope of this re-check: only what the branch brings since my approved verdict at `3a53ac9`. That is the resolution of merge `aa8a685` (origin/main `d917ae0`) in its six conflicted files, compared with both parents `009b455` and `d917ae0`, plus the change folder edits in `83650a5` and `a46bf79` (`design.md`, `tasks.md`, `evidence.md`). It does not cover main's own commits.
+- Spec deltas: `git diff --stat 3a53ac9 HEAD` shows no change to `specs/`, `proposal.md`, `requirements.md` or `openspec/specs/change-state/spec.md`. The merge changed only main's `openspec/specs/commit-attribution/spec.md`, which is out of this change's scope. The coverage above stands as in round 2.
+- Merge resolution, file by file:
+  - `plugin.json`: the resolution takes the next number above main, devkit-openspec 0.43.0 (main 0.42.0, branch 0.40.0).
+  - `marketplace.json`: the devkit-openspec entry is 0.43.0 and the marketplace metadata is 0.48.0 (main 0.47.0).
+  - `CHANGELOG.md`: this change's entry is renumbered `## 0.48.0` / `devkit-openspec 0.43.0` with the pin sentence at `v0.43.0`, it sits above main's 0.47.0, 0.46.0 and 0.45.0 entries, and its text is otherwise unchanged.
+  - `docs/openspec-flow.md`: all four CI pin occurrences (comment, URL, `(v... above)`, `git/ref/tags/v...`) read `v0.43.0`.
+  - `change-loop.mjs`: the `USAGE` line keeps main's `merge-check <id>` and this change's `state [--change <id>] [--offline]`; nothing else conflicted.
+  - `change-loop-compozy.test.mjs`: equals main's file byte for byte (`git diff d917ae0 aa8a685` is empty), so E-3 is dropped. The test now derives the pin from `plugin.json` through `pinMismatches` (ADR 0030), and the doc follows the manifest.
+  - None of these edits adds or removes behaviour, so there is no scope creep and no gap.
+- Change folder edits:
+  - `design.md`: adds a context paragraph, marks E-3 superseded by ADR 0030, and moves the D-13 release target to 0.43.0/0.48.0. The design says scope and behaviour do not change, and the diff confirms it.
+  - `tasks.md`: notes E-3 as superseded and updates the 3.1 numbers and check. The 3.1 check now includes `git diff --quiet d917ae0 HEAD -- change-loop-compozy.test.mjs`. Gate 3.4's suite part is amended to the train's text (docs/openspec-flow.md "Gate parts proven by the train", which is on main).
+  - `evidence.md`: re-records the AC proofs at `83650a5`, and every AC still maps to the spec scenarios. None of these edits adds or removes a requirement.
+- The gate 3.4 amendment changes a verification step of the approved plan after approval. That is a process matter for the other reviewers and the owner, not a spec gap, and the evidence names it in "Notes for the owner". Its only spec-side trace is the preamble inconsistency in F2.
+- No ADR contradiction: ADR 0030 (accepted on main) is what makes E-3 obsolete, and the change follows it rather than bypassing it. No two specs disagree, and no open decision is at play.
+- Tests: I ran none this round. The caller reports that the seven touched files passed at the merge head (935/935), and so did gates 1.7 and 2.5 (693/693, 341/341, 4/4). The merge resolution touches no code path the spec scenarios govern (version strings and one usage line only).
 
 ### Summary
-- 1 finding (0 scope creep, 0 gaps): the round 1 nit, still open.
+- 2 findings (0 scope creep, 0 gaps): 2 nits, one carried open from round 1 (F1) and one new in the change folder edits (F2). Nothing blocking or important.

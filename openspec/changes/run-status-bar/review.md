@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=2 commit=3a53ac94b3676d8063672b1a3b9887f806956424 -->
+<!-- devkit-stage review result=failed attempt=1 commit=a46bf795f7bb603ae110183d20a8cd1f5630596a -->
 # Review: run-status-bar, round 1
 
 Path: agents · range `8085104..HEAD` · structural: PASS
@@ -54,3 +54,30 @@ None.
 
 ## Next
 Ready to ship.
+
+# Review: run-status-bar, round 1
+
+Path: agents · range `3a53ac9..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | a46bf79 |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | a46bf79 |
+| code-quality-reviewer | rejected | 1 | 0 | 1 | 0 | a46bf79 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | a46bf79 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | a46bf79 |
+
+Consensus: FAIL (round 1/2)
+
+## Open findings
+- code-quality-reviewer — [blocking] plugins/openspec/hooks/change-loop.mjs:3098 (OFFLINE_GH into stateEntries) via plugins/openspec/hooks/deliver-check.mjs:1696 and merge-setup.mjs:130-132; claim at openspec/changes/run-status-bar/desi… — With --offline in a merge-mode project a change at the code review stage reads blocked/merge-setup (mergeSetup fails on the unreadable repo settings, deliver-check returns stop-merge-setup), so the coordinator bar (status-line.mjs:119, the only --offline caller) counts every reviewed change as ⛔ blocked, against AC-3 and the design's claim that GitHub-needing stages read waiting-on-github/silent; probe on this branch: `state --change run-status-bar --offline --lang en` gives state blocked, reason merge-setup, while the same call without --offline gives running; change-state-stages.test.mjs has no offline test on a merge-mode fixture at review. Fix: when gh is OFFLINE_GH, read an unreadable merge setup as GitHub silent (no stop-merge-setup), and add an S-test at the code review stage of a ship: merge fixture.
+
+## Refuted by verification
+None.
+
+## Notes
+- A re-check made only because the verdicts went stale after the merge of origin/main d917ae0 (aa8a685); it starts at round 1.
+- code-quality-reviewer F10 is older than the re-check range (from 545ef5b) but blocking, so it counts; three verifiers reproduced it.
+
+## Next
+Fix the open findings, then run review-change again (round 2).
