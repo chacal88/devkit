@@ -5089,6 +5089,26 @@ test('archive-release-pin 9: --ci from only the three downloaded files passes a 
   assert.doesNotMatch(bad.stderr, /ERR_MODULE_NOT_FOUND|Cannot find module/);
 });
 
+test('archive-release-pin 11: the flow page, ADR 0003 and the config state the pin-line rule', () => {
+  const ADR_FILE = 'adr/0023-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md';
+  const flowLines = textOf('docs', 'openspec-flow.md').split('\n');
+  const startsWith = (prefix) => flowLines.find((l) => l.startsWith(prefix)) ?? '';
+  const row = startsWith('| P13 |');
+  assert.ok(row.includes(FLOW_PATH), 'the P13 row names the flow page');
+  assert.ok(row.includes(LOOP_PATH), 'the P13 row names the change-loop test');
+  const para = startsWith('**The file check (P13, AC-3).**');
+  for (const part of [ADR_FILE, "`assert.match(flow, /v<X>\\.<Y>\\.<Z>/, '<message>');`", "`assert.doesNotMatch(flow, /v<X>\\.<Y>\\.<Z>/, '<message>');`", '// Invariant: the CI snippet pins the current release']) {
+    assert.ok(para.includes(part), `the file check paragraph holds ${part}`);
+  }
+  assert.ok(!startsWith('- **Classification.**').includes('and the ADR 0003 exemption, do not change'), 'the Classification bullet no longer says the exemption does not change');
+  const adr = textOf('docs', 'adr', '0003-auto-merge-the-archive-pr.md');
+  assert.ok(adr.split('\n').slice(0, 8).includes('- Amended by ADR 0023 (0023-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)'), 'ADR 0003 header names ADR 0023');
+  const note = adr.split('\n').find((l) => l.startsWith('Note (archive-release-pin, ')) ?? '';
+  assert.ok(note.endsWith('The Decision is otherwise unchanged.'), 'ADR 0003 holds the archive-release-pin Note');
+  const adrsLine = textOf('openspec', 'config.yaml').split('\n').find((l) => l.trimStart().startsWith('ADRs:')) ?? '';
+  assert.ok(adrsLine.includes('0023 the archive check lets the release pin lines pass unnamed, amends 0003'), 'the config ADRs line names 0023');
+});
+
 // ================================================================ field-fixes 4: delivered is its own pull request and every task
 
 test('field-fixes 4 fake gh: an unset pull request files or tasks key fails loudly naming the key', () => {

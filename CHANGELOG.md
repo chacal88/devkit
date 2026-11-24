@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.38.0 — the archive check lets the release pin lines pass unnamed
+
+- **devkit-openspec** 0.34.0: the archive's file check no longer asks a retro proposal to name the two
+  files that hold the CI pin lines when only those lines moved. `docs/openspec-flow.md` passes when
+  its text with every CI pin masked equals its text at the merge base masked the same way, and
+  `plugins/openspec/hooks/change-loop.test.mjs` passes when every line added or removed is an
+  `assert.match(flow, /v<X>.<Y>.<Z>/, '<message>');` or `assert.doesNotMatch(...)` line or the
+  `// Invariant: the CI snippet pins the current release` comment
+  ([ADR 0023](docs/adr/0023-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)). Any other
+  edit of either file, or a file missing or unreadable on either side, still stops the archive on
+  `apply-proposals` and fails `devkit-reviews --ci`, which applies the same rule from the same place
+  (`unnamedFiles`). Neither file joins the release list, so a merge conflict in them is classified as
+  before. The pin definition (`PIN_MARKER`, `PIN_TOKEN`, `pinsIn`, `setPins`) now lives in
+  `deliver-check.mjs`, and `release-merge.mjs` re-exports it, so the downloaded CI files stay three.
+  The CI snippet now pins `v0.34.0`, the release's tag.
+- Docs: ADR 0023, the Note in ADR 0003 and the flow doc's file check (P13) and Classification bullet.
+
 ## 0.37.0 — every change of a roadmap run opens at its start
 
 - **devkit-openspec** 0.33.0: a `/devkit roadmap` run on the desktop app opens every pending change

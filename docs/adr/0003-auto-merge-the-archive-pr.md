@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)
+- Amended by ADR 0023 (0023-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)
 - Date: 2026-11-09
 - Change: archive-after-merge
 
@@ -10,6 +11,8 @@
 Note (coordinator-field-fixes, 2026-11-20): ADR 0012 judges an archive PR per archived folder by its schema; a devkit-script folder without retro.md still fails, with a message that explains. The archive starts after the change is delivered, its own pull request merged and every task ticked on the default branch (a change may ship over several pull requests). The Decision is unchanged.
 
 Note (delivery-models, 2026-11-22): ADR 0018 amends the sentence on who merges the archive PR in `pr` mode: in the `two-prs` model the owner merges both archive pull requests, and devkit enables auto-merge on neither. The Decision is otherwise unchanged.
+
+Note (archive-release-pin, 2026-11-23): ADR 0023 amends the exemption list of the Decision: `docs/openspec-flow.md` also passes when only its CI pins moved, and `plugins/openspec/hooks/change-loop.test.mjs` when only its pin assertion lines changed, both checked by their content against the merge base; neither file is exempt as a whole. The Decision is otherwise unchanged.
 
 This ADR builds on ADR 0001 and ADR 0002 and leaves both decisions unchanged. Under ADR 0002,
 `ship-change` enables auto-merge on a change PR only when `deliver-check` reports 8/8, and

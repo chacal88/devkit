@@ -94,19 +94,19 @@ every task with `git status --short`.
 
 ## 2. Documents and the release (AC-6, AC-8)
 
-- [ ] 2.1 Write test `archive-release-pin 11` in `plugins/openspec/hooks/deliver-check.test.mjs` as
+- [x] 2.1 Write test `archive-release-pin 11` in `plugins/openspec/hooks/deliver-check.test.mjs` as
   D-6 says. Run
   `env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^archive-release-pin 11:" plugins/openspec/hooks/conduct-check.test.mjs`
   before 2.2 and save its output to `openspec/changes/archive-release-pin/proof/red-2.txt`. Check: the
   file shows test 11 failing on its first missing text.
-- [ ] 2.2 Edit the documents as D-8 says: the three places of `docs/openspec-flow.md` (the
+- [x] 2.2 Edit the documents as D-8 says: the three places of `docs/openspec-flow.md` (the
   `**Classification.**` bullet's last sentence, the P13 row, the `**The file check (P13, AC-3).**`
   paragraph), the header line and the Note of `docs/adr/0003-auto-merge-the-archive-pr.md` (no other
   line of that file changes), and the `ADRs:` line of `openspec/config.yaml`. Check: test 11 passes;
   `git diff --stat -- docs/adr/0003-auto-merge-the-archive-pr.md` shows only added lines;
   `git grep -n "and the ADR 0003 exemption, do not change" -- docs/openspec-flow.md` prints nothing;
   and `python3 scripts/check.py` passes (language and links).
-- [ ] 2.3 Release as D-9 says. Before editing, read `version` in
+- [x] 2.3 Release as D-9 says. Before editing, read `version` in
   `git show origin/main:plugins/openspec/.claude-plugin/plugin.json` and `metadata.version` in
   `git show origin/main:.claude-plugin/marketplace.json` (no fetch in this task; the coordinating
   session fetches). Take the next free minor of each, as read on `origin/main` at the last merge of
@@ -118,7 +118,7 @@ every task with `git status --short`.
   nothing, with `<previous>` the devkit-openspec version read on `origin/main` above;
   `git diff --merge-base origin/main -- plugins/openspec/hooks/change-loop.test.mjs` shows only lines of D-2's
   two forms; and `python3 scripts/gen-catalog.py --check` passes.
-- [ ] 2.4 Gate: `mkdir -p /var/tmp/devkit-archive-release-pin && env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^archive-release-pin " --test-name-pattern="^release list" --test-name-pattern="^change-loop docs: the design records the answers" --test-name-pattern="^release-merge pin" --test-name-pattern="^release-merge-conflict 1[56]:" --test-name-pattern="^the pin in docs/openspec-flow.md" --test-name-pattern="^AC-8 release-ready" --test-name-pattern="^ADR 0003 exists" --test-name-pattern="^upfront AC-5 docs" --test-name-pattern="^upfront ADR 0021" --test-name-pattern="^upfront D-18 docs" --test-name-pattern="^release-tags 4:" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate archive-release-pin --strict` green; covers AC-6 and AC-8, and the release's own pin lines.
+- [x] 2.4 Gate: `mkdir -p /var/tmp/devkit-archive-release-pin && env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^archive-release-pin " --test-name-pattern="^release list" --test-name-pattern="^change-loop docs: the design records the answers" --test-name-pattern="^release-merge pin" --test-name-pattern="^release-merge-conflict 1[56]:" --test-name-pattern="^the pin in docs/openspec-flow.md" --test-name-pattern="^AC-8 release-ready" --test-name-pattern="^ADR 0003 exists" --test-name-pattern="^upfront AC-5 docs" --test-name-pattern="^upfront ADR 0021" --test-name-pattern="^upfront D-18 docs" --test-name-pattern="^release-tags 4:" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate archive-release-pin --strict` green; covers AC-6 and AC-8, and the release's own pin lines.
 
 ## 3. Real-run proof and the whole suite (AC-1 to AC-10)
 
