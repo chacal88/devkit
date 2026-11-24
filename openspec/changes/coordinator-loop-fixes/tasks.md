@@ -73,7 +73,7 @@ every task with `git status --short`.
 
 ## 1. The declared steps and the end marker (AC-1, AC-2)
 
-- [ ] 1.0 D-17, the merge that opens the phase: the conducting session fetched `origin/main` and said so in the hand-off. Before
+- [x] 1.0 D-17, the merge that opens the phase: the conducting session fetched `origin/main` and said so in the hand-off. Before
   merging, list the tests the base added since the last merge (`git diff $(git merge-base HEAD origin/main) origin/main --stat -- '*.test.mjs'`);
   merge it by D-17 (`release-merge.mjs --base main --roadmap-ticks`, then `git merge origin/main` on its exit 2, never a rebase) and resolve each conflict by D-17; run each added test with `node scripts/test-suite.mjs --concurrency=2 <file>...`; then
   `grep -n` each of the names this phase edits (`runReply` and its `--stdin` option, `END_OF_KEY` in both loops, `GATE_OF_WHY`, `declaredEnd`, `readDeclared`, `runMarkers`, `runOf`, `classify`, `writeViolation`, `sanitize`, `guardBash`, `replyCmd`) and read it as it is now, before the phase edits it: a function whose shape
