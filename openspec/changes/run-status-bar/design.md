@@ -70,10 +70,12 @@ The README and `docs/openspec-flow.md` give the owner this entry for `.claude/se
 project's or the user's), which picks the newest installed copy, so a plugin update needs no edit:
 
 ```json
-{ "statusLine": { "type": "command", "command": "f=$(ls -d \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\"/plugins/cache/*/devkit-openspec/*/hooks/status-line.mjs 2>/dev/null | sort -V | tail -n 1); [ -n \"$f\" ] && node \"$f\" --lang pt-BR" } }
+{ "statusLine": { "type": "command", "command": "f=$(ls -d \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\"/plugins/cache/*/devkit-openspec/*/hooks/status-line.mjs 2>/dev/null | sort -V | tail -n 1); [ -z \"$f\" ] || node \"$f\" --lang pt-BR" } }
 ```
 
-The newest copy is safe for a project pinned to an older flow: every released flow version stays
+Beside it both documents say that `--lang en` gives English and that with no installed copy the
+command prints nothing and exits 0 (the ending `[ -z "$f" ] || ...`; review round 1 found that the
+earlier `[ -n "$f" ] && ...` exited 1 there). The newest copy is safe for a project pinned to an older flow: every released flow version stays
 readable (spec `change-stages`, "Every released flow version stays readable"). The change writes no
 settings file (requirements, out of scope).
 
@@ -262,7 +264,10 @@ The `state` call is `spawn(process.execPath, [<hooks>/change-loop.mjs, 'state', 
 its working directory and a 20 s bound (the bound `roadmap-loop.mjs` already gives a remote `state`
 read, `ASK_TIMEOUT_MS.state`), killed with `SIGTERM` at the bound. On `SIGTERM`, `SIGINT` or `SIGHUP`
 (Claude Code aborting a run for a newer one) the bar kills its child before it exits, so runs never
-pile up. The `git` calls use `execFileSync` with a 5 s bound each.
+pile up. The `state` call is spawned `detached`, so it leads its own process group, and both at the
+bound and on a signal the bar kills that whole group (`process.kill(-pid)`, falling back to the child
+alone), so the processes `state` starts end with it (a fix of review round 1). The `git` calls use
+`execFileSync` with a 5 s bound each.
 
 Injection points, for the tests only (a real 20 s wait is not a test): `status-line.mjs` exports
 `main(argv, { stdin, cwd, stateCommand, boundMs, signal })`, returning a promise of
