@@ -1,21 +1,22 @@
 Verdict: approved
-Commit: 0f405308ee31bfc6658bdea1bfce31c9b8666e55
+Commit: b85c7d92fa2ecdf02d90770276f474a3bca23e48
 
-## Quality review: jira-entry-followups (round 2)
+## Quality review: jira-entry-followups (re-check after the merge of main, round 1)
 
 ### Findings
-- [praise] plugins/core/skills/review-change/scripts/review-round.mjs:147-176 — The dirtyPaths copy in devkit-core is documented as a copy and held to deliver-check's gitFacts by a parity test on five tree shapes.
-- [praise] plugins/openspec/hooks/deliver-check.mjs:1810 — The plan-fix commit step reuses the existing step and reviewRecord, so state stays derived once in nextStep.
-- [praise] plugins/openspec/hooks/guard.mjs:433-445 — The FLOW_VERSIONS ceiling is checked before the shape checks, and tests pin the unknown key at a known version and the shipped flow files staying unchanged.
-- [nit] plugins/openspec/hooks/change-loop.mjs:2199-2203 — The task-taken check runs unfinished(..., gh) while the open lock is held; if it reads gh, the lock is held longer.
-- [nit] openspec/changes/jira-entry-followups/evidence.md AC-11 — AC-11 names openspec/specs/jira-tasks/spec.md but only the spec delta holds the rule until archive; reword the criterion to the spec delta.
-- [nit] plugins/openspec/hooks/change-loop.mjs:3228 — reply reads stdin when argv merely includes '--stdin', so a --param value equal to '--stdin' would trigger a blocking read; unlikely, optional to harden.
-- [praise] plugins/openspec/hooks/deliver-check.test.mjs:2455-2473 — The four new AC-4 tests are a table over finding shapes (undisposed important, undisposed blocking, refuted, nit only) and assert both the stale and the current side, plus that the other reviewers stay current, so the `&& !open` guard is pinned in both directions.
+- [nit] plugins/openspec/hooks/change-loop.mjs:2199-2203 — The task-taken check runs unfinished(..., gh) while the open lock is held; if it reads gh, the lock is held longer. Unchanged by this range.
+- [nit] openspec/changes/jira-entry-followups/evidence.md AC-11 — AC-11 names openspec/specs/jira-tasks/spec.md, but until archive only the spec delta holds the rule; reword the criterion to the spec delta. Unchanged by this range.
+- [nit] plugins/openspec/hooks/change-loop.mjs:3228 — reply reads stdin whenever argv includes '--stdin', so a --param value equal to '--stdin' would trigger a blocking read. Unlikely; optional to harden. Unchanged by this range.
+- [praise] plugins/openspec/hooks/change-loop-compozy.test.mjs:306,362 — The merge took main's form of the pin test, which reads the version from plugins/openspec/.claude-plugin/plugin.json. The release bump to 0.41.0 therefore needs no test edit, and no literal was reintroduced.
+- [praise] openspec/changes/jira-entry-followups/specs/verdict-files/spec.md:136-142 — The ADDED requirement states the no-own-files-exemption rule for an approved verdict with an undisposed finding in one sentence. It matches main's merge-of-base scenario for the rejected verdict, and the four AC-4 own-files tests already pin it.
 
 ### Summary
 
-- 7 findings (0 blocking, 0 important, 3 nit) + 4 praise.
-- Re-review scope: my round-1 findings and the range 66b8cf7..HEAD (3f6f865 test-only, evidence attempt 2, review.md and reviews/ for round 1). Round 1 held no blocking or important finding, so nothing needed a fix disposition; the three round-1 nits stand unchanged, since the range does not touch change-loop.mjs or the AC-11 wording.
-- 3f6f865 (3f6f865c10032ae83d78e8cc78eac51eb78d720f) is the fix of the test-coverage-reviewer F1 (the `&& !open` guard in readReviews had no test). Verified by reading deliver-check.mjs:420 (`own: approved(verdict) && !open ? ownFiles(...) : null`), deliver-check-fixtures.mjs:247 (`ownMergeMain` exported and used by the new tests), and by a filtered run: `env TMPDIR=/private/tmp/devkit-jira-entry-followups GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/deliver-check.test.mjs --test-name-pattern='jira-entry-followups AC-4 own-files'` printed `suite: 1 files, 4 tests, 4 pass, 0 fail`.
-- The test-only commit touches no product code, so the earlier suite result (2994 green on cd2ea37, 226 green on deliver-check.test.mjs at the new head, as supplied) still covers the product surface. I did not mutate the guard to watch the tests go red; the stale-side cases assert the exact `<sha> is behind <sha>, which touches` reason, which the guard's absence would turn into null.
-- No new defect in the range; evidence.md attempt 2 names the attempt-1 commit and the new test commit consistently with the git history.
+- 5 findings (0 blocking, 0 important, 3 nit) + 2 praise.
+- Scope: only the resolution of the merge of main (68353a5) and the evidence rewrite (b85c7d9). Nothing main brought was reviewed.
+- Release versions: devkit-openspec 0.41.0 in `plugins/openspec/.claude-plugin/plugin.json` and the marketplace entry, devkit-core 0.16.0 in `plugins/core/.claude-plugin/plugin.json` and the marketplace entry, and marketplace metadata 0.46.0 all agree.
+- CHANGELOG: section 0.46.0 sits above main's 0.45.0 and names the same plugin versions and the v0.41.0 CI pin.
+- CI pin: `docs/openspec-flow.md` pins `v0.41.0` at lines 733, 734 and 747. The pin test reads the version from the manifest, so it matches.
+- Verification: the filtered run of the pin test (`the design records the answers`) printed `suite: 1 files, 1 tests, 1 pass, 0 fail`. The nine whole files and the five-file run in evidence attempt 3 were supplied results and I did not re-run them.
+- Spec delta: the added sentence agrees with `readReviews` (the `&& !open` guard) as I verified last round, and the four `jira-entry-followups AC-4 own-files` tests pin it. The spec states no rule the code contradicts.
+- Verdict basis: no open blocking or important finding, so approval stands.

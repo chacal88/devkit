@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=2 commit=0f405308ee31bfc6658bdea1bfce31c9b8666e55 -->
+<!-- devkit-stage review result=passed attempt=1 commit=b85c7d92fa2ecdf02d90770276f474a3bca23e48 -->
 # Review: jira-entry-followups, round 1
 
 Path: agents · range `origin/main...HEAD` · structural: PASS
@@ -43,6 +43,30 @@ None.
 ## Notes
 - Round 2 re-checked only the previous findings and 66b8cf7..HEAD: the one important finding of round 1 (F1, the missing test for the own-files exemption of an approved verdict with an open finding) is fixed in 3f6f865.
 - Reviewers ran on the agents path with the caller's suite result (whole suite green on cd2ea37; deliver-check.test.mjs whole green on the new head) and re-ran nothing beyond filtered tests.
+
+## Next
+Ready to ship.
+
+# Review: jira-entry-followups, round 1
+
+Path: agents · range `0f405308ee31bfc6658bdea1bfce31c9b8666e55..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | b85c7d9 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | b85c7d9 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- A re-check after a merge of main (68353a5) and evidence attempt 3: the verdicts went stale only because their Commit lines did; it consumes no round budget.
+- Scope: the change's resolution of the merge (release above main's, main's form of the pin test, the CI pin at v0.41.0, the verdict-files delta carrying main's sentence and scenario on the base merge); nothing main brought was reviewed.
 
 ## Next
 Ready to ship.
