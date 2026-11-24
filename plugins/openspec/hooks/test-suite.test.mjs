@@ -242,6 +242,7 @@ test('suite-speed AC-4 each file runs in its own empty TMPDIR under one run root
   assert.equal(b.entries, 0);
   assert.equal(dirname(a.tmp), dirname(b.tmp), 'the two folders have different run roots');
   assert.match(dirname(a.tmp).split('/').pop(), /^devkit-suite-/);
+  assert.match(a.tmp.split('/').pop(), /^\d\d$/, 'the folder of a file is its place only: a socket path under it must stay short');
   assert.equal(dirname(dirname(a.tmp)), realpathSync(out.base));
   assert.equal(existsSync(dirname(a.tmp)), false, 'the run root is still there after the run');
   assert.deepEqual(readdirSync(out.base), []);

@@ -137,7 +137,7 @@ function removeTree(path) {
 }
 
 function runFile(file, place, options, root, runRoot, running) {
-  const folder = join(runRoot, `${String(place).padStart(2, '0')}-${file.split('/').pop().replace(TEST_FILE, '')}`);
+  const folder = join(runRoot, String(place).padStart(2, '0')); // the place alone: a Unix socket path under it must stay short (about 104 characters on macOS)
   mkdirSync(folder);
   const env = { ...process.env, TMPDIR: folder };
   delete env.NODE_TEST_CONTEXT; // a nested `node --test` would otherwise act as a child runner and write serialized reports

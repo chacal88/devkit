@@ -604,7 +604,7 @@ process.exitCode = r.code === undefined ? 0 : r.code;
 // `daemon(t)` listens on the home's socket and closes the server when the test `t` ends.
 export function fakeCompozy(replies = {}) {
   const dir = tmpFolder('devkit-compozy-bin-');
-  const home = tmpFolder('devkit-compozy-home-');
+  const home = tmpFolder('devkit-ch-');
   const bin = join(dir, 'compozy');
   writeFileSync(bin, FAKE);
   chmodSync(bin, 0o755);

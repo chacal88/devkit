@@ -130,9 +130,13 @@ At start the script makes one run root:
 temporary root (macOS `/var/folders/...` is under the symlink `/var` → `/private/var`; AC-4's
 symlinked `TMPDIR` on Linux), so every child sees a real path and a path a test builds from
 `tmpFolder(...)` equals the path git or the product resolves. Each file gets
-`<run root>/<nn>-<name>`, made with `mkdirSync` just before its child starts, where `<nn>` is the
-file's two-digit place in `suiteFiles` order and `<name>` its file name without `.test.mjs` (two
-files of one name in different folders stay apart by `<nn>`).
+`<run root>/<nn>`, made with `mkdirSync` just before its child starts, where `<nn>` is the
+file's two-digit place in `suiteFiles` order (two files of one name in different folders stay apart
+by `<nn>`). The folder carries no file name: a test that makes a Unix socket under its `TMPDIR`
+(`test-fixtures.mjs`, the fake CompozyOS home, prefix `devkit-ch-`) needs the whole path under
+about 104 characters (macOS; 108 on Linux), and a first version with `<nn>-<name>` made 27 such
+tests fail with `listen EINVAL` on the split `change-loop-compozy` and `roadmap-loop-followups`
+files. The summary names the file, not the folder.
 
 When the child ends, the script reads its folder (`readdirSync`). Not empty: the file is `LEFT` (a
 failure, even when every test passed), the names are kept for the summary, and the folder is removed
