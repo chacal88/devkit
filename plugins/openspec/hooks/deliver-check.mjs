@@ -10,13 +10,13 @@ import { join, basename } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mergeSetup, readRepoSettings, makeGh, ghError, ghVersion, GH_MIN_VERSION, GH_TIMEOUT_MS, DEVKIT_REVIEWS_CHECK } from './merge-setup.mjs';
+import { mergeSetup, readRepoSettings, requiredChecks, makeGh, ghError, ghVersion, GH_MIN_VERSION, GH_TIMEOUT_MS, DEVKIT_REVIEWS_CHECK } from './merge-setup.mjs';
 
 // The shared gh runner (merge-setup.mjs), kept importable from here.
 export { makeGh };
 // The `Commit:` line reader moved to guard.mjs, which the slice contract reads it from; still importable from here.
 export { parseCommitLine };
-import { archiveBranchChange, mainCheckout, parseDevkitBlock, deliverySettings, trainSetting, releaseTagSetting, changeDir, parseCommitLine, sliceProblems, changeSchema, changeSchemaAt, DEVKIT_SCHEMAS, findRoot, readValue, resolveChange, changeDeclares, REQUIRED_REVIEWERS } from './guard.mjs';
+import { archiveBranchChange, mainCheckout, parseDevkitBlock, deliverySettings, trainSetting, releaseTagSetting, changeDir, parseCommitLine, parseStageHeader, sliceProblems, changeSchema, changeSchemaAt, DEVKIT_SCHEMAS, findRoot, readValue, valueIn, resolveChange, changeDeclares, REQUIRED_REVIEWERS } from './guard.mjs';
 
 // ---------------------------------------------------------------- ship config
 
@@ -550,21 +550,25 @@ function tableRows(text) {
     .map((l) => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim()));
 }
 
-// The [blocking] / [important] findings of one verdict file, by disposition: { fixed, refuted, undisposed }.
-// A "fixed in <sha>" counts only when the sha is in the history of `head`.
-function findingsOfFile(root, file, head) {
-  const reviewer = basename(file, '.md');
+// The [blocking] / [important] findings of a verdict text, by disposition: { fixed, refuted, undisposed }. A "fixed in <sha>"
+// counts only when `inHead(sha)` says the sha is in the history of the head the caller reads.
+function findingsOfText(reviewer, text, inHead) {
   const undisposed = [];
   let fixed = 0;
   let refuted = 0;
-  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+  for (const line of text.split(/\r?\n/)) {
     if (!/^\s*(?:[-*+]|\d+[.)])\s+\**\[(?:blocking|important)\]/i.test(line)) continue;
     const fix = line.match(/·\s*fixed in\s+([0-9a-f]{7,40})\b/i);
-    if (fix && inHistory(root, fix[1], head)) { fixed++; continue; }
+    if (fix && inHead(fix[1])) { fixed++; continue; }
     if (!fix && /·\s*refuted:\s*\S/.test(line)) { refuted++; continue; }
     undisposed.push({ reviewer, excerpt: line.trim().replace(/^(?:[-*+]|\d+[.)])\s+/, '').slice(0, 100) });
   }
   return { fixed, refuted, undisposed };
+}
+
+// The same, for a verdict file read from disk; a "fixed in <sha>" counts only when the sha is in the history of `head`.
+function findingsOfFile(root, file, head) {
+  return findingsOfText(basename(file, '.md'), readFileSync(file, 'utf8'), (sha) => inHistory(root, sha, head));
 }
 
 // The findings of one verdict file that have no disposition: [{ reviewer, excerpt }] (jira-entry-followups D-2).
@@ -751,7 +755,9 @@ function defaultTasks(gh, id) {
 
 // The change's PR, whichever branch the checkout is on (archive-after-merge D4, field-fixes D-4):
 // { pr, via } | { none: true } | { error }. `via` is 'branch' when the current
-// branch is the change's own, 'list' when found among the merged PRs. "The
+// branch is the change's own, 'list' when found among the merged PRs, 'commit' when
+// a full list of them held none and the base's commits that changed tasks.md led to it
+// (an error of that search carries `arm: 'commit'`). "The
 // change's own branch" means the branch's own name identifies it (the exact
 // tail or a contained match, as resolveChange's own arms do) — never
 // resolveChange's single-active-change fallback, which answers with the sole
@@ -777,7 +783,7 @@ function mergedOnBranch(gh, id, found, branch, mergeFields, base = null) {
   let list;
   try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
   const open = Array.isArray(list) ? list.find((p) => p.state === 'OPEN') : null;
-  return open ? { pr: open, via: 'branch' } : { none: true, mergedBefore: found.pr.number, ...known };
+  return open ? { pr: open, via: 'branch' } : { none: true, mergedBefore: found.pr.number, merged: found.pr, ...known };
 }
 
 // In `two-prs` `base` is the base branch: only the pull requests to it are the change's own (the one to the test branch is not).
@@ -805,17 +811,190 @@ export function findChangePr(gh, root, id, { ship = 'plan', branch = '', env = p
     if (f.error) return { error: f.error };
     if (isOwnPr(id, p, f.files)) return { pr: p, via: 'list' };
   }
+  // A full list may have cut the change's pull request off (forced-merge-path D-1): look for it by the commits that changed its tasks.md.
+  return list.length === 100 ? findByCommits(gh, id, base) : { none: true };
+}
+
+// The change's merged own pull request found through the commits of the base that changed its tasks.md, newest first, and the pull
+// requests each commit belongs to (forced-merge-path D-1): { pr, via: 'commit' } | { none: true } | { error, arm: 'commit' }.
+// `base` is the configured base, else the repository's default branch.
+function findByCommits(gh, id, base) {
+  const fail = (error) => ({ error, arm: 'commit' });
+  let branch = base;
+  if (!branch) {
+    const repo = readRepoSettings(gh);
+    branch = repo.settings?.default_branch;
+    if (!branch) return fail(repo.error ?? 'the answer has no default branch');
+  }
+  const commits = ghJson(gh, `commits?sha=${encodeURIComponent(branch)}&path=openspec/changes/${id}/tasks.md&per_page=10`);
+  if (commits.error) return fail(commits.error);
+  if (!Array.isArray(commits.json)) return fail(`commits of ${branch} returned no list`);
+  const seen = new Set();
+  for (const c of commits.json) {
+    if (!isSha(c?.sha)) return fail(`commits of ${branch} returned an entry with no sha`);
+    const pulls = ghJson(gh, `commits/${c.sha}/pulls`);
+    if (pulls.error) return fail(pulls.error);
+    if (!Array.isArray(pulls.json)) return fail(`commits/${c.sha.slice(0, 7)}/pulls returned no list`);
+    for (const p of pulls.json) {
+      if (!p?.merged_at || p.base?.ref !== branch || isArchiveHead(p.head?.ref) || seen.has(p.number)) continue;
+      seen.add(p.number);
+      const f = prFiles(gh, p.number);
+      if (f.error) return fail(f.error);
+      const pr = { number: p.number, url: p.html_url, state: 'MERGED', headRefOid: p.head?.sha, headRefName: p.head?.ref, baseRefName: p.base.ref, mergedAt: p.merged_at };
+      if (isOwnPr(id, pr, f.files)) return { pr, via: 'commit' };
+    }
+  }
   return { none: true };
+}
+
+// ---------------------------------------------------------------- an owner's forced merge (forced-merge-path D-2, D-3)
+
+// The checks of a rollup that are not green: [{ name, conclusion }], `required` first, in its order, then `devkit-reviews` when no
+// rule requires it but it reported. `rollup` is the `statusCheckRollup` list: a CheckRun (`name`, `conclusion`) or a StatusContext
+// (`context`, `state`). A name is green only when every entry of it is SUCCESS; a required name with no entry is `absent`; an entry
+// with no conclusion yet is `PENDING`.
+export function notGreen(rollup, required) {
+  const nameOf = (e) => e?.name ?? e?.context;
+  const names = [...new Set(required)];
+  if (!names.includes(DEVKIT_REVIEWS_CHECK) && rollup.some((e) => nameOf(e) === DEVKIT_REVIEWS_CHECK)) names.push(DEVKIT_REVIEWS_CHECK);
+  const out = [];
+  for (const name of names) {
+    const entries = rollup.filter((e) => nameOf(e) === name);
+    if (!entries.length) { out.push({ name, conclusion: 'absent' }); continue; }
+    const bad = entries.map((e) => e.conclusion || e.state || 'PENDING').find((v) => v !== 'SUCCESS');
+    if (bad) out.push({ name, conclusion: bad });
+  }
+  return out;
+}
+
+// The checks of merged pull request `number` that are not green, against the checks `base` requires: { checks } | { error }.
+// A rollup answer with no list is an error, never "absent".
+export function forcedChecks(gh, number, base) {
+  const required = requiredChecks(gh, base);
+  if (required.error) return { error: required.error };
+  const r = gh(['pr', 'view', String(number), '--json', 'statusCheckRollup']);
+  if (r.status !== 0) return { error: ghError(r) };
+  let json;
+  try { json = JSON.parse(r.stdout); } catch { return { error: `gh pr view ${number} returned unreadable JSON` }; }
+  if (!Array.isArray(json?.statusCheckRollup)) return { error: `gh pr view ${number} returned no statusCheckRollup` };
+  return { checks: notGreen(json.statusCheckRollup, required.contexts) };
+}
+
+// The gate files of change `id` at the merged head `head` that hold no passing verdict current there: { gates: [{ file, why }] } |
+// { error }, read through GitHub so the answer is the same from every checkout and after a squash merge. The evidence first, then the
+// required reviewers in order, then any other reviewer file. A recorded `Commit:` is current when it is `head` (or `head` starts with
+// it) or when a compare of it to `head` is ahead or identical and lists no file its reader's rule rejects; the compare is read once per
+// sha. A read that fails with anything but a 404, an answer of an unexpected shape and unreadable JSON end the read as an error.
+export function gatesAtHead(gh, id, head) {
+  const short = head.slice(0, 7);
+  const dir = `openspec/changes/${id}`;
+  const compares = new Map();
+  const gates = [];
+  const textOf = (got, path) => (typeof got.json?.content === 'string'
+    ? { text: Buffer.from(got.json.content, 'base64').toString('utf8') }
+    : { error: `${path} at ${short} has no content` });
+  // Why `recorded` is not current at `head`: { why } (null when it is) | { error }.
+  const behind = (recorded, allowed) => {
+    if (!recorded) return { why: 'no Commit: line' };
+    const sha = recorded.sha.slice(0, 7);
+    if (recorded.uncommitted) return { why: `${sha} was recorded with uncommitted changes` };
+    if (head.startsWith(recorded.sha)) return { why: null };
+    if (!compares.has(recorded.sha)) compares.set(recorded.sha, ghJson(gh, `compare/${recorded.sha}...${head}`));
+    const compare = compares.get(recorded.sha);
+    if (compare.notFound) return { why: `${sha} does not resolve to a commit` };
+    if (compare.error) return { error: compare.error };
+    const { status, files } = compare.json ?? {};
+    if (status !== 'ahead' && status !== 'identical') return { why: `${sha} is not an ancestor of the merged head` };
+    if (!Array.isArray(files)) return { error: `compare ${sha}...${short} has no file list` };
+    if (files.length >= 300) return { why: `${sha} is too far behind the merged head to read` };
+    const product = files.map((f) => f?.filename).find((f) => typeof f === 'string' && !allowed(f));
+    return { why: product ? `${sha} is behind the merged head, which changes ${product}` : null };
+  };
+  const add = (file, why) => { if (why) gates.push({ file, why }); };
+
+  const evidence = readContents(gh, `${dir}/evidence.md`, head);
+  if (evidence.error) return { error: evidence.error };
+  if (evidence.notFound) add('evidence.md', 'missing');
+  else {
+    const read = textOf(evidence, `${dir}/evidence.md`);
+    if (read.error) return { error: read.error };
+    const header = parseStageHeader(read.text);
+    if (!header || header.malformed) add('evidence.md', 'no stage header');
+    else if (header.result !== 'passed') add('evidence.md', `result ${header.result}`);
+    else {
+      const current = behind(parseCommitLine(read.text), isOpenspec);
+      if (current.error) return { error: current.error };
+      add('evidence.md', current.why);
+    }
+  }
+
+  const folder = readContents(gh, `${dir}/reviews`, head);
+  if (folder.error) return { error: folder.error };
+  let present = [];
+  if (!folder.notFound) {
+    if (!Array.isArray(folder.json)) return { error: `${dir}/reviews at ${short} is not a folder` };
+    present = folder.json.map((e) => e?.name).filter((n) => typeof n === 'string' && n.endsWith('.md')).map((n) => n.slice(0, -3)).sort();
+  }
+  for (const name of [...REQUIRED_REVIEWERS, ...present.filter((n) => !REQUIRED_REVIEWERS.includes(n))]) {
+    const file = `reviews/${name}.md`;
+    if (!present.includes(name)) { add(file, 'missing'); continue; }
+    const got = readContents(gh, `${dir}/${file}`, head);
+    if (got.error) return { error: got.error };
+    if (got.notFound) { add(file, 'missing'); continue; }
+    const read = textOf(got, `${dir}/${file}`);
+    if (read.error) return { error: read.error };
+    const verdict = valueIn(read.text, 'Verdict');
+    if (verdict === null) add(file, 'no verdict line');
+    else if (!approved(verdict)) add(file, `verdict ${verdict}`);
+    else {
+      // The same currency rule as readReviews: an approved verdict that lists an undisposed finding is current only through
+      // commits of the change's own review record. A "fixed in <sha>" counts when the sha is in the merged head's history.
+      let historyError = null;
+      const inHead = (sha) => {
+        if (head.startsWith(sha)) return true;
+        const compare = ghJson(gh, `compare/${sha}...${head}`);
+        if (compare.error && !compare.notFound) historyError ??= compare.error;
+        return !compare.error && (compare.json?.status === 'ahead' || compare.json?.status === 'identical');
+      };
+      const open = findingsOfText(name, read.text, inHead).undisposed.length > 0;
+      if (historyError) return { error: historyError };
+      const current = behind(parseCommitLine(read.text), verdictAllowed(id, name, verdict, open));
+      if (current.error) return { error: current.error };
+      add(file, current.why);
+    }
+  }
+  return { gates };
+}
+
+// Whether merged pull request `pr` of change `id` was an owner's forced merge, and what it left open (forced-merge-path D-3): the
+// one place that combines the checks and the gate files. { forced: null } when every required check is green (no gate file is read) |
+// { forced: { number, url, head, items, count } } | { error }. `items` are the unticked tasks, the checks that are not green, then
+// the gate files, each with the `text` the answers and the retro name it by.
+export function forcedMerge(gh, id, pr, { base, unticked }) {
+  const checks = forcedChecks(gh, pr.number, base);
+  if (checks.error) return { error: checks.error };
+  if (checks.checks.length === 0) return { forced: null };
+  const gates = gatesAtHead(gh, id, pr.headRefOid);
+  if (gates.error) return { error: gates.error };
+  const items = [
+    ...unticked.map((taskId) => ({ kind: 'task', id: taskId, text: `task ${taskId}` })),
+    ...checks.checks.map(({ name, conclusion }) => ({ kind: 'check', name, conclusion, text: `${name} (${conclusion})` })),
+    ...gates.gates.map(({ file, why }) => ({ kind: 'gate', file, why, text: `${file} (${why})` })),
+  ];
+  return { forced: { number: pr.number, url: pr.url, head: pr.headRefOid, items, count: items.length } };
 }
 
 // What the delivery of change `id` is (field-fixes D-4): its PR as findChangePr answers it, and whether the
 // change is delivered: archived, or its own PR merged with every task ticked on the default branch. In a train project (`trainSuite`
 // set) a merged train that lists the change at its PR's head delivers it too, whatever state GitHub gives that PR (delivery-train D-2).
-// { fetched, delivered, merged, left: [ids], absent, repo, error, carried, trainFacts }.
+// A merged own PR with tasks left and a required check not green is an owner's forced merge (forced-merge-path D-4): `forced` carries what
+// it left open and `fetched` is that merged PR. A forced or commit read that fails is `unreadMerge`, with `fetched` the error.
+// { fetched, delivered, merged, left: [ids], absent, repo, error, carried, trainFacts, forced, unreadMerge }.
 export function deliveryOf(gh, root, id, { ship = 'plan', branch = '', env = process.env, located = null, number = null, base = null, mergeFields = ship === 'merge', trainSuite = null } = {}) {
   let fetched = findChangePr(gh, root, id, { ship, branch, env, number, base, mergeFields });
   const archived = Boolean(located?.archived);
   const mergedPr = fetched.pr?.state === 'MERGED';
+  const merged = mergedPr || fetched.mergedBefore != null;
   // The train facts at the PR's head, read once: a read that fails is the train row's to report (nextStep), never this one's.
   const facts = trainSuite !== null && !archived && ship !== 'plan' && fetched.pr?.headRefOid
     ? trainFacts(gh, root, id, { suite: trainSuite, prHead: fetched.pr.headRefOid, kind: 'change' })
@@ -826,14 +1005,29 @@ export function deliveryOf(gh, root, id, { ship = 'plan', branch = '', env = pro
   if (tasks?.error) fetched = { error: tasks.error };
   const left = tasks?.unticked ?? [];
   const delivered = archived || (ship !== 'plan' && (mergedPr || carried !== null) && Boolean(tasks) && !tasks.error && !tasks.absent && left.length === 0);
+  let forced = null;
+  let unreadMerge = fetched.arm === 'commit' ? { number: null, error: fetched.error } : null;
+  const mergedOwn = fetched.pr?.state === 'MERGED' ? fetched.pr : (fetched.merged ?? null);
+  if (ship !== 'plan' && !archived && left.length > 0 && carried === null && mergedOwn) {
+    const read = forcedMerge(gh, id, mergedOwn, { base: base ?? tasks.repo?.settings?.default_branch, unticked: left });
+    if (read.error) {
+      unreadMerge = { number: mergedOwn.number, error: read.error };
+      fetched = { error: read.error };
+    } else if (read.forced) {
+      forced = read.forced;
+      fetched = { pr: mergedOwn, via: fetched.via ?? 'branch', tasks };
+    }
+  }
   return {
     fetched,
     delivered,
-    merged: mergedPr || fetched.mergedBefore != null,
+    merged,
     left,
     absent: Boolean(tasks?.absent),
     repo: tasks?.repo ?? null,
     error: fetched.error ?? null,
+    forced,
+    unreadMerge,
     carried: delivered ? carried : null,
     trainFacts: facts,
   };
@@ -1770,7 +1964,11 @@ function archiveNext(state) {
   if (pr?.state === 'MERGED') return stopArchive('archive-pr', `PR #${pr.number} is merged but ${a.base} still has openspec/changes/${state.id}/; run again`);
   if (pr?.state === 'CLOSED') return stopArchive('archive-pr', `PR #${pr.number} was closed without merging; reopen it (the flow opens no second archive PR)`);
 
-  if (!a.retro.exists) return step('retro', 'the change PR is merged; run the retro', { number: a.changePr?.number ?? null, base: a.base });
+  if (!a.retro.exists) {
+    const f = state.forced;
+    return step('retro', f ? `PR #${f.number} merged by the owner with ${f.count} items open: ${f.items.map((i) => i.text).join('; ')}; run the retro` : 'the change PR is merged; run the retro',
+      { number: a.changePr?.number ?? null, base: a.base, ...(f ? { forced: f } : {}) });
+  }
   if (!a.retro.readable) return stopArchive('retro', 'retro.md has no "## Proposed updates" section');
   if (unanswered.length) return answersStop();
   if (a.local === 'active') return step('archive', 'archive the change on its own branch', { branch: a.branch, base: a.base, create: !a.branchExists });
@@ -1829,6 +2027,11 @@ export function nextStep(state) {
     return step('close-boarded-pr', `train ${n} (pull request #${number}) carried ${state.id}; close its pull request #${state.pr.number} with a comment`, { number: state.pr.number, train: n, trainNumber: number, comment });
   }
   if (state.archive) return archiveNext(state);
+  // The merge of the change's pull request cannot be told from here (forced-merge-path D-4): blocked, whatever the checkout.
+  if (state.unreadMerge) {
+    const { number, error } = state.unreadMerge;
+    return step('blocked', number == null ? `cannot find the merged pull request of ${state.id}: ${error}` : `cannot tell whether PR #${number} of ${state.id} was merged by the owner: ${error}`, { number });
+  }
   if (!state.branchOk) {
     const m = state.mergedLeft;
     if (m) return step('stop-branch', `PR #${m.number} of ${state.id} merged with tasks left (${m.tasks.join(', ')}); continue on branch ${state.id} and open a further pull request`, { number: m.number, tasks: m.tasks });
@@ -2039,9 +2242,11 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
   const fetched = delivery.fetched;
   // The post-merge phase: the change is delivered, its own PR merged with every task ticked on the default
   // branch, or its folder already moved (design D4, field-fixes D-4).
-  const postMerge = ship !== 'plan' && delivery.delivered;
+  // An owner's forced merge enters it too, its items 1 and 6 open (forced-merge-path D-4).
+  const forced = delivery.forced;
+  const postMerge = ship !== 'plan' && (delivery.delivered || Boolean(forced));
   const repo = merge || postMerge || two ? (delivery.repo ?? readRepoSettings(gh)) : null;
-  const mergedLeft = delivery.merged && !delivery.delivered && delivery.left.length
+  const mergedLeft = delivery.merged && !delivery.delivered && delivery.left.length && !forced && !delivery.unreadMerge
     ? { number: fetched.pr?.number ?? fetched.mergedBefore, tasks: delivery.left }
     : null;
   const common = {
@@ -2053,6 +2258,8 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     head: facts.head,
     dirty: facts.dirty,
     mergedLeft,
+    forced,
+    unreadMerge: delivery.unreadMerge,
     ...(merge ? { setup: mergeSetup(gh, root, trainOn ? 'merge' : mergeMethod, repo) } : {}),
   };
   // The facts of the two-pull-request delivery (D-4): the base is the repository's default branch, the pull request to the test
@@ -2078,6 +2285,7 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     const pr = fetched.pr;
     const archive = archiveFacts(gh, root, id, { located, repo, facts, changePr: pr, branch, env, testBranch: two ? testBranch : null, releaseFile: releaseTagOf(root) });
     const checked = (n, name, details) => item(n, name, 'met', pr ? `checked before PR #${pr.number} merged` : 'checked before the change was archived', details);
+    const forcedItem = (n, name, what, items, details) => item(n, name, 'open', `${what}: ${items.map((i) => i.text).join('; ')}`, details);
     const five = pr?.state === 'MERGED' && fetched.via === 'branch'
       ? prItem(root, id, fetched, facts, { merge: true })
       : item(5, 'pr', 'met', pr ? `PR #${pr.number} merged` : 'change archived; no merged PR found', { pr: pr ? { number: pr.number, url: pr.url } : null, merged: Boolean(pr) });
@@ -2098,12 +2306,14 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
       ...(trainOn ? { train: trainFacts(gh, root, id, { suite: trainSuite, prHead: archive.pr?.state === 'OPEN' ? archive.pr.headRefOid : null, kind: 'archive' }) } : {}),
       ...(delivery.carried ? { carriedBy: delivery.carried } : {}),
       items: [
-        checked(1, 'tasks', { unticked: [], missingGates: [], evidence: 'current' }),
+        forced ? forcedItem(1, 'tasks', 'not done at the merge', forced.items.filter((i) => i.kind !== 'check'), { unticked: forced.items.filter((i) => i.kind === 'task').map((i) => i.id), missingGates: [], evidence: 'forced' })
+          : checked(1, 'tasks', { unticked: [], missingGates: [], evidence: 'current' }),
         checked(2, 'reviews', { stale: [], rejected: [], missing: [] }),
         checked(3, 'findings', { fixed: 0, refuted: 0, undisposed: [] }),
         checked(4, 'acceptance', { ids: [], proven: [], missing: [], defects: [], noProof: [], evidence: 'current' }),
         five,
-        checked(6, 'checks', { required: false, failing: [], pending: [] }),
+        forced ? forcedItem(6, 'checks', 'not green at the merge', forced.items.filter((i) => i.kind === 'check'), { required: true, failing: [], pending: [] })
+          : checked(6, 'checks', { required: false, failing: [], pending: [] }),
         checked(7, 'conversation', { threads: [], comments: [], changesRequested: [], waiting: [] }),
         checked(8, 'body', { missing: [] }),
       ],

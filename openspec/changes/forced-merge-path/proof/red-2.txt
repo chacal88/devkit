@@ -1,0 +1,96 @@
+# red-2: phase 2 tests run on the code as it was (before any production change)
+# Command: env TMPDIR=/private/tmp/devkit-forced-merge-path GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern "forced-merge-path 2" plugins/openspec/hooks/change-loop.test.mjs
+# (change-loop.test.mjs imports deliver-check.test.mjs, so the filter runs every new test of the phase.)
+# Result: 5 tests, 4 fail, 1 pass. The one that passes (C3) pins behaviour that must stay as it is:
+#   a retro row without `forced` carries no reply. Failures: C1 (unknown reply key forced-merge), C2 (the unit-tests
+#   stage still replaces the forced retro row: agent devkit-core:test-runner), D1 and D2 (the skill sentences are missing).
+# The test fixture SAMPLE of "change-loop replies: no internal term in either language" gains `count`, the parameter of the new key.
+✖ forced-merge-path 2: D2 the ship-change retro row names next.forced, Went wrong, items and the files' language (2.846709ms)
+✖ forced-merge-path 2: C1 a retro row with forced is a session step carrying the forced object and its reply, in both languages (0.763417ms)
+✖ forced-merge-path 2: C2 a unit-tests stage next does not replace a forced retro row (0.463208ms)
+✔ forced-merge-path 2: C3 a retro row without forced carries no reply, as before (0.139459ms)
+✖ forced-merge-path 2: D1 the devkit skill's session item names the forced retro reply (0.341292ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 1
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 77.287
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4770:1
+✖ forced-merge-path 2: D2 the ship-change retro row names next.forced, Went wrong, items and the files' language (2.846709ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /next\.forced/. Input:
+  
+  '| `retro` | Run the `devkit-core:retro` skill for change <id>, on the change PR #`next.number` (`gh pr diff <n>`, the reviews, `evidence.md`), writing `retro.md` in the change folder in the format of its Output section, with no `Answer:` lines, and with the stage header `<!-- devkit-stage retro result=pending attempt=<n> commit=<git rev-parse HEAD> -->` on line 1. |'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/forced-merge-path/plugins/openspec/hooks/deliver-check.test.mjs:4772:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '| `retro` | Run the `devkit-core:retro` skill for change <id>, on the change PR #`next.number` (`gh pr diff <n>`, the reviews, `evidence.md`), writing `retro.md` in the change folder in the format of its Output section, with no `Answer:` lines, and with the stage header `<!-- devkit-stage retro result=pending attempt=<n> commit=<git rev-parse HEAD> -->` on line 1. |',
+    expected: /next\.forced/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:465:1
+✖ forced-merge-path 2: C1 a retro row with forced is a session step carrying the forced object and its reply, in both languages (0.763417ms)
+  Error [LoopUsageError]: unknown reply key forced-merge
+      at render (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/forced-merge-path/plugins/openspec/hooks/change-loop.mjs:665:37)
+      at says (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/forced-merge-path/plugins/openspec/hooks/change-loop.test.mjs:221:49)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/forced-merge-path/plugins/openspec/hooks/change-loop.test.mjs:470:27)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:479:1
+✖ forced-merge-path 2: C2 a unit-tests stage next does not replace a forced retro row (0.463208ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'agent',
+  +   'unit-tests',
+  +   'unit-tests',
+  +   'devkit-core:test-runner'
+  -   'session',
+  -   'retro',
+  -   'retro',
+  -   undefined
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/forced-merge-path/plugins/openspec/hooks/change-loop.test.mjs:482:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'agent', 'unit-tests', 'unit-tests', 'devkit-core:test-runner' ],
+    expected: [ 'session', 'retro', 'retro', undefined ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2518:1
+✖ forced-merge-path 2: D1 the devkit skill's session item names the forced retro reply (0.341292ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /A `retro` step that carries `reply` \(an owner's forced merge\) keeps `reply` for the message that ends the turn\./. Input:
+  
+  '- `session`: do the step as the `ship-change` row of the same name says, in `root`, with `detail` as its `next` object. A `take-place` step runs `detail.command`, then `next`, whatever its exit code. A `switch-script` step runs `detail.command` and keeps `reply` for the message that ends the turn. An `accept-decisions` step runs `detail.command` the same way (it marks the decision records of the approved plan accepted, and the next call goes on); an exit 3 is declared with `node <skill-dir>/../../hooks/change-loop.mjs reply blocked --param id=<id> --param why=cannot-accept --param error="<the JSON\'s error field>" --lang ${user_config.language}`, shown, and ends the run. An `answer` step that only the owner can decide is declared with `node <skill-dir>/../../hooks/change-loop.mjs reply waiting-pr-decision --param id=<id> --param url=<the pull request\'s url> --lang ${user_config.language}`, shown, and ends the turn. A `tag-release` step that stops (a refused push, a local tag at another commit) is declared with `node <skill-dir>/../../hooks/change-loop.mjs reply blocked --param id=<id> --param why=archive-failed --lang ${user_config.language}`, shown with git\'s first error line, and ends the run.'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/forced-merge-path/plugins/openspec/hooks/change-loop.test.mjs:2521:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '- `session`: do the step as the `ship-change` row of the same name says, in `root`, with `detail` as its `next` object. A `take-place` step runs `detail.command`, then `next`, whatever its exit code. A `switch-script` step runs `detail.command` and keeps `reply` for the message that ends the turn. An `accept-decisions` step runs `detail.command` the same way (it marks the decision records of the approved plan accepted, and the next call goes on); an exit 3 is declared with `node <skill-dir>/../../hooks/change-loop.mjs reply blocked --param id=<id> --param why=cannot-accept --param error="<the JSON\'s error field>" --lang ${user_config.language}`, shown, and ends the run. An `answer` step that only the owner can decide is declared with `node <skill-dir>/../../hooks/change-loop.mjs reply waiting-pr-decision --param id=<id> --param url=<the pull request\'s url> --lang ${user_config.language}`, shown, and ends the turn. A `tag-release` step that stops (a refused push, a local tag at another commit) is declared with `node <skill-dir>/../../hooks/change-loop.mjs reply blocked --param id=<id> --param why=archive-failed --lang ${user_config.language}`, shown with git\'s first error line, and ends the run.',
+    expected: /A `retro` step that carries `reply` \(an owner's forced merge\) keeps `reply` for the message that ends the turn\./,
+    operator: 'match',
+    diff: 'simple'
+  }
