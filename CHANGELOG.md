@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.51.1 — fresh-base-check retro
+
+- **devkit-core** 0.16.2: the pr-verifier reads a suite summary by each file's status; a `LEFT` file
+  fails the run even with 0 failing tests, and a run that exits non-zero is never recorded as a pass.
+- **devkit-openspec** 0.46.1: `nextAction` no longer reads the default branch twice. The CI snippet
+  now pins `v0.46.1`, the release's tag.
+
+## 0.51.0 — a status line for the session of a change or a roadmap run
+
+- **devkit-openspec** 0.46.0: a new command, `hooks/status-line.mjs`, draws the one line under the message
+  box of Claude Code. A session that conducts one change shows the change's name, its stage, a strip of
+  marks, `<n> of <N>` and, while the change is stopped, the reason in words; the session that coordinates
+  a roadmap run shows the counts (in play, working, waiting on the owner, blocked); a session that
+  conducts nothing shows nothing. The owner turns it on once with the `statusLine` entry in
+  `docs/openspec-flow.md` (the newest installed copy, so a plugin update needs no edit); the plugin
+  writes no settings file. The bar reads only `state`, writes nothing and itself starts only `node` and
+  `git` (`state` keeps its own reads), with a bound on each; at the bound, or when Claude Code stops it,
+  it ends the `state` call and everything that call started. `state` gains a `stages` field (the stages
+  that apply to the change, in order) and an `--offline` option (a listing with no GitHub call), and the
+  offline stub that listing uses lives in one place. The CI snippet now pins `v0.46.0`, the release's
+  tag.
+
+## 0.50.1 — the grill and the readiness review refuse a criterion only the archive can prove
+
+- **devkit-core** 0.16.1: `requirements-grill` never writes an acceptance criterion that only the archive or a later step can prove, and `plan-readiness-review` flags one as a Mandatory finding; the work goes in the plan's `## Workflow follow-up` (stage-ceiling-consecutive retro, proposal 1). Skill text only.
+
 ## 0.50.0 — the loop fetches the base before it judges
 
 - **devkit-openspec** 0.45.0: `/devkit change` and `/devkit roadmap` fetch the base branch into its
