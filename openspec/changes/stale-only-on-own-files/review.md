@@ -48,3 +48,30 @@ None.
 ## Next
 Ready to ship.
 
+
+# Review: stale-only-on-own-files, round 1
+
+Path: agents · range `origin/main...HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 8c9685d |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 8c9685d |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Fresh round 1 because the evidence and reviews went stale after merges of main (suite-speed PR 98 and the roadmap-panel-study archive PR 96); no round budget consumed beyond this call
+- The own-files code is unchanged since the round-2 approval at 962e43e; the 29 tests of this change moved into the split test files, 28 byte-identical and own-files AC-8 ci differs only by the shared GUARD_FILE fixture
+- One nit stays open and does not block: tasks.md gates 1.5, 2.5 and 3.8 still name node --test guard.test.mjs, which after suite-speed matches only its own tests; node scripts/test-suite.mjs and the filtered runs cover the change (evidence.md says so)
+- The move-under-openspec and root-commit scenarios are still tested only without a base (carried nit)
+- The whole suite ran once at 8370f95 (2944 tests, 2941 pass, 0 fail, 3 skipped); the commit after it adds only evidence.md
+
+## Next
+Ready to ship.
