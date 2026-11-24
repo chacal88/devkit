@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.38.0 — delivery train
+
+- **devkit-openspec** 0.34.0: a project that runs `trunk` or `trunk-auto` can set `devkit.delivery.train`
+  (the whole-suite command) to send its reviewed changes to the base branch together. A change boards
+  when its review is approved at its own head; a boarded change is not updated, verified or reviewed
+  again when the base moves, and a ready archive boards like a change. `/devkit train` runs the new
+  `hooks/train-loop.mjs`: it cuts `train/<n>`, joins the boarded heads in boarding order (release files
+  renumbered on the train only, by `release-merge.mjs --merge <rev>`; a conflict in any other path takes
+  the change off with its path), runs the whole suite once, writes the record `openspec/trains/<n>.md`
+  and opens one pull request, merged with a merge commit (by GitHub in `trunk-auto`, by the owner in
+  `trunk`). A red train is bisected: the change at the end of the smallest red prefix leaves with the
+  failure and the rest departs on a new train. On a train's pull request `devkit-reviews` judges each
+  boarded change at its own head and the record; a change's own evidence no longer has to carry the
+  gate parts the train proves. Without the key nothing changes.
+- **devkit-core** 0.14.1: `pr-verifier` records a gate part the train proves as `train:` and never as a
+  pass.
+- Docs: ADR 0022 (accepted) amends ADR 0002, 0003, 0012 and 0018; the flow page, the coordination
+  design, the roles, the pack README, CONTRIBUTING and the `ship-change` rows follow. The CI snippet
+  now pins `v0.34.0`, the release's tag.
+
 ## 0.37.0 — every change of a roadmap run opens at its start
 
 - **devkit-openspec** 0.33.0: a `/devkit roadmap` run on the desktop app opens every pending change
