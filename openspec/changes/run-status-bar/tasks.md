@@ -150,9 +150,12 @@ they read the version from `plugin.json`, and 3.1 moves the doc's pins with the 
   records the input's session (AC-3); each with `git status --short`, the run file and
   `git worktree list` captured before and after (AC-5). Standard input is the JSON D-2 names. Check:
   each run exits 0 and prints the line D-12 expects; the before and after captures are equal.
-- [x] 3.4 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check`
+- [x] 3.4 Gate: `node scripts/test-suite.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check`
   green, run as a background command of the tool (AC-1 to AC-7). The whole suite takes every test
-  file, `plugins/openspec/hooks/change-loop.test.mjs` (E-5) among them.
+  file, `plugins/openspec/hooks/change-loop.test.mjs` (E-5) among them. Amended after the merge of
+  main d917ae0: the suite part is the delivery train's own text, so the train proves it on the joined
+  heads (docs/openspec-flow.md "Gate parts proven by the train"); the run with the CI branch
+  variables set (`env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main`) passed at 0528b85.
 
 ## Workflow follow-up
 
