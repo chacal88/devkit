@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=8 commit=c789b9b4b3aa813e23b0de4603f3f05a8b1b9960 -->
+<!-- devkit-stage tasks result=passed attempt=9 commit=1a742290b1b7cde8c4d48f317f834c834b6c8a95 -->
 # Tasks
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88)
@@ -33,9 +33,9 @@ phase touches (D-17: the files it adds tests to or edits tests in, and the files
 texts it changes) run in the Check of the phase's last implementation task, before its gate, in two parts: the area's
 files whole, and the large mixed files filtered by anchored `--test-name-pattern` values (the script applies its
 patterns to every file it runs), each with `GITHUB_HEAD_REF` and `GITHUB_BASE_REF` set, as a pull-request run on CI
-does. No implementer task runs the whole suite. The conducting session runs each gate (the loop's `gate` step), its
-whole-suite part `node scripts/test-suite.mjs` locally, as a background command; it may run that part with a
-`--concurrency` it chooses for the machine, and what the run proves is the same. `evidence.md` needs no `pass` row for
+does. No implementer task runs the whole suite. The conducting session runs each gate (the loop's `gate` step) as the
+`gate` item of `plugins/openspec/skills/devkit/SKILL.md` says: the gate's command as written, locally, in the
+background; how it limits the load on its machine is not part of this plan. `evidence.md` needs no `pass` row for
 the two parts the train proves (the train runs them at its head); a gate's other parts need one. Gate 1.6, ticked
 before the rule reached this branch, keeps its text: its filtered parts still need `pass` rows. Before a gate, each
 file the phase added tests to is run alone with `node scripts/test-suite.mjs --concurrency=2 <file>` and stays under
@@ -155,7 +155,7 @@ every task with `git status --short`.
   and D-3's skill text in `plugins/openspec/skills/devkit/SKILL.md` (the `gate` item and item 3 of `### Every change
   in this session`). Check: T10, T17 and T25 to T31 pass, and the F1 test (`change-loop-compozy.test.mjs`) still
   passes (the `tests-red` key stays in the Loop as the exit-3 fallback). The roadmap tests that read `tests-red` are
-  left to the delivery train's whole suite (D-17): this phase changes no roadmap code and no `tests-red` text.
+  left to the whole suite of gate 2.5 and of the delivery train (D-17): this phase changes no roadmap code and no `tests-red` text.
 - [ ] 2.3 D-4: `REVIEW_ROUNDS`, the exported `authorizedRounds(dir, scope)`, `collectState`'s `roundLimit`, the
   resolution's `limit` and `planDirty` without `openspec/changes/<id>/declared.json` (D-1), and `nextStep`'s four rows in
   `plugins/openspec/hooks/deliver-check.mjs`; the exported `ceilingOf(stage, flow, facts)` on the right of
@@ -213,7 +213,7 @@ every task with `git status --short`.
   merge it by D-17 (`release-merge.mjs --base main --roadmap-ticks`, then `git merge origin/main` on its exit 2, never a rebase) and resolve each conflict by D-17; run each added test with `node scripts/test-suite.mjs --concurrency=2 <file>...`; then
   `grep -n` each of the names this phase edits (`parseTasks`, `readPhases`, `nextStep`, `MAIN`, `planDigest` and `approvalState`, `collectFlow`, `artifactState`, `PLAN_REASONS`, `planPart`, `buildPart`, `approvalText`, `recordApproval`, `isArchiveHead`, `isOwnPr`, `findChangePr`, `mergedOnBranch`, `ownFiles`, `prItem`, `offOwnBranch`, `collectFlow`'s `postMerge`, `baseMergeOf`, `readMergeCheck` and the `merge-check` block of `buildPart`) and read it as it is now, before the phase edits it: a function whose shape
   contradicts the plan stops the phase, reported, without a guess. A failing test the base added is reported as a row for
-  D-15 and one plan revision. Check: `git merge-base --is-ancestor origin/main HEAD` exits 0 and gate 2.5 passes as written.
+  D-15 and one plan revision. Check: `git merge-base --is-ancestor origin/main HEAD` exits 0, the runs of 2.4's Check that gate 2.5 held (its `Then` part, with the `^jira-entry-followups AC-10 ` call) pass again, and `python3 scripts/check.py` passes (D-17: gate 2.5's whole suite is the conducting session's, never this task's).
 
 - [ ] 3.1 Write T51 to T69, T93, T94, T115, T116, T119 to T131, T133 and T134 of D-16 in `plugins/openspec/hooks/deliver-check.test.mjs`,
   `deliver-check-archive.test.mjs`, `flow-check.test.mjs` and `change-loop-declared.test.mjs`, and make the D-15 update of `change-loop compozy
@@ -295,7 +295,7 @@ every task with `git status --short`.
   merge it by D-17 (`release-merge.mjs --base main --roadmap-ticks`, then `git merge origin/main` on its exit 2, never a rebase) and resolve each conflict by D-17; run each added test with `node scripts/test-suite.mjs --concurrency=2 <file>...`; then
   `grep -n` each of the names this phase edits (`classify`, `writeViolation`, `inProofFolder`, `PACKS`, `AGENT`, `agentOf`) and read it as it is now, before the phase edits it: a function whose shape
   contradicts the plan stops the phase, reported, without a guess. A failing test the base added is reported as a row for
-  D-15 and one plan revision. Check: `git merge-base --is-ancestor origin/main HEAD` exits 0 and gate 3.9 passes as written.
+  D-15 and one plan revision. Check: `git merge-base --is-ancestor origin/main HEAD` exits 0, the runs of 3.8's Check that gate 3.9 held (its `Then` part) pass again, and `python3 scripts/check.py` and `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check` pass (D-17: gate 3.9's whole suite is the conducting session's, never this task's).
 
 - [ ] 4.1 The conducting session's task (D-14, D-11), done and ticked before phase 4 is handed; it needs nothing this
   change builds, so it may run earlier. Run R10 (the person's language never set, the installed plugin) in a scratch
@@ -362,7 +362,7 @@ every task with `git status --short`.
   merge it by D-17 (`release-merge.mjs --base main --roadmap-ticks`, then `git merge origin/main` on its exit 2, never a rebase) and resolve each conflict by D-17; run each added test with `node scripts/test-suite.mjs --concurrency=2 <file>...`; then
   `grep -n` each of `createdAfter`, `ATTRIBUTION_ASK`, `parseDevkitBlock`, `budgetOf`, `modelsOf`, `capOf`, `writePin` and the `waiting-budget` messages, and each of the three test titles of D-23 (`grep -rn "post-merge-validate 3: the roadmap line\|jira-entry AC-10 the roadmap\|stage-roles docs: the roadmap line" plugins/openspec/hooks/*.test.mjs`), and read it as it is now, before the phase edits it: a function whose shape
   contradicts the plan stops the phase, reported, without a guess. A failing test the base added is reported as a row for
-  D-15 and one plan revision. Check: `git merge-base --is-ancestor origin/main HEAD` exits 0 and gate 4.7 passes as written.
+  D-15 and one plan revision. Check: `git merge-base --is-ancestor origin/main HEAD` exits 0, the runs of 4.6's Check that gate 4.7 held (its `Then` part) pass again, and `python3 scripts/check.py`, `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check` and `test -s openspec/changes/coordinator-loop-fixes/proof/checks.txt` pass (D-17: gate 4.7's whole suite is the conducting session's, never this task's).
 
 - [ ] 5.1 Write T85 to T92 and T135 to T140 of D-16 in `plugins/openspec/hooks/change-loop-declared.test.mjs`,
   `plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs`, `plugins/openspec/hooks/guard.test.mjs` (T135) and

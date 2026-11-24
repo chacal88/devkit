@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=8 commit=c789b9b4b3aa813e23b0de4603f3f05a8b1b9960 -->
+<!-- devkit-stage design result=passed attempt=9 commit=1a742290b1b7cde8c4d48f317f834c834b6c8a95 -->
 # Design
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a ·
@@ -38,8 +38,9 @@ against main again (2026-11-24, `origin/main` c09860c)", says what each changed 
 - The test suite (ADR 0026, `CONTRIBUTING.md`): `node scripts/test-suite.mjs [--concurrency=<n>]
   [--test-name-pattern=<re>]... [<file>...]` runs each `*.test.mjs` of the four suite folders in a process of
   its own, `<n>` at once, each with its own empty `TMPDIR`; the patterns apply to every file it runs. The whole
-  suite runs only on the delivery train (`devkit.delivery.train`, below); a phase gate of this plan runs the
-  files its phase touches with `--concurrency=2` (D-17). No test file imports another
+  suite runs at each phase gate from 2.5 on, from the conducting session, and again on the delivery train
+  (`devkit.delivery.train`, below); the test files a phase touches run with `--concurrency=2` in the Check of
+  its last implementation task (D-17). No test file imports another
   (shared helpers live in `test-fixtures.mjs` and the `<name>-fixtures.mjs` modules), `guard.test.mjs`
   holds only the guard's own tests, and a file is kept under about 300 s. The old files were split:
   `change-loop.test.mjs` now has `change-loop-compozy`, `change-loop-remote` and `change-loop-remote-state`
@@ -935,7 +936,7 @@ plugins/*/skills/*/scripts/*.test.mjs`. Before each gate the implementer also ru
 | `project-settings: PACKS equals the plugin names in marketplace.json` (plugins/openspec/skills/openspec-setup/scripts/project-settings.test.mjs) | rule: `PACKS` names the marketplace's plugins | kept: D-9 moves `PACKS` above `AGENT` and changes no entry | 4.4 |
 | `commit-attribution AC-1 T25 ...` (project-loop.test.mjs) | the negative with `?? '\u0000'` | updated (D-13) | 5.2 |
 | `commit-attribution AC-2 T31 ...` (deliver-check-archive.test.mjs) | the count of `Attribution below` | updated (D-13) | 5.3 |
-| roadmap tests with `tests-red` (roadmap-loop.test.mjs, roadmap-loop-followups.test.mjs, roadmap-loop-upfront.test.mjs, change-loop-remote-state.test.mjs; `grep -ln "tests-red" plugins/openspec/hooks/*.test.mjs`) | a declared blocked end of a red gate | kept: `roadmap-loop.mjs reply blocked` still records it; the reply tests of the rows above run in phase 1, which edits `replyCmd`; no phase edits a `tests-red` text or other roadmap code, so the others run on the delivery train's whole suite | the train |
+| roadmap tests with `tests-red` (roadmap-loop.test.mjs, roadmap-loop-followups.test.mjs, roadmap-loop-upfront.test.mjs, change-loop-remote-state.test.mjs; `grep -ln "tests-red" plugins/openspec/hooks/*.test.mjs`) | a declared blocked end of a red gate | kept: `roadmap-loop.mjs reply blocked` still records it; the reply tests of the rows above run in phase 1, which edits `replyCmd`; no phase edits a `tests-red` text or other roadmap code, so the others run in the whole suite of the gates 2.5 to 6.6 and of the delivery train | the gates' whole suite, the train |
 | `flow-check stages: a failed stage past its ceiling ends blocked` (flow-check.test.mjs) | `review` failed at attempt 2 ends blocked `ceiling-reached` `{ stage: 'review', attempt: 2, failures: 2, ceiling: 2 }`; at attempt 1 no end | kept: its synthetic facts carry no `authorizedReviewRounds`, so `ceilingOf` gives 2, and `failures` is the sibling's count, unchanged (D-4) | 2.3 |
 | `flow-check stages: a failed header does not pass its stage` (`{ attempt: 1, failures: 1, ceiling: 2 }`) and `flow-check stages: a failed stage offers its fix, then itself after the fix` (`{ failed: 'review', attempt: 1, failures: 1, ceiling: 2 }`) (flow-check.test.mjs) | the review's ceiling in the reason's parameters | kept: no record, ceiling 2 | 2.3 |
 | every `stage-ceiling-consecutive` test (flow-check.test.mjs: `AC-1` to `AC-7`, `failuresInARow ...`, `the history is read only ...`, `the readout says ...`; change-loop.test.mjs, change-loop-compozy.test.mjs and project-loop.test.mjs: the `AC-6` loop and reply tests) | the failures in a row, read from git, are the left side of the ceiling comparison, and the replies and briefs say them | kept: D-4 changes only the right side, and only for the `review` stage of role `review-bench` with a record; none of these fixtures writes `declared.json` | 2.3 |
@@ -970,7 +971,7 @@ plugins/*/skills/*/scripts/*.test.mjs`. Before each gate the implementer also ru
 | `post-merge-validate 3: the roadmap line names the merge check and the sibling that counts evidence attempts` (change-loop.test.mjs), titled `..., and stays unticked` on c09860c | invariant: the roadmap line of `post-merge-validate` names the merge check and its sibling; layer: the roadmap document, read as text; suite: change-loop.test.mjs | kept: already fixed on main since train 10 (6373424, the archive of `post-merge-validate`, merged into this branch at 2.0): renamed, it finds the line by `/^- \[[ x]\] post-merge-validate/` and accepts the ticked line, so this change does not edit it (D-23) | none (5.9 runs it by its pattern) |
 | `jira-entry AC-10 the roadmap has the live-proof follow-up after jira-entry` (change-loop-remote-state.test.mjs) | invariant: Round 20b, after Round 20, holds the `jira-entry-live` line after `jira-entry`; layer: the roadmap document, read by `parseRoadmap` (`guard.mjs`); suite: change-loop-remote-state.test.mjs | updated (D-23): it finds the line by `/^- \[[ xX]\] jira-entry-live \(after: jira-entry\)/` and asserts `{ id, after }` of `parseRoadmap`, never `done`, on the live roadmap and on a copy with that line ticked | 5.8 |
 | `stage-roles docs: the roadmap line of stage-roles keeps its text, and every carried item moved to coordinator-loop-fixes` (change-loop-compozy.test.mjs) | invariant: the stage-roles line keeps its text without the carried items, which the coordinator-loop-fixes line holds; layer: the roadmap document, read by `parseRoadmap`; suite: change-loop-compozy.test.mjs | updated (D-23): it already holds the old line as a constant and makes no assertion on the tick; it runs its assertions on the live roadmap and on a copy with the `stage-roles` and `coordinator-loop-fixes` lines ticked, so this change's own archive leaves it green | 5.8 |
-| `compozy-driver`, `loop-templates`, `devkit-kit`, `install-kit`, `release-tags`, `release-merge`, `merge-setup`, `jira-task`, `change-loop-remote` and `test-suite` suites (but the tests named above) | the driver's calls, the three loops, the resolver, the installer, the tag step, the release merge, the merge setup, the Jira task, the remote runs and the suite script | kept: searched for the texts this change replaces, none found; they run on the delivery train's whole suite | the train |
+| `compozy-driver`, `loop-templates`, `devkit-kit`, `install-kit`, `release-tags`, `release-merge`, `merge-setup`, `jira-task`, `change-loop-remote` and `test-suite` suites (but the tests named above) | the driver's calls, the three loops, the resolver, the installer, the tag step, the release merge, the merge setup, the Jira task, the remote runs and the suite script | kept: searched for the texts this change replaces, none found; they run in the whole suite of the gates 2.5 to 6.6 and of the delivery train | the gates' whole suite, the train |
 
 ## D-16 New tests
 
@@ -1176,9 +1177,9 @@ which merges `origin/main` into the branch and re-reads each function the phase 
   part so that `deliver-check`'s `tasksItem` counts it as proven by the train, followed by the phase's parts
   the train does not run: `gen-agents.mjs --check`, `gen-catalog.py --check` or `command claude plugin
   validate .` when the phase edits what they check, and the `test -s` and `grep -q` checks of its files. No
-  gate names a test file. The conducting session runs each gate (the loop's `gate` step), its whole-suite
-  part `node scripts/test-suite.mjs` locally, as a background command; it may run that part with a
-  `--concurrency` it chooses for the machine, and what the run proves is the same. `evidence.md` needs no
+  gate names a test file. The conducting session runs each gate (the loop's `gate` step) as the `gate` item
+  of `plugins/openspec/skills/devkit/SKILL.md` says: the gate's command as written, locally, in the background;
+  how the session limits the load on its machine is not part of this plan. `evidence.md` needs no
   `pass` row for the two parts the train proves, since the train runs them once at its head for every
   boarded change, so a base merge that stales the evidence re-runs only the gates' other parts. Gate 1.6,
   ticked before the rule reached this branch at task 2.0, keeps its filtered text, and its filtered parts
@@ -1192,7 +1193,10 @@ which merges `origin/main` into the branch and re-reads each function the phase 
   change's tests and the kept tests of the phase (the script applies its patterns to every file it runs, so
   the two kinds cannot share one call). No pattern holds a `|`, so alternatives are separate values. Each
   part runs with `GITHUB_HEAD_REF` and `GITHUB_BASE_REF` set, as a pull-request run on CI does. A sibling's
-  new test outside those runs is caught by the gate's whole-suite part and by the train.
+  new test outside those runs is caught by the gate's whole-suite part and by the train. The merge task
+  that opens the next phase (3.0, 4.0, 5.0) checks the merged head with the same runs of the previous
+  phase's last task, `python3 scripts/check.py` and the previous gate's other parts, never with that
+  gate's command.
 - The plan's validation after a merge of the base is the loop's own `merge-check` step (`post-merge-validate`),
   which runs before `verify` and the delivery steps, never the implementer's: a merge task merges and edits
   no plan file, and a red check goes to the planner's `merge-defect` step, which D-7 treats as any plan edit.
@@ -1213,7 +1217,8 @@ none of them owns an item of this change, `requirements.md`):
 | `archive-release-pin` | merged, not archived; waits on this change for its archive | nothing this change edits; its pull request 107 is AC-17's real run (R16) |
 
 Whichever lands first, the other merges it. The task `6.1` is the last merge; the gates of phase 6 and the
-loop's `merge-check` then run on the merged head, and the delivery train runs the whole suite at its head.
+loop's `merge-check` then run on the merged head (gate 6.6's whole suite among them), and the delivery train
+runs the whole suite again at its head.
 Three meetings are known now:
 
 - `stage-ceiling-consecutive`'s delta and this change's both modify "Attempt ceilings and no progress stop
