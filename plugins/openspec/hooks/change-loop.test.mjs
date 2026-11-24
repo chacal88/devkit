@@ -2,7 +2,7 @@
 // change-coordinator, part 1 of 3 (suite-speed D-11; the other parts are change-loop-compozy.test.mjs and change-loop-remote.test.mjs): the loop, its commands and its locks (phase 1: settings, replies and the decision; phase 2: start, open, script, wait; phase 3: the locks). What the three parts share is in change-loop-fixtures.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync, utimesSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync, utimesSync, chmodSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { tmpFolder, tmpRoot } from './test-tmp.mjs';
@@ -11,18 +11,18 @@ import {
   gitRepo, put, commitAll, git, sandbox, readCounter, roundRepo, SET_LOOP as SET, cleanEnvLoop as cleanEnv, FLOWS, stageOf, nextOf, endOf, reportOf,
   rowOf, run, PLAN_FILES, head, planChange, SESSION, stored, commandText, typedLine, toolResultLine, runLine, assistantLine, transcriptOf, stopInput,
 } from './test-fixtures.mjs';
-import { shipConfig, collectState, buildReport } from './deliver-check.mjs';
+import { shipConfig, collectState, buildReport, approvalState } from './deliver-check.mjs';
 import { actorOf } from './conduct-check.mjs';
-import { TEXT } from './flow-check.mjs';
+import { TEXT, fingerprint, collectFlow, computeFlow } from './flow-check.mjs';
 import * as guardModule from './guard.mjs';
 import * as changeLoopModule from './change-loop.mjs';
 import {
-  readDevkitSettings, normalizeLang, MESSAGES, render, exitCodeOf, ROW_STEPS, main, HOOKS_DIR, LoopUsageError, runCommand, PACKS,
+  readDevkitSettings, normalizeLang, MESSAGES, render, exitCodeOf, ROW_STEPS, main, HOOKS_DIR, LoopUsageError, runCommand, PACKS, nextAction,
 } from './change-loop.mjs';
 import {
   HERE, LOOP, TDD, COMMIT, PLANNER, read, configRepo, shape, says, build, next, parsed, check, deliveredChange, startRun, body, titleEn, whereNext,
   snapshot, addChange, devkitRepo, openRun, freshProject, wtOf, WAIT, waited, GUARD, runOf, plainLine, skillBodyLine, runTranscript, hook, subInput,
-  PLAN_UP_TO_TASKS, editInput, bashInput, liteChange, approvedChange, agentInput, readRepo, IDENT,
+  PLAN_UP_TO_TASKS, editInput, bashInput, liteChange, approvedChange, agentInput, readRepo, IDENT, prJson, buildRep, PMV_SHA, PMV_ERRORS, pmvRec, pmvFacts,
 } from './change-loop-fixtures.mjs';
 
 // The same git identity the whole file had when it was one file (see IDENT in change-loop-fixtures.mjs).
@@ -377,6 +377,16 @@ test('change-loop decide: B2 commits and pull requests go to the commit agent', 
     assert.deepEqual([a.kind, a.agent, a.step, a.stage, a.role], ['agent', COMMIT, step, 'delivery', 'commit-and-pr'], step);
     assert.deepEqual(a.skills, ['commit-message-guidelines']);
   }
+});
+
+test('loop-evidence 15: a commit row with no paths goes to the commit agent, as one with paths does', () => {
+  const none = build(rowOf('commit', { paths: [] }));
+  const some = build(rowOf('commit', { paths: ['src/a.ts'] }));
+  for (const a of [none, some]) {
+    assert.deepEqual([a.kind, a.agent, a.step, a.stage, a.role], ['agent', COMMIT, 'commit', 'delivery', 'commit-and-pr']);
+    assert.deepEqual(a.skills, ['commit-message-guidelines']);
+  }
+  assert.deepEqual(none.detail.paths, []);
 });
 
 test('release-merge-conflict 14: a push row with a plain command goes to the commit agent', () => {
@@ -2035,4 +2045,487 @@ test('change-loop lock: bypass and a project not opted in refuse nothing', () =>
   for (const out of calls(plain, {})) assert.equal(out.code, 0, out.err);
   assert.equal(existsSync(log), false, 'nothing logged for either');
   assert.equal(existsSync(join(tmp, 'devkit-stop')), false);
+});
+
+// ---------------------------------------------------------------- post-merge-validate, phase 1 (D-1 to D-3)
+
+// Invariant: after a merge of the base the loop checks the plan with `openspec validate <id> --type change --strict`; the pieces are the sha of
+// the merge (baseMergeOf), the record of the check (readMergeCheck) and the command that writes it (merge-check). Layer: the loop's
+// own commands. Suite: this file. Every merge is made in a temporary repository; none reads this repository's history.
+
+// The export of `change-loop.mjs` a phase-1 test reaches, as a function, or a failure that names it.
+const pmvExport = (name) => {
+  assert.equal(typeof changeLoopModule[name], 'function', `change-loop.mjs exports ${name}`);
+  return changeLoopModule[name];
+};
+
+const PMV_ROADMAP = '# Roadmap\n\n## Round 1: x\n- [ ] feat\n';
+const PMV_SCENARIO = (name) => `#### Scenario: ${name}\n- **WHEN** the thing runs\n- **THEN** it works\n`;
+// The canonical spec `openspec/specs/cap/spec.md` with one requirement and the scenarios named.
+const pmvSpec = (...scenarios) => `# cap Specification\n\n## Purpose\nThe capability holds a thing that works, so the change has something to modify.\n\n## Requirements\n\n### Requirement: Thing works\nThe system SHALL make the thing work.\n\n${scenarios.map(PMV_SCENARIO).join('\n')}`;
+// The change's delta: MODIFIES that requirement and carries the scenarios named.
+const pmvDelta = (...scenarios) => `## MODIFIED Requirements\n\n### Requirement: Thing works\nThe system SHALL make the thing work, differently.\n\n${scenarios.map(PMV_SCENARIO).join('\n')}`;
+const PMV_PROPOSAL = '# Proposal\n\n## Why\n\nThe thing needs to work in a new way, which this sentence explains at enough length.\n\n## What Changes\n\n- The thing works differently.\n';
+const pmvHeader = (stage, commit) => `<!-- devkit-stage ${stage} result=passed attempt=1 commit=${commit} -->\n`;
+
+// A bare origin, a clone and a worktree `feat` whose change modifies the requirement of `openspec/specs/cap/spec.md` and keeps its
+// one scenario, every plan file with a passed stage header, all committed on the branch `feat`.
+function pmvRepo({ spec = 'cap' } = {}) {
+  const t = roundRepo({ roadmap: PMV_ROADMAP, config: 'schema: devkit-lite\n', files: { [`openspec/specs/${spec}/spec.md`]: pmvSpec('First') } });
+  const wt = t.addWt('feat');
+  const base = git(wt, 'rev-parse', 'HEAD');
+  const dir = (f) => `openspec/changes/feat/${f}`;
+  put(wt, {
+    [dir('.openspec.yaml')]: 'schema: devkit-lite\n',
+    [dir('proposal.md')]: `${pmvHeader('proposal', base)}${PMV_PROPOSAL}`,
+    [dir(`specs/${spec}/spec.md`)]: `${pmvHeader('specs', base)}${pmvDelta('First')}`,
+    [dir('tasks.md')]: `${pmvHeader('tasks', base)}# Tasks\n\n## 1. First\n- [x] 1.1 code\n`,
+    'src/feat.txt': 'code\n',
+  });
+  commitAll(wt, 'the change');
+  return { t, wt };
+}
+
+// Origin gets `files`, then the worktree merges it with a merge commit; returns the merge's sha.
+function pmvMerge({ t, wt }, files, message = 'origin moves') {
+  t.commitOrigin(files, message);
+  git(wt, 'merge', '-q', '--no-ff', '--no-edit', 'origin/main');
+  return git(wt, 'rev-parse', 'HEAD');
+}
+
+const pmvRecordFile = (wt, id = 'feat') => join(git(wt, 'rev-parse', '--path-format=absolute', '--git-common-dir'), 'devkit', 'merge-check', `${id}.json`);
+const pmvRecord = (wt, id = 'feat') => (existsSync(pmvRecordFile(wt, id)) ? JSON.parse(readFileSync(pmvRecordFile(wt, id), 'utf8')) : null);
+const pmvCheck = (wt, extra = {}, id = 'feat') => {
+  const r = main(['merge-check', id, '--lang', 'en'], { cwd: wt, env: cleanEnv, ...extra });
+  return { r, body: r.stdout.trim().startsWith('{') ? JSON.parse(r.stdout) : null };
+};
+// Every `devkit-stage` line of the change folder, by file.
+const pmvHeaderLines = (wt, id = 'feat') => {
+  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));
+  return walk(join(wt, 'openspec', 'changes', id)).sort().map((f) => [f, readFileSync(f, 'utf8').split('\n').filter((l) => l.includes('devkit-stage'))]);
+};
+
+test('post-merge-validate 1: baseMergeOf gives the newest merge on the branch that origin/<base> does not hold, else null', () => {
+  const baseMergeOf = pmvExport('baseMergeOf');
+  const bare = gitRepo();
+  assert.equal(baseMergeOf(bare, 'origin/main'), null, 'no origin/main at all');
+
+  const r = pmvRepo();
+  assert.equal(baseMergeOf(r.wt, 'origin/main'), null, 'no merge on the branch');
+  const first = pmvMerge(r, { 'docs/a.txt': 'a\n' });
+  assert.equal(baseMergeOf(r.wt, 'origin/main'), first, 'one merge');
+  put(r.wt, { 'src/more.txt': 'more\n' });
+  commitAll(r.wt, 'a plain commit after the merge');
+  assert.equal(baseMergeOf(r.wt, 'origin/main'), first, 'a plain commit after it: still the merge');
+  const second = pmvMerge(r, { 'docs/b.txt': 'b\n' });
+  assert.notEqual(second, first);
+  assert.equal(baseMergeOf(r.wt, 'origin/main'), second, 'two merges: the newer');
+
+  git(r.wt, 'push', '-q', 'origin', 'HEAD:main');
+  assert.equal(baseMergeOf(r.wt, 'origin/main'), null, 'the branch merged into origin/main: its merges are reachable from it');
+});
+
+test('post-merge-validate 1: baseMergeOf sees a merge made in another clone and brought by git pull --ff-only', () => {
+  const baseMergeOf = pmvExport('baseMergeOf');
+  const r = pmvRepo();
+  git(r.wt, 'push', '-q', 'origin', 'feat');
+  r.t.commitOrigin({ 'docs/a.txt': 'a\n' }, 'origin moves');
+  const other = join(tmpFolder('devkit-pmv-other-'), 'clone');
+  git(r.t.main, 'clone', '-q', r.t.originDir, other);
+  git(other, 'checkout', '-q', 'feat');
+  git(other, 'merge', '-q', '--no-ff', '--no-edit', 'origin/main');
+  git(other, 'push', '-q', 'origin', 'feat');
+  git(r.wt, 'pull', '-q', '--ff-only', 'origin', 'feat');
+  assert.equal(baseMergeOf(r.wt, 'origin/main'), git(r.wt, 'rev-parse', 'HEAD'));
+});
+
+test('post-merge-validate 1: mergeCheckFile is in the git common directory and readMergeCheck takes only a whole record of the change', () => {
+  const mergeCheckFile = pmvExport('mergeCheckFile');
+  const readMergeCheck = pmvExport('readMergeCheck');
+  const r = pmvRepo();
+  assert.equal(mergeCheckFile(r.wt, 'feat'), pmvRecordFile(r.wt, 'feat'));
+  assert.ok(!mergeCheckFile(r.wt, 'feat').startsWith(r.wt), 'never in the worktree');
+
+  const dir = tmpFolder('devkit-pmv-record-');
+  const whole = { version: 1, change: 'feat', merge: 'a1b2c3d4'.repeat(5), result: 'red', reds: 2, fingerprint: 'abc123def456', errors: '- ERROR x', error: null, at: '2026-11-23T10:00:00.000Z' };
+  const write = (name, body) => { const f = join(dir, name); writeFileSync(f, typeof body === 'string' ? body : JSON.stringify(body)); return f; };
+  const bad = {
+    empty: '', truncated: '{"version":1,', 'not JSON': 'not json at all', 'an array': '[]',
+    'version 2': { ...whole, version: 2 }, 'another change': { ...whole, change: 'other' }, 'a short sha': { ...whole, merge: 'a1b2c3d' },
+    'a sha that is not hex': { ...whole, merge: 'z'.repeat(40) }, 'an unknown result': { ...whole, result: 'maybe' },
+    'reds -1': { ...whole, reds: -1 }, 'reds 1.5': { ...whole, reds: 1.5 }, 'reds a string': { ...whole, reds: '1' },
+    'no fingerprint': { ...whole, fingerprint: undefined },
+  };
+  assert.equal(readMergeCheck(join(dir, 'missing.json'), 'feat'), null, 'missing');
+  for (const [name, body] of Object.entries(bad)) assert.equal(readMergeCheck(write(`${name.replace(/\W/g, '-')}.json`, body), 'feat'), null, name);
+  assert.deepEqual(readMergeCheck(write('whole.json', whole), 'feat'), whole);
+  for (const result of ['green', 'red', 'cannot-run']) assert.equal(readMergeCheck(write(`${result}.json`, { ...whole, result }), 'feat')?.result, result, result);
+});
+
+test('post-merge-validate 1: the command on a valid change after a merge answers green, records it and changes no file', () => {
+  const r = pmvRepo();
+  const merge = pmvMerge(r, { 'docs/a.txt': 'a\n' });
+  const headers = pmvHeaderLines(r.wt);
+  const before = git(r.wt, 'status', '--porcelain');
+  const { r: out, body } = pmvCheck(r.wt);
+  assert.equal(out.code, 0, out.stdout + out.stderr);
+  assert.deepEqual([body.version, body.change, body.base, body.merge, body.result, body.reds], [1, 'feat', 'main', merge, 'green', 0]);
+  const record = pmvRecord(r.wt);
+  assert.deepEqual([record.version, record.change, record.merge, record.result, record.reds], [1, 'feat', merge, 'green', 0]);
+  assert.equal(record.fingerprint, fingerprint(r.wt, git(r.wt, 'rev-parse', 'HEAD')), 'the record holds the fingerprint taken before the CLI ran');
+  assert.equal(git(r.wt, 'status', '--porcelain'), before, 'nothing in the worktree changed');
+  assert.deepEqual(pmvHeaderLines(r.wt), headers, 'every stage header line is as it was');
+});
+
+test('post-merge-validate 1: a merge that brings a scenario the delta drops is red, counted by merge, and green once the delta carries it', () => {
+  const r = pmvRepo();
+  pmvMerge(r, { 'docs/a.txt': 'a\n' });
+  assert.equal(pmvCheck(r.wt).body.result, 'green', 'the fixture validates after a merge that changes nothing of the spec');
+
+  const merge = pmvMerge(r, { 'openspec/specs/cap/spec.md': pmvSpec('First', 'Second added on main') }, 'main adds a scenario');
+  assert.equal(git(r.wt, 'diff', '--name-only', 'HEAD^1', 'HEAD').split('\n').filter((f) => f.startsWith('openspec/changes/feat/')).length, 0, 'the merge touches nothing of the change');
+  const headers = pmvHeaderLines(r.wt);
+  const first = pmvCheck(r.wt);
+  assert.equal(first.r.code, 0, 'a red check still exits 0: the session runs next either way');
+  assert.deepEqual([first.body.merge, first.body.result, first.body.reds], [merge, 'red', 1]);
+  assert.match(first.body.errors, /Thing works/);
+  assert.match(first.body.errors, /Second added on main/);
+  assert.equal(pmvRecord(r.wt).reds, 1);
+  assert.deepEqual([pmvCheck(r.wt).body.result, pmvRecord(r.wt).reds], ['red', 2], 'the same merge again: counted on');
+  assert.deepEqual(pmvHeaderLines(r.wt), headers, 'a red check touches no stage header');
+
+  put(r.wt, { 'openspec/changes/feat/specs/cap/spec.md': `${pmvHeader('specs', merge)}${pmvDelta('First', 'Second added on main')}` });
+  const fixed = pmvCheck(r.wt);
+  assert.deepEqual([fixed.body.result, fixed.body.reds], ['green', 0]);
+  assert.deepEqual([pmvRecord(r.wt).result, pmvRecord(r.wt).reds], ['green', 0]);
+});
+
+test('post-merge-validate 1: a change that shares its name with a canonical spec is checked as the change: green, or red on a bad delta, never cannot-run', () => {
+  const r = pmvRepo({ spec: 'feat' });
+  pmvMerge(r, { 'docs/a.txt': 'a\n' });
+  const green = pmvCheck(r.wt);
+  assert.equal(green.r.code, 0, green.r.stdout + green.r.stderr);
+  assert.deepEqual([green.body.result, green.body.error], ['green', null], 'the CLI is told the id names a change');
+
+  pmvMerge(r, { 'openspec/specs/feat/spec.md': pmvSpec('First', 'Second added on main') }, 'main adds a scenario');
+  const red = pmvCheck(r.wt);
+  assert.deepEqual([red.body.result, red.body.error], ['red', null]);
+  assert.match(red.body.errors, /Second added on main/);
+});
+
+// An `openspec` program that prints `body` and exits with `status`, in a folder of its own to put first on PATH.
+function pmvOpenspecStub(body, status = 1) {
+  const dir = tmpFolder('devkit-pmv-stub-');
+  const file = join(dir, 'openspec');
+  writeFileSync(file, `#!/bin/sh\nif [ "$1" = "--version" ]; then echo 2.0.0; exit 0; fi\ncat <<'END'\n${body}\nEND\nexit ${status}\n`);
+  chmodSync(file, 0o755);
+  return dir;
+}
+
+test('post-merge-validate 1: a red with more issues than fit is cut at 4000 characters of errors, ending in an ellipsis', () => {
+  const r = pmvRepo();
+  const merge = pmvMerge(r, { 'docs/a.txt': 'a\n' });
+  const issues = Array.from({ length: 200 }, (_, i) => ({ level: 'ERROR', path: `specs/cap/spec.md#${i}`, message: `issue number ${i} is described at some length` }));
+  const stdout = JSON.stringify({ items: [{ id: 'feat', type: 'change', valid: false, issues }] });
+  const { r: out, body } = pmvCheck(r.wt, { openspec: () => ({ status: 1, stdout, stderr: '', missing: false, timedOut: false }) });
+  assert.equal(out.code, 0, out.stdout + out.stderr);
+  assert.deepEqual([body.merge, body.result], [merge, 'red']);
+  assert.equal(body.errors.length, 4000);
+  assert.ok(body.errors.endsWith('…'));
+  assert.ok(body.errors.startsWith('- ERROR specs/cap/spec.md#0: issue number 0'));
+  assert.equal(pmvRecord(r.wt).errors, body.errors, 'the record holds the cut text');
+});
+
+test('post-merge-validate 1: a check that cannot run is cannot-run with its cause, never green, and keeps the count of reds', () => {
+  const r = pmvRepo();
+  const merge = pmvMerge(r, { 'openspec/specs/cap/spec.md': pmvSpec('First', 'Second added on main') });
+  const cannot = (extra, expectError) => {
+    const { r: out, body } = pmvCheck(r.wt, extra);
+    assert.equal(out.code, 0, out.stdout + out.stderr);
+    assert.equal(body.result, 'cannot-run');
+    assert.equal(body.merge, merge);
+    assert.match(body.error, expectError);
+    assert.equal(pmvRecord(r.wt).result, 'cannot-run', 'the record never reads green');
+    return body;
+  };
+
+  // No openspec program on PATH: an empty folder (not node's own, which may hold the CLI); the command runs in process.execPath.
+  const empty = tmpFolder('devkit-pmv-nopath-');
+  assert.match(cannot({ env: { ...cleanEnv, PATH: empty } }, /openspec CLI/).error, /not installed or not on PATH/);
+  const unknown = pmvOpenspecStub('{"status":[{"severity":"error","code":"unknown_item","message":"Unknown item \'feat\'."}]}');
+  assert.match(cannot({ env: { ...cleanEnv, PATH: `${unknown}:${cleanEnv.PATH}` } }, /Unknown item 'feat'/).error, /^Unknown item/);
+  const noJson = pmvOpenspecStub('this is not json');
+  cannot({ env: { ...cleanEnv, PATH: `${noJson}:${cleanEnv.PATH}` } }, /this is not json/);
+  assert.equal(cannot({ openspec: () => ({ status: null, stdout: '', stderr: '', missing: false, timedOut: true }) }, /timed out/).error, 'openspec validate timed out');
+  cannot({ openspec: () => ({ status: null, stdout: '', stderr: '', missing: false, timedOut: false, refused: 'the pinned CLI is not installed' }) }, /the pinned CLI is not installed/);
+  const validButFailed = JSON.stringify({ items: [{ id: 'feat', type: 'change', valid: true, issues: [] }] });
+  cannot({ openspec: () => ({ status: 1, stdout: validButFailed, stderr: '', missing: false, timedOut: false }) }, /exit 1|valid/);
+
+  // A red, then a check that cannot run, then a red again on the same merge: the count goes on from the earlier one.
+  const red = pmvCheck(r.wt).body;
+  assert.deepEqual([red.result, red.reds], ['red', 1]);
+  const stuck = cannot({ openspec: () => ({ status: null, stdout: '', stderr: '', missing: false, timedOut: true }) }, /timed out/);
+  assert.equal(stuck.reds, 1, 'cannot-run keeps the reds of the same merge');
+  assert.equal(pmvRecord(r.wt).reds, 1);
+  assert.deepEqual([pmvCheck(r.wt).body.reds], [2], 'a later red counts on from the earlier one');
+});
+
+test('post-merge-validate 1: the command with no merge says none and writes nothing; an unknown change or a missing id exits 3', () => {
+  const r = pmvRepo();
+  const none = pmvCheck(r.wt);
+  assert.equal(none.r.code, 0, none.r.stdout + none.r.stderr);
+  assert.deepEqual([none.body.version, none.body.change, none.body.base, none.body.merge, none.body.result], [1, 'feat', 'main', null, 'none']);
+  assert.equal(existsSync(pmvRecordFile(r.wt)), false, 'no record');
+
+  pmvMerge(r, { 'docs/a.txt': 'a\n' });
+  const unknown = pmvCheck(r.wt, {}, 'nope');
+  assert.equal(unknown.r.code, 3);
+  assert.match(unknown.body.error, /unknown change nope/);
+  assert.equal(existsSync(pmvRecordFile(r.wt, 'nope')), false, 'no record for an unknown change');
+  const missing = main(['merge-check', '--lang', 'en'], { cwd: r.wt, env: cleanEnv });
+  assert.equal(missing.code, 3);
+  assert.match(JSON.parse(missing.stdout).error, /merge-check <id> --lang/, 'the usage names the command');
+  assert.match(read('change-loop.mjs'), /`?merge-check <id> --lang <l>`?/, 'the header comment of change-loop.mjs names it');
+});
+
+// ---------------------------------------------------------------- post-merge-validate, phase 2 (D-4 to D-7)
+
+// Invariant: after a merge of the base, `decide` offers the `merge-check` step before every step that pushes or waits on the pull
+// request, hands a red result to the planner with no stage attempt spent, and ends blocked after three reds or a check that cannot
+// run. Layer: the loop's decision (`decide`, `nextAction`). Suite: this file.
+
+const PMV_SHA7 = PMV_SHA.slice(0, 7);
+const PMV_CHECK_BEFORE = ['verify', 'review', 'push', 'open-pr', 'open-prs', 'open-test-pr', 'push-support', 'move-test-pr', 'edit-pr-body',
+  'enable-auto-merge', 'update-branch', 'rerun-checks', 'wait-checks', 'wait-merge', 'ready', 'ready-test-branch', 'ready-base'];
+const PMV_COMMAND = ['node', join(HOOKS_DIR, 'change-loop.mjs'), 'merge-check', 'feat', '--lang', 'en'];
+
+test('post-merge-validate 2: with a merge and no record every step that pushes or waits on the pull request gets the merge-check step', () => {
+  for (const step of PMV_CHECK_BEFORE) {
+    const a = build(rowOf(step), pmvFacts());
+    assert.deepEqual([a.kind, a.step, a.stage, exitCodeOf(a)], ['session', 'merge-check', 'evidence', 0], step);
+    assert.deepEqual(a.detail.command, PMV_COMMAND, step);
+    assert.equal(a.detail.merge, PMV_SHA);
+    assert.equal(a.detail.base, 'main');
+    assert.equal(a.progressKey, 'evidence/merge-check@abc123');
+  }
+});
+
+test('post-merge-validate 2: a step outside the list, the archive branch, no merge and a flow without evidence get no merge-check step', () => {
+  const same = (row, facts, label, over = {}) => {
+    const withCheck = run({ rep: buildRep(), ...over, facts: { row, ...facts } });
+    const without = run({ rep: buildRep(), ...over, facts: { row, ...(facts.archiving ? { archiving: true } : {}) } });
+    assert.notEqual(withCheck.step, 'merge-check', label);
+    assert.deepEqual(withCheck, without, label);
+  };
+  for (const step of ['implement', 'fix-review', 'resolve-release-conflict', 'gate', 'commit', 'disable-auto-merge', 'blocked', 'stop-archive']) {
+    same(rowOf(step), pmvFacts(), step);
+  }
+  same(rowOf('verify'), pmvFacts(null, { archiving: true }), 'archiving');
+  same(rowOf('verify'), { mergeCheck: { base: 'main', merge: null, record: null } }, 'no merge');
+  same(rowOf('verify'), { mergeCheck: null }, 'no fact');
+  const noEvidence = { ...FLOWS.devkit, stages: FLOWS.devkit.stages.filter((s) => s.id !== 'evidence') };
+  same(rowOf('push'), pmvFacts(), 'a flow without an evidence stage', { flow: noEvidence, rep: { next: nextOf(noEvidence, 'delivery', 'not-pushed', { number: 12 }) } });
+});
+
+test('post-merge-validate 2: a green record of the merge gives the action without the check; a green record of another merge does not', () => {
+  const green = pmvRec({ result: 'green', reds: 0, errors: null });
+  const a = build(rowOf('verify'), pmvFacts(green));
+  assert.deepEqual([a.kind, a.agent, a.step, a.stage], ['agent', VERIFIER, 'verify', 'evidence']);
+  assert.deepEqual(a, build(rowOf('verify'), { mergeCheck: null }));
+  const other = build(rowOf('verify'), pmvFacts({ ...green, merge: '0123456789'.repeat(4) }));
+  assert.deepEqual([other.kind, other.step], ['session', 'merge-check']);
+});
+
+test('post-merge-validate 2: a red record of the same files goes to the planner as a merge defect; other files offer the check again', () => {
+  const a = build(rowOf('verify'), pmvFacts(pmvRec()));
+  assert.deepEqual([a.kind, a.agent, a.step, a.stage, a.role, exitCodeOf(a)], ['agent', PLANNER, 'merge-defect', 'specs', 'change-planner', 0]);
+  for (const part of ['merge defect', 'origin/main', PMV_SHA7, PMV_ERRORS, 'Leave every stage header line', 'openspec validate feat --type change --strict', 'red check 1 of 3']) {
+    assert.ok(a.brief.includes(part), `the brief holds: ${part}`);
+  }
+  assert.deepEqual([a.detail.base, a.detail.merge, a.detail.reds, a.detail.ceiling, a.detail.errors], ['main', PMV_SHA, 1, 3, PMV_ERRORS]);
+  const changed = build(rowOf('verify'), pmvFacts(pmvRec({ fingerprint: 'fff999' })));
+  assert.deepEqual([changed.kind, changed.step], ['session', 'merge-check'], 'the planner changed files: check again');
+  const again = build(rowOf('verify'), { ...pmvFacts(pmvRec()), after: a.progressKey });
+  assert.deepEqual([again.end.state, again.end.why], ['blocked', 'no-progress'], 'a planner that changed nothing');
+});
+
+test('post-merge-validate 2: three reds in a row on one merge end blocked, the ceiling is the flow default, the evidence stage is not read', () => {
+  assert.equal(build(rowOf('verify'), pmvFacts(pmvRec({ reds: 2 }))).agent, PLANNER);
+  const stopped = build(rowOf('verify'), pmvFacts(pmvRec({ reds: 3 })));
+  assert.deepEqual([stopped.kind, stopped.end.state, stopped.end.why, stopped.stage, exitCodeOf(stopped)], ['end', 'blocked', 'merge-defect', 'evidence', 2]);
+  assert.ok(stopped.reply.includes(PMV_SHA7) && stopped.reply.includes('3'), stopped.reply);
+  assert.equal(stopped.reply, says('blocked', { why: 'merge-defect', sha: PMV_SHA7, attempt: 3 }));
+  const moved = build(rowOf('verify'), pmvFacts(pmvRec({ reds: 3, fingerprint: 'fff999' })));
+  assert.deepEqual([moved.kind, moved.step], ['session', 'merge-check'], 'at the ceiling, files that changed since the red offer the check again');
+
+  const two = { ...FLOWS.devkit, ceilings: { ...FLOWS.devkit.ceilings, default: 2 } };
+  assert.equal(run({ flow: two, rep: buildRep(), facts: { row: rowOf('verify'), ...pmvFacts(pmvRec({ reds: 1 })) } }).agent, PLANNER);
+  const lower = run({ flow: two, rep: buildRep(), facts: { row: rowOf('verify'), ...pmvFacts(pmvRec({ reds: 2 })) } });
+  assert.deepEqual([lower.end?.state, lower.end?.why], ['blocked', 'merge-defect'], 'a default ceiling of 2 stops at 2 reds');
+
+  const spent = { evidence: { state: 'failed', reasonCode: 'header-failed', params: { attempt: 3, ceiling: 3 } } };
+  const read = run({ rep: buildRep({ stages: spent }), facts: { row: rowOf('verify'), ...pmvFacts(pmvRec({ reds: 1 })) } });
+  assert.equal(read.agent, PLANNER, 'the stage attempts of the evidence do not count the reds');
+  assert.equal(read.detail.ceiling, 3);
+});
+
+test('post-merge-validate 2: a check that could not run ends blocked after its step, and is offered again on a fresh call', () => {
+  const cannot = pmvRec({ result: 'cannot-run', reds: 0, errors: null, error: 'openspec validate timed out' });
+  const stopped = build(rowOf('verify'), { ...pmvFacts(cannot), after: 'evidence/merge-check@abc123' });
+  assert.deepEqual([stopped.end.state, stopped.end.why, stopped.stage, exitCodeOf(stopped)], ['blocked', 'merge-check-failed', 'evidence', 2]);
+  assert.ok(stopped.reply.includes('openspec validate timed out'), stopped.reply);
+  assert.equal(stopped.reply, says('blocked', { why: 'merge-check-failed', error: 'openspec validate timed out' }));
+  const fresh = build(rowOf('verify'), pmvFacts(cannot));
+  assert.deepEqual([fresh.kind, fresh.step], ['session', 'merge-check']);
+});
+
+// A `devkit-lite` change with one merge of the base that adds a scenario to the requirement the delta modifies: T-4's repository,
+// built on `deliveredChange` so that the delivery checker, the fake gh and the pull request are real.
+function pmvDelivered(extra = {}) {
+  const proposal = `${PMV_PROPOSAL}\n## Acceptance criteria\n\n- AC-1: a thing\n`;
+  const d = deliveredChange({ files: { 'openspec/specs/s/spec.md': pmvSpec('First') }, delta: { spec: pmvDelta('First'), proposal }, ...extra });
+  return { ...d, proposal };
+}
+// The merge itself; the fake gh reads the new head, as GitHub would after a push.
+// The commit on origin holds the spec alone: `commitOrigin` stages everything, the worktree's own folder included, and a merge that
+// brings a path outside openspec/ makes the evidence stale, which is not what this test is about.
+function pmvMergeDelivered(d, spec = pmvSpec('First', 'Second added on main')) {
+  const file = 'openspec/specs/s/spec.md';
+  put(d.t.main, { [file]: spec });
+  git(d.t.main, 'add', '--', file);
+  git(d.t.main, 'commit', '-q', '-m', 'main adds a scenario', '--', file);
+  git(d.t.main, 'push', '-q', 'origin', 'main');
+  git(d.wt, 'merge', '-q', '--no-ff', '--no-edit', 'origin/main');
+  return pmvHead(d);
+}
+function pmvHead(d) {
+  const sha = git(d.wt, 'rev-parse', 'HEAD');
+  d.gh.set('pr-view', { stdout: prJson('feat', { headRefOid: sha }) });
+  return sha;
+}
+const pmvStageLines = (wt) => pmvHeaderLines(wt).map(([f, lines]) => [f.slice(wt.length), lines]);
+
+test('post-merge-validate 2: next end to end offers the check, hands the red to the planner, spends no header, and goes on once the delta is fixed', () => {
+  const baseline = deliveredChange();
+  const wanted = parsed(next(baseline.t.main, [], baseline.env)).action;
+  assert.equal(wanted.end.why, 'waiting-github', 'the change without a merge waits on the checks');
+
+  const d = pmvDelivered();
+  const merge = pmvMergeDelivered(d);
+  const headers = pmvStageLines(d.wt);
+  const first = next(d.t.main, [], d.env);
+  assert.equal(first.code, 0, first.stdout + first.stderr);
+  const offered = parsed(first).action;
+  assert.deepEqual([offered.kind, offered.step, offered.stage, offered.detail.merge], ['session', 'merge-check', 'evidence', merge]);
+  assert.deepEqual(offered.detail.command.slice(2, 4), ['merge-check', 'feat']);
+
+  const red = main(['merge-check', 'feat', '--lang', 'en'], { cwd: d.wt, env: d.env });
+  assert.equal(JSON.parse(red.stdout).result, 'red', red.stdout + red.stderr);
+  const second = next(d.t.main, ['--after', offered.progressKey], d.env);
+  assert.equal(second.code, 0, second.stdout + second.stderr);
+  const handed = parsed(second).action;
+  assert.deepEqual([handed.kind, handed.agent, handed.step, handed.stage], ['agent', PLANNER, 'merge-defect', 'specs']);
+  assert.ok(handed.brief.includes('merge defect') && handed.brief.includes('Second added on main'), handed.brief);
+  assert.equal(handed.brief.split('openspec validate feat --type change --strict').length - 1, 2, `the brief names the check with --type change both times: ${handed.brief}`);
+
+  // The planner's fix: the delta carries both scenarios, committed on the branch.
+  const header = readFileSync(join(d.wt, 'openspec/changes/feat/specs/s/spec.md'), 'utf8').split('\n')[0];
+  put(d.wt, { 'openspec/changes/feat/specs/s/spec.md': `${header}\n${pmvDelta('First', 'Second added on main')}` });
+  commitAll(d.wt, 'the planner copies the scenario');
+  pmvHead(d);
+  assert.deepEqual(pmvStageLines(d.wt).map(([f, l]) => [f, l]), headers, 'every devkit-stage line of the change folder is as it was');
+  const third = parsed(next(d.t.main, ['--after', handed.progressKey], d.env)).action;
+  assert.deepEqual([third.kind, third.step], ['session', 'merge-check'], 'the files changed: the check runs again');
+  const green = main(['merge-check', 'feat', '--lang', 'en'], { cwd: d.wt, env: d.env });
+  assert.equal(JSON.parse(green.stdout).result, 'green', green.stdout + green.stderr);
+  const done = parsed(next(d.t.main, ['--after', third.progressKey], d.env)).action;
+  assert.deepEqual([done.kind, done.end?.why], [wanted.kind, wanted.end.why], 'the action the change gives with no merge in its history');
+  assert.deepEqual(pmvStageLines(d.wt), headers);
+});
+
+test('post-merge-validate 2: next end to end, a check that cannot run ends blocked naming the CLI; with no CLI at all next exits 3', () => {
+  const d = pmvDelivered();
+  pmvMergeDelivered(d);
+  const offered = parsed(next(d.t.main, [], d.env)).action;
+  assert.equal(offered.step, 'merge-check');
+  // An empty PATH for the command: the folder of the fake gh is kept only to read the pull request with it later.
+  const none = tmpFolder('devkit-pmv-nocli-');
+  const ran = main(['merge-check', 'feat', '--lang', 'en'], { cwd: d.wt, env: { ...d.env, PATH: none } });
+  const body = JSON.parse(ran.stdout);
+  assert.deepEqual([body.result, ran.code], ['cannot-run', 0]);
+  assert.match(body.error, /openspec CLI/);
+  const stopped = next(d.t.main, ['--after', offered.progressKey], d.env);
+  assert.equal(stopped.code, 2, stopped.stdout + stopped.stderr);
+  const end = parsed(stopped).action;
+  assert.deepEqual([end.end.state, end.end.why], ['blocked', 'merge-check-failed']);
+  assert.match(end.reply, /openspec CLI/);
+  assert.notEqual(end.kind, 'session');
+
+  const noCli = next(d.t.main, [], { ...d.env, PATH: none });
+  assert.equal(noCli.code, 3, noCli.stdout + noCli.stderr);
+  assert.match(JSON.parse(noCli.stdout).error, /openspec/i);
+});
+
+// A `devkit` change with a ticked task, an APPROVED readiness and a current approval, then `edit` (a plan file) rewritten 10 s after readiness.md.
+function pmvApprovedChange(edit) {
+  const root = planChange({ have: ['requirements', 'decisions', 'proposal', 'specs', 'design', 'tasks', 'readiness'] });
+  const c0 = git(root, 'rev-parse', 'HEAD');
+  const dir = join(root, 'openspec', 'changes', 'feat');
+  const hash = approvalState(dir).readiness;
+  put(root, {
+    'openspec/changes/feat/tasks.md': `${head('tasks', c0)}# Tasks\n\n- [x] 1.1 a\n`,
+    'openspec/changes/feat/approval.md': `${head('approval', c0)}# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${hash}\n- Date: 2026-11-09\n`,
+  });
+  const at = (file, seconds) => { const d = new Date(seconds * 1000); utimesSync(file, d, d); };
+  const t0 = Math.floor(Date.now() / 1000) - 600;
+  for (const f of readdirSync(dir, { recursive: true })) if (/\.md$/.test(f)) at(join(dir, f), t0);
+  at(join(dir, 'approval.md'), t0 + 1);
+  put(root, { [`openspec/changes/feat/${edit}`]: `${head(edit === 'design.md' ? 'design' : 'specs', c0)}# edited after the readiness\n` });
+  at(join(dir, edit), t0 + 10);
+  return { root, dir };
+}
+
+test('post-merge-validate 2: a plan edit made as a merge-defect fix leaves the plan gate where an ordinary design edit does', () => {
+  const entries = (c) => {
+    const { facts, flow } = collectFlow(c.root, 'feat', { env: cleanEnv });
+    const report = computeFlow(facts, flow, {});
+    return ['readiness', 'approval'].map((id) => { const e = report.stages.find((s) => s.id === id); return [id, e.state, e.reasonCode]; });
+  };
+  const fix = pmvApprovedChange('specs/s/spec.md');
+  const ordinary = pmvApprovedChange('design.md');
+  assert.deepEqual(entries(fix), entries(ordinary));
+  assert.deepEqual(entries(fix), [['readiness', 'passed', 'passed'], ['approval', 'passed', 'passed']]);
+  assert.equal(approvalState(fix.dir).ok, true);
+  assert.equal(approvalState(ordinary.dir).ok, true);
+});
+
+// ---------------------------------------------------------------- post-merge-validate, phase 3: skill, documents, roadmap (AC-10)
+
+test('post-merge-validate 3: the devkit skill names the merge-check step among the session steps, run whatever its exit code', () => {
+  const md = readRepo('plugins', 'openspec', 'skills', 'devkit', 'SKILL.md');
+  const loop = md.slice(md.indexOf('## Loop'), md.indexOf('## Owner gates'));
+  const session = loop.split('\n').find((l) => l.startsWith('- `session`')) ?? '';
+  assert.match(session, /A `merge-check` step runs `detail\.command` the same way, then `next`, whatever its exit code/);
+  assert.match(session, /a failed check goes to the planner as a merge defect/);
+});
+
+test('post-merge-validate 3: the flow document names the merge-check step, its two Troubleshooting rows and no longer asks the session to run the check by hand', () => {
+  const flow = readRepo('docs', 'openspec-flow.md');
+  assert.ok(flow.includes('the loop has the session run `merge-check`'), 'the loop paragraph');
+  assert.ok(flow.includes('<git common dir>/devkit/merge-check/<id>.json'), 'the record is named');
+  assert.ok(flow.includes('`/devkit change` ends blocked: the plan fails its check after the merge of the base N times in a row'), 'the merge-defect row');
+  assert.ok(flow.includes('`/devkit change` ends blocked: the check of the plan after the merge of the base could not run'), 'the cannot-run row');
+  assert.ok(!flow.includes('before the evidence, run `openspec validate <id> --strict`;'), 'the by-hand sentence is gone');
+  assert.ok(flow.includes('the loop runs `openspec validate <id> --type change --strict` before the evidence'), 'the rewritten sentence');
+  const readme = readRepo('plugins', 'openspec', 'README.md').split('\n').find((l) => l.startsWith('| [`hooks/change-loop.mjs`]')) ?? '';
+  assert.match(readme, /`merge-check`/);
+  assert.match(readme, /with `merge-check`, its record in the git common directory/);
+});
+
+test('post-merge-validate 3: the roadmap line names the merge check and the sibling that counts evidence attempts, and stays unticked', () => {
+  const line = readRepo('openspec', 'roadmap.md').split('\n').find((l) => /^- \[[ x]\] post-merge-validate/.test(l)) ?? '';
+  assert.match(line, /^- \[ \] post-merge-validate/);
+  assert.match(line, /runs `openspec validate <id> --type change --strict` before the evidence/);
+  assert.match(line, /sends a failure to the planner as a merge defect/);
+  assert.match(line, /evidence-attempts-by-failure/);
 });
