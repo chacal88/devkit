@@ -2537,9 +2537,9 @@ test('post-merge-validate 3: the flow document names the merge-check step, its t
   assert.match(readme, /with `merge-check`, its record in the git common directory/);
 });
 
-test('post-merge-validate 3: the roadmap line names the merge check and the sibling that counts evidence attempts, and stays unticked', () => {
+test('post-merge-validate 3: the roadmap line names the merge check and the sibling that counts evidence attempts', () => {
   const line = readRepo('openspec', 'roadmap.md').split('\n').find((l) => /^- \[[ x]\] post-merge-validate/.test(l)) ?? '';
-  assert.match(line, /^- \[ \] post-merge-validate/);
+  assert.match(line, /^- \[[ x]\] post-merge-validate/);
   assert.match(line, /runs `openspec validate <id> --type change --strict` before the evidence/);
   assert.match(line, /sends a failure to the planner as a merge defect/);
   assert.match(line, /evidence-attempts-by-failure/);
