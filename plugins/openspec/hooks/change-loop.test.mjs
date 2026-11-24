@@ -9,8 +9,9 @@ import { hostname } from 'node:os';
 import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync, spawn } from 'node:child_process';
-import { gitRepo, put, commitAll, git, openspecStub } from './deliver-check.test.mjs';
+import { gitRepo, put, commitAll, git, openspecStub, pm, writeRetro, retroMd, proposal } from './deliver-check.test.mjs';
 import { roundRepo } from './conduct-check.test.mjs';
+import { fakeCompozy } from './compozy-driver.test.mjs';
 import { shipConfig, collectState, buildReport, approvalState } from './deliver-check.mjs';
 import { actorOf } from './conduct-check.mjs';
 import { pinsIn } from './release-merge.mjs';
@@ -86,7 +87,7 @@ const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
-  version: 1, state: 'github', machine: 'avel', taken: 1, entry: 'avel', field: 'folder',
+  version: 1, state: 'github', machine: 'avel', taken: 1, entry: 'avel', field: 'folder', fix: 'compozy daemon start', run: 'looprun-1',
   branch: 'develop', base: 'master', default: 'main', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
   spent: 2100000, cap: 2000000, tag: 'v1.3.0', at: 'd4e5f60', sha: 'a1b2c3d', models: 'opus 3210, sonnet 1105', tokens: 4315, from: 'haiku', to: 'sonnet',
   file: '/work/repo/.claude/worktrees/add-csv-export/openspec/changes/add-csv-export/.openspec.yaml',
@@ -1010,8 +1011,10 @@ test('change-loop start: S4 an unknown driver or a language that is not a tag na
   assert.equal(body(startRun(both, 'change x')).mode, 'setting-unknown', 'S4 comes before S5');
 });
 
-test('change-loop start: S5 the compozy and script drivers are not built and run nothing', () => {
-  for (const [driver, round] of [['compozy', 21], ['script', 22]]) {
+// Invariant: an unbuilt driver runs nothing. Layer: projectGate (through startMode). Suite: guard. compozy-driver (ADR 0017) built the
+// compozy driver, so it moves to the `change-loop compozy ...` tests below; the script driver (round 22) stays unbuilt.
+test('change-loop start: S5 the script driver is not built and runs nothing', () => {
+  for (const [driver, round] of [['script', 22]]) {
     const root = devkitRepo(`schema: devkit\ndevkit:\n  driver: ${driver}\n`);
     addChange(root, 'feat');
     const before = snapshot(root);
@@ -1182,12 +1185,13 @@ test('change-loop open: O2 an id already in use creates nothing and says the nam
   }
 });
 
+// Invariant: `open` refuses where `/devkit change` refuses. Layer: openChange (through projectGate). Suite: guard. The compozy driver is
+// built (ADR 0017): its run opens changes with this very command, so it leaves the refusals; the last assertion is its new row.
 test('change-loop open: O3 refuses in a project not set up or with an unknown or unbuilt driver', () => {
   const cases = [
     ['schema: spec-driven\n', 'not-set-up'],
     ['schema: devkit\ndevkit:\n  driver: robot\n', 'setting-unknown'],
     ['schema: devkit\ndevkit:\n  language: "no tag"\n', 'setting-unknown'],
-    ['schema: devkit\ndevkit:\n  driver: compozy\n', 'driver-not-built'],
     ['schema: devkit\ndevkit:\n  driver: script\n', 'driver-not-built'],
   ];
   for (const [config, mode] of cases) {
@@ -1203,6 +1207,10 @@ test('change-loop open: O3 refuses in a project not set up or with an unknown or
   }
   const bare = tmpFolder('devkit-change-loop-bare-');
   assert.equal(openRun(bare, 'new-thing').code, 3);
+  const compozy = freshProject('schema: devkit\ndevkit:\n  driver: compozy\n');
+  const made = openRun(compozy.main, 'new-thing');
+  assert.equal(made.code, 0, made.stdout + made.stderr);
+  assert.equal(existsSync(join(wtOf(compozy, 'new-thing'), 'openspec', 'changes', 'new-thing', 'requirements.md')), true, 'open creates the change on compozy');
 });
 
 test('change-loop open: O4 starts from origin/<default> after a fetch', () => {
@@ -2113,6 +2121,18 @@ test('change-loop lock agent: H3 a role or a helper of the script is allowed, th
   }
 });
 
+test('change-loop lock agent: change-coordinator is refused with either pack prefix', () => {
+  // Invariant: the coordinator is the session itself in a Claude run, so its CompozyOS agent opens nothing to a Claude run.
+  // Layer: the hand-off lock (`handOffFor`, `NOT_AGENTS`); suite: the guard suite.
+  const transcript = runTranscript();
+  for (const root of [liteChange(), approvedChange()]) {
+    for (const type of ['devkit-openspec:change-coordinator', 'devkit-core:change-coordinator', 'change-coordinator']) {
+      const r = hook('agent', agentInput(root, transcript, type));
+      assert.equal(r.code, 2, `${type}: ${r.err}`);
+    }
+  }
+});
+
 test('change-loop lock agent: H4 any other agent is refused naming the script and the roles', () => {
   const transcript = runTranscript();
   for (const [script, root] of [['devkit-lite', liteChange()], ['devkit', approvedChange()]]) {
@@ -2293,7 +2313,7 @@ test('change-loop skills: every shipped stage agent declares its stage\'s skills
   }
   for (const role of unshipped) assert.ok(!agentFile.has(role), `${role} is marked shipped: false but has an agent file: flip shipped and wire its skills`);
   const bare = [...want.keys()].filter((r) => !agentFile.has(r)).sort();
-  assert.deepEqual(bare, ['change-coordinator', 'owner', 'review-bench']);
+  assert.deepEqual(bare, ['owner', 'review-bench']);
   for (const [role, skills] of want) {
     if (!agentFile.has(role)) continue;
     assert.deepEqual(agentSkills(readFileSync(agentFile.get(role), 'utf8')), skills, `${role} declares the skills of its stage`);
@@ -2449,8 +2469,8 @@ test('change-loop skill: the grill paragraph names the stage header and requirem
 test('change-loop skill: the sections of D-3 to D-9 and the modes of start', () => {
   const md = skillText();
   const heads = md.split('\n').filter((l) => l.startsWith('## '));
-  assert.deepEqual(heads, ['## Settings', '## Start', '## A new change', '## Loop', '## Owner gates', '## Waiting on GitHub', '## Train', '## Roadmap', '## Status', '## Project', '## Never']);
-  for (const mode of ['not-built', 'unknown-verb', 'not-set-up', 'setting-unknown', 'driver-not-built', 'nothing', 'choose', 'ask-unfinished', 'resume', 'new', 'roadmap', 'status', 'project', 'is-slice', 'train', 'train-args']) {
+  assert.deepEqual(heads, ['## Settings', '## Start', '## On the CompozyOS driver', '## A new change', '## Loop', '## Owner gates', '## Waiting on GitHub', '## Train', '## Roadmap', '## Status', '## Project', '## Never']);
+  for (const mode of ['not-built', 'unknown-verb', 'not-set-up', 'setting-unknown', 'driver-not-built', 'driver-no-project', 'nothing', 'choose', 'ask-unfinished', 'resume', 'new', 'roadmap', 'status', 'project', 'is-slice', 'train', 'train-args']) {
     assert.ok(md.includes(`\`${mode}\``), `mode ${mode}`);
   }
   assert.match(md, /AskUserQuestion/);
@@ -2459,6 +2479,22 @@ test('change-loop skill: the sections of D-3 to D-9 and the modes of start', () 
   const roadmapAt = md.indexOf('## Roadmap');
   assert.doesNotMatch(md.slice(0, roadmapAt), /conduct-check|CronCreate|wake_when_done/);
   assert.doesNotMatch(md.slice(roadmapAt), /conduct-check|wake_when_done/);
+});
+
+test('change-loop skill: the CompozyOS section starts runs and asks nothing', () => {
+  const md = skillText();
+  const sec = section(md, '## On the CompozyOS driver', '\n## ');
+  assert.ok(md.indexOf('## On the CompozyOS driver') > md.indexOf('\n## Start') && md.indexOf('## On the CompozyOS driver') < md.indexOf('\n## A new change'), 'after Start');
+  assert.match(sec, /settings\.driver: compozy/);
+  // Invariant: the section names `compozy-start` for new, resume and roadmap, through the quoted heredoc. Layer: skill text. Suite: guard.
+  assert.match(sec, /change-loop\.mjs compozy-start <id> --lang \$\{user_config\.language\} <<'DEVKIT_ARGS'/);
+  assert.match(sec, /roadmap-loop\.mjs compozy-start --lang \$\{user_config\.language\} --load-limit \$\{user_config\.load_limit\} <<'DEVKIT_ARGS'/);
+  assert.doesNotMatch(sec, /<<\s*[A-Z_]+\b(?!')/, 'no unquoted heredoc');
+  for (const word of ['`new`', '`resume`', '`choose`', '`ask-unfinished`', '`roadmap`', '`status`', '`name-taken`', '`driver-no-project`']) assert.ok(sec.includes(word), `the section names ${word}`);
+  assert.match(sec, /say `reply` and end the turn/);
+  assert.match(sec, /runs no loop/);
+  assert.match(sec, /hands no stage/);
+  assert.match(sec, /asks nothing of the change/);
 });
 
 test('change-loop skill: every reply not yet shown ends the turn, in order, before anything else (AC-1)', () => {
@@ -2575,9 +2611,10 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); stage-models moves it to 0.35.0 (release 0.39.0), above delivery-train's 0.34.0 (release 0.38.0), which moved it above roadmap-sessions-upfront's 0.33.0 (release 0.37.0); 0.33.0 went to roadmap-sessions-upfront, 0.32.0 to remote-worker (release 0.36.0); 0.31.0 went to change-version-pin (release 0.35.0), 0.30.1 went to the retro of release-tags (release 0.34.1), 0.30.0 to release-tags (release 0.34.0), 0.29.0 went to release-merge-conflict (release 0.33.0), 0.28.2 to change-state-retro-fixes (release 0.32.2), 0.28.1 to the retro of change-budget, 0.28.0 to delivery-models, 0.27.1 to the earlier retro fixes, 0.27.0 to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
-  assert.match(flow, /v0\.35\.0/, 'the CI snippet pins the current release (stage-models: 0.35.0)');
-  assert.doesNotMatch(flow, /v0\.34\.0/, 'no pin left on main\'s release before it (delivery-train)');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); compozy-driver moves it to 0.36.0 (release 0.40.0), above stage-models' 0.35.0 (release 0.39.0), which moved it above delivery-train's 0.34.0 (release 0.38.0), which moved it above roadmap-sessions-upfront's 0.33.0 (release 0.37.0); 0.33.0 went to roadmap-sessions-upfront, 0.32.0 to remote-worker (release 0.36.0); 0.31.0 went to change-version-pin (release 0.35.0), 0.30.1 went to the retro of release-tags (release 0.34.1), 0.30.0 to release-tags (release 0.34.0), 0.29.0 went to release-merge-conflict (release 0.33.0), 0.28.2 to change-state-retro-fixes (release 0.32.2), 0.28.1 to the retro of change-budget, 0.28.0 to delivery-models, 0.27.1 to the earlier retro fixes, 0.27.0 to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
+  assert.match(flow, /v0\.36\.0/, 'the CI snippet pins the current release (compozy-driver: 0.36.0)');
+  assert.doesNotMatch(flow, /v0\.35\.0/, 'no pin left on main\'s release before it (stage-models)');
+  assert.doesNotMatch(flow, /v0\.34\.0/, 'no pin left on the release before that (delivery-train)');
   assert.doesNotMatch(flow, /v0\.33\.0/, 'no pin left on the release before that (roadmap-sessions-upfront)');
   assert.doesNotMatch(flow, /v0\.32\.0/, 'no pin left on the release before that (remote-worker)');
   assert.doesNotMatch(flow, /v0\.31\.0/, 'no pin left on the release before that (change-version-pin)');
@@ -3532,6 +3569,996 @@ test('followups AC-14 title: sessionTitle is the icon and the id, cut under 60 c
   assert.equal([...exact].length, 59);
   assert.equal(exact, `📝 ${'x'.repeat(57)}`, 'under 60 stays whole');
   assert.equal([...changeLoopModule.sessionTitle('📝', 'x'.repeat(58))].length, 59, 'at 60 it is cut');
+});
+
+// ================================================================ compozy-driver: the entry, the view and the record steps (D-1, D-3, D-4)
+
+const COMPOZY_CONFIG = 'schema: devkit\ndevkit:\n  driver: compozy\n';
+const READY_REPLIES = {
+  'workspace info': { stdout: { workspace: { name: 'devkit' } } },
+  'loop inspect': { stdout: { name: 'devkit-change' } },
+  'loop runs': { stdout: { items: [] } },
+  'loop run': { stdout: { run: { run_id: 'looprun-1' }, web_url: 'http://localhost:2123/loop-runs/looprun-1' } },
+};
+// A project on the compozy driver, the fake `compozy` answering as a ready CompozyOS, and the daemon's socket listening.
+async function compozyProject(t, { replies = {}, daemon = true, config = COMPOZY_CONFIG, setup, repo } = {}) {
+  const root = repo ?? devkitRepo(config);
+  setup?.(root);
+  const k = fakeCompozy({ ...READY_REPLIES, ...replies });
+  if (daemon) await k.daemon(t);
+  return { root, k, env: { ...cleanEnv, ...k.env } };
+}
+const cstart = (p, id, request = '', lang = 'en') => main(['compozy-start', id, '--lang', lang], { cwd: p.root, env: p.env, stdin: request });
+const startedRuns = (k) => k.argvs().filter((a) => a[0] === 'loop' && a[1] === 'run');
+const inputsOf = (argv) => Object.fromEntries(argv.flatMap((a, i) => (argv[i - 1] === '--input' ? [[a.slice(0, a.indexOf('=')), a.slice(a.indexOf('=') + 1)]] : [])));
+const startShape = (r) => { const b = body(r); return [b.version, b.mode, b.change, b.runId, b.url]; };
+
+test('change-loop compozy start: projectGate answers per driver and verb', () => {
+  const root = devkitRepo();
+  const settings = (driver) => ({ driver, language: 'en', unknown: [] });
+  const gate = (driver, verb) => changeLoopModule.projectGate(root, settings(driver), verb);
+  for (const verb of ['change', 'roadmap', 'status']) assert.equal(gate('compozy', verb), null, `compozy ${verb}`);
+  assert.deepEqual(gate('compozy', 'project'), { mode: 'driver-no-project', key: 'driver-no-project', params: {} });
+  for (const verb of ['change', 'roadmap', 'status', 'project']) {
+    assert.deepEqual(gate('script', verb), { mode: 'driver-not-built', key: 'driver-not-built', params: { driver: 'script', round: 22 } }, `script ${verb}`);
+    assert.equal(gate('claude', verb), null, `claude ${verb}`);
+  }
+});
+
+test('change-loop compozy start: startMode on compozy answers new and resume with settings.driver compozy', () => {
+  const root = devkitRepo(COMPOZY_CONFIG);
+  const fresh = body(startRun(root, 'change add an export'));
+  assert.deepEqual([fresh.mode, fresh.settings.driver], ['new', 'compozy']);
+  addChange(root, 'feat');
+  const resumed = body(startRun(root, 'change feat'));
+  assert.deepEqual([resumed.mode, resumed.change, resumed.settings.driver], ['resume', 'feat', 'compozy']);
+  assert.equal(body(startRun(root, 'project billing')).mode, 'driver-no-project');
+  assert.equal(body(startRun(root, 'roadmap')).mode, 'roadmap');
+  assert.equal(body(startRun(root, 'status')).mode, 'status');
+});
+
+test('change-loop compozy start: C1 a name that cannot be a change name stops before CompozyOS is asked', async (t) => {
+  const p = await compozyProject(t);
+  for (const id of ['Bad Name', 'archive', 'a']) {
+    const r = cstart(p, id, 'add a thing');
+    assert.equal(r.code, 3, id);
+    assert.deepEqual(startShape(r), [1, 'name-invalid', id, null, null]);
+    assert.equal(body(r).reply, render('en', 'name-invalid', { id }));
+    assert.equal(r.stdout.startsWith('devkit-run:'), false);
+  }
+  assert.deepEqual(p.k.calls(), [], 'CompozyOS was not asked');
+});
+
+test('change-loop compozy start: C2 the project gate stops it, for a project not set up and for an unknown setting', async (t) => {
+  for (const [config, mode] of [['devkit:\n  driver: compozy\n', 'not-set-up'], ['schema: devkit\ndevkit:\n  driver: compozy\n  language: "no tag"\n', 'setting-unknown']]) {
+    const p = await compozyProject(t, { config });
+    const before = snapshot(p.root);
+    const r = cstart(p, 'new-thing', 'add a thing');
+    assert.equal(r.code, 3, mode);
+    assert.deepEqual(startShape(r), [1, mode, 'new-thing', null, null]);
+    assert.equal(body(r).reply, body(startRun(p.root, 'change add a thing')).reply, 'the reply is the one the typed command gives');
+    assert.deepEqual(p.k.calls(), [], 'nothing was asked or started');
+    assert.equal(snapshot(p.root), before);
+  }
+});
+
+test('change-loop compozy start: C3 each failing readiness row stops it with its own reply and starts nothing', async (t) => {
+  const cases = {
+    'not-installed': { key: 'compozy-not-installed', fix: 'brew install compozy/compozy/compozy', arrange: (p) => { p.env.COMPOZY_BIN = join(p.k.dir, 'missing'); } },
+    'daemon-stopped': { key: 'compozy-stopped', fix: 'compozy daemon start', daemon: false },
+    'workspace-unknown': { key: 'compozy-workspace', fix: 'compozy workspace add ', replies: { 'workspace info': { code: 1, stderr: 'not registered' } } },
+    'kit-missing': { key: 'compozy-kit-missing', replies: { 'loop inspect': { code: 69, stderr: 'not found' } } },
+  };
+  for (const [reason, c] of Object.entries(cases)) {
+    const p = await compozyProject(t, { replies: c.replies, daemon: c.daemon !== false });
+    c.arrange?.(p);
+    const before = snapshot(p.root);
+    const r = cstart(p, 'new-thing', 'add a thing');
+    assert.equal(r.code, 3, reason);
+    assert.deepEqual(startShape(r), [1, 'compozy-unavailable', 'new-thing', null, null], reason);
+    const reply = body(r).reply;
+    assert.equal(reply, render('en', c.key, { fix: reply.includes('compozy workspace add') ? reply.slice(reply.indexOf('compozy workspace add')).replace(/ .*$/, '') : c.fix }).length ? reply : '', reason);
+    assert.ok(reply.startsWith(render('en', c.key, { fix: 'FIX' }).split('FIX')[0]), `${reason}: ${reply}`);
+    if (c.fix) assert.ok(reply.includes(c.fix), `${reason} names its fixing command`);
+    assert.equal(startedRuns(p.k).length, 0, reason);
+    assert.equal(snapshot(p.root), before, reason);
+  }
+});
+
+test('change-loop compozy start: C4 a live run of the change answers with it and starts no second run', async (t) => {
+  const live = { 'loop runs': { stdout: { items: [{ run_id: 'looprun-9', status: 'running', inputs: { change_id: 'feat' } }] } } };
+  const p = await compozyProject(t, { replies: live, setup: (root) => addChange(root, 'feat') });
+  const r = cstart(p, 'feat');
+  assert.equal(r.code, 0, r.stdout);
+  assert.deepEqual(startShape(r), [1, 'compozy-running', 'feat', 'looprun-9', null]);
+  assert.equal(body(r).reply, render('en', 'compozy-running', { id: 'feat', run: 'looprun-9' }));
+  assert.equal(startedRuns(p.k).length, 0);
+  assert.equal(r.stdout.startsWith('devkit-run:'), false);
+  // The negative: a live run of another change, or a finished run of this one, does not hold it.
+  const other = { 'loop runs': { stdout: { items: [{ run_id: 'looprun-8', status: 'running', inputs: { change_id: 'other' } }, { run_id: 'looprun-7', status: 'done', inputs: { change_id: 'feat' } }] } } };
+  const q = await compozyProject(t, { replies: other, setup: (root) => addChange(root, 'feat') });
+  assert.equal(body(cstart(q, 'feat')).mode, 'compozy-started');
+});
+
+test('change-loop compozy start: C5 a known change starts a run with its id, the language and an empty request', async (t) => {
+  const p = await compozyProject(t, { setup: (root) => addChange(root, 'feat') });
+  const before = snapshot(p.root);
+  const r = cstart(p, 'feat', '', 'pt-BR');
+  assert.equal(r.code, 0, r.stdout);
+  assert.deepEqual(startShape(r), [1, 'compozy-started', 'feat', 'looprun-1', 'http://localhost:2123/loop-runs/looprun-1']);
+  assert.equal(body(r).reply, render('pt-BR', 'compozy-started', { id: 'feat', url: 'http://localhost:2123/loop-runs/looprun-1' }));
+  const runs = startedRuns(p.k);
+  assert.equal(runs.length, 1);
+  assert.deepEqual(inputsOf(runs[0]), { change_id: 'feat', request: '', lang: 'pt-BR' });
+  assert.equal(runs[0][runs[0].indexOf('--name') + 1], 'devkit-change');
+  assert.equal(r.stdout.startsWith('devkit-run:'), false, 'the stop lock never holds the turn');
+  assert.equal(snapshot(p.root), before, 'the run opens the change, never the session');
+});
+
+test('change-loop compozy start: C6 a new change with no request is a usage error and starts nothing', async (t) => {
+  const p = await compozyProject(t);
+  for (const request of ['', '  \n ']) {
+    const r = cstart(p, 'brand-new', request);
+    assert.equal(r.code, 3);
+    assert.ok(body(r).error.length > 0);
+    assert.equal(body(r).reply, render('en', 'request-unreadable'));
+  }
+  assert.equal(startedRuns(p.k).length, 0);
+});
+
+test('change-loop compozy start: C7 a new change whose name is taken answers name-taken and starts nothing', async (t) => {
+  const p = await compozyProject(t, { setup: (root) => git(root, 'branch', 'taken-x') });
+  const before = snapshot(p.root);
+  const r = cstart(p, 'taken-x', 'add a thing');
+  assert.equal(r.code, 3);
+  assert.deepEqual(startShape(r), [1, 'name-taken', 'taken-x', null, null]);
+  assert.equal(body(r).reply, render('en', 'name-taken', { id: 'taken-x' }));
+  assert.equal(startedRuns(p.k).length, 0);
+  assert.equal(snapshot(p.root), before);
+});
+
+test('change-loop compozy start: C8 a new change starts a run with its id, its request and the language', async (t) => {
+  const p = await compozyProject(t);
+  const before = snapshot(p.root);
+  const request = 'Add a CSV export\nwith "two" lines and $HOME';
+  const r = cstart(p, 'new-thing', request);
+  assert.equal(r.code, 0, r.stdout);
+  assert.deepEqual(startShape(r), [1, 'compozy-started', 'new-thing', 'looprun-1', 'http://localhost:2123/loop-runs/looprun-1']);
+  assert.deepEqual(inputsOf(startedRuns(p.k)[0]), { change_id: 'new-thing', request, lang: 'en' });
+  assert.equal(snapshot(p.root), before);
+});
+
+// A project on the compozy driver with a bare origin (the main checkout of `roundRepo`) and the delivery block of `delivery`.
+const TWO_PRS_BLOCK = 'devkit:\n  driver: compozy\n  delivery:\n    model: two-prs\n    base: main\n    test_branch: develop\n';
+const twoPrsRepo = ({ testBranch = true, block = TWO_PRS_BLOCK } = {}) => {
+  const r = roundRepo({ roadmap: '# Roadmap\n', config: `schema: devkit\n${block}` });
+  if (testBranch) git(r.main, 'push', '-q', 'origin', 'HEAD:refs/heads/develop');
+  return r.main;
+};
+
+test('change-loop compozy start: the refusals open makes before it creates anything stop a new change before the run, with their own reply', async (t) => {
+  const cases = [
+    ['test-branch-missing', { testBranch: false }, 'add-export', { branch: 'develop' }],
+    ['base-not-default', { block: 'devkit:\n  driver: compozy\n  delivery:\n    model: two-prs\n    base: master\n    test_branch: develop\n' }, 'add-export', { base: 'master', default: 'main' }],
+    ['name-test-suffix', {}, 'add-export-develop', { id: 'add-export-develop', branch: 'develop' }],
+  ];
+  for (const [key, repoOptions, id, params] of cases) {
+    const p = await compozyProject(t, { repo: twoPrsRepo(repoOptions) });
+    const before = snapshot(p.root);
+    const r = cstart(p, id, 'add a thing');
+    assert.equal(r.code, 3, key);
+    assert.deepEqual(startShape(r), [1, key, id, null, null], key);
+    assert.equal(body(r).reply, render('en', key, params), key);
+    assert.equal(startedRuns(p.k).length, 0, `${key} started no run`);
+    assert.equal(snapshot(p.root), before, `${key} changed nothing`);
+  }
+});
+
+test('change-loop compozy start: a two-prs project that passes those checks starts, and a known change is never checked', async (t) => {
+  const p = await compozyProject(t, { repo: twoPrsRepo() });
+  const r = cstart(p, 'add-export', 'add a thing');
+  assert.deepEqual(startShape(r).slice(0, 3), [1, 'compozy-started', 'add-export']);
+  assert.equal(startedRuns(p.k).length, 1);
+  // A change some checkout already holds opens nothing in its run, so a missing test branch does not stop it, and neither does its name.
+  const known = await compozyProject(t, { repo: twoPrsRepo({ testBranch: false }), setup: (root) => addChange(root, 'feat-develop') });
+  const k = cstart(known, 'feat-develop');
+  assert.deepEqual(startShape(k).slice(0, 3), [1, 'compozy-started', 'feat-develop']);
+  // A project on the trunk model is not checked at all, and neither is one with no remote.
+  const trunk = await compozyProject(t, { repo: twoPrsRepo({ testBranch: false, block: 'devkit:\n  driver: compozy\n  delivery:\n    model: trunk\n' }) });
+  assert.equal(startShape(cstart(trunk, 'add-export-develop', 'add a thing'))[1], 'compozy-started');
+  const bare = await compozyProject(t);
+  assert.equal(startShape(cstart(bare, 'add-export-develop', 'add a thing'))[1], 'compozy-started');
+});
+
+test('change-loop compozy start: a reply with no url names the run, and a failed start is a usage error', async (t) => {
+  const p = await compozyProject(t, { replies: { 'loop run': { stdout: { run: { run_id: 'looprun-3' } } } } });
+  const r = cstart(p, 'new-thing', 'add a thing');
+  assert.deepEqual(startShape(r), [1, 'compozy-started', 'new-thing', 'looprun-3', null]);
+  assert.equal(body(r).reply, render('en', 'compozy-started-no-url', { id: 'new-thing', run: 'looprun-3' }));
+  const q = await compozyProject(t, { replies: { 'loop run': { code: 1, stderr: 'daemon refused\n' } } });
+  const failed = cstart(q, 'new-thing', 'add a thing');
+  assert.equal(failed.code, 3);
+  assert.equal(body(failed).error, 'daemon refused');
+});
+
+test('change-loop compozy start: after it printed its JSON the stop lock lets the turn end', async (t) => {
+  const p = await compozyProject(t);
+  const r = cstart(p, 'new-thing', 'add a thing');
+  assert.equal(r.code, 0);
+  const file = transcriptOf([typedLine('change add a thing'), skillBodyLine('change add a thing'), assistantLine(), toolResultLine(r.stdout)]);
+  assert.equal(runOf({ transcript_path: file }), null, 'no devkit-run line: the session is in no run');
+  const decision = guardModule.runOf({ transcript_path: file });
+  assert.equal(decision, null);
+});
+
+// ---------------------------------------------------------------- the view (D-3), pure
+
+const emptyRec = () => ({ version: 1, handed: null, failed: null, answers: { grill: [], approvalNotes: null, retro: null, mockup: null } });
+const rec = (over = {}) => ({ ...emptyRec(), ...over, answers: { ...emptyRec().answers, ...(over.answers ?? {}) } });
+const cview = (action, record = rec()) => changeLoopModule.compozyView(action, record, { lang: 'en' });
+const VIEW_FIELDS = ['version', 'kind', 'change', 'root', 'stage', 'stage_title', 'agent', 'step', 'brief', 'progress_key', 'question', 'reply'];
+const endAction = (why, over = {}) => ({
+  version: 1, change: 'feat', script: 'devkit', root: '/w/feat', branch: 'feat', filesLanguage: 'en', kind: 'end', stage: over.stage ?? null,
+  stageTitle: over.stageTitle ?? null, end: { state: over.state ?? 'waiting-for-owner', why }, params: { id: 'feat' }, reply: `reply of ${why}`, ...(over.detail ? { detail: over.detail } : {}),
+});
+
+test('change-loop compozy view: every field is present, in the order of the design, for every kind of action', () => {
+  const actions = [run(planNext('proposal', 'no-file')), build(rowOf('review')), build(rowOf('gate', { phase: 1, task: '1.2', command: 'true' })), endAction('waiting-merge'), run({ rep: { end: endOf('archived', null, 'archived') } })];
+  for (const action of actions) {
+    const v = cview(action);
+    assert.deepEqual(Object.keys(v), VIEW_FIELDS);
+    for (const f of VIEW_FIELDS.slice(1)) assert.equal(typeof v[f], 'string', `${action.kind} ${f}`);
+    assert.deepEqual([v.version, v.change, v.root], [1, 'feat', '/w/feat']);
+  }
+});
+
+test('change-loop compozy view: an agent action keeps its brief and names its role without the pack', () => {
+  const a = run(planNext('proposal', 'no-file'));
+  const v = cview(a);
+  assert.deepEqual([v.kind, v.agent, v.stage, v.step, v.progress_key], ['agent', 'change-planner', 'proposal', '', a.progressKey]);
+  assert.equal(v.brief, a.brief, 'a plan stage adds no dispatch line');
+  assert.equal(v.question, '');
+});
+
+test('change-loop compozy view: the dispatch line of a step is its ship-change row, the devkit skill\'s Loop bullet, or nothing', () => {
+  for (const step of ['implement', 'fix-review', 'fix-defect', 'fix-checks', 'apply-proposals', 'commit', 'open-pr', 'push', 'open-archive-pr', 'verify']) {
+    const a = build(rowOf(step, { phase: 2 }));
+    const v = cview(a);
+    assert.equal(v.kind, 'agent', step);
+    assert.ok(v.brief.startsWith(a.brief), step);
+    assert.ok(v.brief.includes(`add the dispatch sentence of the \`ship-change\` row of step \`${step}\``), `${step}: ${v.brief}`);
+  }
+  for (const step of ['resolve-release-conflict', 'renumber-adr']) { // main's release-merge removed `push-rebased`: only a step of ROW_STEPS can carry a dispatch line; `renumber-adr` (roadmap-sessions-upfront) has its sentence in the skill's Loop, no ship-change row
+    assert.ok(ROW_STEPS.includes(step), `${step} is a step of the delivery rows`);
+    const v = cview(build(rowOf(step, {})));
+    assert.ok(v.brief.includes(`add the dispatch sentence of the \`devkit\` skill's Loop bullet \`${step}\``), `${step}: ${v.brief}`);
+    assert.ok(!v.brief.includes('`ship-change` row'), step);
+  }
+  const fix = run({ rep: { next: nextOf(FLOWS.devkit, 'implementation', 'fix-after-failure', { failed: 'unit-tests', attempt: 1, ceiling: 3 }) }, facts: { tests: TESTS } });
+  assert.equal(fix.step, 'fix-tests');
+  assert.equal(cview(fix).brief, fix.brief, 'fix-tests adds no line');
+  const unit = run({ rep: { next: nextOf(FLOWS.devkit, 'unit-tests', 'no-file') }, facts: { tests: TESTS } });
+  assert.equal(cview(unit).brief, unit.brief, 'a test stage adds no line');
+});
+
+test('change-loop compozy view: the review step, the gate step and the session steps map as the table says', () => {
+  const review = build(rowOf('review', { round: 1 }));
+  const rv = cview(review);
+  assert.deepEqual([rv.kind, rv.agent, rv.step, rv.brief], ['review', '', 'review', '']);
+  assert.equal(rv.question, render('en', 'blocked', { id: 'feat', why: 'role-failed', stage: review.stageTitle }));
+  const gate = build(rowOf('gate', { phase: 2, task: '2.3', command: 'node --test x' }));
+  const gv = cview(gate);
+  assert.deepEqual([gv.kind, gv.step, gv.agent], ['gate', 'gate', '']);
+  assert.equal(gv.question, render('en', 'blocked', { id: 'feat', why: 'tests-red', phase: 2 }));
+  const other = build(rowOf('enable-auto-merge', { number: 12 }));
+  const ov = cview(other);
+  assert.deepEqual([ov.kind, ov.agent, ov.step], ['coordinator', 'change-coordinator', 'enable-auto-merge']);
+  assert.ok(ov.brief.includes('carry out step enable-auto-merge as the `ship-change` row of that name says, with this `next` object: '));
+  assert.ok(ov.brief.includes(JSON.stringify(other.detail)));
+  assert.ok(ov.brief.startsWith(`Change feat (devkit script), stage ${other.stage}: `), 'in the action\'s brief frame');
+  assert.ok(ov.brief.includes('Work only in /w/feat on branch feat; every file path is absolute under it'));
+});
+
+// ---- 4.0: the view follows what main added at 72b51d3 (design.md, "Main-merge amendments (after 72b51d3)")
+
+const SUPPORT = { root: '/w/feat-develop', branch: 'feat-develop' };
+
+test('change-loop compozy view: a support-branch hand-off runs in the support worktree, a task one in the task worktree', () => {
+  const conflict = build(rowOf('resolve-support-conflict', { ...SUPPORT, paths: ['a.txt'] }));
+  const hv = cview(conflict);
+  assert.deepEqual([hv.kind, hv.agent, hv.root], ['agent', 'tdd-implementer', SUPPORT.root], 'the agent runs in the detail\'s worktree');
+  assert.ok(hv.brief.includes(`Work only in ${SUPPORT.root} on branch ${SUPPORT.branch};`), hv.brief);
+  const merge = build(rowOf('merge-into-support', { ...SUPPORT, from: 'feat' }));
+  const mv = cview(merge);
+  assert.deepEqual([mv.kind, mv.root], ['coordinator', SUPPORT.root], 'a coordinator step takes the detail\'s root too');
+  assert.ok(mv.brief.includes(`Work only in ${SUPPORT.root} on branch ${SUPPORT.branch};`), mv.brief);
+  assert.ok(!mv.brief.includes('Work only in /w/feat '), 'and names no other checkout');
+  // The negatives: no detail root, a detail with only one of the two, and an ordinary step all stay in the task worktree.
+  for (const [what, a] of [
+    ['no detail', build(rowOf('enable-auto-merge', { number: 12 }))],
+    ['root alone', build(rowOf('merge-into-support', { root: SUPPORT.root, from: 'feat' }))],
+    ['branch alone', build(rowOf('merge-into-support', { branch: SUPPORT.branch, from: 'feat' }))],
+  ]) {
+    const v = cview(a);
+    assert.equal(v.root, '/w/feat', what);
+    assert.ok(v.brief.includes('Work only in /w/feat on branch feat;'), `${what}: ${v.brief}`);
+  }
+});
+
+test('change-loop compozy view: every hand-off step of the delivery rows carries its dispatch sentence, from the table the loop itself reads', () => {
+  // A step whose end reply needs a parameter this row does not give is an end step, not a hand-off; nothing else is skipped.
+  const kindOfStep = (step) => { try { return build(rowOf(step, { phase: 2 })).kind; } catch (e) { if (e instanceof LoopUsageError) return 'end'; throw e; } };
+  const handOffs = ROW_STEPS.filter((step) => kindOfStep(step) === 'agent');
+  const expected = ['implement', 'fix-review', 'fix-defect', 'fix-checks', 'apply-proposals', 'resolve-release-conflict', 'commit', 'open-pr', 'push', 'open-archive-pr', 'verify',
+    'open-prs', 'open-test-pr', 'push-support', 'move-test-pr', 'open-test-archive-pr', 'resolve-support-conflict', 'fix-resolution', 'renumber-adr', 'rejoin-train'];
+  assert.deepEqual([...handOffs].sort(), [...expected].sort(), 'the table\'s hand-offs are the old ones, the seven new delivery steps, renumber-adr and rejoin-train');
+  for (const step of handOffs) {
+    const v = cview(build(rowOf(step, { phase: 2 })));
+    const bullet = `add the dispatch sentence of the \`devkit\` skill's Loop bullet \`${step}\``;
+    const row = `add the dispatch sentence of the \`ship-change\` row of step \`${step}\``;
+    assert.ok(['resolve-release-conflict', 'renumber-adr'].includes(step) ? v.brief.includes(bullet) : v.brief.includes(row), `${step}: ${v.brief}`);
+    assert.equal(v.brief.includes(bullet) && v.brief.includes(row), false, `${step} names one source only`);
+  }
+  // Every dispatch sentence names a row that exists: a `ship-change` table row for the step.
+  const rows = readFileSync(join(HERE, '..', 'skills', 'ship-change', 'SKILL.md'), 'utf8').split('\n').filter((l) => l.startsWith('| `'));
+  for (const step of handOffs.filter((s) => !['resolve-release-conflict', 'renumber-adr'].includes(s))) {
+    assert.ok(rows.some((l) => l.slice(0, l.indexOf('|', 2)).includes(`\`${step}\``)), `${step} has a ship-change row`);
+  }
+});
+
+test('change-loop compozy view: review-resolution is a review like review, and the other new session steps are coordinator steps', () => {
+  const resolution = build(rowOf('review-resolution', { root: '/w/feat', support: 'feat-develop', commit: 'abc1234', round: 1 }));
+  const rv = cview(resolution);
+  assert.deepEqual([rv.kind, rv.agent, rv.step, rv.brief], ['review', '', 'review-resolution', '']);
+  assert.equal(rv.question, render('en', 'blocked', { id: 'feat', why: 'role-failed', stage: resolution.stageTitle }));
+  for (const step of ['rerun-checks', 'checkout-support', 'merge-into-support']) {
+    const a = build(rowOf(step, { runs: [7], path: '/w/feat-develop', branch: 'feat-develop', root: '/w/feat-develop', from: 'feat' }));
+    const v = cview(a);
+    assert.deepEqual([v.kind, v.agent, v.step], ['coordinator', 'change-coordinator', step], step);
+    assert.ok(v.brief.includes(`carry out step ${step} as the \`ship-change\` row of that name says, with this \`next\` object: `), `${step}: ${v.brief}`);
+    assert.ok(v.brief.includes(JSON.stringify(a.detail)), step);
+  }
+});
+
+test('change-loop compozy view: take-place is a command no agent runs, with the checker\'s own argv', () => {
+  const a = build(rowOf('implement'), { place: { taken: false, held: 0, places: 2, machine: 'avel' } });
+  assert.equal(a.step, 'take-place');
+  const v = cview(a);
+  assert.deepEqual([v.kind, v.agent, v.brief, v.question, v.step, v.progress_key], ['command', '', '', '', 'take-place', a.progressKey]);
+  assert.deepEqual(a.detail.command.slice(2), ['place', 'feat', '--lang', 'en'], 'the command the run-step runs is the checker\'s');
+});
+
+test('change-loop compozy view: a session step outside the command list is still a coordinator step', () => {
+  const a = build(rowOf('rerun-checks', { runs: [7] }));
+  assert.equal(a.step, 'rerun-checks');
+  const v = cview(a);
+  assert.deepEqual([v.kind, v.agent], ['coordinator', 'change-coordinator']);
+});
+
+test('change-loop compozy view: switch-script and accept-decisions are commands no agent runs', () => {
+  const lite = FLOWS['devkit-lite'];
+  const rep = { flow: lite, ctx: { script: 'devkit-lite' }, rep: { schema: 'devkit-lite', next: nextOf(lite, 'proposal', 'no-file') } };
+  const sw = run({ ...rep, flow: lite, report: reportOf(lite, rep.rep), facts: { flags: ['ui'], hasProposal: false } });
+  const accept = run({ ...planNext('proposal', 'no-file'), facts: { approval: { ok: true, status: 'APPROVED', recorded: 'sha256:aaaaaaaaaaaa', readiness: 'sha256:aaaaaaaaaaaa' }, decisions: { listed: ['docs/adr/1.md'], proposed: ['docs/adr/1.md'], unreadable: [] } } });
+  for (const [a, step] of [[sw, 'switch-script'], [accept, 'accept-decisions']]) {
+    assert.equal(a.step, step);
+    const v = cview(a);
+    assert.deepEqual([v.kind, v.agent, v.brief, v.question, v.step, v.progress_key], ['command', '', '', '', step, a.progressKey], step);
+  }
+});
+
+test('change-loop compozy view: the grill hands the coordinator every answer the record holds', () => {
+  const a = run({ rep: { next: nextOf(FLOWS.devkit, 'requirements', 'no-file') } });
+  const none = cview(a);
+  assert.deepEqual([none.kind, none.agent, none.stage, none.progress_key], ['grill', 'change-coordinator', 'requirements', a.progressKey]);
+  const some = cview(a, rec({ answers: { grill: [{ question: 'Who uses it?', answer: 'The admins', at: 't' }, { question: '', answer: 'Weekly', at: 't' }] } }));
+  assert.ok(some.brief.includes('Who uses it?') && some.brief.includes('The admins') && some.brief.includes('Weekly'), some.brief);
+  assert.notEqual(some.brief, none.brief);
+});
+
+test('change-loop compozy view: waiting-mockup is the mockup kind, never owner, naming mockup.md and the mock folder under the root', () => {
+  const a = run({ rep: { end: endOf('waiting-for-owner', 'mockup', 'owner-pending'), stages: { mockup: { state: 'pending', reasonCode: 'not-judged' } } } });
+  const v = cview(a);
+  assert.deepEqual([v.kind, v.agent, v.progress_key], ['mockup', '', 'end/waiting-for-owner/waiting-mockup/mockup']);
+  assert.ok(v.question.startsWith(a.reply));
+  assert.ok(v.question.includes('/w/feat/openspec/changes/feat/mockup.md') && v.question.includes('/w/feat/openspec/changes/feat/mock/'), v.question);
+  assert.notEqual(cview(endAction('waiting-merge')).kind, 'mockup');
+});
+
+test('change-loop compozy view: the plan approval is asked, and the owner\'s notes make the planner revise', () => {
+  for (const why of ['waiting-approval', 'waiting-approval-again']) {
+    const a = endAction(why, { stage: 'approval' });
+    const v = cview(a);
+    assert.deepEqual([v.kind, v.agent, v.progress_key], ['approval', '', `end/waiting-for-owner/${why}/approval`], why);
+    assert.ok(v.question.startsWith(a.reply) && v.question.includes('/w/feat/openspec/changes/feat/'), v.question);
+    const notes = cview(a, rec({ answers: { approvalNotes: 'drop the export' } }));
+    assert.deepEqual([notes.kind, notes.agent], ['agent', 'change-planner'], why);
+    assert.ok(notes.brief.includes('the owner did not approve the plan and asked: `drop the export`; revise the plan'), notes.brief);
+  }
+});
+
+test('change-loop compozy view: the retro answers are asked, and recorded answers go to the coordinator', () => {
+  const a = endAction('waiting-retro', { stage: 'retro' });
+  const v = cview(a);
+  assert.deepEqual([v.kind, v.agent, v.progress_key], ['retro-answers', '', 'end/waiting-for-owner/waiting-retro/retro']);
+  assert.ok(v.question.startsWith(a.reply) && v.question.includes('retro.md'), v.question);
+  const answered = cview(a, rec({ answers: { retro: '1: approve; 2: reject' } }));
+  assert.deepEqual([answered.kind, answered.agent], ['coordinator', 'change-coordinator']);
+  assert.ok(answered.brief.includes('record these answers of the owner as the `ship-change` `stop-retro-answers` row says: `1: approve; 2: reject`'), answered.brief);
+});
+
+test('change-loop compozy view: every other wait for the owner is the owner kind with the reply as its question', () => {
+  for (const why of ['waiting-merge', 'waiting-archive-merge', 'waiting-review-dispute', 'waiting-by-hand', 'waiting-unrun-stage', 'waiting-pr-decision']) {
+    const a = endAction(why, { stage: 'delivery' });
+    const v = cview(a);
+    assert.deepEqual([v.kind, v.agent, v.question, v.progress_key], ['owner', '', a.reply, `end/waiting-for-owner/${why}/delivery`], why);
+  }
+});
+
+test('change-loop compozy view: GitHub, blocked and archived ends have their own kinds', () => {
+  const gh = cview(endAction('waiting-github', { state: 'waiting-on-github', stage: 'delivery' }));
+  assert.deepEqual([gh.kind, gh.question, gh.brief, gh.progress_key], ['github', '', '', 'end/waiting-on-github/waiting-github/delivery']);
+  const blocked = endAction('ceiling', { state: 'blocked', stage: 'review' });
+  const bv = cview(blocked);
+  assert.deepEqual([bv.kind, bv.question, bv.progress_key], ['blocked', blocked.reply, 'end/blocked/ceiling/review']);
+  const done = cview(endAction('archived', { state: 'archived' }));
+  assert.deepEqual([done.kind, done.question, done.progress_key], ['archived', '', 'end/archived/archived/']);
+});
+
+test('change-loop compozy view: an unknown change opens, and after an open turn that left it unknown the owner is asked', () => {
+  const open = { version: 1, kind: 'open', change: 'feat', script: null, root: '/w/main', branch: 'main', filesLanguage: 'en', stage: 'open', stageTitle: '', progressKey: 'open/feat' };
+  const fresh = cview(open);
+  assert.deepEqual([fresh.kind, fresh.agent, fresh.progress_key], ['open', 'change-coordinator', 'open/feat']);
+  assert.ok(fresh.brief.includes('run `change-loop open` with the request') && fresh.brief.includes('return `failure`'), fresh.brief);
+  for (const handed of [null, { key: 'other/key', at: 't' }]) assert.equal(cview(open, rec({ handed })).kind, 'open', 'no handed key, or another');
+  const failed = cview(open, rec({ handed: { key: 'open/feat', at: 't' } }));
+  assert.deepEqual([failed.kind, failed.progress_key], ['blocked', 'end/blocked/open-failed/open']);
+  assert.equal(failed.question, render('en', 'blocked', { id: 'feat', why: 'open-failed' }));
+});
+
+test('change-loop compozy view: a recorded failure whose key is the handed key or the action\'s own gives the blocked kind', () => {
+  const a = run(planNext('proposal', 'no-file'));
+  const failed = (key) => rec({ handed: { key: 'handed/key', at: 't' }, failed: { key, reply: 'the command said no', at: 't' } });
+  for (const key of ['handed/key', a.progressKey]) {
+    const v = cview(a, failed(key));
+    assert.deepEqual([v.kind, v.question, v.progress_key], ['blocked', 'the command said no', 'end/blocked/step-failed/proposal'], key);
+  }
+  assert.equal(cview(a, failed('another/key')).kind, 'agent', 'a failure of another key leaves the action\'s own view');
+});
+
+test('change-loop compozy view: the words of an approved mock-up hand the facts to the coordinator before anything else', () => {
+  const a = run(planNext('proposal', 'no-file'));
+  const v = cview(a, rec({ answers: { mockup: 'looks right, keep the filters' } }));
+  assert.deepEqual([v.kind, v.agent, v.progress_key], ['coordinator', 'change-coordinator', 'mockup-facts/feat']);
+  assert.ok(v.brief.includes('the owner approved the mock-up (`looks right, keep the filters`)'), v.brief);
+  assert.ok(v.brief.includes('under `## What the mock-up revealed`') && v.brief.includes('stop-mockup-approval') && v.brief.includes('change nothing else'), v.brief);
+  assert.equal(cview(a, rec({ answers: { mockup: null } })).kind, 'agent', 'no words, no row');
+  const both = cview(a, rec({ handed: { key: a.progressKey, at: 't' }, failed: { key: a.progressKey, reply: 'no', at: 't' }, answers: { mockup: 'ok' } }));
+  assert.equal(both.kind, 'blocked', 'a recorded failure comes first');
+});
+
+// ---------------------------------------------------------------- the run record and the view command (D-3), real files
+
+const recFile = (root, id = 'feat') => join(root, '.git', 'devkit-compozy', `${id}.json`);
+const viewOf = (cwd, { id = 'feat', env = cleanEnv, ...opts } = {}) => main(['next', '--change', id, '--lang', 'en', '--view', 'compozy'], { cwd, env, ...opts });
+const readRec = (root) => JSON.parse(readFileSync(recFile(root), 'utf8'));
+const approvalPlan = () => planChange({ have: ['requirements', 'proposal', 'specs', 'design', 'tasks', 'readiness'] });
+
+test('change-loop compozy view: next --view compozy prints the view alone, and next without it prints what it printed before', () => {
+  const root = approvalPlan();
+  const r = viewOf(root);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const v = JSON.parse(r.stdout);
+  assert.deepEqual(Object.keys(v), VIEW_FIELDS);
+  assert.deepEqual([v.kind, v.stage, v.change], ['approval', 'approval', 'feat']);
+  assert.ok(v.question.includes(render('en', 'waiting-approval', { id: 'feat' })));
+  const plain = next(root);
+  assert.equal(plain.code, 1);
+  assert.equal(plain.stdout.startsWith('devkit-run: feat\n'), true);
+  assert.equal(existsSync(recFile(root)), false, 'reading the view writes no record');
+  assert.equal(viewOf(root, { args: undefined }).stdout, r.stdout, 'the same files give the same view');
+});
+
+test('change-loop compozy view: an unknown option value of --view is a usage error', () => {
+  const root = approvalPlan();
+  const r = main(['next', '--change', 'feat', '--lang', 'en', '--view', 'claude'], { cwd: root, env: cleanEnv });
+  assert.equal(r.code, 3);
+});
+
+test('change-loop compozy view: the handed key of the record is passed as --after, so a stage that did not move blocks with no-progress', () => {
+  const root = planChange({ have: ['requirements'] });
+  const first = JSON.parse(viewOf(root).stdout);
+  assert.equal(first.kind, 'agent');
+  put(root, { '.git/devkit-compozy/feat.json': JSON.stringify({ ...emptyRec(), handed: { key: first.progress_key, at: 't' } }) });
+  const again = JSON.parse(viewOf(root).stdout);
+  assert.deepEqual([again.kind, again.progress_key], ['blocked', `end/blocked/no-progress/${first.stage}`]);
+  assert.equal(again.question, render('en', 'blocked', { id: 'feat', why: 'no-progress', stage: again.stage_title }));
+});
+
+test('change-loop compozy view: a change known in no checkout opens, and the open-failed row asks after an open turn that left it unknown', () => {
+  const root = devkitRepo(COMPOZY_CONFIG);
+  const fresh = JSON.parse(viewOf(root).stdout);
+  assert.deepEqual([fresh.kind, fresh.agent, fresh.progress_key, fresh.stage], ['open', 'change-coordinator', 'open/feat', 'open']);
+  put(root, { '.git/devkit-compozy/feat.json': JSON.stringify({ ...emptyRec(), handed: { key: 'open/feat', at: 't' } }) });
+  const failed = JSON.parse(viewOf(root).stdout);
+  assert.deepEqual([failed.kind, failed.progress_key], ['blocked', 'end/blocked/open-failed/open']);
+  put(root, { '.git/devkit-compozy/feat.json': JSON.stringify({ ...emptyRec(), handed: { key: 'something/else', at: 't' } }) });
+  assert.equal(JSON.parse(viewOf(root).stdout).kind, 'open');
+});
+
+test('change-loop compozy view: an empty, cut short or non-JSON record reads as an empty record', () => {
+  const root = approvalPlan();
+  for (const text of ['', '{"version":1,"handed":{"key":', 'not json', '[]', 'null']) {
+    put(root, { '.git/devkit-compozy/feat.json': text });
+    const v = JSON.parse(viewOf(root).stdout);
+    assert.equal(v.kind, 'approval', JSON.stringify(text));
+  }
+});
+
+// ---------------------------------------------------------------- confirm (D-3)
+
+const confirmRun = (cwd, view, { id = 'feat', env = cleanEnv } = {}) => main(['confirm', '--change', id, '--lang', 'en', '--view', typeof view === 'string' ? view : JSON.stringify(view)], { cwd, env });
+
+test('change-loop compozy confirm: the view of the checker confirms with exit 0, and a differing field exits 1 printing the current view', () => {
+  const root = planChange({ have: ['requirements'] });
+  const v = JSON.parse(viewOf(root).stdout);
+  for (const field of VIEW_FIELDS) {
+    const before = existsSync(recFile(root)) ? readFileSync(recFile(root), 'utf8') : null;
+    const bad = confirmRun(root, { ...v, [field]: field === 'version' ? 2 : `${v[field]} changed` });
+    assert.equal(bad.code, 1, field);
+    assert.deepEqual(JSON.parse(bad.stdout), v, `${field}: the current view is printed`);
+    assert.equal(existsSync(recFile(root)) ? readFileSync(recFile(root), 'utf8') : null, before, `${field}: the record is left unchanged`);
+  }
+  assert.equal(confirmRun(root, { ...v, extra: 'x' }).code, 1, 'an extra field differs');
+  const { kind, ...missing } = v; // eslint-disable-line no-unused-vars
+  assert.equal(confirmRun(root, missing).code, 1, 'a missing field differs');
+  assert.equal(existsSync(recFile(root)), false, 'no differing view recorded anything');
+  const ok = confirmRun(root, v);
+  assert.equal(ok.code, 0, ok.stdout + ok.stderr);
+  assert.deepEqual(JSON.parse(ok.stdout), v);
+});
+
+test('change-loop compozy confirm: an unparsable or non-object --view exits 1, as a differing view does', () => {
+  const root = planChange({ have: ['requirements'] });
+  for (const text of ['not json', '[]', '"x"', 'null', '']) {
+    const r = confirmRun(root, text);
+    assert.equal(r.code, 1, JSON.stringify(text));
+    assert.equal(JSON.parse(r.stdout).kind, 'agent');
+  }
+});
+
+test('change-loop compozy confirm: it records the progress key as handed, and the next view then sees it', () => {
+  const root = planChange({ have: ['requirements'] });
+  const v = JSON.parse(viewOf(root).stdout);
+  assert.equal(confirmRun(root, v).code, 0);
+  const record = readRec(root);
+  assert.equal(record.handed.key, v.progress_key);
+  assert.equal(typeof record.handed.at, 'string');
+  assert.equal(JSON.parse(viewOf(root).stdout).kind, 'blocked', 'the stage did not move: no-progress');
+});
+
+test('change-loop compozy confirm: the kinds it records and the kinds it clears the handed key for', () => {
+  const view = (kind) => ({ kind, progress_key: `key/${kind}` });
+  const recorded = ['agent', 'coordinator', 'review', 'gate', 'command', 'open'];
+  const cleared = ['grill', 'mockup', 'approval', 'retro-answers', 'owner', 'blocked', 'github', 'archived'];
+  assert.deepEqual(changeLoopModule.HANDED_KINDS, recorded);
+  for (const kind of [...recorded, ...cleared]) {
+    const after = changeLoopModule.afterConfirm(rec({ handed: { key: 'old', at: 't' } }), { view: view(kind), uses: null }, { kind: 'agent', stage: 'proposal' }, 'now');
+    assert.deepEqual(after.handed, recorded.includes(kind) ? { key: `key/${kind}`, at: 'now' } : null, kind);
+  }
+});
+
+test('change-loop compozy confirm: each recorded answer is cleared once the view built from it is confirmed, and no other', () => {
+  const full = () => rec({ failed: { key: 'k', reply: 'r', at: 't' }, answers: { grill: [{ question: 'q', answer: 'a', at: 't' }], approvalNotes: 'notes', retro: 'retro', mockup: 'words' } });
+  const confirm = (uses, action = { kind: 'grill', stage: 'requirements' }) => changeLoopModule.afterConfirm(full(), { view: { kind: 'agent', progress_key: 'k2' }, uses }, action, 'now');
+  const keep = confirm(null);
+  assert.deepEqual([keep.answers.approvalNotes, keep.answers.retro, keep.answers.mockup], ['notes', 'retro', 'words'], 'a view not built from them leaves them');
+  assert.equal(keep.failed, null, 'a recorded failure goes once a view not built from it is confirmed');
+  assert.equal(keep.answers.grill.length, 1, 'the grill answers stay while the grill is on');
+  assert.equal(confirm('notes').answers.approvalNotes, null);
+  assert.deepEqual([confirm('notes').answers.retro, confirm('notes').answers.mockup], ['retro', 'words']);
+  assert.equal(confirm('retro').answers.retro, null);
+  assert.equal(confirm('retro').answers.approvalNotes, 'notes');
+  assert.equal(confirm('mockup').answers.mockup, null);
+  assert.equal(confirm('mockup').answers.retro, 'retro');
+  assert.deepEqual(confirm('failure').failed, { key: 'k', reply: 'r', at: 't' }, 'the failure view keeps its failure');
+  assert.deepEqual(confirm(null, { kind: 'agent', stage: 'proposal' }).answers.grill, [], 'the grill answers go once the requirements stage has passed');
+  assert.equal(confirm(null, { kind: 'open', stage: 'open' }).answers.grill.length, 1, 'an open turn is before the grill');
+});
+
+// ---------------------------------------------------------------- the record steps (D-4)
+
+const step = (cwd, argv, { env = cleanEnv, stdin = '' } = {}) => main([...argv, '--lang', 'en'], { cwd, env, stdin });
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const changeFile = (root, f) => join(root, 'openspec', 'changes', 'feat', f);
+
+test('change-loop compozy record-approval: it writes approval.md in the form of the ship-change row, and approvalState reads it back as ok', () => {
+  const root = approvalPlan();
+  const r = step(root, ['record-approval', '--change', 'feat', '--words', 'Looks good, go ahead']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const text = readFileSync(changeFile(root, 'approval.md'), 'utf8');
+  const sha = git(root, 'rev-parse', 'HEAD').trim();
+  const readiness = approvalState(join(root, 'openspec', 'changes', 'feat')).readiness;
+  assert.equal(text, `<!-- devkit-stage approval result=passed attempt=1 commit=${sha} -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${readiness}\n- Date: ${today()}\n- Owner's words: "\`Looks good, go ahead\`"\n`);
+  assert.equal(approvalState(join(root, 'openspec', 'changes', 'feat')).ok, true);
+  assert.deepEqual(['view', 'approval'].length, 2);
+});
+
+test('change-loop compozy record-approval: words over 200 characters are cut, and a replaced approval raises the attempt', () => {
+  const root = approvalPlan();
+  put(root, { 'openspec/changes/feat/approval.md': '<!-- devkit-stage approval result=passed attempt=2 commit=none -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: sha256:000000000000\n- Date: 2026-01-01\n- Owner\'s words: "`old`"\n' });
+  utimesSync(changeFile(root, 'approval.md'), 1, 1); // older than readiness.md: the checker finds it stale and asks again
+  const r = step(root, ['record-approval', '--change', 'feat', '--words', `${'x'.repeat(250)}`]);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const text = readFileSync(changeFile(root, 'approval.md'), 'utf8');
+  assert.match(text.split('\n')[0], /attempt=3 /, 'one more than the replaced header');
+  assert.ok(text.includes(`"\`${'x'.repeat(200)}\`"`) && !text.includes('x'.repeat(201)), 'cut to 200 characters');
+});
+
+test('change-loop compozy record-approval: refused while the readiness review is due, with approval.md absent or unchanged', () => {
+  const due = planChange({ have: ['requirements', 'proposal', 'specs', 'design', 'tasks'] });
+  const r = step(due, ['record-approval', '--change', 'feat', '--words', 'go']);
+  assert.equal(r.code, 3, r.stdout);
+  assert.equal(existsSync(changeFile(due, 'approval.md')), false, 'no approval.md');
+  const stale = planChange({ have: ['requirements', 'proposal', 'specs', 'design', 'tasks'] });
+  const old = '<!-- devkit-stage approval result=passed attempt=1 commit=none -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: sha256:000000000000\n- Date: 2026-01-01\n- Owner\'s words: "`old`"\n';
+  put(stale, { 'openspec/changes/feat/approval.md': old });
+  assert.equal(step(stale, ['record-approval', '--change', 'feat', '--words', 'go']).code, 3);
+  assert.equal(readFileSync(changeFile(stale, 'approval.md'), 'utf8'), old, 'byte for byte');
+});
+
+test('change-loop compozy record-answer: a grill answer is appended while the grill is on, refused for another gate, and the record is kept', () => {
+  const root = planChange({ have: [] });
+  assert.equal(JSON.parse(viewOf(root).stdout).kind, 'grill');
+  const one = step(root, ['record-answer', '--change', 'feat', '--gate', 'grill', '--answer', 'The admins', '--question', 'Who uses it?']);
+  assert.equal(one.code, 0, one.stdout + one.stderr);
+  const two = step(root, ['record-answer', '--change', 'feat', '--gate', 'grill', '--answer', 'Weekly']);
+  assert.equal(two.code, 0);
+  assert.deepEqual(readRec(root).answers.grill.map((a) => [a.question, a.answer]), [['Who uses it?', 'The admins'], ['', 'Weekly']]);
+  const before = readFileSync(recFile(root), 'utf8');
+  for (const gate of ['approval', 'retro']) {
+    assert.equal(step(root, ['record-answer', '--change', 'feat', '--gate', gate, '--answer', 'x']).code, 3, gate);
+  }
+  assert.equal(step(root, ['record-answer', '--change', 'feat', '--gate', 'nonsense', '--answer', 'x']).code, 3);
+  assert.equal(readFileSync(recFile(root), 'utf8'), before, 'the record is unchanged');
+});
+
+test('change-loop compozy record-answer: a grill answer is refused while the view is the plan approval, and the notes of the approval are set', () => {
+  const root = approvalPlan();
+  const refused = step(root, ['record-answer', '--change', 'feat', '--gate', 'grill', '--answer', 'x']);
+  assert.equal(refused.code, 3);
+  assert.equal(existsSync(recFile(root)), false, 'nothing was recorded');
+  assert.equal(step(root, ['record-answer', '--change', 'feat', '--gate', 'approval', '--answer', 'drop the export']).code, 0);
+  assert.equal(readRec(root).answers.approvalNotes, 'drop the export');
+  const view = JSON.parse(viewOf(root).stdout);
+  assert.deepEqual([view.kind, view.agent], ['agent', 'change-planner']);
+  assert.equal(step(root, ['record-answer', '--change', 'feat', '--gate', 'approval', '--answer', 'again']).code, 3, 'the planner revises now: no second answer');
+});
+
+test('change-loop compozy record-answer: the retro answer is set by applyAnswer, as the other two gates are', () => {
+  const apply = changeLoopModule.applyAnswer;
+  const base = rec();
+  assert.equal(apply(base, 'retro', { answer: '1: approve', at: 'now' }).answers.retro, '1: approve');
+  assert.equal(apply(base, 'approval', { answer: 'notes', at: 'now' }).answers.approvalNotes, 'notes');
+  assert.deepEqual(apply(base, 'grill', { answer: 'a', question: 'q', at: 'now' }).answers.grill, [{ question: 'q', answer: 'a', at: 'now' }]);
+  assert.deepEqual(base, emptyRec(), 'the given record is not changed');
+});
+
+// A change at the mock-up: the grill flagged a screen, the mock-up is drawn and waits for the owner.
+function mockupChange() {
+  const root = gitRepo({ config: 'schema: devkit\n' });
+  const c0 = git(root, 'rev-parse', 'HEAD').trim();
+  put(root, {
+    'openspec/changes/feat/.openspec.yaml': 'schema: devkit\n',
+    'openspec/changes/feat/requirements.md': `${head('requirements', c0)}# Requirements\n\n- Classification: script=devkit flags=[ui]\n`,
+    'openspec/changes/feat/mockup.md': `${head('mockup', c0, 'pending')}# Mock-up\n\n- mock/screen.html\n`,
+  });
+  commitAll(root, 'a drawn mock-up');
+  return root;
+}
+
+test('change-loop compozy record-mockup: approve writes the passed header, the approval section, and the record keeps the words', () => {
+  const root = mockupChange();
+  assert.equal(JSON.parse(viewOf(root).stdout).kind, 'mockup');
+  const r = step(root, ['record-mockup', '--change', 'feat', '--decision', 'approve', '--words', 'looks right, keep the filters']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const sha = git(root, 'rev-parse', 'HEAD').trim();
+  const text = readFileSync(changeFile(root, 'mockup.md'), 'utf8');
+  assert.equal(text.split('\n')[0], `<!-- devkit-stage mockup result=passed attempt=1 commit=${sha} -->`);
+  assert.ok(text.endsWith(`\n## Owner's approval\n\n- Date: ${today()}\n- Owner's words: "looks right, keep the filters"\n`), text);
+  assert.ok(text.includes('# Mock-up') && text.includes('mock/screen.html'), 'the rest of the file is kept');
+  assert.equal(readRec(root).answers.mockup, 'looks right, keep the filters');
+  const flow = spawnSync(process.execPath, [join(HERE, 'flow-check.mjs'), 'feat', '--json'], { cwd: root, env: cleanEnv, encoding: 'utf8' });
+  const mock = JSON.parse(flow.stdout).stages.find((x) => x.id === 'mockup');
+  assert.equal(mock.state, 'passed', flow.stdout + flow.stderr);
+  const view = JSON.parse(viewOf(root).stdout);
+  assert.deepEqual([view.kind, view.agent, view.progress_key], ['coordinator', 'change-coordinator', 'mockup-facts/feat'], 'the facts go to the coordinator next');
+});
+
+test('change-loop compozy record-mockup: changes writes the failed header and the notes, the record keeps nothing, and the designer is handed the notes', () => {
+  const root = mockupChange();
+  const r = step(root, ['record-mockup', '--change', 'feat', '--decision', 'changes', '--words', 'make the table wider']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const text = readFileSync(changeFile(root, 'mockup.md'), 'utf8');
+  assert.match(text.split('\n')[0], /^<!-- devkit-stage mockup result=failed attempt=1 commit=[0-9a-f]{40} -->$/);
+  assert.ok(text.endsWith('\n## Owner\'s notes (attempt 1)\n\nmake the table wider\n'), text);
+  assert.equal(existsSync(recFile(root)) ? readRec(root).answers.mockup : null, null, 'no words recorded');
+  const view = JSON.parse(viewOf(root).stdout);
+  assert.deepEqual([view.kind, view.agent], ['agent', 'screen-designer']);
+  assert.ok(view.brief.includes('the owner asked for changes at attempt 1'), view.brief);
+});
+
+test('change-loop compozy record-mockup: words over 200 characters are cut, and an unknown decision is refused', () => {
+  const root = mockupChange();
+  const bad = step(root, ['record-mockup', '--change', 'feat', '--decision', 'maybe', '--words', 'x']);
+  assert.equal(bad.code, 3);
+  assert.match(readFileSync(changeFile(root, 'mockup.md'), 'utf8'), /result=pending/, 'unchanged');
+  assert.equal(step(root, ['record-mockup', '--change', 'feat', '--decision', 'approve', '--words', 'y'.repeat(250)]).code, 0);
+  const text = readFileSync(changeFile(root, 'mockup.md'), 'utf8');
+  assert.ok(text.includes(`"${'y'.repeat(200)}"`) && !text.includes('y'.repeat(201)));
+});
+
+test('change-loop compozy record-mockup: refused while the view is the plan approval, and when mockup.md has no valid header', () => {
+  const approval = approvalPlan();
+  put(approval, { 'openspec/changes/feat/mockup.md': '# Mock-up\n' });
+  const before = readFileSync(changeFile(approval, 'mockup.md'), 'utf8');
+  assert.equal(step(approval, ['record-mockup', '--change', 'feat', '--decision', 'approve', '--words', 'ok']).code, 3);
+  assert.equal(readFileSync(changeFile(approval, 'mockup.md'), 'utf8'), before, 'byte for byte');
+  const root = mockupChange();
+  for (const first of ['# Mock-up\n', '<!-- devkit-stage mockup result=maybe attempt=1 commit=none -->\n# Mock-up\n', '<!-- devkit-stage design result=passed attempt=1 commit=none -->\n# Mock-up\n']) {
+    put(root, { 'openspec/changes/feat/mockup.md': first });
+    const r = step(root, ['record-mockup', '--change', 'feat', '--decision', 'approve', '--words', 'ok']);
+    assert.equal(r.code, 3, first);
+    assert.equal(readFileSync(changeFile(root, 'mockup.md'), 'utf8'), first, `unchanged: ${first}`);
+  }
+});
+
+// A change on the short script at the plan, right after the owner's approval of a plan that lists decision records.
+const proposedRecords = () => adrChange({ records: { [`${ADR_FOLDER}/0001-a.md`]: adrRecord('Status: proposed') } });
+const stuckRecords = () => adrChange({ records: { [`${ADR_FOLDER}/0001-a.md`]: adrRecord('Status: proposed') }, listed: [`${ADR_FOLDER}/0001-a.md`, `${ADR_FOLDER}/0002-none.md`] });
+
+test('change-loop compozy run-step: a command step runs the checker\'s argv in the root, and a success clears a recorded failure', () => {
+  const root = proposedRecords();
+  const view = JSON.parse(viewOf(root).stdout);
+  assert.deepEqual([view.kind, view.step], ['command', 'accept-decisions'], JSON.stringify(view));
+  put(root, { '.git/devkit-compozy/feat.json': JSON.stringify({ ...emptyRec(), failed: { key: 'old/key', reply: 'earlier', at: 't' } }) });
+  const r = step(root, ['run-step', '--change', 'feat']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.match(readFileSync(join(root, ADR_FOLDER, '0001-a.md'), 'utf8'), /Status: accepted/i);
+  assert.equal(readRec(root).failed, null);
+});
+
+test('change-loop compozy run-step: a refused command changes no file, records its own reply as the failure and exits 1', () => {
+  const root = stuckRecords();
+  const before = treeOf(root);
+  const view = JSON.parse(viewOf(root).stdout);
+  assert.equal(view.kind, 'command');
+  const r = step(root, ['run-step', '--change', 'feat']);
+  assert.equal(r.code, 1, r.stdout + r.stderr);
+  assert.equal(treeOf(root).replace(/"[^"]*devkit-compozy[^"]*":"[^"]*",?/g, ''), before.replace(/"[^"]*devkit-compozy[^"]*":"[^"]*",?/g, ''), 'no listed file changed');
+  const failed = readRec(root).failed;
+  assert.equal(failed.key, view.progress_key);
+  assert.match(failed.reply, /decision records could not be marked accepted/);
+  assert.match(failed.reply, /0002-none\.md/, 'it names the file');
+  const next1 = JSON.parse(viewOf(root).stdout);
+  assert.deepEqual([next1.kind, next1.question], ['blocked', failed.reply], 'the next turn asks the owner with the command\'s own reply');
+  assert.equal(step(root, ['compozy-retry', '--change', 'feat']).code, 0);
+  assert.deepEqual(readRec(root).failed, null);
+  assert.equal(readRec(root).handed, null);
+  assert.equal(JSON.parse(viewOf(root).stdout).kind, 'command', 'retry hands the command again');
+});
+
+test('change-loop compozy run-step: refused while the view is not a command, running nothing', () => {
+  const root = planChange({ have: ['requirements'] });
+  const r = step(root, ['run-step', '--change', 'feat']);
+  assert.equal(r.code, 3);
+  assert.equal(existsSync(recFile(root)), false);
+});
+
+test('change-loop compozy run-step: a command with no JSON on a non-zero exit records the role-failed reply', () => {
+  const out = changeLoopModule.runViewCommand(['node', '-e', 'process.stderr.write("boom"); process.exit(4)'], { cwd: tmpRoot(), lang: 'en', id: 'feat', stageTitle: 'Proposal' });
+  assert.equal(out.ok, false);
+  assert.equal(out.reply, render('en', 'blocked', { id: 'feat', why: 'role-failed', stage: 'Proposal' }));
+  const json = changeLoopModule.runViewCommand(['node', '-e', 'console.log(JSON.stringify({reply:"its own words"})); process.exit(3)'], { cwd: tmpRoot(), lang: 'en', id: 'feat', stageTitle: 'Proposal' });
+  assert.deepEqual([json.ok, json.reply], [false, 'its own words']);
+  assert.equal(changeLoopModule.runViewCommand(['node', '-e', '0'], { cwd: tmpRoot(), lang: 'en', id: 'feat', stageTitle: 'x' }).ok, true);
+});
+
+test('change-loop compozy run-step: switch-script runs the script subcommand and exits 0', () => {
+  const root = gitRepo({ config: 'schema: devkit\n' });
+  const c0 = git(root, 'rev-parse', 'HEAD').trim();
+  put(root, {
+    'openspec/changes/feat/.openspec.yaml': 'schema: devkit-lite\n',
+    'openspec/changes/feat/requirements.md': `${head('requirements', c0)}# Requirements\n\n- Classification: script=devkit-lite flags=[architecture]\n`,
+  });
+  commitAll(root, 'a flagged short change');
+  const view = JSON.parse(viewOf(root).stdout);
+  assert.deepEqual([view.kind, view.step], ['command', 'switch-script'], JSON.stringify(view));
+  const r = step(root, ['run-step', '--change', 'feat']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.match(readFileSync(changeFile(root, '.openspec.yaml'), 'utf8'), /^schema: devkit$/m);
+});
+
+// A change whose delivery checker hands the gate: a short-script change with its code done and its gate task open.
+function gateChange(command) {
+  const { t, wt, env } = deliveredChange({ checks: [check('build', 'pass')], mergeable: 'MERGEABLE' });
+  const sha = git(wt, 'rev-parse', 'HEAD').trim();
+  put(wt, { 'openspec/changes/feat/tasks.md': `${head('tasks', sha)}# Tasks\n\n## 1. First\n- [x] 1.1 code\n- [ ] 1.2 Gate: \`${command}\` green\n` });
+  commitAll(wt, 'an open gate');
+  return { t, wt, env };
+}
+
+test('change-loop compozy run-gate: the gate runs part by part in the root and a green one ticks its task', () => {
+  const { wt, env } = gateChange('true && true');
+  const view = JSON.parse(viewOf(wt, { env }).stdout);
+  assert.deepEqual([view.kind, view.step], ['gate', 'gate'], JSON.stringify(view));
+  const r = step(wt, ['run-gate', '--change', 'feat'], { env });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.match(readFileSync(join(wt, 'openspec', 'changes', 'feat', 'tasks.md'), 'utf8'), /- \[x\] 1\.2 Gate:/);
+});
+
+test('change-loop compozy run-gate: a red part exits 1 and ticks nothing, and it refuses when the view is not the gate', () => {
+  const { t, wt, env } = gateChange('true && false && true');
+  const before = readFileSync(join(wt, 'openspec', 'changes', 'feat', 'tasks.md'), 'utf8');
+  const red = step(wt, ['run-gate', '--change', 'feat'], { env });
+  assert.equal(red.code, 1, red.stdout);
+  assert.equal(readFileSync(join(wt, 'openspec', 'changes', 'feat', 'tasks.md'), 'utf8'), before);
+  const elsewhere = planChange({ have: ['requirements'] });
+  assert.equal(step(elsewhere, ['run-gate', '--change', 'feat']).code, 3);
+  assert.ok(t);
+});
+
+// ---------------------------------------------------------------- the record steps under a handed key (task 4.11)
+
+// `confirm` records the key of the step just handed, and the record step then runs with nothing changed yet: the record holds the
+// key of the very step under test. The record steps must compute the step they check without that key as `--after`.
+const handedAs = (cwd, view, over = {}) => {
+  const file = changeLoopModule.runRecordPath(cwd, 'feat');
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, JSON.stringify(rec({ handed: { key: view.progress_key, at: 't' }, ...over })));
+  return file;
+};
+const tasksOf = (root) => readFileSync(join(root, 'openspec', 'changes', 'feat', 'tasks.md'), 'utf8');
+
+test('change-loop compozy handed key: run-gate runs the gate and ticks its task when the record holds the key of the gate', () => {
+  const { wt, env } = gateChange('true && true');
+  const view = JSON.parse(viewOf(wt, { env }).stdout);
+  assert.equal(view.kind, 'gate');
+  handedAs(wt, view);
+  const r = step(wt, ['run-gate', '--change', 'feat'], { env });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(JSON.parse(r.stdout).green, true);
+  assert.match(tasksOf(wt), /- \[x\] 1\.2 Gate:/);
+});
+
+test('change-loop compozy handed key: a red run-gate still exits 1 with the part that failed and the output tail, and ticks nothing', () => {
+  const { wt, env } = gateChange('true && echo tail-line; false');
+  const view = JSON.parse(viewOf(wt, { env }).stdout);
+  assert.equal(view.kind, 'gate');
+  handedAs(wt, view);
+  const before = tasksOf(wt);
+  const r = step(wt, ['run-gate', '--change', 'feat'], { env });
+  assert.equal(r.code, 1, r.stdout + r.stderr);
+  const body = JSON.parse(r.stdout);
+  assert.deepEqual([body.green, body.task, body.failed, body.output], [false, '1.2', 'echo tail-line; false', 'tail-line']);
+  assert.equal(tasksOf(wt), before, 'nothing ticked');
+});
+
+test('change-loop compozy handed key: confirm records the gate as handed, and run-gate then runs it, as the live run does', () => {
+  const { wt, env } = gateChange('true');
+  const view = JSON.parse(viewOf(wt, { env }).stdout);
+  const ok = confirmRun(wt, view, { env });
+  assert.equal(ok.code, 0, ok.stdout + ok.stderr);
+  const file = changeLoopModule.runRecordPath(wt, 'feat');
+  assert.equal(JSON.parse(readFileSync(file, 'utf8')).handed.key, view.progress_key);
+  const r = step(wt, ['run-gate', '--change', 'feat'], { env });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.match(tasksOf(wt), /- \[x\] 1\.2 Gate:/);
+});
+
+test('change-loop compozy handed key: run-step runs the command of the step the record holds the key of', () => {
+  const root = proposedRecords();
+  const view = JSON.parse(viewOf(root).stdout);
+  assert.deepEqual([view.kind, view.step], ['command', 'accept-decisions']);
+  handedAs(root, view);
+  const r = step(root, ['run-step', '--change', 'feat']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.match(readFileSync(join(root, ADR_FOLDER, '0001-a.md'), 'utf8'), /Status: accepted/i);
+});
+
+test('change-loop compozy handed key: record-approval writes approval.md when the record holds the key of the approval', () => {
+  const root = approvalPlan();
+  const view = JSON.parse(viewOf(root).stdout);
+  assert.equal(view.kind, 'approval');
+  handedAs(root, view);
+  const r = step(root, ['record-approval', '--change', 'feat', '--words', 'go ahead']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(approvalState(join(root, 'openspec', 'changes', 'feat')).ok, true);
+});
+
+test('change-loop compozy handed key: record-mockup writes mockup.md when the record holds the key of the mock-up', () => {
+  const root = mockupChange();
+  const view = JSON.parse(viewOf(root).stdout);
+  assert.equal(view.kind, 'mockup');
+  handedAs(root, view);
+  const r = step(root, ['record-mockup', '--change', 'feat', '--decision', 'approve', '--words', 'looks right']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.match(readFileSync(changeFile(root, 'mockup.md'), 'utf8'), /result=passed/);
+});
+
+test('change-loop compozy handed key: record-answer writes a grill answer when the record holds the key of the grill', () => {
+  const root = planChange({ have: [] });
+  const view = JSON.parse(viewOf(root).stdout);
+  assert.equal(view.kind, 'grill');
+  handedAs(root, view);
+  const r = step(root, ['record-answer', '--change', 'feat', '--gate', 'grill', '--answer', 'The admins', '--question', 'Who uses it?']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.deepEqual(readRec(root).answers.grill.map((a) => [a.question, a.answer]), [['Who uses it?', 'The admins']]);
+});
+
+test('change-loop compozy handed key: record-answer writes the retro answers when the record holds the key of the retro', () => {
+  const t = pm();
+  const at = (f) => join(t.root, 'openspec', 'changes', 'feat', f);
+  const staged = (stage, body) => `<!-- devkit-stage ${stage} result=passed attempt=1 commit=none -->\n${body}`;
+  put(t.root, { // a change of the current script, every stage passed: the merged change waits for its retro answers
+    'openspec/changes/feat/requirements.md': staged('requirements', '# Requirements\n'),
+    'openspec/changes/feat/proposal.md': staged('proposal', readFileSync(at('proposal.md'), 'utf8')),
+    'openspec/changes/feat/specs/s/spec.md': staged('specs', '# Spec\n'),
+    'openspec/changes/feat/tasks.md': staged('tasks', readFileSync(at('tasks.md'), 'utf8')),
+    'openspec/changes/feat/review.md': staged('review', 'Consensus: PASS (round 1/2)\n\n# Review\n'),
+    'openspec/changes/feat/evidence.md': staged('evidence', 'Commit: none\n\n# Evidence\n'),
+  });
+  commitAll(t.root, 'a staged change');
+  writeRetro(t, retroMd(proposal(['CONTRIBUTING.md'])));
+  const view = JSON.parse(viewOf(t.root, { env: t.env }).stdout);
+  assert.equal(view.kind, 'retro-answers', JSON.stringify(view));
+  handedAs(t.root, view);
+  const r = step(t.root, ['record-answer', '--change', 'feat', '--gate', 'retro', '--answer', '1: approve'], { env: t.env });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(JSON.parse(readFileSync(changeLoopModule.runRecordPath(t.root, 'feat'), 'utf8')).answers.retro, '1: approve');
+});
+
+test('change-loop compozy handed key: next --view compozy with the key of the gate and nothing changed is still blocked with no-progress', () => {
+  const { wt, env } = gateChange('true');
+  const view = JSON.parse(viewOf(wt, { env }).stdout);
+  handedAs(wt, view);
+  const again = JSON.parse(viewOf(wt, { env }).stdout);
+  assert.deepEqual([again.kind, again.progress_key], ['blocked', `end/blocked/no-progress/${view.stage}`]);
+});
+
+test('change-loop compozy handed key: confirm still refuses a view that differs from the guarded one, and records nothing', () => {
+  const { wt, env } = gateChange('true');
+  const view = JSON.parse(viewOf(wt, { env }).stdout);
+  const file = handedAs(wt, view);
+  const before = readFileSync(file, 'utf8');
+  const r = confirmRun(wt, view, { env });
+  assert.equal(r.code, 1, 'the gate view is not the current view: the checker says no-progress');
+  assert.deepEqual([JSON.parse(r.stdout).kind, JSON.parse(r.stdout).progress_key], ['blocked', `end/blocked/no-progress/${view.stage}`]);
+  assert.equal(readFileSync(file, 'utf8'), before, 'the record is left as it was');
+});
+
+test('change-loop compozy retry: it clears the handed key and a recorded failure, and only those', () => {
+  const root = planChange({ have: ['requirements'] });
+  put(root, { '.git/devkit-compozy/feat.json': JSON.stringify({ ...emptyRec(), handed: { key: 'k', at: 't' }, failed: { key: 'k', reply: 'r', at: 't' }, answers: { grill: [{ question: 'q', answer: 'a', at: 't' }], approvalNotes: 'n', retro: null, mockup: null } }) });
+  assert.equal(step(root, ['compozy-retry', '--change', 'feat']).code, 0);
+  const record = readRec(root);
+  assert.deepEqual([record.handed, record.failed, record.answers.approvalNotes, record.answers.grill.length], [null, null, 'n', 1]);
+});
+
+test('change-loop compozy record steps: a change name that is not one, and a missing option, are usage errors that touch nothing', () => {
+  const root = planChange({ have: ['requirements'] });
+  for (const argv of [['record-approval', '--change', '../x', '--words', 'y'], ['record-approval', '--change', 'feat'], ['record-answer', '--change', 'feat', '--gate', 'grill'], ['confirm', '--change', 'feat'], ['compozy-retry'], ['run-step', '--bogus', 'x']]) {
+    const r = step(root, argv);
+    assert.equal(r.code, 3, argv.join(' '));
+  }
+  assert.equal(existsSync(join(root, '.git', 'devkit-compozy')), false);
+});
+
+test('change-loop compozy usage: the usage line names every new subcommand', () => {
+  const r = main(['teleport', '--lang', 'en'], { cwd: tmpRoot(), env: cleanEnv });
+  for (const name of ['compozy-start', 'confirm', 'record-approval', 'record-mockup', 'record-answer', 'run-gate', 'run-step', 'compozy-retry', '--view']) {
+    assert.ok(JSON.parse(r.stdout).error.includes(name) || r.stderr.includes(name), name);
+  }
 });
 
 // ================================================================ roadmap-sessions-upfront, phase 2: the wait loop of a change session (design D-6)

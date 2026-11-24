@@ -22,6 +22,7 @@ import './stage-models.test.mjs'; // stage-models: the model of each stage, its 
 import './delivery-train.test.mjs'; // delivery-train: reviewed changes leave together on a delivery train
 import './release-tags.test.mjs'; // release-tags: the release_tag setting and the tag-release step
 import './project-loop.test.mjs'; // project-phases: the devkit-project schema, the slice loop, the slice contract
+import './compozy-driver.test.mjs'; // compozy-driver: the one module that calls CompozyOS, against a fake binary
 import './version-pin.test.mjs'; // change-version-pin: the flow a change opened with
 import './test-tmp.test.mjs'; // test-fixture-cleanup: the temporary-folder helper
 import '../skills/openspec-setup/scripts/github-setup.test.mjs'; // auto-merge: the GitHub setup script
@@ -31,6 +32,11 @@ import '../skills/openspec-setup/scripts/project-settings.test.mjs'; // devkit p
 import '../skills/openspec-setup/scripts/ship-entry.test.mjs'; // project-phases: the ship entry of devkit-project
 import '../skills/openspec-setup/scripts/gh-version.test.mjs'; // gh-version-check: the setup's gh version line
 import '../../core/skills/review-change/scripts/review-round.test.mjs'; // review-workflow: the round's rules, script and CLI
+import '../../compozy/skills/compozy-setup/scripts/install-kit.test.mjs'; // compozy-driver: the installer, its retired files and its inputs
+import '../../compozy/skills/compozy-setup/scripts/devkit-kit.test.mjs'; // compozy-driver: the resolver and its six subcommands
+import '../../compozy/skills/compozy-setup/scripts/gen-agents.test.mjs'; // compozy-driver: the agents rendered from PACKS
+import '../../compozy/skills/compozy-setup/scripts/loop-templates.test.mjs'; // compozy-driver: the three loops of the kit
+import '../../compozy/skills/compozy-setup/scripts/adoption.test.mjs'; // compozy-driver: this repository's .compozy/ is the rendered kit
 
 const here = dirname(fileURLToPath(import.meta.url));
 const guard = join(here, 'guard.mjs');
@@ -55,7 +61,7 @@ function repo({ changes = {}, branch = 'main', roadmap, archived = [] } = {}) {
   return root;
 }
 
-const clean = { DEVKIT_BYPASS: '', DEVKIT_CHANGE: '', DEVKIT_BRANCH: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
+const clean = { DEVKIT_BYPASS: '', DEVKIT_CHANGE: '', DEVKIT_BRANCH: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', COMPOZY_SESSION_ID: '' };
 function run(mode, input, env = {}, cwd) {
   const r = spawnSync('node', [guard, mode], { cwd, input: JSON.stringify(input), encoding: 'utf8', env: { ...process.env, ...clean, ...env } });
   return { code: r.status, err: r.stderr, out: r.stdout };
@@ -1048,6 +1054,47 @@ test('approval.md: main-session only even with several active changes or in anot
     assert.equal(edit(root, f).code, 0, 'the main session by Write');
     assert.equal(bash(root, `echo ok > ${f}`).code, 0, 'the main session by redirect');
   }
+});
+
+// Invariant: in a CompozyOS session approval.md is written only by the kit's record step (compozy-driver D-11, coordination-locks).
+// Layer: guard's writeViolation, through `guard edit` and `guard bash`. Suite: guard. The variable is the one a CompozyOS seat sees (probe P-1).
+const COMPOZY_ENV = { COMPOZY_SESSION_ID: 'sess_probe' };
+const COMPOZY_REASON = /in a CompozyOS session approval\.md is written only by the kit's record step, from the owner's answer/;
+
+test('guard compozy approval: the Write tool of the main session is refused in a CompozyOS session', () => {
+  const root = repo({ changes: { feat: approved } });
+  const r = run('edit', { cwd: root, tool_name: 'Write', tool_input: { file_path: join(root, 'openspec/changes/feat/approval.md') } }, COMPOZY_ENV);
+  assert.equal(r.code, 2);
+  assert.match(r.err, COMPOZY_REASON);
+});
+
+test('guard compozy approval: a Bash redirect of the main session is refused in a CompozyOS session', () => {
+  const root = repo({ changes: { feat: approved } });
+  const r = bash(root, "echo '- Status: APPROVED' > openspec/changes/feat/approval.md", undefined, COMPOZY_ENV);
+  assert.equal(r.code, 2);
+  assert.match(r.err, COMPOZY_REASON);
+});
+
+test('guard compozy approval: a subagent is refused in a CompozyOS session with the same reason', () => {
+  const root = repo({ changes: { feat: approved } });
+  const r = run('edit', { cwd: root, tool_name: 'Write', tool_input: { file_path: join(root, 'openspec/changes/feat/approval.md') }, ...agent('tdd-implementer') }, COMPOZY_ENV);
+  assert.equal(r.code, 2);
+  assert.match(r.err, COMPOZY_REASON);
+});
+
+test('guard compozy approval: the main session outside a CompozyOS session still writes it', () => {
+  const root = repo({ changes: { feat: approved } });
+  assert.equal(edit(root, 'openspec/changes/feat/approval.md').code, 0);
+  const blank = run('edit', { cwd: root, tool_name: 'Write', tool_input: { file_path: join(root, 'openspec/changes/feat/approval.md') } }, { COMPOZY_SESSION_ID: '' });
+  assert.equal(blank.code, 0, 'an empty variable is no CompozyOS session');
+});
+
+test('guard compozy approval: a subagent outside a CompozyOS session is refused with the reason of the main-session rule', () => {
+  const root = repo({ changes: { feat: approved } });
+  const r = edit(root, 'openspec/changes/feat/approval.md', 'tdd-implementer');
+  assert.equal(r.code, 2);
+  assert.match(r.err, /approval\.md is written only by the main session, from the owner's own message; not by tdd-implementer/);
+  assert.doesNotMatch(r.err, /CompozyOS/);
 });
 
 test('gh pr create after cd to a directory with no project still meets the session root gate (D5)', () => {

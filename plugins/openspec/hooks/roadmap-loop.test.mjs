@@ -15,6 +15,7 @@ import * as changeLoopModule from './change-loop.mjs';
 import { approvalState } from './deliver-check.mjs';
 import { roundRepo } from './conduct-check.test.mjs';
 import { readCounter } from './change-loop.test.mjs';
+import { fakeCompozy } from './compozy-driver.test.mjs';
 import { makeOpenspec } from './flow-check.mjs';
 import * as loopModule from './roadmap-loop.mjs';
 import { limitOf, readLoad, parseWord, gateOf, isPrevious, classifyLines, decideRoadmap, boardOf, draftText } from './roadmap-loop.mjs';
@@ -801,13 +802,19 @@ test('roadmap-loop start: roadmap and status are routed', () => {
     assert.equal(b.reply, undefined, 'no reply: the skill calls roadmap-loop');
   }
   // After the project gate, as for the change verb.
-  for (const config of ['schema: spec-driven\n', 'schema: devkit\ndevkit:\n  driver: robot\n', 'schema: devkit\ndevkit:\n  driver: compozy\n']) {
+  for (const config of ['schema: spec-driven\n', 'schema: devkit\ndevkit:\n  driver: robot\n', 'schema: devkit\ndevkit:\n  driver: script\n']) {
     const cwd = gitRepo({ config });
     const asked = JSON.parse(startRun(cwd, 'change add a thing').stdout);
     for (const verb of ['roadmap', 'status']) {
       const b = JSON.parse(startRun(cwd, verb).stdout);
       assert.deepEqual([b.mode, b.reply], [asked.mode, asked.reply], `${verb} in ${config}`);
     }
+  }
+  // The compozy driver passes the gate for both verbs: the modes are the Claude driver's, with the driver named for the skill (compozy-driver D-1, D-7).
+  const onCompozy = gitRepo({ config: 'schema: devkit\ndevkit:\n  driver: compozy\n' });
+  for (const verb of ['roadmap', 'status']) {
+    const b = JSON.parse(startRun(onCompozy, verb).stdout);
+    assert.deepEqual([b.mode, b.verb, b.settings.driver, b.reply], [verb, verb, 'compozy', undefined], `${verb} on compozy`);
   }
   // The verbs of later rounds keep their round; an unknown verb names the three commands that exist.
   for (const [verb, round] of [['help', 23]]) assert.equal(JSON.parse(startRun(root, verb).stdout).reply, render('en', 'verb-not-built', { verb, round }));
@@ -2750,6 +2757,234 @@ test('followups ADR 0014: the documents follow', () => {
   for (const f of [['README.md'], ['docs', 'roles.md'], ['docs', 'coordination-design.md']]) {
     assert.match(read(...f), /ADR 0014/, `${f.join('/')} cites ADR 0014`);
   }
+});
+
+// ---------------------------------------------------------------- the roadmap on CompozyOS (compozy-driver D-7)
+
+const COMPOZY_CONFIG = 'schema: devkit\ndevkit:\n  driver: compozy\n';
+const COMPOZY_READY = {
+  'workspace info': { stdout: { workspace: { name: 'devkit' } } },
+  'loop inspect': { stdout: { name: 'devkit-change' } },
+  'loop runs': { stdout: { items: [] } },
+  'loop run': { stdout: { run: { run_id: 'looprun-r1' }, web_url: 'http://localhost:2123/loop-runs/looprun-r1' } },
+  'loop requests': { stdout: { items: [] } },
+};
+const czRun = (id, status, change, loop) => ({ run_id: id, status, loop, inputs: change ? { change_id: change } : {} });
+const czRuns = (loop, ...runs) => ({ [`loop runs ${loop}`]: { stdout: { items: runs } } });
+
+// A project on the compozy driver with the fake `compozy` answering as a ready CompozyOS and the daemon's socket listening.
+async function czProject(t, { lines = ['[ ] a', '[ ] b', '[ ] c'], replies = {}, daemon = true, config = COMPOZY_CONFIG, changes = {}, files = {} } = {}) {
+  const root = gitRepo({ config, changes, files: { ...(lines === null ? {} : { 'openspec/roadmap.md': roadmapText(...lines) }), ...files } });
+  const k = fakeCompozy({ ...COMPOZY_READY, ...replies });
+  if (daemon) await k.daemon(t);
+  return { root, k, env: { ...cleanEnv, ...k.env } };
+}
+const czCmd = (p, argv, { stdin = '', load = 10 } = {}) => cmd(p.root, argv, { stdin, load, env: p.env });
+const czStart = (p, word = '', flags = FLAGS) => czCmd(p, ['compozy-start', ...flags], { stdin: word });
+const czTick = (p, places, opts = {}) => czCmd(p, ['compozy-tick', '--places', String(places), '--load-limit', '80', '--lang', 'en'], opts);
+const czState = (p) => czCmd(p, ['compozy-state', '--lang', 'en']);
+const calls = (p, verb) => p.k.argvs().filter((a) => a[0] === 'loop' && a[1] === verb);
+const inputsIn = (argv) => Object.fromEntries(argv.flatMap((a, i) => (argv[i - 1] === '--input' ? [[a.slice(0, a.indexOf('=')), a.slice(a.indexOf('=') + 1)]] : [])));
+const runIdOf = (argv) => argv[argv.indexOf('--run-id') + 1];
+const archive = (root, ...ids) => { put(root, Object.fromEntries(ids.map((id) => [`openspec/changes/archive/2026-11-20-${id}/proposal.md`, `# ${id}\n`]))); commitAll(root, 'archive'); };
+
+test('roadmap-loop compozy start: a number starts the roadmap run with its places, load limit and language', async (t) => {
+  const p = await czProject(t);
+  const r = czStart(p, '2');
+  assert.equal(r.code, 0, r.stdout);
+  const started = calls(p, 'run');
+  assert.equal(started.length, 1);
+  assert.equal(started[0][started[0].indexOf('--name') + 1], 'devkit-roadmap');
+  assert.deepEqual(inputsIn(started[0]), { places: '2', load_limit: '80', lang: 'en' });
+  assert.equal(r.stdout, `${render('en', 'compozy-roadmap-started', { places: 2, url: 'http://localhost:2123/loop-runs/looprun-r1' })}\n`);
+  assert.doesNotMatch(r.stdout, /devkit-roadmap:/, 'no run line: the stop lock never holds the turn');
+  // No word is one place, `roadmap 3` is three, and the load limit is read as the Claude driver reads it.
+  assert.equal(inputsIn(calls(p, 'run').at(-1)).places, '2');
+  const one = await czProject(t);
+  czStart(one, '');
+  assert.equal(inputsIn(calls(one, 'run')[0]).places, '1');
+  const three = await czProject(t);
+  czStart(three, 'roadmap 3', ['--lang', 'pt-BR', '--load-limit', '50%']);
+  assert.deepEqual(inputsIn(calls(three, 'run')[0]), { places: '3', load_limit: '80', lang: 'pt-BR' });
+  const fifty = await czProject(t);
+  czStart(fifty, '1', ['--lang', 'en', '--load-limit', '50']);
+  assert.equal(inputsIn(calls(fifty, 'run')[0]).load_limit, '50');
+});
+
+test('roadmap-loop compozy start: a live roadmap run is cancelled and the paused change runs resumed, before the new run starts', async (t) => {
+  const p = await czProject(t, {
+    replies: {
+      ...czRuns('devkit-roadmap', czRun('rr-1', 'running', null), czRun('rr-0', 'done', null)),
+      ...czRuns('devkit-change', czRun('cr-5', 'paused', 'a'), czRun('cr-6', 'running', 'b'), czRun('cr-4', 'done', 'c')),
+    },
+  });
+  const r = czStart(p, '2');
+  assert.equal(r.code, 0, r.stdout);
+  const order = p.k.argvs().filter((a) => ['cancel', 'resume', 'run'].includes(a[1]));
+  assert.deepEqual(order.map((a) => [a[1], a[1] === 'run' ? null : runIdOf(a)]), [['cancel', 'rr-1'], ['resume', 'cr-5'], ['run', null]]);
+});
+
+test('roadmap-loop compozy start: stop cancels the roadmap run, pauses the roadmap lines\' change runs and says where each open change stays', async (t) => {
+  const p = await czProject(t, {
+    lines: ['[ ] a', '[ ] b'],
+    changes: { a: { '.openspec.yaml': 'schema: devkit\n' } },
+    replies: {
+      ...czRuns('devkit-roadmap', czRun('rr-1', 'running', null)),
+      ...czRuns('devkit-change', czRun('cr-1', 'running', 'a'), czRun('cr-2', 'watching', 'elsewhere'), czRun('cr-3', 'done', 'b')),
+    },
+  });
+  const r = czStart(p, 'stop');
+  assert.equal(r.code, 0, r.stdout);
+  assert.deepEqual(calls(p, 'cancel').map(runIdOf), ['rr-1']);
+  assert.deepEqual(calls(p, 'pause').map(runIdOf), ['cr-1'], 'only a live run of a roadmap line');
+  assert.equal(calls(p, 'run').length, 0, 'stop starts nothing');
+  const lines = r.stdout.trimEnd().split('\n');
+  assert.equal(lines[0], render('en', 'roadmap-stopping'));
+  assert.match(lines[1], /^a: .+\.$/);
+  assert.equal(lines.length, 2, 'one roadmap-stayed line per open change');
+  assert.doesNotMatch(r.stdout, /devkit-roadmap:/);
+});
+
+test('roadmap-loop compozy start: an invalid word and a project with no roadmap answer as the Claude driver does, asking nothing', async (t) => {
+  const p = await czProject(t);
+  const bad = czStart(p, 'many');
+  assert.deepEqual([bad.code, bad.stdout], [0, `${render('en', 'roadmap-invalid', { word: 'many' })}\n`]);
+  const none = await czProject(t, { lines: null });
+  const r = czStart(none, '2');
+  assert.deepEqual([r.code, r.stdout], [0, `${render('en', 'roadmap-none')}\n`]);
+  assert.deepEqual([...p.k.calls(), ...none.k.calls()], [], 'CompozyOS was not asked');
+});
+
+test('roadmap-loop compozy start: CompozyOS not ready stops with its own reply and starts nothing', async (t) => {
+  const p = await czProject(t, { daemon: false });
+  const r = czStart(p, '2');
+  assert.equal(r.code, 3);
+  assert.match(r.stdout, new RegExp(render('en', 'compozy-stopped', { fix: 'compozy daemon start' }).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.equal(calls(p, 'run').length + calls(p, 'cancel').length + calls(p, 'resume').length + calls(p, 'pause').length, 0);
+});
+
+test('roadmap-loop compozy tick: free places and ready lines start the lines in roadmap order, up to the free places', async (t) => {
+  const p = await czProject(t);
+  const r = czTick(p, 2);
+  assert.equal(r.code, 0, r.stdout);
+  const started = calls(p, 'run');
+  assert.deepEqual(started.map((a) => inputsIn(a)), [{ change_id: 'a', request: 'a', lang: 'en' }, { change_id: 'b', request: 'b', lang: 'en' }]);
+  assert.ok(started.every((a) => a[a.indexOf('--name') + 1] === 'devkit-change'));
+  assert.equal(r.stdout, `${render('en', 'roadmap-started', { id: 'a', open: 1, places: 2 })}\n${render('en', 'roadmap-started', { id: 'b', open: 2, places: 2 })}\n`);
+});
+
+test('roadmap-loop compozy tick: an open change fills a place, and with no free place nothing starts', async (t) => {
+  const p = await czProject(t, { lines: ['[ ] a', '[ ] b', '[ ] c'] });
+  addOpen(p.root, 'a');
+  addOpen(p.root, 'b');
+  const r = czTick(p, 2);
+  assert.equal(r.code, 0);
+  assert.equal(calls(p, 'run').length, 0);
+  const more = czTick(p, 3);
+  assert.deepEqual(calls(p, 'run').map((a) => inputsIn(a).change_id), ['c'], 'a third place is filled by the next ready line');
+  assert.equal(more.code, 0);
+});
+
+test('roadmap-loop compozy tick: a loaded machine starts none and prints the held line; at the limit it starts', async (t) => {
+  const p = await czProject(t);
+  const held = czTick(p, 2, { load: 95 });
+  assert.equal(held.code, 0);
+  assert.equal(calls(p, 'run').length, 0);
+  assert.equal(held.stdout, `${render('en', 'roadmap-held', { id: 'a', load: 95, limit: 80 })}\n`);
+  const eased = czTick(p, 1, { load: 80 });
+  assert.equal(eased.code, 0);
+  assert.deepEqual(calls(p, 'run').map((a) => inputsIn(a).change_id), ['a'], 'the limit itself is not loaded');
+  const idle = await czProject(t, { lines: ['[ ] a'] });
+  addOpen(idle.root, 'a');
+  assert.equal(czTick(idle, 1, { load: 99 }).stdout, '', 'nothing ready, so nothing is held');
+});
+
+test('roadmap-loop compozy tick: a line whose run is live fills a place even with its folder absent', async (t) => {
+  const live = czRuns('devkit-change', czRun('cr-1', 'running', 'a'));
+  const p = await czProject(t, { lines: ['[ ] a', '[ ] b'], replies: live });
+  czTick(p, 1);
+  assert.equal(calls(p, 'run').length, 0, 'a holds the one place');
+  const q = await czProject(t, { lines: ['[ ] a', '[ ] b'], replies: live });
+  czTick(q, 2);
+  assert.deepEqual(calls(q, 'run').map((a) => inputsIn(a).change_id), ['b'], 'a is not started a second time');
+});
+
+test('roadmap-loop compozy tick: a line waits for a dependency that is not archived, and starts once it is archived on the default branch', async (t) => {
+  const p = await czProject(t, { lines: ['[ ] a', '[ ] b (after: a)'] });
+  czTick(p, 2);
+  assert.deepEqual(calls(p, 'run').map((a) => inputsIn(a).change_id), ['a'], 'b waits for a');
+  const q = await czProject(t, { lines: ['[ ] a', '[ ] b (after: a)'] });
+  archive(q.root, 'a');
+  czTick(q, 2);
+  assert.deepEqual(calls(q, 'run').map((a) => inputsIn(a).change_id), ['b'], 'a is archived: b starts, with Claude Code closed');
+});
+
+test('roadmap-loop compozy tick: CompozyOS not reachable exits 3 with the reply and starts nothing', async (t) => {
+  const p = await czProject(t, { daemon: false });
+  const r = czTick(p, 2);
+  assert.equal(r.code, 3);
+  assert.match(r.stdout, /CompozyOS is not running/);
+  assert.equal(calls(p, 'run').length, 0);
+  const gone = await czProject(t, { replies: { 'loop runs': { code: 1, stderr: 'daemon refused\n' } } });
+  assert.equal(czTick(gone, 2).code, 3);
+});
+
+test('roadmap-loop compozy state: exit 10 when every line is archived', async (t) => {
+  const p = await czProject(t, { lines: ['[ ] a', '[ ] b'] });
+  archive(p.root, 'a', 'b');
+  const before = picture(p.root);
+  const r = czState(p);
+  assert.equal(r.code, 10, r.stdout);
+  assert.equal(picture(p.root), before, 'writes nothing');
+  assert.equal(calls(p, 'run').length, 0, 'starts nothing');
+});
+
+test('roadmap-loop compozy state: exit 0 while a change run is live or a line can start', async (t) => {
+  const live = await czProject(t, { lines: ['[ ] a', '[ ] b (after: a)'], replies: czRuns('devkit-change', czRun('cr-1', 'running', 'a')) });
+  assert.equal(czState(live).code, 0, 'a run is live');
+  const ready = await czProject(t, { lines: ['[ ] a'] });
+  assert.equal(czState(ready).code, 0, 'a ready line can start');
+  assert.equal(calls(ready, 'run').length, 0);
+});
+
+test('roadmap-loop compozy state: exit 11 when nothing can start and no change run is live, saying what each open change needs', async (t) => {
+  const p = await czProject(t, { lines: ['[ ] a', '[ ] b (after: a)'] });
+  addOpen(p.root, 'a');
+  const r = czState(p);
+  assert.equal(r.code, 11, r.stdout);
+  assert.match(r.stdout, /^a: .+\.$/m);
+  assert.equal(calls(p, 'run').length, 0);
+});
+
+test('roadmap-loop compozy state: CompozyOS not reachable exits 3', async (t) => {
+  const p = await czProject(t, { daemon: false });
+  const r = czState(p);
+  assert.equal(r.code, 3);
+  assert.match(r.stdout, /CompozyOS is not running/);
+});
+
+test('roadmap-loop compozy status: the board and then the pending requests, or the reason CompozyOS cannot be reached', async (t) => {
+  const plain = gitRepo({ config: 'schema: devkit\n', files: { 'openspec/roadmap.md': roadmapText('[ ] a', '[ ] b') } });
+  const board = doStatus(plain).stdout;
+  const ready = await czProject(t, { lines: ['[ ] a', '[ ] b'], replies: { 'loop requests': { stdout: { items: [{ id: 'q1' }, { id: 'q2' }] } } } });
+  const withIt = czCmd(ready, ['status', ...FLAGS]);
+  assert.equal(withIt.code, 0);
+  assert.equal(withIt.stdout, `${board}${render('en', 'compozy-requests', { n: 2 })}\n`);
+  const down = await czProject(t, { lines: ['[ ] a', '[ ] b'], daemon: false });
+  const without = czCmd(down, ['status', ...FLAGS]);
+  assert.equal(without.code, 0);
+  assert.ok(without.stdout.startsWith(board));
+  assert.match(without.stdout.slice(board.length), /CompozyOS is not running/);
+});
+
+test('roadmap-loop compozy status: on the Claude driver the board is unchanged and CompozyOS is never asked', async (t) => {
+  const k = fakeCompozy(COMPOZY_READY);
+  await k.daemon(t);
+  const root = gitRepo({ config: 'schema: devkit\n', files: { 'openspec/roadmap.md': roadmapText('[ ] a') } });
+  const r = cmd(root, ['status', ...FLAGS], { env: { ...cleanEnv, ...k.env } });
+  assert.equal(r.code, 0);
+  assert.doesNotMatch(r.stdout, /CompozyOS/);
+  assert.deepEqual(k.calls(), []);
 });
 
 // ================================================================ roadmap-sessions-upfront, phase 1: the entry of a started change session (design D-1)

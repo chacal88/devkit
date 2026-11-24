@@ -56,6 +56,7 @@ Runs the devkit flow on top of OpenSpec: the devkit and devkit-lite schemas (gri
 
 | Agent | Model | Tools | What it does / when to use |
 |---|---|---|---|
+| [`change-coordinator`](../plugins/openspec/agents/change-coordinator.md) | sonnet | Read, Write, Edit, Bash, Glob, Grep | The coordinator's hands for drivers outside Claude Code, such as the CompozyOS loop `devkit-change`: opens a change, runs one grill turn, carries out the delivery and retro steps of the ship-change rows, records the retro answers and writes the review bench's steps for `devkit-review`. Use when a loop outside Claude Code hands it one step of a change, never in a Claude Code session, where the main session coordinates. |
 | [`openspec-validator`](../plugins/openspec/agents/openspec-validator.md) | haiku | Read, Glob, Grep, Bash | Runs structural validation on an OpenSpec change - openspec validate --strict, markdown link resolution, WHEN/THEN scenario presence, and consistency across proposal, design, tasks and spec deltas. Mechanical; does not review content. Use before reviewing, applying or archiving a change, or when the user says "validate the change" or "is this change well-formed?". |
 
 **Skills** (invoke with `/<name>` or let Claude pick them by description)
@@ -119,12 +120,12 @@ Side pane in the Claude desktop app over the devkit checkers: the change this se
 
 ## devkit-compozy
 
-Ships the CompozyOS delivery loop (version 2) over the devkit flow: a design gate, a demo step, a CI wait and the archive and cleanup after the merge, installed into any project by compozy-setup. — [README](../plugins/compozy/README.md)
+Ships the CompozyOS driver of the devkit flow: one agent per devkit role and three loops (a change, its review round and a roadmap), installed into any project by compozy-setup. — [README](../plugins/compozy/README.md)
 
 **Skills** (invoke with `/<name>` or let Claude pick them by description)
 
 | Skill | What it does / when to use |
 |---|---|
-| [`compozy-setup`](../plugins/compozy/skills/compozy-setup/SKILL.md) | Installs the CompozyOS delivery loop (version 2) into a project as `.compozy/` - config.toml, the four role shells, the loop template and the devkit-kit resolver. Use when a project adopts the CompozyOS kit, or when the user says "install compozy", "set up the compozy loop" or "adopt the compozy kit". |
+| [`compozy-setup`](../plugins/compozy/skills/compozy-setup/SKILL.md) | Installs the CompozyOS kit into a project as `.compozy/` - config.toml, one agent per devkit role, the three loops (a change, its review round, a roadmap) and the devkit-kit resolver. Use when a project adopts the CompozyOS kit, or when the user says "install compozy", "set up the compozy loop" or "adopt the compozy kit". |
 | [`screen-demo`](../plugins/compozy/skills/screen-demo/SKILL.md) | Runs a project's demo command and files the screenshots and the journey video a change's declared screens produce, under openspec/changes/<id>/evidence/. Use when a change's `## Screens` section names at least one screen and the project has a demo_command, after verify and before the pull request. |
-| [`screen-design`](../plugins/compozy/skills/screen-design/SKILL.md) | Reads a project's screen map and mockup version, proposes or confirms a row for each screen a change declares, and runs the mechanical half of the design gate. Use when a change's `## Screens` section names at least one screen, before implementation starts. |
+| [`screen-design`](../plugins/compozy/skills/screen-design/SKILL.md) | Reads a project's screen map and mockup version, proposes or confirms a row for each screen a change declares, and runs the mechanical check of the screen map (`screens-check`). Use when a change's `## Screens` section names at least one screen, before implementation starts. |

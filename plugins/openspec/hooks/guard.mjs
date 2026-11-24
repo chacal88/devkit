@@ -631,11 +631,17 @@ export function isTestFile(rel) {
   return parts.some((d) => /^(tests?|__tests__|e2e|specs?|cypress|playwright)$/i.test(d)) || /^test_|_test\.[^.]+$|[._-](test|spec|e2e|cy)\.[^.]+$/i.test(name);
 }
 
+// True in a CompozyOS session: a seat of a run sees its own session id (compozy-driver D-11, probe P-1).
+export const compozySession = (env) => String(env?.COMPOZY_SESSION_ID ?? '') !== '';
+
 // Why `actor` may not write `file` now, or null.
 function writeViolation(root, ch, actor, file) {
   const c = classify(root, ch.name, file);
   if (c.kind === 'outside' || c.kind === 'exempt') return null;
   const who = actor || 'the main session';
+  if (c.kind === 'gate' && c.owner === '' && compozySession(process.env)) {
+    return 'in a CompozyOS session approval.md is written only by the kit\'s record step, from the owner\'s answer';
+  }
   if (c.kind === 'gate' && c.owner === '') {
     return actor === '' ? null
       : `approval.md is written only by the main session, from the owner's own message; not by ${who}`;

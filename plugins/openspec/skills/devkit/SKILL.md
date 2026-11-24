@@ -33,7 +33,7 @@ DEVKIT_ARGS
 
 When a line of the request equals `DEVKIT_ARGS`, use `DEVKIT_ARGS_` followed by digits that no line of the request holds as the terminator. The script prints JSON with a `mode` and a `reply`. Act on the mode:
 
-- `not-built`, `unknown-verb`, `not-set-up`, `setting-unknown`, `driver-not-built`, `nothing` and `train-args`: say `reply` and end the turn.
+- `not-built`, `unknown-verb`, `not-set-up`, `setting-unknown`, `driver-not-built`, `driver-no-project`, `nothing` and `train-args`: say `reply` and end the turn. When the JSON's `settings.driver` is `compozy`, read the next section instead of the lines below.
 - `choose` and `ask-unfinished`: ask `reply` as one question with AskUserQuestion (else say it and end the turn). The options are each listed id and, for `ask-unfinished`, "start the new request". The answer is `resume` of that id, or the new change below; when `task` is not null, "start the new request" goes to `### A Jira task`.
 - `resume`: keep `reply` for the message that ends the turn, then enter the Loop with `change`. The `reply` may hold a second line, about a newer flow: keep it as it is.
 - `new`: a new change, below.
@@ -43,6 +43,25 @@ When a line of the request equals `DEVKIT_ARGS`, use `DEVKIT_ARGS_` followed by 
 - `train`: the Train section below.
 - `project`: the Project section below, with `text` as the words after `project`.
 - `is-slice`: say `reply` and end the turn: the slice continues with `/devkit project` and its name.
+
+## On the CompozyOS driver
+
+Read this section when `start`'s JSON has `settings.driver: compozy`. CompozyOS runs the loop of the change, and this session only starts or resumes that run: it runs no loop, hands no stage and asks nothing of the change (the grill, the approvals and the retro are asked in CompozyOS). Pass the request through the quoted heredoc as `start` does, with the same terminator rule, and in every case below say `reply` and end the turn.
+
+- `new`: propose the id by the rule of "A new change", choose no script, and run the call below. `name-taken`: propose another id and run it again. `name-invalid`: say `reply` and end the turn.
+- `resume`: run the same call with the JSON's `change` as `<id>` and an empty heredoc.
+- `choose` and `ask-unfinished`: ask as `start` says above, then run the call with the answer: `resume` of the chosen id, or `new` for the new request.
+- `roadmap`: run `node <skill-dir>/../../hooks/roadmap-loop.mjs compozy-start --lang ${user_config.language} --load-limit ${user_config.load_limit} <<'DEVKIT_ARGS'` with `$ARGUMENTS` as the heredoc body, as the Roadmap section does for `run`.
+- `status`: the Status section, unchanged.
+- `driver-no-project`: say `reply` and end the turn.
+
+```
+node <skill-dir>/../../hooks/change-loop.mjs compozy-start <id> --lang ${user_config.language} <<'DEVKIT_ARGS'
+<the request>
+DEVKIT_ARGS
+```
+
+The call prints JSON with a `mode`, a `reply`, the run's `runId` and its `url`, and never a `devkit-run:` line. Every mode ends the turn with `reply`, and an exit 3 too (`compozy-unavailable` names what to fix). A change that CompozyOS already runs answers `compozy-running`: say it, start nothing.
 
 ## A new change
 
@@ -229,7 +248,7 @@ DEVKIT_ARGS
 ```
 
    The script prints JSON with a `mode` and a `reply`. Act on the mode:
-   - `not-set-up`, `setting-unknown`, `driver-not-built`, `design-pack-missing`, `project-name-needed`, `name-invalid`, `project-done-already`, `is-change` and `project-folder-exists`: say `reply` and end the turn.
+   - `not-set-up`, `setting-unknown`, `driver-not-built`, `driver-no-project`, `design-pack-missing`, `project-name-needed`, `name-invalid`, `project-done-already`, `is-change` and `project-folder-exists`: say `reply` and end the turn.
    - `choose`: ask `reply` as one question with AskUserQuestion (else say it and end the turn); the options are each listed slice. The answer is `resume` of that slice.
    - `resume`: keep `reply` for the message that ends the turn, then enter the loop with `slice`.
    - `new`: the words are the slice's name. Run `node <skill-dir>/../../hooks/project-loop.mjs open <id> --lang ${user_config.language}` and keep its `reply` for the message that ends the turn, then enter the loop with the id. On any exit 3, say `reply` and end the turn.

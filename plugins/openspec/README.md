@@ -82,6 +82,7 @@ Hooks veto; they can't make a step happen. The flow's guarantee is that code doe
 
 | Agent | Model | Tools | What it does / when to use |
 |---|---|---|---|
+| [`change-coordinator`](agents/change-coordinator.md) | sonnet | Read, Write, Edit, Bash, Glob, Grep | The coordinator's hands for drivers outside Claude Code, such as the CompozyOS loop `devkit-change`: opens a change, runs one grill turn, carries out the delivery and retro steps of the ship-change rows, records the retro answers and writes the review bench's steps for `devkit-review`. Use when a loop outside Claude Code hands it one step of a change, never in a Claude Code session, where the main session coordinates. |
 | [`openspec-validator`](agents/openspec-validator.md) | haiku | Read, Glob, Grep, Bash | Runs structural validation on an OpenSpec change - openspec validate --strict, markdown link resolution, WHEN/THEN scenario presence, and consistency across proposal, design, tasks and spec deltas. Mechanical; does not review content. Use before reviewing, applying or archiving a change, or when the user says "validate the change" or "is this change well-formed?". |
 
 **Skills** (invoke with `/<name>` or let Claude pick them by description)
