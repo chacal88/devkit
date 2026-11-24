@@ -410,3 +410,26 @@ test('suite-speed AC-7 the docs and the agents context name the one command, and
   }
   assert.deepEqual(names, [], 'these lines still name the old command or the guard as the importer of the test files');
 });
+
+// Invariant: CLAUDE.md and CONTRIBUTING.md state the time the suite measured on an idle 8-core machine, not the old
+// figures. The figure is evidence (measure.md), never a constant here: the test recognises the form it is written in.
+// Layer: the documents. Suite: test-suite.test.mjs.
+// The old figures are joined from pieces, so this file does not hold them itself.
+const OLD_FIGURES = ['13 to 21 ' + 'minutes', 'about 13 ' + 'minutes'];
+const MEASURED = /about \d+ minutes on an idle 8-core machine/;
+const MEASURED_AT = /about \d+ minutes on an idle 8-core machine; \d+:\d{2} observed on [0-9a-f]{7,40}\b/;
+
+test('suite-speed AC-8 CLAUDE.md and CONTRIBUTING.md state the measured time', () => {
+  const claude = readFileSync(join(REPO_ROOT, 'CLAUDE.md'), 'utf8');
+  const contributing = readFileSync(join(REPO_ROOT, 'CONTRIBUTING.md'), 'utf8');
+  for (const [doc, text] of [['CLAUDE.md', claude], ['CONTRIBUTING.md', contributing]]) {
+    for (const old of OLD_FIGURES) assert.ok(!text.includes(old), `${doc} still holds the old figure "${old}"`);
+  }
+  const row = claude.split('\n').find((line) => line.includes(ONE_COMMAND));
+  assert.ok(row, `CLAUDE.md has no line holding ${ONE_COMMAND}`);
+  assert.match(row, MEASURED, 'the CLAUDE.md row does not state the measured time');
+  assert.ok(contributing.includes(ONE_COMMAND), `CONTRIBUTING.md does not hold ${ONE_COMMAND}`);
+  const after = contributing.slice(contributing.indexOf(ONE_COMMAND));
+  const paragraph = after.split(/\n[ \t]*\n/)[1] ?? '';
+  assert.match(paragraph, MEASURED_AT, 'the CONTRIBUTING.md paragraph after the command block does not state the measured time');
+});

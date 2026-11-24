@@ -29,7 +29,7 @@ code closed until the plan is ready, reviewer agents, checkers and a side panel.
 | --- | --- |
 | Catalog is up to date | `python3 scripts/gen-catalog.py --check` |
 | Names, descriptions, links, language | `python3 scripts/check.py` |
-| Every test file, each in its own process, several at once (run it as a background command of the tool, never with a shell `&`) | `node scripts/test-suite.mjs` |
+| Every test file, each in its own process, several at once (about 9 minutes on an idle 8-core machine; run it as a background command of the tool, never with a shell `&`) | `node scripts/test-suite.mjs` |
 | Validate the marketplace | `claude plugin validate .` |
 
 ## Working rules

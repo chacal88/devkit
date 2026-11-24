@@ -147,14 +147,14 @@ and end every task with `git status --short`.
 
 ## 4. The measurement and the time in the docs (AC-5, AC-8), after the place
 
-- [ ] 4.1 When the coordinating session has given this change a place with no other change running
+- [x] 4.1 When the coordinating session has given this change a place with no other change running
   on the worker, ask the owner to run, on the Avell,
   `nproc; uptime; time -p node scripts/test-suite.mjs` (bash) from the worktree with
   `TMPDIR=/var/tmp/devkit-suite-speed`, and record what the owner passes back (core count, the three
   load averages, every file's seconds, the `suite:` line, `real`, the commit) in
   `/var/tmp/devkit-suite-speed-proof/measure.md` for the evidence. Check: the file holds all of them
   and the run exited 0.
-- [ ] 4.2 Decide the split (D-11). No file above 600 seconds: record "no split" with the largest
+- [x] 4.2 Decide the split (D-11). No file above 600 seconds: record "no split" with the largest
   file's seconds in `measure.md`. A file above 600 seconds: split it by its section headings as
   D-11 says, prove its test names unchanged with D-10's one-file form (a TAP run of the original
   file at the commit before the split against `node scripts/test-suite.mjs --reporter=tap <its parts>`,
@@ -162,7 +162,7 @@ and end every task with `git status --short`.
   measure again (4.1's command), recorded in `measure.md`. The whole run above 600 seconds with no
   file above it: stop and ask the owner. Check: `measure.md` names the decision, and the last
   measured `real` is at most 600 seconds.
-- [ ] 4.3 Add T-15 to `plugins/openspec/hooks/test-suite.test.mjs` and see it fail; then write the
+- [x] 4.3 Add T-15 to `plugins/openspec/hooks/test-suite.test.mjs` and see it fail; then write the
   measured time into the `CLAUDE.md` row ("about <m> minutes on an idle 8-core machine", D-9) and
   the `CONTRIBUTING.md` paragraph ("about <m> minutes on an idle 8-core machine; <m:ss> observed on
   <short sha>"), the forms T-15's `MEASURED` and `MEASURED_AT` recognise (D-12); the figures come
