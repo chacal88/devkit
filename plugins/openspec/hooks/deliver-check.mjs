@@ -1802,6 +1802,9 @@ export function approvalState(dir) {
 // rows of change-loop.mjs's DECLARED, which this module cannot import (change-loop.mjs imports it); a test ties the two.
 export const RECORDED_KEYS = ['gate-red', 'review-round'];
 
+// The rounds of a review before the owner authorizes any more (D-4); each authorized round of a review's scope adds one.
+export const REVIEW_ROUNDS = 2;
+
 // The record of the declared steps, `<dir>/declared.json` (D-1): { steps, error }. A missing file is no step and no error; an
 // empty or unparsable file, a value that is not an object, a version other than 1 or a `steps` that is not a list is no step and
 // the error; an entry that is not an object, or whose key is not in RECORDED_KEYS, is skipped (a later version may add keys).
@@ -1819,6 +1822,15 @@ export function readDeclared(dir) {
   if (!Array.isArray(value.steps)) return refused('declared.json has no list of steps');
   const steps = value.steps.filter((s) => s !== null && typeof s === 'object' && !Array.isArray(s) && RECORDED_KEYS.includes(s.key));
   return { steps, error: null };
+}
+
+// The review rounds the owner authorized for the review `scope` ('review', the code review, or 'resolution', the review of a
+// conflict resolution on the support branch): the `review-round` entries of declared.json of that scope, an entry with no scope
+// counting as 'review'; 0 when the record cannot be read (D-4). The one count the delivery and the stage checkers read.
+export function authorizedRounds(dir, scope) {
+  const { steps, error } = readDeclared(dir);
+  if (error) return 0;
+  return steps.filter((s) => s.key === 'review-round' && (s.scope ?? 'review') === scope).length;
 }
 
 // The one step to take now, computed from facts only (see design D4, first
@@ -1879,8 +1891,9 @@ export function nextStep(state) {
   if (state.dirty.length) return step('commit', `uncommitted changes outside openspec/: ${state.dirty.slice(0, 3).join(', ')}`, { paths: state.dirty });
 
   const rejectedNow = state.reviews.filter((r) => r.current && !approved(r.verdict)).map((r) => r.name);
-  if (rejectedNow.length && state.reviewMd?.consensus === 'FAIL' && state.reviewMd.round >= 2) {
-    return step('stop-review-deadlock', `${rejectedNow.join(', ')} still rejects after round 2; the owner decides`, { reviewers: rejectedNow });
+  const roundLimit = state.roundLimit ?? REVIEW_ROUNDS;
+  if (rejectedNow.length && state.reviewMd?.consensus === 'FAIL' && state.reviewMd.round >= roundLimit) {
+    return step('stop-review-deadlock', `${rejectedNow.join(', ')} still rejects after round ${roundLimit}; the owner decides`, { reviewers: rejectedNow });
   }
   // An approved verdict at the current commit that still lists an undisposed finding is fixed, not re-reviewed.
   const approvedOpen = uniq(it(3).details.undisposed.map((f) => f.reviewer)
@@ -1919,8 +1932,9 @@ export function nextStep(state) {
       const r = state.reviews.find((x) => x.name === n);
       return r && !approved(r.verdict);
     });
-    const round = state.reviewMd?.consensus === 'FAIL' && state.reviewMd.round === 1 && reRejected ? 2 : 1;
-    return step('review', `review needed from ${toReview.join(', ')}`, { reviewers: toReview, round });
+    const last = state.reviewMd?.round ?? 0;
+    const round = state.reviewMd?.consensus === 'FAIL' && reRejected && last >= 1 && last < roundLimit ? last + 1 : 1;
+    return step('review', `review needed from ${toReview.join(', ')}`, { reviewers: toReview, round, ...(roundLimit > REVIEW_ROUNDS ? { limit: roundLimit } : {}) });
   }
   const stuck = [1, 2, 3, 4].find((n) => it(n).status === 'blocked');
   if (stuck) return step('blocked', it(stuck).reason, { item: stuck });
@@ -1963,8 +1977,9 @@ export function nextStep(state) {
       const res = two.resolution;
       if (res.error) return step('blocked', res.error);
       if (!res.approved) {
-        if (res.rejected.length && res.round?.consensus === 'FAIL' && res.round.round >= 2) {
-          return step('stop-review-deadlock', `${res.rejected.join(', ')} still rejects the resolution after round 2; the owner decides`, { reviewers: res.rejected, resolution: true });
+        const limit = res.limit ?? REVIEW_ROUNDS;
+        if (res.rejected.length && res.round?.consensus === 'FAIL' && res.round.round >= limit) {
+          return step('stop-review-deadlock', `${res.rejected.join(', ')} still rejects the resolution after round ${limit}; the owner decides`, { reviewers: res.rejected, resolution: true });
         }
         const approvedOpen = uniq(res.undisposed.map((f) => f.reviewer)
           .filter((n) => res.verdicts.some((v) => v.name === n && !res.stale.includes(n) && approved(v.verdict))));
@@ -1977,9 +1992,11 @@ export function nextStep(state) {
           return step('fix-resolution', why, { root: sup.path, branch: sup.branch, findings: res.undisposed.filter((f) => fix.includes(f.reviewer)) });
         }
         const again = res.verdicts.some((v) => !approved(v.verdict) && [...res.stale, ...res.missing].includes(v.name));
-        const round = res.round?.consensus === 'FAIL' && res.round.round === 1 && again ? 2 : 1;
+        const last = res.round?.round ?? 0;
+        const round = res.round?.consensus === 'FAIL' && again && last >= 1 && last < limit ? last + 1 : 1;
         return step('review-resolution', `the resolution on ${sup.branch} needs a review from ${uniq([...res.missing, ...res.stale]).join(', ')}`, {
           root: two.root, support: sup.branch, commits: res.commits.map(({ sha, subject }) => ({ sha, subject })), diffs: res.commits.map((c) => c.diff), commit: res.newest, round,
+          ...(limit > REVIEW_ROUNDS ? { limit } : {}),
         });
       }
       if (sup.exists && !sup.hasTask) return step('merge-into-support', `${sup.branch} lacks the task branch ${state.id}`, { root: sup.path, branch: sup.branch, from: state.id });
@@ -2085,7 +2102,7 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     const test = findTestPr(gh, { id, testBranch, acIds });
     const support = supportState(root, id, testBranch);
     const taskRef = gitOk(root, ['rev-parse', '--verify', '--quiet', `refs/heads/${id}`]) ? `refs/heads/${id}` : 'HEAD';
-    const resolution = resolutionState(root, id, { taskRef, supportRef: support.exists ? `refs/heads/${support.branch}` : null });
+    const resolution = { ...resolutionState(root, id, { taskRef, supportRef: support.exists ? `refs/heads/${support.branch}` : null }), limit: REVIEW_ROUNDS + authorizedRounds(dir, 'resolution') };
     return {
       base: configuredBase, testBranch, defaultBranch, defaultOk: defaultBranch === configuredBase, defaultError: repo?.error ?? null,
       foreign: testBranchCommit(root, { base: configuredBase, testBranch, head: 'HEAD' }),
@@ -2156,9 +2173,12 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     started: existsSync(join(dir, 'tasks.md')) && parseTasks(readFileSync(join(dir, 'tasks.md'), 'utf8')).some((t) => t.done),
     phases: readPhases(join(dir, 'tasks.md')),
     reviewMd: readReviewMd(join(dir, 'review.md')),
+    // The code review's round limit: REVIEW_ROUNDS plus the rounds the owner authorized for it (D-4).
+    roundLimit: REVIEW_ROUNDS + authorizedRounds(dir, 'review'),
     reviews: readReviews(root, id, facts).map((r) => ({ name: r.name, verdict: r.verdict, current: !r.why })),
-    // The change folder's files edited and not committed, outside its own review record: a plan fix waiting for its commit.
-    planDirty: changedUnder(root, `openspec/changes/${id}`).filter((p) => !reviewRecord(id)(p)),
+    // The change folder's files edited and not committed, outside its own review record and the record of the declared steps
+    // (coordinator-loop-fixes D-1): a plan fix waiting for its commit.
+    planDirty: changedUnder(root, `openspec/changes/${id}`).filter((p) => !reviewRecord(id)(p) && p !== `openspec/changes/${id}/declared.json`),
     // The change folder's uncommitted paths (loop-place-and-evidence D-1): the review round waits for their commit.
     folderDirty: changedUnder(root, `openspec/changes/${id}`),
     pr: prFacts(fetched),

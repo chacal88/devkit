@@ -42,7 +42,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, handOffKey, handOffsOf, typedSince, isChangeId, readRoadmap, readValue, isDecisionRecord, parseStageHeader, parseDevkitBlock, deliverySettings, budgetValue, releaseTagSetting, trainSetting, SPEND_MESSAGES } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, readTestSettings } from './flow-check.mjs';
-import { collectState, buildReport, locateChange, approvalState, makeGh, readDeclared } from './deliver-check.mjs';
+import { collectState, buildReport, locateChange, approvalState, makeGh, readDeclared, authorizedRounds, REVIEW_ROUNDS } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
 import { emptyRun, readRun, runFilePath } from './run-file.mjs';
 import { readiness, liveRuns, startRun, CHANGE_LOOP } from './compozy-driver.mjs';
@@ -1428,8 +1428,19 @@ export function decide(facts) {
     }
     const number = row.next.number ?? row.delivered?.next?.number;
     const named = Object.fromEntries(['branch', 'base', 'list'].filter((k) => row.next[k] !== undefined).map((k) => [k, row.next[k]]));
-    return waiting('waiting-for-owner', OWNER_STEP[step], currentId, number === undefined ? named : { number, ...named });
+    // The resolution review's deadlock says so in its detail (D-4): the owner's word for one more round answers that review.
+    const dispute = step === 'stop-review-deadlock' && row.next.resolution === true ? { resolution: true } : undefined;
+    return waiting('waiting-for-owner', OWNER_STEP[step], currentId, number === undefined ? named : { number, ...named }, dispute);
   }
+}
+
+// The review an action shows waiting for the owner's word (D-4): 'resolution' for the resolution review's deadlock, 'review' for
+// the code review's (its dispute end, or the blocked `ceiling` end of the `review` stage of role `review-bench`); null otherwise.
+export function deadlockScope(action) {
+  if (action?.kind !== 'end') return null;
+  if (action.end?.why === 'waiting-review-dispute') return action.detail?.resolution === true ? 'resolution' : 'review';
+  if (action.end?.state === 'blocked' && action.end.why === 'ceiling' && action.role === 'review-bench') return 'review';
+  return null;
 }
 
 // ---------------------------------------------------------------- reading the change (D-5)
@@ -3206,7 +3217,17 @@ export function declaredStep(cwd, key, { params, lang, env, openspec, gh }) {
     const action = look({ redGate: before ? { phase, again: true } : { phase } });
     return { code: exitCodeOf(action), stdout: loopOutput(id, action), stderr: '' };
   }
-  throw new LoopUsageError(`${key} has no declare step in this version`);
+  // review-round (D-4): only at a deadlock, only with the owner's own words; the round answers the review in front of the owner.
+  const words = typeof params.words === 'string' ? params.words : '';
+  if (words.trim() === '') throw refuse('declare-no-words');
+  const scope = deadlockScope(look());
+  if (scope === null) throw refuse('declare-not-at-deadlock');
+  const read = readDeclared(dir);
+  if (read.error) throw refuse('declare-unreadable', { error: read.error });
+  const round = REVIEW_ROUNDS + authorizedRounds(dir, scope) + 1;
+  record({ key, scope, round, words: words.slice(0, 200), at: now() });
+  const action = { ...look(), declared: { key, reply: render(l, 'review-round-authorized', { id, round }) } };
+  return { code: exitCodeOf(action), stdout: loopOutput(id, action), stderr: '' };
 }
 
 // The folder of change `id` as the loop finds it from `cwd` (its worktree, else the main checkout).

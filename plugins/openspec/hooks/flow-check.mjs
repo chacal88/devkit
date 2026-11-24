@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader, FlowUsageError, readFlow, readFlowFile, FLOW_LANGS, changeFlow, changeSchemaAt, parseDevkitBlock, budgetValue, spendOf, spendSources, spendLines } from './guard.mjs';
-import { gitFacts, staleness, ownFiles, stalenessBase, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads, trainFacts, isDevkitScript } from './deliver-check.mjs';
+import { gitFacts, staleness, ownFiles, stalenessBase, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads, trainFacts, isDevkitScript, authorizedRounds } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
 // The flow file reader and its error live in guard.mjs (the CI job downloads that file, not this one); one reader, re-exported.
@@ -307,7 +307,7 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   const files = {};
   for (const s of flow.stages) if (s.source === 'artifact') files[s.id] = stageFiles(located.dir, s.file);
   Object.assign(facts, { files, opened: existsSync(join(located.dir, '.openspec.yaml')), skipped: [], tasks: null, dirty: [], head: null,
-    flags: classificationFlags(located.dir), settings: readTestSettings(root).paths,
+    flags: classificationFlags(located.dir), authorizedReviewRounds: authorizedRounds(located.dir, 'review'), settings: readTestSettings(root).paths,
     flowVersion: { version: followed.version, installed: followed.installed, pinned: followed.pinned } });
   if (isPreviousScript(files, flow)) return { facts, flow };
   let config;
@@ -529,7 +529,7 @@ function artifactState(stage, files, facts, flow, started) {
       if (mine !== null && other !== null && other - mine > FRESH_MS) { stale = { code: 'stale-plan', params: { by: a } }; break; }
     }
   }
-  const ceiling = stage.ceiling === 'owner' ? null : stage.ceiling ?? flow.ceilings.default;
+  const ceiling = ceilingOf(stage, flow, facts);
   if (result === 'failed' && stage.ceiling === 'owner') return out('failed', 'changes-asked', { attempt: h.attempt }, info);
   if (result === 'failed') {
     // The failures in a row since the stage file last passed, from git (design D-1, D-3); a facts with no history counts none earlier.
@@ -539,6 +539,15 @@ function artifactState(stage, files, facts, flow, started) {
   }
   if (stale) return out('stale', stale.code, stale.params, info);
   return out('passed', 'passed', { attempt: h.attempt }, info);
+}
+
+// The attempt ceiling of `stage` (coordinator-loop-fixes D-4): null for a stage the owner ends; else its own ceiling or the flow's
+// default, and for the code review (the `review` stage of role `review-bench`) one more per review round the owner authorized
+// (`facts.authorizedReviewRounds`, 0 when absent). No other stage, and no review of another role, is lifted.
+export function ceilingOf(stage, flow, facts) {
+  if (stage.ceiling === 'owner') return null;
+  const lifted = stage.id === 'review' && stage.role === 'review-bench' ? facts?.authorizedReviewRounds ?? 0 : 0;
+  return (stage.ceiling ?? flow.ceilings.default) + lifted;
 }
 
 function tasksState(facts) {
@@ -585,7 +594,6 @@ export function computeFlow(facts, flow, { after = null } = {}) {
     return artifactState(s, facts.files[s.id] ?? [], facts, flow, started);
   });
   const settled = (r) => r.state === 'passed' || r.state === 'not-applicable';
-  const ceilingOf = (s) => s.ceiling ?? flow.ceilings.default;
 
   // The current stage: the first that is not settled. The delivery is read only when reached.
   let cur = -1;
@@ -653,7 +661,7 @@ export function computeFlow(facts, flow, { after = null } = {}) {
   if (raw.state === 'failed') {
     // The owner ends the attempts of a stage declared `ceiling: "owner"`: it is drawn again, never blocked by a number.
     if (s.ceiling === 'owner') return offer(s.id, 'owner-changes', { stage: s.id, attempt: raw.attempt });
-    const ceiling = ceilingOf(s);
+    const ceiling = ceilingOf(s, flow, facts);
     if (raw.failures >= ceiling) return finishEnd('blocked', s.id, 'ceiling-reached', { stage: s.id, attempt: raw.attempt, failures: raw.failures, ceiling });
     if (raw.fixed) return offer(s.id, 'rerun-after-fix', { stage: s.id });
     return offer(s.onFail ?? s.id, 'fix-after-failure', { failed: s.id, attempt: raw.attempt, failures: raw.failures, ceiling });

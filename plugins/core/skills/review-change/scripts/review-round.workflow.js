@@ -61,6 +61,11 @@ function oneLine(text, max = 400) {
   return s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s;
 }
 
+// The last round of a review: `args.limit`, the loop's limit when the owner authorized more rounds, else 2.
+function roundLimit(args) {
+  return args.limit === undefined ? 2 : args.limit;
+}
+
 function validateArgs(args) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) invalid('args must be an object');
   for (const k of ['change', 'changeDir', 'range']) {
@@ -68,7 +73,9 @@ function validateArgs(args) {
   }
   if (typeof args.head !== 'string' || !/^[0-9a-f]{40}$/.test(args.head)) invalid('args.head must be the full 40 hex sha git rev-parse HEAD prints');
   if (!isPathList(args.dirty)) invalid('args.dirty must be a list of paths');
-  if (args.round !== 1 && args.round !== 2) invalid('args.round must be 1 or 2');
+  if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit < 2)) invalid('args.limit must be a whole number of 2 or more');
+  const limit = roundLimit(args);
+  if (!Number.isInteger(args.round) || args.round < 1 || args.round > limit) invalid('args.round must be from 1 to ' + limit);
   if (args.path !== 'workflow' && args.path !== 'agents') invalid("args.path must be 'workflow' or 'agents'");
   if (args.structural !== 'PASS') invalid("args.structural must be 'PASS'");
   if (typeof args.preamble !== 'string') invalid('args.preamble must be a string');
@@ -257,7 +264,7 @@ function reviewerPrompt(args, entry) {
     ? 'Your previous verdict file is ' + entry.previous + '. Re-list each of its findings with its disposition (fixed in <one sha>, the commit that holds the fix, or refuted: <evidence>) when it was dealt with; list the others as they stand.\n'
     : '';
   return lead(args)
-    + 'This is stage 1 of a staged review round for change ' + args.change + ' (round ' + args.round + ' of 2).\n'
+    + 'This is stage 1 of a staged review round for change ' + args.change + ' (round ' + args.round + ' of ' + roundLimit(args) + ').\n'
     + 'Change folder: ' + args.changeDir + '\n'
     + 'Review range: ' + range + '\n'
     + previous
@@ -289,7 +296,7 @@ function verifierPrompt(args, entry, finding) {
 
 function writerPrompt(args, outcome) {
   return lead(args)
-    + 'This is stage 3 of a staged review round for change ' + args.change + ' (round ' + args.round + ' of 2). Do not review again.\n'
+    + 'This is stage 3 of a staged review round for change ' + args.change + ' (round ' + args.round + ' of ' + roundLimit(args) + '). Do not review again.\n'
     + 'Write your verdict file ' + args.changeDir + '/' + (args.verdictDir || 'reviews') + '/' + outcome.reviewer + '.md, overwriting it, and write nothing else.\n'
     + 'Do not change, add or drop a finding, and do not reword a line. The file is, in this order:\n'
     + 'line 1: exactly Verdict: ' + outcome.verdict + ' (the round computed it: approved only when no blocking or important finding is left open)\n'
@@ -324,8 +331,8 @@ function consolidate(input) {
   }
   const next = consensus === 'PASS'
     ? 'Ready to ship.'
-    : args.round >= 2
-      ? 'Consensus deadlock after round 2: the owner decides.'
+    : args.round >= roundLimit(args)
+      ? 'Consensus deadlock after round ' + roundLimit(args) + ': the owner decides.'
       : 'Fix the open findings, then run review-change again (round ' + (args.round + 1) + ').';
   const text = [
     '# Review: ' + args.change + ', round ' + args.round,
@@ -336,7 +343,7 @@ function consolidate(input) {
     '|---|---|---|---|---|---|---|',
     ...rows,
     '',
-    'Consensus: ' + consensus + ' (round ' + args.round + '/2)',
+    'Consensus: ' + consensus + ' (round ' + args.round + '/' + roundLimit(args) + ')',
     '',
     '## Open findings',
     ...(open.length ? open : ['None.']),

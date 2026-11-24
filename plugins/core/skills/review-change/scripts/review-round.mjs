@@ -43,6 +43,8 @@ export const {
 // JSON on stdout; exit 0 ok, 2 check-file mismatch, 3 usage or input error.
 // tree: { root } -> { head, dirty }, the worktree's head sha and the uncommitted paths that mark a verdict's
 // Commit: line (args.head and args.dirty of a round).
+// Every subcommand passes `args` through the rules' validateArgs unchanged: an optional `args.limit` (the loop's round limit,
+// 2 when absent) reaches the prompts and the consolidated text as it does on the workflow path.
 
 const SUBCOMMANDS = ['stage1', 'verify', 'outcomes', 'consolidate', 'check-file', 'tree'];
 const VERIFIER = 'devkit-core:finding-verifier';

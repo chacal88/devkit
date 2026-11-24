@@ -343,11 +343,12 @@ test('coordinator-loop-fixes AC-10 T31 the skill\'s gate item and the roadmap it
 // `deadlockScope`. Suite: change-loop-declared.
 
 const WORDS = 'one more round';
-// A delivered change whose code review failed at rounds 1 and 2, `code-quality-reviewer` rejecting at the code's commit: the
-// `review` stage's header `result=failed attempt=2`, committed after a `result=failed attempt=1` take.
+// A delivered change whose code review failed at rounds 1 and 2, `code-quality-reviewer` rejecting at the head the reviews were
+// written on (only the review record is committed after it, so the rejection stays current): the `review` stage's header
+// `result=failed attempt=2`, committed after a `result=failed attempt=1` take.
 function deadlocked() {
   const d = deliveredChange({ checks: [check('build', 'pass')] });
-  const sha = git(d.wt, 'rev-parse', 'HEAD~1');
+  const sha = git(d.wt, 'rev-parse', 'HEAD');
   const rejected = (at) => `Verdict: rejected\nCommit: ${at}\n\n# Review\n\n### Findings\n- [blocking] F1 src/feat.ts:1 a thing is wrong\n`;
   put(d.wt, {
     'openspec/changes/feat/reviews/code-quality-reviewer.md': rejected(sha),
