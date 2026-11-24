@@ -80,3 +80,32 @@ Consensus: FAIL (round 1/2)
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: state-skips-unlocated, round 2
+
+Path: agents · range `946e3e8..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | cb79a38 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | cb79a38 |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | cb79a38 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | cb79a38 |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Round 2 is a scoped call: each reviewer re-checked its previous findings and the range 63c5eac..HEAD, which holds f636733 (the state paragraph of docs/openspec-flow.md and a dated Note in ADR 0017), the refreshed evidence and the round-1 record; no product or test file changed.
+- The adr-reviewer F1 is fixed in f636733; its nit F2 is marked fixed in the same commit by the reviewer, who found design.md already cites ADR 0017 decision 1.
+- The other nits stay open on purpose: the plan files are not edited after approval, and the code nits are inherited or accepted risks.
+- The whole suite is proven by the delivery train, not run here.
+- The writers read their stage-3 prompts from files in the scratch folder, with the text the script gave.
+
+## Next
+Ready to ship.
