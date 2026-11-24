@@ -1,58 +1,14 @@
-// node --test --test-name-pattern="^compozy-driver" plugins/openspec/hooks/compozy-driver.test.mjs
+// node scripts/test-suite.mjs --test-name-pattern="^compozy-driver" plugins/openspec/hooks/compozy-driver.test.mjs
 // compozy-driver D-2: the one module that calls CompozyOS. Every test runs the real module against a fake `compozy`
 // binary (a node script in a temporary folder, given as COMPOZY_BIN); no test calls the real `compozy`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { createServer } from 'node:net';
+import { realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpFolder } from './test-tmp.mjs';
+import { fakeCompozy } from './test-fixtures.mjs';
 import { readiness, liveRuns, startRun, pauseRun, resumeRun, cancelRun, pendingRequests, LIVE_STATES } from './compozy-driver.mjs';
 import { LoopUsageError } from './change-loop.mjs';
-
-const FAKE = `#!/usr/bin/env node
-const fs = require('fs');
-const path = require('path');
-const argv = process.argv.slice(2);
-fs.appendFileSync(path.join(__dirname, 'calls.log'), JSON.stringify({ argv, cwd: process.cwd() }) + '\\n');
-const replies = JSON.parse(fs.readFileSync(path.join(__dirname, 'replies.json'), 'utf8'));
-const key = argv[0] === '--version' ? '--version' : argv.slice(0, 2).join(' ');
-const loop = argv.includes('--loop') ? argv[argv.indexOf('--loop') + 1] : null;
-const r = (loop && replies[key + ' ' + loop]) || replies[key] || {};
-if (r.stderr) process.stderr.write(r.stderr);
-process.stdout.write(r.stdout === undefined ? '' : typeof r.stdout === 'string' ? r.stdout : JSON.stringify(r.stdout));
-process.exitCode = r.code === undefined ? 0 : r.code;
-`;
-
-// The one helper that builds the fake `compozy` and a temporary COMPOZY_HOME (both folders from `tmpFolder`); the other suites that
-// need the fake import it from this file. `replies` maps a subcommand ("loop runs", "workspace info", "--version") to
-// { code, stdout (a string or a value to print as JSON), stderr }; an unlisted subcommand exits 0 and prints nothing. A call with
-// `--loop <name>` reads the key "<subcommand> <name>" ("loop runs devkit-roadmap") first.
-// `daemon(t)` listens on the home's socket and closes the server when the test `t` ends.
-export function fakeCompozy(replies = {}) {
-  const dir = tmpFolder('devkit-compozy-bin-');
-  const home = tmpFolder('devkit-compozy-home-');
-  const bin = join(dir, 'compozy');
-  writeFileSync(bin, FAKE);
-  chmodSync(bin, 0o755);
-  const fake = {
-    bin, home, dir,
-    env: { COMPOZY_BIN: bin, COMPOZY_HOME: home },
-    set(next) { writeFileSync(join(dir, 'replies.json'), JSON.stringify(next)); return fake; },
-    calls() {
-      const file = join(dir, 'calls.log');
-      return existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
-    },
-    argvs() { return fake.calls().map((c) => c.argv); },
-    async daemon(t) {
-      const server = createServer();
-      await new Promise((resolve, reject) => { server.once('error', reject); server.listen(join(home, 'daemon.sock'), resolve); });
-      t.after(() => new Promise((resolve) => { server.close(() => resolve()); server.closeAllConnections?.(); }));
-      return fake;
-    },
-  };
-  return fake.set(replies);
-}
 
 const READY = {
   'workspace info': { stdout: { workspace: { name: 'devkit' } } },

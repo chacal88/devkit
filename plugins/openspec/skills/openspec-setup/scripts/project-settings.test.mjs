@@ -1,5 +1,5 @@
-// Tests for project-settings.mjs (devkit per project, design D4). Imported by hooks/guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too. HOME is a temp folder in every spawn.
+// Tests for project-settings.mjs (devkit per project, design D4). Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/skills/openspec-setup/scripts/project-settings.test.mjs`. HOME is a temp folder in every spawn.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, statSync, realpathSync, utimesSync } from 'node:fs';
