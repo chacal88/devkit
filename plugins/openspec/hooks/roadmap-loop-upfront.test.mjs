@@ -326,12 +326,14 @@ test('upfront AC-4 lock agent: a helper of the requirements stage is read from t
   const folder = join(root, 'openspec', 'schemas', 'devkit');
   const kept = JSON.parse(readFileSync(join(folder, 'flow.json'), 'utf8'));
   assert.deepEqual(kept.stages.find((s) => s.id === 'requirements').helpers, ['codebase-researcher', 'requirements-triage'], 'the fixture flow names both helpers');
-  const newer = { ...kept, version: kept.version + 1, stages: kept.stages.map((s) => (s.id === 'requirements' ? { ...s, helpers: ['requirements-triage'] } : s)) };
+  // The installed flow is the shipped version (the newest the reader reads); a is pinned to the one before it, which still names the researcher.
+  const pinned = { ...kept, version: kept.version - 1 };
+  const changed = { ...kept, stages: kept.stages.map((s) => (s.id === 'requirements' ? { ...s, helpers: ['requirements-triage'] } : s)) };
   put(root, {
-    'openspec/schemas/devkit/flow.json': JSON.stringify(newer),
-    [`openspec/schemas/devkit/flows/${kept.version}.json`]: JSON.stringify(kept),
-    [`openspec/schemas/devkit/flows/${newer.version}.json`]: JSON.stringify(newer),
-    'openspec/changes/a/.openspec.yaml': `schema: devkit\nx-devkit-flow: ${kept.version}\n`,
+    'openspec/schemas/devkit/flow.json': JSON.stringify(changed),
+    [`openspec/schemas/devkit/flows/${pinned.version}.json`]: JSON.stringify(pinned),
+    [`openspec/schemas/devkit/flows/${changed.version}.json`]: JSON.stringify(changed),
+    'openspec/changes/a/.openspec.yaml': `schema: devkit\nx-devkit-flow: ${pinned.version}\n`,
   });
   commitAll(root, 'a newer flow is installed, a follows the one it opened with');
   putRun(root, { places: 1, changeSessions: true });
@@ -347,12 +349,13 @@ test('upfront partOfStage: the part of a stage is read from the flow the change 
   const folder = join(root, 'openspec', 'schemas', 'devkit');
   const kept = JSON.parse(readFileSync(join(folder, 'flow.json'), 'utf8'));
   assert.equal(kept.stages.find((s) => s.id === 'design').part, 'plan', 'the fixture flow puts design in the plan part');
-  const newer = { ...kept, version: kept.version + 1, stages: kept.stages.map((s) => (s.id === 'design' ? { ...s, part: 'build' } : s)) };
+  const pinned = { ...kept, version: kept.version - 1 };
+  const changed = { ...kept, stages: kept.stages.map((s) => (s.id === 'design' ? { ...s, part: 'build' } : s)) };
   put(root, {
-    'openspec/schemas/devkit/flow.json': JSON.stringify(newer),
-    [`openspec/schemas/devkit/flows/${kept.version}.json`]: JSON.stringify(kept),
-    [`openspec/schemas/devkit/flows/${newer.version}.json`]: JSON.stringify(newer),
-    'openspec/changes/a/.openspec.yaml': `schema: devkit\nx-devkit-flow: ${kept.version}\n`,
+    'openspec/schemas/devkit/flow.json': JSON.stringify(changed),
+    [`openspec/schemas/devkit/flows/${pinned.version}.json`]: JSON.stringify(pinned),
+    [`openspec/schemas/devkit/flows/${changed.version}.json`]: JSON.stringify(changed),
+    'openspec/changes/a/.openspec.yaml': `schema: devkit\nx-devkit-flow: ${pinned.version}\n`,
   });
   commitAll(root, 'a newer flow is installed, a follows the one it opened with');
   assert.equal(changeLoopModule.partOfStage({ root }, 'a', 'design'), 'plan', 'a follows the flow it opened with');
