@@ -1,6 +1,6 @@
 // node --test --test-name-pattern="^version-pin" plugins/openspec/hooks/version-pin.test.mjs
-// change-version-pin: the flow a change opened with. Imported by guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// change-version-pin: the flow a change opened with. Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/hooks/version-pin.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, cpSync, rmSync, copyFileSync } from 'node:fs';
@@ -14,8 +14,7 @@ import * as ROADMAP from './roadmap-loop.mjs';
 import * as PL from './project-loop.mjs';
 import * as DC from './deliver-check.mjs';
 import { tmpFolder } from './test-tmp.mjs';
-import { gitRepo, put, commitAll, git, fakeGh } from './deliver-check.test.mjs';
-import { roundRepo } from './conduct-check.test.mjs';
+import { gitRepo, put, commitAll, git, fakeGh, roundRepo } from './test-fixtures.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..', '..', '..');
@@ -44,7 +43,7 @@ function installRelease1(folder) {
 }
 
 // The version 2 of `devkit` the upgrade tests install: a stage added after design, the readiness removed, a lower review ceiling.
-export function flowV2() {
+function flowV2() {
   const flow = treeFlow();
   const stages = flow.stages
     .filter((s) => s.id !== 'readiness')
@@ -58,7 +57,7 @@ export function flowV2() {
 }
 
 // A re-install of the schemas that ships version 2, as merged into the change's branch.
-export function upgradeTo2(checkout) {
+function upgradeTo2(checkout) {
   const text = JSON.stringify(flowV2(), null, 2);
   const folder = join(checkout, 'openspec', 'schemas', 'devkit');
   mkdirSync(join(folder, 'flows'), { recursive: true });
@@ -81,10 +80,10 @@ function makePackV2() {
   return dir;
 }
 const PACK_V2 = makePackV2();
-export const packV2 = () => PACK_V2;
+const packV2 = () => PACK_V2;
 
 // The headed stage files of a change, written into `dir`; `c0` is the commit every header names.
-export function planFiles(dir, stages, c0) {
+function planFiles(dir, stages, c0) {
   const head = (stage, result = 'passed', attempt = 1) => `<!-- devkit-stage ${stage} result=${result} attempt=${attempt} commit=${c0} -->\n`;
   const tasks = `# Tasks\n\n${[1, 2, 3, 4, 5, 6].map((n) => `- [x] 1.${n} step ${n}`).join('\n')}\n`;
   const files = {
@@ -107,7 +106,7 @@ export function planFiles(dir, stages, c0) {
 }
 
 // The bytes of a change's .openspec.yaml, compared before and after a command.
-export const pinOf = (dir) => readFileSync(join(dir, '.openspec.yaml'), 'utf8');
+const pinOf = (dir) => readFileSync(join(dir, '.openspec.yaml'), 'utf8');
 
 const PLAN_V1 = ['requirements', 'proposal', 'specs', 'design', 'tasks']; // no readiness yet: the next stage of version 1 is the readiness
 const FULL_V1 = [...PLAN_V1, 'readiness', 'approval', 'evidence', 'review']; // the code review failed at attempt 1

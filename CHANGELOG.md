@@ -1,5 +1,102 @@
 # Changelog
 
+## 0.42.1 — a stage's ceiling counts failures in a row
+
+- **devkit-openspec** 0.38.1: `flow-check` blocks a stage with `ceiling-reached` only after its failures in a row reach
+  the stage's ceiling. They are counted from the stage file's history in git since the file last carried `passed`;
+  `attempt` is unchanged, there is no new header field and the flow version does not change. A stage that passed between
+  failures starts again from zero. The readout and the replies of `change-loop` and `project-loop` say "failures in a row"
+  (`failures` joins the reason params). It also delivers the roadmap line `evidence-attempts-by-failure` (fused).
+- **Docs**: `docs/openspec-flow.md`, `plugins/openspec/README.md` and `docs/coordination-design.md` describe the count;
+  the CI snippet pins `v0.38.1`.
+
+## 0.42.0 — the test suite runs by file, in parallel
+
+- **Repository** (`scripts/test-suite.mjs`, `CLAUDE.md`, `CONTRIBUTING.md`, `openspec/config.yaml`): one command,
+  `node scripts/test-suite.mjs`, replaces `node --test plugins/openspec/hooks/guard.test.mjs`. It runs every
+  `*.test.mjs` of the four folders the old command ran, each file in a process of its own and several at once (as many as
+  the machine has cores; `--concurrency=<n>` on a loaded machine), takes file arguments and `--test-name-pattern=`, and
+  exits non-zero when a test fails, naming it ([ADR 0026](docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md)).
+  `CLAUDE.md`, `CONTRIBUTING.md` and the agents' context in `openspec/config.yaml` quote it, with the time measured on an
+  idle 8-core machine.
+- **devkit-openspec** 0.38.0: the helpers that test files shared moved out of the test files into
+  `plugins/openspec/hooks/test-fixtures.mjs` (no test, nothing made when it is imported), so no test file imports another
+  and `guard.test.mjs` holds only the guard's own tests. The script refuses a `*.test.mjs` under `plugins/` that imports
+  another, naming the file and the line, and gives each file its own empty `TMPDIR` (a real path, under one run root it
+  removes at the end); a file that leaves anything there fails the run, and the summary names what it left.
+- **devkit-core** 0.14.2: the header comment of the review round's test file names the new command (comment only).
+- **CI**: the job `check` has one `Test suite` step, `node scripts/test-suite.mjs`, in place of `Hook tests` and
+  `Hook tests left nothing in TMPDIR`.
+- **`scripts/check.py`** refuses a skipped test (`skip`, `only` or `todo`) in the suite's files; `plugins/compozy` is
+  exempt, its skips guard a missing `compozy` program.
+- Docs: ADR 0026 (accepted); the CI snippet now pins `v0.38.0`, the release's tag.
+
+## 0.40.0 — the CompozyOS driver
+
+- **devkit-openspec** 0.36.0: a project that sets `driver: compozy` runs its changes on CompozyOS.
+  `/devkit change` and `/devkit roadmap` start the run with `change-loop.mjs compozy-start` and
+  `roadmap-loop.mjs compozy-start` and reply with where to follow it; the session runs no loop. Each
+  turn of the CompozyOS loop asks the same checker the Claude driver asks (`change-loop.mjs next --view
+  compozy`), has it confirm the reading, and runs the one step it names; the owner's gates (the grill,
+  the mock-up and plan approvals, the retro answers) are CompozyOS requests whose answers are recorded by
+  scripts, and no tool of a CompozyOS session writes `approval.md`. The new agent `change-coordinator`
+  is the loops' hands. The CompozyOS driver does not carry the token budget, the Jira entry and
+  write-back, the `state` command, the run markers, remote machines or the `flow` notice
+  ([ADR 0024](docs/adr/0024-compozy-runs-the-short-loop.md), Consequences).
+- **devkit-compozy** 0.4.0: the kit is twenty-one agents generated from the Claude agent files (one per
+  devkit role, named as the role, each handing its work to the Claude agent of the same name) and three
+  loops: `devkit-change`, `devkit-review` and `devkit-roadmap`. The twelve-stage loop `openspec-change`
+  and the four role shells leave: `compozy-setup` run again removes the ones the project did not edit,
+  keeps and names an edited one, and drops the inputs the new templates no longer have.
+  `gen-agents.mjs --check` runs in CI.
+- Docs: ADR 0024 (proposed) amends ADR 0008, ADR 0009 and ADR 0016, with Notes in ADRs 0008, 0009, 0010 and
+  0016; `docs/compozy-kit.md` is rewritten for the three loops, the seat and reinstalling over the first
+  kit; the flow page, the coordination design, the roles and the pack README follow. The CI snippet now pins
+  `v0.36.0`, the release's tag.
+
+## 0.39.0 — the model is chosen by stage
+
+- **devkit-openspec** 0.35.0: every stage has a model, chosen by the loop. `models:` in the
+  `devkit:` block of `openspec/config.yaml`, or in a change's own `.openspec.yaml` (which wins),
+  overrides single stages of a built-in table (Opus for the grill, the ADRs and the plan, Haiku for
+  the unit-test run and the delivery hand-off, Sonnet for the rest; `opus[1m]` and `sonnet[1m]` only
+  as an opt-in, which reaches a session's own model and the retry's mapping, never a stage agent,
+  whose Agent call drops the suffix); an unknown stage or value is refused with `setting-unknown`.
+  Every hand-off `next` prints carries the stage's `model`, which the session sets on the Agent
+  call. A stage agent that stops with `Outcome: failure` on Haiku or Sonnet
+  without writing its stage file is handed again once on the next model up (one that records
+  `result=failed` in its stage file takes the stage's usual fix, with no retry), read from the
+  transcripts on a `next` called with `--after`; a second failure, or one on Opus, ends the run
+  blocked, as the loop and no longer the session declares it. In a roadmap run with a session per
+  change, the coordinating session starts each change session on its first stage's model and
+  switches it only down, never below the strongest model among the stage and the session-run
+  stages still ahead of it (`session-model`, `session-found`, `session-model-refused`).
+  `flow-check` and `/devkit status` print the tokens spent per stage and per model, the retries and
+  the total against the budget cap. The CI snippet now pins `v0.35.0`, the release's tag.
+- Docs: [ADR 0023](docs/adr/0023-the-model-is-chosen-by-stage.md) amends ADR 0014 decision 1;
+  `docs/openspec-flow.md` gains "The model of each stage", four troubleshooting rows and a new Cost
+  bullet; `docs/coordination-design.md` records `devkit.models` as final.
+
+## 0.38.0 — delivery train
+
+- **devkit-openspec** 0.34.0: a project that runs `trunk` or `trunk-auto` can set `devkit.delivery.train`
+  (the whole-suite command) to send its reviewed changes to the base branch together. A change boards
+  when its review is approved at its own head; a boarded change is not updated, verified or reviewed
+  again when the base moves, and a ready archive boards like a change. `/devkit train` runs the new
+  `hooks/train-loop.mjs`: it cuts `train/<n>`, joins the boarded heads in boarding order (release files
+  renumbered on the train only, by `release-merge.mjs --merge <rev>`; a conflict in any other path takes
+  the change off with its path), runs the whole suite once, writes the record `openspec/trains/<n>.md`
+  and opens one pull request, merged with a merge commit (by GitHub in `trunk-auto`, by the owner in
+  `trunk`). A red train is bisected: the change at the end of the smallest red prefix leaves with the
+  failure and the rest departs on a new train. On a train's pull request `devkit-reviews` judges each
+  boarded change at its own head and the record; a change's own evidence no longer has to carry the
+  gate parts the train proves. Without the key nothing changes.
+- **devkit-core** 0.14.1: `pr-verifier` records a gate part the train proves as `train:` and never as a
+  pass.
+- Docs: ADR 0022 (accepted) amends ADR 0002, 0003, 0012 and 0018; the flow page, the coordination
+  design, the roles, the pack README, CONTRIBUTING and the `ship-change` rows follow. The CI snippet
+  now pins `v0.34.0`, the release's tag.
+
 ## 0.37.0 — every change of a roadmap run opens at its start
 
 - **devkit-openspec** 0.33.0: a `/devkit roadmap` run on the desktop app opens every pending change

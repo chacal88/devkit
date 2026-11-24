@@ -87,7 +87,7 @@ task with `git status --short`.
 
 ## 3. Release, proof and the whole suite
 
-- [ ] 3.1 Release (D-10): devkit-openspec's patch bump in `plugins/openspec/.claude-plugin/plugin.json`
+- [x] 3.1 Release (D-10): devkit-openspec's patch bump in `plugins/openspec/.claude-plugin/plugin.json`
   and `.claude-plugin/marketplace.json`, the marketplace `metadata.version` patch, the `CHANGELOG.md`
   entry, the CI pin in `docs/openspec-flow.md` and its assertion in `change-loop docs: the design
   records the answers` (`plugins/openspec/hooks/change-loop.test.mjs`; invariant: the CI snippet pins

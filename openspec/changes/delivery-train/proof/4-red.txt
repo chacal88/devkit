@@ -1,0 +1,309 @@
+✔ delivery-train AC-9: two archives at the archive step both go on in a train project, and one waits for the other without the key (5343.166647ms)
+✖ delivery-train P11: a whole train passes with one result line per boarded entry, and the check makes no GitHub call (3787.115386ms)
+✖ delivery-train AC-6: devkit-reviews judges each boarded change at its own head, its containment, the train's own commits and the record (723.460894ms)
+✖ delivery-train P11: a record that is unreadable, red or older than the head fails, and a release file after it does not hide behind failure 4 (563.740523ms)
+✖ delivery-train P11: the renumbering of the joins is the train's own work and passes failure 4 (2766.443762ms)
+✖ delivery-train P11: a boarded archive is judged as an archive pull request, and an unanswered proposal fails naming its folder (1096.986163ms)
+✖ delivery-train AC-9: two archives board together, no archive branch is updated, each folder is judged in the train's check (3044.449022ms)
+✖ delivery-train P11: TRAIN_PIN_FILE is the pin file release-merge rewrites (1.027684ms)
+✖ delivery-train P11: --ci on a train pull request loads and judges from a folder holding only the three downloaded files (516.973997ms)
+✖ delivery-train P11: a change's own pull request in a train project passes item 1 with no row for a train part, and says so (418.627933ms)
+✔ delivery-train P11: without the key the same pull request fails on item 1 naming the part (402.184462ms)
+✖ delivery-train P11: a gate part the key does not name still needs its row (410.861701ms)
+✖ delivery-train P11: a pull request that touches several changes passes the train parts to each (776.178385ms)
+✖ delivery-train P11: a refused train key on the default branch is a usage error, exit 3, for a change's pull request and a train's (426.969423ms)
+✔ delivery-train P11: a project with no train key judges a change exactly as before, with no trainParts in its report (430.628397ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 3
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 21194.598238
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2304:1
+✖ delivery-train P11: a whole train passes with one result line per boarded entry, and the check makes no GitHub call (3787.115386ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: 2 changes touched by this PR (alpha, beta)
+  devkit-reviews: alpha (schema devkit-lite, head aafe14f)
+    1 open     tasks and gates: evidence.md is stale (0a7a1c0 is behind c8596b3, which touches src/beta.txt)
+    2 open     reviews at head: stale code-quality-reviewer (0a7a1c0 is behind c8596b3, which touches src/beta.txt); stale test-coverage-reviewer (0a7a1c0 is behind c8596b3, which touches src/beta.txt)
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 open     acceptance criteria proven: evidence.md is stale (0a7a1c0 is behind c8596b3, which touches src/beta.txt)
+  devkit-reviews: beta (schema devkit-lite, head aafe14f)
+    1 open     tasks and gates: evidence.md is stale (063310b is behind c8596b3, which touches src/beta.txt)
+    2 open     reviews at head: stale code-quality-reviewer (063310b is behind c8596b3, which touches src/beta.txt); stale test-coverage-reviewer (063310b is behind c8596b3, which touches src/beta.txt)
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 open     acceptance criteria proven: evidence.md is stale (063310b is behind c8596b3, which touches src/beta.txt)
+  fail: alpha: item 1, item 2, item 4; beta: item 1, item 2, item 4
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2312:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2324:1
+✖ delivery-train AC-6: devkit-reviews judges each boarded change at its own head, its containment, the train's own commits and the record (723.460894ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: 2 changes touched by this PR (alpha, beta)
+  devkit-reviews: alpha (schema devkit-lite, head 6b82524)
+    1 open     tasks and gates: evidence.md is stale (c52ca31 is behind ebb1a53, which touches src/beta.txt)
+    2 open     reviews at head: stale code-quality-reviewer (c52ca31 is behind ebb1a53, which touches src/beta.txt); stale test-coverage-reviewer (c52ca31 is behind ebb1a53, which touches src/beta.txt)
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 open     acceptance criteria proven: evidence.md is stale (c52ca31 is behind ebb1a53, which touches src/beta.txt)
+  devkit-reviews: beta (schema devkit-lite, head 6b82524)
+    1 open     tasks and gates: evidence.md is stale (7135f8b is behind ebb1a53, which touches src/beta.txt)
+    2 open     reviews at head: stale code-quality-reviewer (7135f8b is behind ebb1a53, which touches src/beta.txt); stale test-coverage-reviewer (7135f8b is behind ebb1a53, which touches src/beta.txt)
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 open     acceptance criteria proven: evidence.md is stale (7135f8b is behind ebb1a53, which touches src/beta.txt)
+  fail: alpha: item 1, item 2, item 4; beta: item 1, item 2, item 4
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2330:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2368:1
+✖ delivery-train P11: a record that is unreadable, red or older than the head fails, and a release file after it does not hide behind failure 4 (563.740523ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /cannot be read[^\n]*fenced block/. Input:
+  
+  'devkit-reviews: alpha (schema devkit-lite, head 901bee2)\n' +
+    '  1 open     tasks and gates: evidence.md is stale (b1c9f3a is behind 0a55ca5, which touches src/alpha.txt)\n' +
+    '  2 open     reviews at head: stale code-quality-reviewer (b1c9f3a is behind 0a55ca5, which touches src/alpha.txt); stale test-coverage-reviewer (b1c9f3a is behind 0a55ca5, which touches src/alpha.txt)\n' +
+    '  3 met      findings disposed: 0 fixed, 0 refuted\n' +
+    '  4 open     acceptance criteria proven: evidence.md is stale (b1c9f3a is behind 0a55ca5, which touches src/alpha.txt)\n' +
+    'fail: item 1, item 2, item 4\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2376:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'devkit-reviews: alpha (schema devkit-lite, head 901bee2)\n  1 open     tasks and gates: evidence.md is stale (b1c9f3a is behind 0a55ca5, which touches src/alpha.txt)\n  2 open     reviews at head: stale code-quality-reviewer (b1c9f3a is behind 0a55ca5, which touches src/alpha.txt); stale test-coverage-reviewer (b1c9f3a is behind 0a55ca5, which touches src/alpha.txt)\n  3 met      findings disposed: 0 fixed, 0 refuted\n  4 open     acceptance criteria proven: evidence.md is stale (b1c9f3a is behind 0a55ca5, which touches src/alpha.txt)\nfail: item 1, item 2, item 4\n',
+    expected: /cannot be read[^\n]*fenced block/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2399:1
+✖ delivery-train P11: the renumbering of the joins is the train's own work and passes failure 4 (2766.443762ms)
+  AssertionError [ERR_ASSERTION]: the renumbering of the joins is the train's own work: devkit-reviews: 2 changes touched by this PR (alpha, beta)
+  devkit-reviews: alpha (schema devkit-lite, head 7037ba8)
+    1 open     tasks and gates: evidence.md is stale (00df80d is behind e451495, which touches .claude-plugin/marketplace.json)
+    2 open     reviews at head: stale code-quality-reviewer (00df80d is behind e451495, which touches .claude-plugin/marketplace.json); stale test-coverage-reviewer (00df80d is behind e451495, which touches .claude-plugin/marketplace.json)
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 open     acceptance criteria proven: evidence.md is stale (00df80d is behind e451495, which touches .claude-plugin/marketplace.json)
+  devkit-reviews: beta (schema devkit-lite, head 7037ba8)
+    1 open     tasks and gates: evidence.md is stale (33e82d3 is behind e451495, which touches .claude-plugin/marketplace.json)
+    2 open     reviews at head: stale code-quality-reviewer (33e82d3 is behind e451495, which touches .claude-plugin/marketplace.json); stale test-coverage-reviewer (33e82d3 is behind e451495, which touches .claude-plugin/marketplace.json)
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 open     acceptance criteria proven: evidence.md is stale (33e82d3 is behind e451495, which touches .claude-plugin/marketplace.json)
+  fail: alpha: item 1, item 2, item 4; beta: item 1, item 2, item 4
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2406:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2409:1
+✖ delivery-train P11: a boarded archive is judged as an archive pull request, and an unanswered proposal fails naming its folder (1096.986163ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /openspec\/changes\/archive\/\d{4}-\d{2}-\d{2}-gamma[^\n]*unanswered proposals: 1/. Input:
+  
+  'devkit-reviews: archive openspec/changes/archive/2026-11-23-delta, openspec/changes/archive/2026-11-23-gamma\n' +
+    '  unanswered proposals: 1\n' +
+    '  files no approved proposal names: openspec/trains/1.md\n' +
+    'fail: unanswered proposals: 1; files no approved proposal names: openspec/trains/1.md\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2415:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'devkit-reviews: archive openspec/changes/archive/2026-11-23-delta, openspec/changes/archive/2026-11-23-gamma\n  unanswered proposals: 1\n  files no approved proposal names: openspec/trains/1.md\nfail: unanswered proposals: 1; files no approved proposal names: openspec/trains/1.md\n',
+    expected: /openspec\/changes\/archive\/\d{4}-\d{2}-\d{2}-gamma[^\n]*unanswered proposals: 1/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2419:1
+✖ delivery-train AC-9: two archives board together, no archive branch is updated, each folder is judged in the train's check (3044.449022ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: archive openspec/changes/archive/2026-11-23-delta, openspec/changes/archive/2026-11-23-gamma
+    files no approved proposal names: openspec/trains/1.md
+  fail: files no approved proposal names: openspec/trains/1.md
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2429:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2440:1
+✖ delivery-train P11: TRAIN_PIN_FILE is the pin file release-merge rewrites (1.027684ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'docs/openspec-flow.md'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2441:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'docs/openspec-flow.md',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2445:1
+✖ delivery-train P11: --ci on a train pull request loads and judges from a folder holding only the three downloaded files (516.973997ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: alpha (schema devkit-lite, head 735c46e)
+    1 open     tasks and gates: evidence.md is stale (349ece3 is behind e0b4121, which touches src/alpha.txt)
+    2 open     reviews at head: stale code-quality-reviewer (349ece3 is behind e0b4121, which touches src/alpha.txt); stale test-coverage-reviewer (349ece3 is behind e0b4121, which touches src/alpha.txt)
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 open     acceptance criteria proven: evidence.md is stale (349ece3 is behind e0b4121, which touches src/alpha.txt)
+  fail: item 1, item 2, item 4
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2452:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2459:1
+✖ delivery-train P11: a change's own pull request in a train project passes item 1 with no row for a train part, and says so (418.627933ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"mode":"ci","change":"alpha","schema":"devkit-lite","head":"e63570f98b9a766df21e392128eab688dd0dbf65","readiness":{"status":null,"met":true},"items":[{"id":1,"name":"tasks","status":"open","reason":"no passing row in evidence.md for `node --test plugins/openspec/hooks/guard.test.mjs`; no passing row in evidence.md for `python3 scripts/check.py`","details":{"unticked":[],"missingGates":["node --test plugins/openspec/hooks/guard.test.mjs","python3 scripts/check.py"],"evidence":"current"}},{"id":2,"name":"reviews","status":"met","reason":"2 reviews at head","details":{"stale":[],"rejected":[],"missing":[]}},{"id":3,"name":"findings","status":"met","reason":"0 fixed, 0 refuted","details":{"fixed":0,"refuted":0,"undisposed":[]}},{"id":4,"name":"acceptance","status":"met","reason":"1 criteria proven","details":{"ids":["AC-1"],"proven":["AC-1"],"missing":[],"defects":[],"noProof":[],"evidence":"current"}}],"pass":false}
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2463:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2477:1
+✖ delivery-train P11: a gate part the key does not name still needs its row (410.861701ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /no passing row in evidence\.md for `node --test/. Input:
+  
+  'devkit-reviews: alpha (schema devkit-lite, head 0398ddb)\n' +
+    '  1 open     tasks and gates: no passing row in evidence.md for `node --test plugins/openspec/hooks/guard.test.mjs`; no passing row in evidence.md for `python3 scripts/check.py`\n' +
+    '  2 met      reviews at head: 2 reviews at head\n' +
+    '  3 met      findings disposed: 0 fixed, 0 refuted\n' +
+    '  4 met      acceptance criteria proven: 1 criteria proven\n' +
+    'fail: item 1\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2483:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'devkit-reviews: alpha (schema devkit-lite, head 0398ddb)\n  1 open     tasks and gates: no passing row in evidence.md for `node --test plugins/openspec/hooks/guard.test.mjs`; no passing row in evidence.md for `python3 scripts/check.py`\n  2 met      reviews at head: 2 reviews at head\n  3 met      findings disposed: 0 fixed, 0 refuted\n  4 met      acceptance criteria proven: 1 criteria proven\nfail: item 1\n',
+    expected: /no passing row in evidence\.md for `node --test/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2486:1
+✖ delivery-train P11: a pull request that touches several changes passes the train parts to each (776.178385ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"mode":"ci","change":null,"changes":[{"version":1,"mode":"ci","change":"alpha","schema":"devkit-lite","head":"01887518ecc99bd36ec943eb293193aff070756e","readiness":{"status":null,"met":true},"items":[{"id":1,"name":"tasks","status":"open","reason":"no passing row in evidence.md for `node --test plugins/openspec/hooks/guard.test.mjs`; no passing row in evidence.md for `python3 scripts/check.py`","details":{"unticked":[],"missingGates":["node --test plugins/openspec/hooks/guard.test.mjs","python3 scripts/check.py"],"evidence":"current"}},{"id":2,"name":"reviews","status":"met","reason":"2 reviews at head","details":{"stale":[],"rejected":[],"missing":[]}},{"id":3,"name":"findings","status":"met","reason":"0 fixed, 0 refuted","details":{"fixed":0,"refuted":0,"undisposed":[]}},{"id":4,"name":"acceptance","status":"met","reason":"1 criteria proven","details":{"ids":["AC-1"],"proven":["AC-1"],"missing":[],"defects":[],"noProof":[],"evidence":"current"}}],"pass":false},{"version":1,"mode":"ci","change":"beta","schema":"devkit-lite","head":"01887518ecc99bd36ec943eb293193aff070756e","readiness":{"status":null,"met":true},"items":[{"id":1,"name":"tasks","status":"open","reason":"no passing row in evidence.md for `node --test plugins/openspec/hooks/guard.test.mjs`; no passing row in evidence.md for `python3 scripts/check.py`","details":{"unticked":[],"missingGates":["node --test plugins/openspec/hooks/guard.test.mjs","python3 scripts/check.py"],"evidence":"current"}},{"id":2,"name":"reviews","status":"met","reason":"2 reviews at head","details":{"stale":[],"rejected":[],"missing":[]}},{"id":3,"name":"findings","status":"met","reason":"0 fixed, 0 refuted","details":{"fixed":0,"refuted":0,"undisposed":[]}},{"id":4,"name":"acceptance","status":"met","reason":"1 criteria proven","details":{"ids":["AC-1"],"proven":["AC-1"],"missing":[],"defects":[],"noProof":[],"evidence":"current"}}],"pass":false}],"notes":[],"pass":false}
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2494:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2498:1
+✖ delivery-train P11: a refused train key on the default branch is a usage error, exit 3, for a change's pull request and a train's (426.969423ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: alpha (schema devkit-lite, head 4dedb4e)
+    1 met      tasks and gates: all tasks ticked
+    2 met      reviews at head: 2 reviews at head
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 met      acceptance criteria proven: 1 criteria proven
+  pass
+  
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2502:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
