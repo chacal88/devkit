@@ -23,6 +23,11 @@ devkit:
   driver: claude
   # The file whose top-level "version" the loop tags (v<version>) on a merge that bumped it (ADR 0019).
   release_tag: plugins/openspec/.claude-plugin/plugin.json
+  # Reviewed changes leave together on a delivery train (ADR 0022): the train joins their heads,
+  # runs this whole-suite command once and merges one pull request.
+  delivery:
+    model: trunk-auto
+    train: "node scripts/test-suite.mjs && python3 scripts/check.py"
 
 # Shown to the agent in every artifact and in apply. Fill in for this project.
 context: |
