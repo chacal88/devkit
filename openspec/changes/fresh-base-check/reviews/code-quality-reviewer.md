@@ -1,16 +1,16 @@
 Verdict: approved
-Commit: 6c053994f35e0f0b873fb34923d4c8d28a811723
+Commit: a11215c8b7a2d63bc2219dd1ae65eea347975395
 
-## Quality review — fresh-base-check (round 1)
+## Quality review — fresh-base-check (round 2)
 
 ### Findings
-- [praise] plugins/openspec/hooks/change-loop.mjs:1415-1439 — refreshBase is a single helper with a per-call memo keyed by git common dir plus base. It never throws, and a failure becomes data instead of a block. The refspec is explicit and writes no FETCH_HEAD.
-- [praise] plugins/openspec/hooks/change-loop.mjs:2432-2441 — ownReply strips the failed-fetch line from the wait's decisionKey, so a failed fetch alone does not end a wait. Test 10 covers it.
-- [nit] plugins/openspec/hooks/change-loop.mjs:1421-1440 — `fetchBase` is documented as a `baseFetches()` record but typed as a bare truthy flag. Passing `true` would throw at `memo.has`. Guard it with `fetchBase instanceof Map` or rename it.
-- [nit] plugins/openspec/hooks/change-loop.mjs:1432 — `e.signal` of any kind is reported as 'timed out after N s'. Test `e.code === 'ETIMEDOUT'` or SIGTERM to keep the message honest.
-- [nit] openspec/changes/fresh-base-check/proposal.md (Impact) — Impact says MERGE_CONFIG, MERGE_FILES and presetMerge are exported from conduct-check.test.mjs; the diff moved them to test-fixtures.mjs. It also lists docs/catalog.md as regenerated though the diff does not touch it.
-- [nit] plugins/openspec/hooks/change-loop.mjs:1421 — On a git older than 2.29, `--no-write-fetch-head` makes every fetch fail, so every action carries the 'unfetched' line; a one-line mention in the CHANGELOG or flow docs would help diagnosis.
+- [praise] plugins/openspec/hooks/change-loop.test.mjs:2216-2234 — Test 19 sends a real failed fetch through runCommand wait and asserts the wait keeps polling then ends on the real decision change; this closes the earlier gap that test 10 used hand-written replies.
+- [praise] plugins/openspec/hooks/change-loop.test.mjs:2253-2263 — Test 20 pins reply === local.reply + newline + line, and asserts the local reply is non-empty so the case cannot pass vacuously; kind, end.why and exit code are compared to the local action.
+- [nit] plugins/openspec/hooks/change-loop.mjs:1421-1440 — Round 1, still standing: fetchBase is documented as a baseFetches() record but typed as a bare truthy flag; passing true would throw at memo.has. Guard with instanceof Map or rename.
+- [nit] plugins/openspec/hooks/change-loop.mjs:1432 — Round 1, still standing: any e.signal is reported as 'timed out after N s'; test e.code === 'ETIMEDOUT' or SIGTERM to keep the message honest.
+- [nit] openspec/changes/fresh-base-check/proposal.md (Impact) — Round 1, still standing: Impact says MERGE_CONFIG, MERGE_FILES and presetMerge are exported from conduct-check.test.mjs though they moved to test-fixtures.mjs, and lists docs/catalog.md as regenerated though the diff does not touch it.
+- [nit] plugins/openspec/hooks/change-loop.mjs:1421 — Round 1, still standing: on git older than 2.29, --no-write-fetch-head makes every fetch fail so every action carries the unfetched line; a one-line CHANGELOG or flow-doc mention would help diagnosis.
 
 ### Summary
 - 6 findings (0 blocking, 0 important, 4 nit) + 2 praise
-- Every acceptance criterion maps to code and to a named test in the diff; the fetch runs only inside inDelivery; state, locks and status never fetch; a branch name cannot be read as a git option because the refspec starts with +refs/heads/.
+- Re-review of 6c05399..HEAD: production code (change-loop.mjs) is unchanged since round 1; the only code delta is three added tests (19, 19b, 20), run filtered in the foreground (3 of 3 pass). They close the two important gaps the test-coverage-reviewer raised in round 1. The four round-1 nits stand unchanged. No new defects in the added lines.
