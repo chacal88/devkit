@@ -365,7 +365,7 @@ every task with `git status --short`.
 
 ## 5. The nits, a change's own settings block and the tests of the live roadmap (AC-14, AC-19, AC-20)
 
-- [ ] 5.0 D-17, the merge that opens the phase: the conducting session fetched `origin/main` and said so in the hand-off. Before
+- [x] 5.0 D-17, the merge that opens the phase: the conducting session fetched `origin/main` and said so in the hand-off. Before
   merging, list the tests the base added since the last merge (`git diff $(git merge-base HEAD origin/main) origin/main --stat -- '*.test.mjs'`);
   merge it by D-17 (`release-merge.mjs --base main --roadmap-ticks`, then `git merge origin/main` on its exit 2, never a rebase) and resolve each conflict by D-17; run each added test with `node scripts/test-suite.mjs --concurrency=2 <file>...`; then
   `grep -n` each of `createdAfter`, `ATTRIBUTION_ASK`, `parseDevkitBlock`, `budgetOf`, `modelsOf`, `capOf`, `writePin` and the `waiting-budget` messages, and each of the three test titles of D-23 (`grep -rn "post-merge-validate 3: the roadmap line\|jira-entry AC-10 the roadmap\|stage-roles docs: the roadmap line" plugins/openspec/hooks/*.test.mjs`), and read it as it is now, before the phase edits it: a function whose shape
