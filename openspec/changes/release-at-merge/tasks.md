@@ -476,7 +476,7 @@ ls-files` check needs (readiness attempt 5, O4).
   scripts/gen-catalog.py --check` and `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs
   --check` pass, and `node plugins/openspec/hooks/deliver-check.mjs release-at-merge --json` shows no
   row N1 to N7 (AC-4, AC-5, AC-6).
-- [ ] 9.18 Gate: `node scripts/test-suite.mjs --concurrency=3 && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && claude plugin validate . && openspec validate release-at-merge --strict` green at the final head, the whole suite run once as a background command with no other suite on the machine; the train's suite proves it again.
+- [x] 9.18 Gate: `node scripts/test-suite.mjs --concurrency=3 && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && claude plugin validate . && openspec validate release-at-merge --strict` green at the final head, the whole suite run once as a background command with no other suite on the machine; the train's suite proves it again.
 
 ## Workflow follow-up
 
