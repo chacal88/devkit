@@ -1,0 +1,45 @@
+devkit-run: feat
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit",
+  "root": "<scratch>/plan/proj/.claude/worktrees/feat",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "evidence",
+  "stageTitle": "Demonstration",
+  "role": "pr-verifier",
+  "skills": [],
+  "model": "sonnet",
+  "step": "merge-check",
+  "detail": {
+    "command": [
+      "node",
+      "<worktree>/plugins/openspec/hooks/change-loop.mjs",
+      "merge-check",
+      "feat",
+      "--lang",
+      "en"
+    ],
+    "merge": "395ca5cd9c0ac530f8a9cd9b52e7d24fc10d2a03",
+    "base": "main"
+  },
+  "progressKey": "evidence/merge-check@d964d126efef",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🔍",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "evidence",
+    "stageTitle": "Demonstration",
+    "phase": null,
+    "stageIcon": "🔍",
+    "stateIcon": null,
+    "title": "🔍 feat"
+  },
+  "sessionTitle": "🔍 feat"
+}

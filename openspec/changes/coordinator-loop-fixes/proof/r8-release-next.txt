@@ -1,0 +1,54 @@
+devkit-run: feat
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit-lite",
+  "root": "<scratch>/release/proj/.claude/worktrees/feat",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "implementation",
+  "stageTitle": "Implementation",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "model": "sonnet",
+  "agent": "devkit-core:tdd-implementer",
+  "step": "resolve-release-conflict",
+  "detail": {
+    "step": "resolve-release-conflict",
+    "reason": "the PR conflicts only in release files: CHANGELOG.md",
+    "number": 12,
+    "paths": [
+      "CHANGELOG.md"
+    ],
+    "base": "main",
+    "command": [
+      "node",
+      "<worktree>/plugins/openspec/hooks/release-merge.mjs",
+      "--base",
+      "main",
+      "--json"
+    ]
+  },
+  "brief": "Change feat (devkit-lite script), stage implementation: step resolve-release-conflict {\"step\":\"resolve-release-conflict\",\"reason\":\"the PR conflicts only in release files: CHANGELOG.md\",\"number\":12,\"paths\":[\"CHANGELOG.md\"],\"base\":\"main\",\"command\":[\"node\",\"<worktree>/plugins/openspec/hooks/release-merge.mjs\",\"--base\",\"main\",\"--json\"]}. Work only in <scratch>/release/proj/.claude/worktrees/feat on branch feat; every file path is absolute under it; start every Bash command with cd <scratch>/release/proj/.claude/worktrees/feat && ; do not fetch. Write the change's files in English.",
+  "progressKey": "implementation/resolve-release-conflict@0afa37016510",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🛠️",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "implementation",
+    "stageTitle": "Implementation",
+    "phase": null,
+    "stageIcon": "🛠️",
+    "stateIcon": null,
+    "title": "🛠️ feat"
+  },
+  "sessionTitle": "🛠️ feat"
+}

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "kind": "agent",
+  "change": "feat",
+  "root": "<scratch>/change/proj/.claude/worktrees/feat",
+  "stage": "implementation",
+  "stage_title": "Implementation",
+  "agent": "tdd-implementer",
+  "step": "resolve-base-conflict",
+  "brief": "Change feat (devkit-lite script), stage implementation: step resolve-base-conflict {\"step\":\"resolve-base-conflict\",\"reason\":\"the PR conflicts with main outside the release files: README.md\",\"number\":12,\"paths\":[\"README.md\"],\"others\":[\"README.md\"],\"base\":\"main\",\"archive\":false}. Work only in <scratch>/change/proj/.claude/worktrees/feat on branch feat; every file path is absolute under it; start every Bash command with cd <scratch>/change/proj/.claude/worktrees/feat && ; do not fetch. Write the change's files in English. Then add the dispatch sentence of the `ship-change` row of step `resolve-base-conflict`.",
+  "progress_key": "implementation/resolve-base-conflict@287f3b4e3c39",
+  "question": "",
+  "reply": ""
+}

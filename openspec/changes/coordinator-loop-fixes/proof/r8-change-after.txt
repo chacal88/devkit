@@ -1,0 +1,11 @@
+head moved: yes
+merge commits since the head before the run: 1
+the merge's parents: 2
+the merge has the branch's head before the run as a parent: 1
+the merge has origin/main as a parent: 1
+origin/main is in the branch: yes
+unmerged paths: 0
+conflict markers in README.md: 0
+README.md keeps both sides: 2
+the branch on the remote: none
+rebase in progress: no
