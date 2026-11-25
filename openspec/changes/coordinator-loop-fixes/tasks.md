@@ -372,7 +372,7 @@ every task with `git status --short`.
   contradicts the plan stops the phase, reported, without a guess. A failing test the base added is reported as a row for
   D-15 and one plan revision. Check: `git merge-base --is-ancestor origin/main HEAD` exits 0, the runs of 4.6's Check that gate 4.7 held (its `Then` part) pass again, and `python3 scripts/check.py`, `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check` and `test -s openspec/changes/coordinator-loop-fixes/proof/checks.txt` pass (D-17: gate 4.7's whole suite is the conducting session's, never this task's).
 
-- [ ] 5.1 Write T85 to T92 and T135 to T140 of D-16 in `plugins/openspec/hooks/change-loop-declared.test.mjs`,
+- [x] 5.1 Write T85 to T92 and T135 to T140 of D-16 in `plugins/openspec/hooks/change-loop-declared.test.mjs`,
   `plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs`, `plugins/openspec/hooks/guard.test.mjs` (T135) and
   `plugins/openspec/hooks/stage-models.test.mjs` (T138, beside the AC-12 spend test, with its fixture). Check:
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^coordinator-loop-fixes AC-14 " --test-name-pattern="^coordinator-loop-fixes AC-19 " --test-name-pattern="^coordinator-loop-fixes AC-20 " plugins/openspec/hooks/change-loop-declared.test.mjs plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/stage-models.test.mjs`

@@ -8,19 +8,21 @@
 // loads before an export it tests exists; every folder it makes goes through test-tmp.mjs (by the fixtures' helpers).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { tmpFolder } from './test-tmp.mjs';
 import {
   planChange, transcriptOf, typedLine, runLine, toolResultLine, stopInput, sandbox, cleanEnvLoop as cleanEnv,
   cmd, FLAGS, projectWith, roadmapText, putRun, stateOf, runFileOf,
   git, put, commitAll, head as stageHead, rowOf, run, endOf, scenario, conflictOnTest, mergeIntoSupport, resolveSupport, reviewResolution,
-  gitRepo, fakeGh, tasksText,
+  gitRepo, fakeGh, tasksText, roundRepo, jsonOf,
 } from './test-fixtures.mjs';
-import { hook, skillText, section, deliveredChange, check, next as loopNext, parsed, build, TDD, REPO_ROOT, prJson } from './change-loop-fixtures.mjs';
+import { hook, skillText, section, deliveredChange, check, next as loopNext, parsed, build, TDD, COMMIT, REPO_ROOT, prJson } from './change-loop-fixtures.mjs';
 import { inFlight, sessionSkillMd } from './roadmap-loop-fixtures.mjs';
 import * as CL from './change-loop.mjs';
 import * as DC from './deliver-check.mjs';
+import * as GUARD from './guard.mjs';
 
 const LANGS = ['en', 'pt-BR'];
 const reply = (argv, lang = 'en') => CL.main(['reply', ...argv, '--lang', lang], { cwd: tmpFolder('devkit-declared-reply-'), env: cleanEnv });
@@ -961,4 +963,230 @@ test('coordinator-loop-fixes AC-16 T84 the devkit-lite flow declares the same st
     const flow = JSON.parse(readFileSync(join(root, 'devkit-lite', 'flow.json'), 'utf8'));
     assert.deepEqual(flow.stages.map((s) => [s.id, s.role, s.source]), LITE_STAGES, root);
   }
+});
+
+// ---------------------------------------------------------------- AC-14: the nits (D-13)
+// Invariant: `createdAfter` is exported and reads an unreadable `.openspec.yaml` as no creation day, so `unfinished` never lists
+// an archived id whose old folder cannot be read; the change-coordination requirement words the archive sources as their union;
+// a roadmap run hands a change's commit step with the change loop's brief, attribution request included. Layer: the loop
+// (`createdAfter`, `unfinished`, the roadmap's `next`) and the spec text. Suite: change-loop-declared.
+
+const OFFLINE_GH = () => ({ status: 1, stdout: '', stderr: 'offline', missing: false, timedOut: false, overflowed: false });
+
+test('coordinator-loop-fixes AC-14 T85 createdAfter with an unreadable .openspec.yaml is false and does not throw', () => {
+  assert.equal(typeof CL.createdAfter, 'function', 'createdAfter is exported');
+  const root = tmpFolder('devkit-declared-created-');
+  mkdirSync(join(root, 'openspec', 'changes', 'foo', '.openspec.yaml'), { recursive: true });
+  assert.equal(CL.createdAfter(root, 'foo', '2026-01-01'), false);
+  put(root, { 'openspec/changes/bar/.openspec.yaml': 'schema: devkit\ncreated: 2026-11-24\n' });
+  assert.equal(CL.createdAfter(root, 'bar', '2026-01-01'), true, 'a readable later day is a reuse');
+  assert.equal(CL.createdAfter(root, 'none', '2026-01-01'), false, 'no file at all');
+});
+
+test('coordinator-loop-fixes AC-14 T86 unfinished does not list an archived id whose .openspec.yaml cannot be read', () => {
+  assert.equal(typeof CL.createdAfter, 'function', 'createdAfter is exported');
+  const t = roundRepo({ roadmap: '# Roadmap\n' });
+  t.commitOrigin({ 'openspec/changes/archive/2026-01-01-foo/proposal.md': '# Proposal\n', 'openspec/changes/archive/2026-01-01-bar/proposal.md': '# Proposal\n' });
+  const foo = t.addWt('foo');
+  mkdirSync(join(foo, 'openspec', 'changes', 'foo', '.openspec.yaml'), { recursive: true });
+  put(foo, { 'openspec/changes/foo/proposal.md': '# Proposal\n' });
+  const bar = t.addWt('bar');
+  put(bar, { 'openspec/changes/bar/.openspec.yaml': 'schema: devkit\ncreated: 2026-11-24\n', 'openspec/changes/bar/proposal.md': '# Proposal\n' });
+  assert.equal(CL.createdAfter(foo, 'foo', '2026-01-01'), false);
+  assert.deepEqual(CL.unfinished(t.main, { env: cleanEnv, gh: OFFLINE_GH }).map((u) => u.id), ['bar'], 'foo is the stale copy; bar reuses its archived id');
+});
+
+const UNION = 'read as the union of every source that can be read (GitHub\'s default branch, the remote-tracking default branch, the local default branch and the main checkout\'s working tree; a source that cannot be read adds nothing)';
+
+test('coordinator-loop-fixes AC-14 T87 the change-coordination requirement words the archive sources as their union', () => {
+  const delta = join(REPO_ROOT, 'openspec', 'changes', 'coordinator-loop-fixes', 'specs', 'change-coordination', 'spec.md');
+  const file = existsSync(delta) ? delta : join(REPO_ROOT, 'openspec', 'specs', 'change-coordination', 'spec.md');
+  const requirement = section(readFileSync(file, 'utf8'), '### Requirement: A change archived on the default branch is not unfinished', '#### Scenario:').replace(/\s+/g, ' ');
+  assert.ok(requirement.includes(UNION), requirement);
+});
+
+test('coordinator-loop-fixes AC-14 T92 a roadmap run hands a change\'s commit step with the change loop\'s brief, ending with the attribution request', () => {
+  const d = deliveredChange();
+  put(d.wt, { 'src/extra.ts': 'more\n' });
+  const own = parsed(CL.main(['next', '--change', 'feat', '--lang', 'en'], { cwd: d.wt, env: d.env })).action;
+  assert.deepEqual([own.kind, own.step, own.agent], ['agent', 'commit', COMMIT], JSON.stringify(own));
+  assert.ok(CL.ATTRIBUTION_ASK?.length > 0, 'the request is exported');
+  assert.ok(own.brief.endsWith(CL.ATTRIBUTION_ASK), own.brief);
+  putRun(d.t.main, { session: 'S1', places: 1 });
+  const r = cmd(d.t.main, ['next', ...FLAGS], { env: d.env, gh: undefined });
+  const handed = jsonOf(r.stdout).actions.find((a) => a.change === 'feat');
+  assert.ok(handed, r.stdout);
+  assert.deepEqual([handed.kind, handed.step, handed.agent], ['agent', 'commit', COMMIT]);
+  assert.equal(handed.brief, own.brief, 'the change loop\'s brief, unchanged');
+});
+
+// ---------------------------------------------------------------- AC-19: a change's own settings in an `x-devkit:` block (D-22)
+// Invariant: a change sets `budget` and `models:` in an `x-devkit:` block of its `.openspec.yaml`, which the strict validation of
+// OpenSpec accepts and the loop reads; a `devkit:` block there is still read when the file has no `x-devkit:` block, and fails the
+// strict validation; the documents and ADR 0023's Note say so. Layer: `budgetOf`, `modelsOf`, `next`, `writePin` and `readPin`, the
+// real `openspec` CLI, and the documents. Suite: change-loop-declared.
+
+const FLOW_PAGE = () => readFileSync(join(REPO_ROOT, 'docs', 'openspec-flow.md'), 'utf8');
+const paragraphOf = (md, start) => md.split('\n\n').find((p) => p.startsWith(start)) ?? '';
+const OWN_SETTINGS = '**A change\'s own settings.**';
+const ownExample = () => {
+  const md = FLOW_PAGE();
+  const at = md.indexOf(OWN_SETTINGS);
+  assert.ok(at >= 0, 'the paragraph A change\'s own settings');
+  const m = /```yaml\n([\s\S]*?)```/.exec(md.slice(at));
+  assert.ok(m, 'its fenced example');
+  return m[1];
+};
+
+// A project naming devkit-lite, with change `feat` (a proposal, one ADDED delta) whose `.openspec.yaml` is `yaml`.
+function settingsProject(yaml) {
+  const root = tmpFolder('devkit-declared-settings-');
+  put(root, {
+    'openspec/config.yaml': 'schema: devkit-lite\n',
+    'openspec/changes/feat/.openspec.yaml': yaml,
+    'openspec/changes/feat/proposal.md': '# Proposal\n\n## Why\n\nThe thing needs to work in a new way, which this sentence explains at enough length.\n\n## What Changes\n\n- The thing works differently.\n',
+    'openspec/changes/feat/specs/cap/spec.md': '## ADDED Requirements\n\n### Requirement: Thing works\nThe system SHALL make the thing work.\n\n#### Scenario: It works\n- **WHEN** the thing runs\n- **THEN** it works\n',
+  });
+  return { root, dir: join(root, 'openspec', 'changes', 'feat') };
+}
+const strictValidate = (root) => spawnSync('openspec', ['validate', 'feat', '--type', 'change', '--strict'], { cwd: root, env: process.env, encoding: 'utf8' });
+
+test('coordinator-loop-fixes AC-19 T136 the flow page\'s example validates strictly and the loop reads it; the same lines under devkit: fail the CLI and still read', () => {
+  const example = ownExample();
+  const own = settingsProject(example);
+  const valid = strictValidate(own.root);
+  assert.equal(valid.status, 0, valid.stdout + valid.stderr);
+  assert.deepEqual(CL.modelsOf(own.root, own.dir, { strict: true }), { ...CL.DEFAULT_MODELS, review: 'opus' });
+  assert.deepEqual(CL.budgetOf(own.root, own.dir, 'en'), { cap: 2000000, from: 'change', file: join(own.dir, '.openspec.yaml') });
+  const old = settingsProject(example.replace(/^x-devkit:/m, 'devkit:'));
+  const refused = strictValidate(old.root);
+  assert.equal(refused.status, 1, 'the strict validation refuses a devkit: key');
+  assert.match(refused.stdout + refused.stderr, /Unrecognized key name\(s\) in \.openspec\.yaml.*devkit/);
+  assert.deepEqual(CL.budgetOf(old.root, old.dir, 'en'), { cap: 2000000, from: 'change', file: join(old.dir, '.openspec.yaml') }, 'a devkit: block is still read');
+});
+
+const X_BLOCK = (...lines) => `schema: devkit\nx-devkit:\n${lines.map((l) => `  ${l}\n`).join('')}`;
+
+test('coordinator-loop-fixes AC-19 T137 the x-devkit block is refused as the devkit block was, the budget stop names it, and the pin lives beside it', () => {
+  const zero = planChange({ have: ['requirements', 'decisions'] });
+  put(zero, { 'openspec/changes/feat/.openspec.yaml': X_BLOCK('budget: 0') });
+  commitAll(zero, 'zero budget');
+  const r = loopNext(zero);
+  assert.equal(r.code, 3, r.stdout + r.stderr);
+  assert.equal(JSON.parse(r.stdout).reply, CL.render('en', 'setting-unknown', { setting: 'budget', value: '0', accepted: '1, 2, 3, …' }));
+  const gpt = planChange({ have: ['requirements', 'decisions'] });
+  put(gpt, { 'openspec/changes/feat/.openspec.yaml': X_BLOCK('models:', '  design: gpt') });
+  commitAll(gpt, 'unknown model');
+  const m = loopNext(gpt);
+  assert.equal(m.code, 3, m.stdout + m.stderr);
+  const [problem] = CL.modelProblems(new Map([['design', 'gpt']]));
+  assert.equal(JSON.parse(m.stdout).reply, CL.render('en', 'setting-unknown', problem));
+  assert.ok(JSON.parse(m.stdout).reply.includes('design: gpt'));
+  const file = '/w/feat/openspec/changes/feat/.openspec.yaml';
+  for (const lang of LANGS) {
+    const said = CL.render(lang, 'waiting-budget', { id: 'feat', spent: 1200, cap: 1000, file });
+    assert.ok(said.includes('x-devkit') && said.includes(file), `${lang}: ${said}`);
+  }
+  const dir = tmpFolder('devkit-declared-pin-');
+  const text = `schema: devkit\ncreated: 2026-11-24\nx-devkit:\n  budget: 3000000\n  models:\n    review: opus\n`;
+  writeFileSync(join(dir, '.openspec.yaml'), text);
+  CL.writePin(dir, { devkit: '0.29.0', flow: 1 });
+  assert.equal(readFileSync(join(dir, '.openspec.yaml'), 'utf8'), `${text}x-devkit-version: 0.29.0\nx-devkit-flow: 1\n`, 'the block stays byte for byte');
+  assert.deepEqual(GUARD.readPin(dir), { flow: 1, devkit: '0.29.0' });
+  assert.equal(CL.budgetOf(dir, dir, 'en')?.cap, 3000000, 'the budget still reads beside the pin');
+});
+
+const ADR_DECISION_0023 = [
+  "## Decision",
+  "",
+  "1. **A stage-to-model table.** The `models:` key of the `devkit:` block of `openspec/config.yaml`",
+  "   maps a stage to a model family (`opus`, `sonnet`, `haiku`); the loop code holds a built-in",
+  "   default for every stage, and the `devkit:` block of a change's `.openspec.yaml` overrides single",
+  "   stages, as `budget` does. The default: Opus for the grill, the plan and the ADRs; Sonnet to",
+  "   coordinate, implement, review and deliver; Haiku for the commit and pull-request hand-off, the",
+  "   unit-test run and validation. An unknown stage or value is refused with `setting-unknown`. The",
+  "   exact key set (the schema's artifact ids plus `implement`, `deliver` and `archive`, or the agent",
+  "   names) is the plan's.",
+  "2. **No 1M context by default.** No default row uses a `[1m]` variant; a table value may carry",
+  "   `[1m]` on `opus` or `sonnet` as an explicit per-stage opt-in. A long session relies on the",
+  "   host's compaction.",
+  "3. **The model is part of the loop's contract.** Every `agent` action that `next` prints carries a",
+  "   `model` field, and the session passes it on the Agent call, overriding the agent's frontmatter",
+  "   model.",
+  "4. **Sessions only step down, never below the stages they still run** (amends ADR 0014 decision 1;",
+  "   the step-down floor is the owner's choice of 2026-11-23). A change session performs some stages",
+  "   itself: the grill, the owner's approvals, the review round, the retro and the delivery steps",
+  "   (its session-run stages); the others run as stage subagents. In a roadmap run with a session per",
+  "   change, the coordinating session starts a change session on the model of the change's first",
+  "   stage. When the change's stage changes, it switches that session down only to the strongest",
+  "   model among the new stage and the session-run stages still ahead of it (the floor), and only",
+  "   when that model is cheaper than the session's current one. In practice a change session does",
+  "   not go from Sonnet to Haiku while any session-run stage remains; the table's Haiku rows apply",
+  "   only to stages that run as stage subagents. A stage whose table model is above the session's",
+  "   current model runs as a stage subagent on that model, never as an upward switch; no session is",
+  "   ever switched up, so no confirmation is asked. A lone `/devkit change` keeps the model it was",
+  "   opened with; only its stage subagents follow the table. The coordinating session's own model",
+  "   stays the owner's choice in the app.",
+  "5. **One retry a model up.** A stage subagent that returns `Outcome: failure` on Haiku or Sonnet is",
+  "   handed again once on the next family up (Haiku to Sonnet, Sonnet to Opus). A second failure, or",
+  "   a failure on Opus, ends the run blocked with `role-failed`, as today. The retry is derived from",
+  "   the transcripts, with no new stored state, and its tokens count toward `budget`.",
+  "6. **The spend is read, not stored.** `flow-check` and `/devkit status` report tokens per stage and",
+  "   per model, the retries and the total against the `budget` cap, read from the session and",
+  "   subagent transcripts; nothing is written to the change.",
+  "7. ADR 0014's other decisions, and ADR 0010's, are unchanged.",
+  "",
+  "Note (stage-models, 2026-11-23): decision 5's retry reaches a stage subagent",
+  "that stops with `Outcome: failure` without writing its stage file. A subagent that writes its",
+  "stage file with `result=failed`, as the `subagent-stop` hook asks of one that stops without it,",
+  "is a failed stage and takes the stage's existing fix path, with no retry. Decision 2's `[1m]`",
+  "opt-in reaches a session's own model and the retry's mapping, never a stage subagent: the Agent",
+  "call takes no suffix. So the Consequences' mitigation \"one retry a model up\" reaches only an",
+  "agent that cannot finish; a stage agent that obeys the hook and records `result=failed` takes the",
+  "fix path, bounded by the stage's ceiling. No decision's text changes.",
+  "",
+].join('\n');
+const SETTINGS_ADR = /^\d{4}-a-changes-own-settings-live-in-an-x-devkit-block\.md$/;
+
+test('coordinator-loop-fixes AC-19 T139 the flow page, the config comments, the coordination design and ADR 0023 name the x-devkit block', () => {
+  const md = FLOW_PAGE();
+  const budget = paragraphOf(md, '**The token budget.**');
+  const models = paragraphOf(md, '**The model of each stage.**');
+  for (const [name, p] of [['token budget', budget], ['model of each stage', models]]) {
+    assert.ok(p.includes('the `x-devkit:` block of a change\'s own `.openspec.yaml`'), name);
+    assert.ok(!p.includes('`devkit:` block of a change\'s own'), name);
+  }
+  const paragraphs = md.split('\n\n');
+  const own = paragraphs.findIndex((p) => p.startsWith(OWN_SETTINGS));
+  assert.ok(own > 0, 'the paragraph A change\'s own settings');
+  assert.ok(paragraphs[own - 1].startsWith('**The model of each stage.**'), 'it follows The model of each stage');
+  const ownText = paragraphs.slice(own, own + 4).join('\n\n').replace(/\s+/g, ' ');
+  assert.ok(ownText.includes('`openspec validate <id> --type change --strict`'), ownText);
+  assert.ok(ownText.includes('a `devkit:` block written there before is still read when the file has no `x-devkit:` block'), ownText);
+  const config = readFileSync(join(REPO_ROOT, 'openspec', 'config.yaml'), 'utf8').split('\n');
+  assert.ok(config.find((l) => l.startsWith('# An optional token budget'))?.includes("a change's own .openspec.yaml can override it in its x-devkit: block"), 'the budget comment');
+  assert.ok(config.find((l) => l.startsWith('# An optional models: table'))?.includes("a change's own .openspec.yaml can override a stage in its x-devkit: block"), 'the models comment');
+  const design = readFileSync(join(REPO_ROOT, 'docs', 'coordination-design.md'), 'utf8').replace(/\s+/g, ' ');
+  assert.equal(design.split('its override in a change\'s own `.openspec.yaml` (its `x-devkit:` block)').length - 1, 2, 'both settings sentences');
+  const adrFile = readdirSync(ADR_DIR).find((f) => SETTINGS_ADR.test(f));
+  assert.ok(adrFile, 'the change\'s settings ADR file');
+  const decision = section(readFileSync(join(ADR_DIR, '0023-the-model-is-chosen-by-stage.md'), 'utf8'), '## Decision', '## Consequences');
+  assert.ok(decision.startsWith(`${ADR_DECISION_0023}\n`), 'decisions 1 to 7 and the stage-models Note are unchanged');
+  const note = decision.slice(ADR_DECISION_0023.length + 1).trim().replace(/\s+/g, ' ');
+  assert.match(note, /^Note \(coordinator-loop-fixes, \d{4}-\d{2}-\d{2}\): /);
+  assert.ok(note.includes(`decision 1's override in a change's \`.openspec.yaml\` is written in an \`x-devkit:\` block, not a \`devkit:\` block, as [ADR ${adrFile.slice(0, 4)}](${adrFile}) decides`), note);
+  assert.ok(note.endsWith('Decision 1 is otherwise unchanged.'), note);
+});
+
+// ---------------------------------------------------------------- AC-20: no test pins the state of a live roadmap line (D-23)
+// Invariant: the `context:` of openspec/config.yaml holds the `Live roadmap:` rule right after `Test history:`. Layer: the
+// project's config, read as text. Suite: change-loop-declared.
+
+const LIVE_ROADMAP = '  Live roadmap: A test never asserts the tick or the done state of a line of openspec/roadmap.md, which the line\'s own archive changes; it finds a line whatever its tick, and a line\'s old content is held as a fixture or a constant.';
+
+test('coordinator-loop-fixes AC-20 T140 the config context holds the Live roadmap rule right after Test history', () => {
+  const lines = readFileSync(join(REPO_ROOT, 'openspec', 'config.yaml'), 'utf8').split('\n');
+  const at = lines.findIndex((l) => l.startsWith('  Test history: '));
+  assert.ok(at >= 0, 'the Test history line');
+  assert.equal(lines[at + 1], LIVE_ROADMAP);
 });

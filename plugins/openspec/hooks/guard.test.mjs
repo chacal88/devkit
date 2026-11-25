@@ -1950,3 +1950,24 @@ test('coordinator-loop-fixes AC-12 T73 tdd-implementer and the main session writ
   assert.equal(edit(root, 'openspec/changes/feat/evidence.md', 'change-planner').code, 2, 'change-planner');
   assert.equal(edit(root, `${PROOF}/run.txt`, 'code-quality-reviewer').code, 2, 'a reviewer');
 });
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: a change's own settings block (D-22)
+// Invariant: a change's `.openspec.yaml` is read from its `x-devkit:` block when it has one, else from its `devkit:` block; the flat
+// `x-devkit-*` keys open no block; `parseDevkitBlock` with no key reads only `devkit:`. Layer: changeDevkitBlock and
+// parseDevkitBlock. Suite: guard.
+
+const X_SETTINGS = 'x-devkit:\n  budget: 2000000\n  models:\n    review: opus\n';
+const OLD_SETTINGS = 'devkit:\n  budget: 5\n  models:\n    design: haiku\n';
+const settingsOf = (block) => [block.budget, [...block.models]];
+
+test('coordinator-loop-fixes AC-19 T135 changeDevkitBlock reads the x-devkit block, else the devkit block, and the flat keys open none', () => {
+  assert.equal(typeof GUARD.changeDevkitBlock, 'function', 'changeDevkitBlock is exported');
+  assert.deepEqual(settingsOf(GUARD.changeDevkitBlock(`schema: devkit\n${X_SETTINGS}`)), ['2000000', [['review', 'opus']]], 'an x-devkit: block');
+  assert.deepEqual(settingsOf(GUARD.changeDevkitBlock(`schema: devkit\n${OLD_SETTINGS}`)), ['5', [['design', 'haiku']]], 'only a devkit: block, as today');
+  assert.deepEqual(settingsOf(GUARD.changeDevkitBlock(`schema: devkit\n${OLD_SETTINGS}${X_SETTINGS}`)), ['2000000', [['review', 'opus']]], 'both: the x-devkit: block alone');
+  assert.deepEqual(settingsOf(GUARD.changeDevkitBlock(`schema: devkit\n${X_SETTINGS}${OLD_SETTINGS}`)), ['2000000', [['review', 'opus']]], 'both, in the other order');
+  const flat = 'schema: devkit\nx-devkit-version: 0.1.0\nx-devkit-flow: 2\nx-devkit-budget: 5\n  budget: 7\n';
+  assert.deepEqual(settingsOf(GUARD.changeDevkitBlock(flat)), [undefined, []], 'the flat keys open no block');
+  assert.deepEqual(settingsOf(GUARD.parseDevkitBlock(flat, 'x-devkit')), [undefined, []]);
+  assert.deepEqual(settingsOf(GUARD.parseDevkitBlock(`schema: devkit\n${X_SETTINGS}`)), [undefined, []], 'parseDevkitBlock with no key reads no x-devkit: block');
+});
