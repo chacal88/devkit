@@ -1,55 +1,56 @@
-Verdict: rejected
-Commit: 02e67807136fa670f73202efc2601e0f3b1936c0
+Verdict: approved
+Commit: 76e88ad3fdab3ffd0ced32b6418bc4c38cef11da
 
 ## Spec review — project-setup
 
 ### Findings
-- [blocking] openspec/changes/project-setup/specs/project-setup/spec.md:32 (Requirement: The setup runs only from the owner's typed command) — Gap: scenario "A request that is not the typed command" is not delivered. Its THEN "no file of the setup is written" and the requirement's "no agent, stage or other session can start the setup" fail in proof/r6-typed-only.txt, where a plain-words request in a fresh repository made the session run the Setup section's scripts by hand and write .claude/settings.json, openspec/ (schemas, config) and .agents/skills (evidence.md F-1). The change adds nothing that enforces it. Add the enforcement (a hook that refuses the setup scripts without a typed /devkit setup) or amend the scenario to AC-1's "as /devkit change is"; the owner decides which.
-- [important] plugins/openspec/hooks/change-loop.mjs:2113 (startMode setup branch) vs openspec/changes/project-setup/specs/change-coordination/spec.md:39 — Partial: scenario "The setup verb outside a git repository". startMode takes findRoot(cwd) before the git top level, so a non-git folder holding openspec/changes answers mode setup instead of setup-no-repo (probed on this head). Design D-1 settled that order, but the spec does not allow the exception: align the spec or the code.
-- [important] openspec/changes/project-setup/specs/project-setup/spec.md:47 and :296; plugins/openspec/skills/devkit/SKILL.md:196,208 — Ambiguity resolved outside the spec: step 3's openspec init writes openspec/config.yaml before step 5, so a real first install never takes the template path. AC-3 / "A first setup with answers given" (budget and design: only on commented lines) then holds only because neither key appears, and "The starting configuration" (the commented tests keys) is reached only when no config exists at step 5. evidence.md O-4 records this reading; the spec does not say which reading stands.
-- [nit] plugins/openspec/skills/devkit/SKILL.md:249 (step 8) — Step 8 does not say to skip the follow-up project-settings.mjs run that enables devkit-compozy when kit-installer.mjs exits 3. Scenario "devkit-compozy not installed" says the setup writes nothing for the kit, which enabling the pack would break.
-- [praise] plugins/openspec/skills/devkit/scripts/setup-block.mjs — The block writer follows the spec closely: refusals with exit 3, usage errors with exit 2, CRLF kept, the empty file, the kept and train narrowing, and fill. The six MODIFIED compozy-kit-setup blocks and both change-coordination blocks keep every canonical scenario, and only the change-coordination verb block adds scenarios (the two setup ones).
+- [blocking] openspec/changes/project-setup/specs/project-setup/spec.md:24 (Requirement: The setup skill is invoked only from the owner's typed command, scenario "A request that is not the typed command") — Gap: a plain-words request wrote a setup's files (proof/r6-typed-only.txt, evidence F-1) while the requirement promised no agent or session could start the setup and the scenario promised no file written; enforce it or amend the spec to AC-1's wording. · fixed in 45cbd1c86593727bbf88fe940be4a4a29f196052
+- [important] plugins/openspec/hooks/change-loop.mjs:2113 vs openspec/changes/project-setup/specs/change-coordination/spec.md:39 (scenario "The setup verb outside a git repository") — Partial: a git-less folder holding openspec/changes answered mode setup instead of setup-no-repo because findRoot ran before the git top-level check. · fixed in 387bf1553e85d7610c5ee64c0bf5e4b6f6a444d7
+- [important] openspec/changes/project-setup/specs/project-setup/spec.md:47 and :300; plugins/openspec/skills/devkit/SKILL.md step 3/5 — Ambiguity resolved outside the spec: openspec init writes the config before step 5, so the template path (commented budget/design and tests keys) is never taken on a first install; the spec did not say which reading stands. · fixed in 45cbd1c86593727bbf88fe940be4a4a29f196052
+- [nit] plugins/openspec/skills/devkit/SKILL.md:251 (step 8) — Step 8 still does not say to skip the follow-up project-settings.mjs run that enables devkit-compozy when kit-installer.mjs exits 3; scenario "devkit-compozy not installed" says the setup writes nothing for the kit.
+- [praise] plugins/openspec/skills/devkit/scripts/setup-block.mjs — The block writer follows the spec closely (exit 3 refusals, exit 2 usage, CRLF kept, empty file, kept/train narrowing, fill); this round adds the CRLF-aware shared readers and routes the CI pin through deliver-check's one pin reader, each pinned by a test.
 
-In-scope specs: openspec/changes/project-setup/specs/project-setup/spec.md, openspec/changes/project-setup/specs/compozy-kit-setup/spec.md, openspec/changes/project-setup/specs/change-coordination/spec.md, openspec/specs/project-setup/spec.md, openspec/specs/compozy-kit-setup/spec.md, openspec/specs/change-coordination/spec.md; decisions: docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md, docs/adr/0004-devkit-per-project.md; open point answered: docs/coordination-design.md (Open points, Project setup).
+In-scope specs: openspec/changes/project-setup/specs/project-setup/spec.md, openspec/changes/project-setup/specs/compozy-kit-setup/spec.md, openspec/changes/project-setup/specs/change-coordination/spec.md, openspec/specs/project-setup/spec.md, openspec/specs/compozy-kit-setup/spec.md, openspec/specs/change-coordination/spec.md. Decisions: docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md, docs/adr/0004-devkit-per-project.md, docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md (now amended by 0031).
+
+Scope of this round (re-review): the previous findings and the lines changed in 02e6780..76e88ad. That range is 387bf15 (round-1 fixes), 45cbd1c (owner's choice A on the typed-only wording) and 76e88ad (evidence). The merge 22d0706 brought train 18, the suite-socket-path archive and a CONTRIBUTING.md paragraph from main. None of these is this change's behaviour.
 
 ### Coverage
 | Requirement | Status |
 |-------------|--------|
 | project-setup: One typed verb sets a project up | covered |
-| project-setup: The setup runs only from the owner's typed command | partial (F1) |
-| project-setup: The setup asks each key of the devkit block | covered (F3 on the commented budget/design wording) |
-| project-setup: A re-run keeps every value and asks only what is missing | covered |
+| project-setup: The setup skill is invoked only from the owner's typed command | covered (narrowed in 45cbd1c; R-6 shows no Skill call in all three cases and an empty git status in R-1's project; evidence F-1 records the hand-run scripts the requirement now excludes in so many words) |
+| project-setup: The setup asks each key of the devkit block | covered (both config paths now stated in the scenario) |
+| project-setup: A re-run keeps every value and asks only what is missing | covered (CRLF configs now read as their LF twin by parseDevkitBlock and readTestSettings, with tests) |
 | project-setup: A re-run writes outside the block only what is unset | covered |
 | project-setup: The driver question offers only drivers that run | covered |
-| project-setup: The CompozyOS kit is a question of its own | covered (F4) |
+| project-setup: The CompozyOS kit is a question of its own | covered (F4 nit) |
 | project-setup: The setup copies no checker and names what the project uses | covered |
-| project-setup: In merge mode each GitHub item is confirmed on its own | covered (R-3 asked auto-merge and delete-branch; the ruleset question is proven by tests, evidence O-1) |
-| project-setup: The block writer refuses what it cannot read or accept | covered |
+| project-setup: In merge mode each GitHub item is confirmed on its own | covered (step 7 now also tells the owner a written ship: merge stays and is changed by hand when the ruleset is blocked; pinned by a guard test) |
+| project-setup: The block writer refuses what it cannot read or accept | covered (the inline map/list refusal follows the requirement's "cannot read ... its devkit: block") |
 | project-setup: The removed setup skills are named nowhere | covered |
 | project-setup: A project set up with the old skills keeps working | covered |
 | project-setup (MODIFIED): The changes under way are listed before the schemas are replaced | covered |
 | project-setup (MODIFIED): The project script is installed beside the two others | covered |
-| project-setup (MODIFIED): The setup asks for the project's test commands | covered (F3 on "The starting configuration") |
+| project-setup (MODIFIED): The setup asks for the project's test commands | covered ("The starting configuration" now scoped to a template-written file) |
 | project-setup (MODIFIED): The setup names a gh too old for the delivery | covered |
-| project-setup: canonical requirements not modified (GitHub report, proposed checks) | covered (moved tests pass in their new place) |
-| compozy-kit-setup (MODIFIED): The kit records what it installed | covered |
-| compozy-kit-setup (MODIFIED): A re-run updates the files the project did not edit | covered |
-| compozy-kit-setup (MODIFIED): A re-run never replaces an edited file without the owner's yes | covered |
-| compozy-kit-setup (MODIFIED): A re-run removes the retired files the project did not edit | covered |
-| compozy-kit-setup (MODIFIED): A retired file the project edited stays and is named | covered |
-| compozy-kit-setup (MODIFIED): Inputs the kit no longer uses are dropped | covered |
-| compozy-kit-setup (ADDED): The kit installer ships in devkit-compozy with no setup skill | covered |
-| change-coordination (MODIFIED): The devkit command reads its verb | partial (F2) |
+| project-setup: canonical requirements not modified (GitHub report, proposed checks) | covered |
+| compozy-kit-setup (MODIFIED, six blocks) and (ADDED) the kit installer ships in devkit-compozy | covered (unchanged this round) |
+| change-coordination (MODIFIED): The devkit command reads its verb | covered (setup-no-repo outside git even with openspec/changes; test extended in 387bf15) |
 | change-coordination (MODIFIED): The command runs only in a project set up for devkit | covered |
 
-Checks run on this head:
+Checks run on this head (76e88ad):
 - `openspec validate project-setup --type change --strict`: valid.
-- `node scripts/test-suite.mjs --concurrency=3 --test-name-pattern="^setup "` on setup-block, kit-installer, project-settings, change-loop, project-loop, delivery-train and guard (TMPDIR /var/tmp/devkit-project-setup, no other suite running): 7 files, 42 tests, 42 pass.
-- A probe of startMode: a git-less folder with openspec/changes answers `setup` (F2); an empty git-less folder answers `setup-no-repo`.
-- `git grep` for the old names outside the exempt history lists only the canonical blocks the deltas MODIFY and the D-9 fixtures.
-- Every scenario line of each canonical block the deltas MODIFY is present in the delta.
+- `TMPDIR=/var/tmp/devkit-project-setup node scripts/test-suite.mjs --concurrency=3 --test-name-pattern="^setup "` on change-loop, setup-block, guard, flow-check and delivery-models test files, with no other suite running: 5 files, 42 tests, 42 pass.
+- ADR 0031 Decision 1 ("runs only from the owner's typed command (the skill is not invocable by the model)") agrees with the narrowed requirement. No spec–ADR conflict.
+- The design's D-14 note and Risks entry record the owner's choice A and the retro proposal (a hook refusing the setup scripts without a typed /devkit setup). It is not part of this change, so it is not scope creep and not a gap against the narrowed spec.
 
-No scope creep found: every new behaviour (the setup mode, setup-no-repo, BUILT_DRIVERS, setup-block.mjs, kit-installer.mjs with --where, the Setup section, the template's commented examples, the documents and the releases) traces to a requirement, or to design D-1 to D-15 under an approved plan. ADR 0031 is accepted and ADR 0004 carries its Note and its Amended by line.
+No new scope creep this round. Every behaviour 387bf15 adds traces to an existing requirement:
+- CRLF reading traces to the re-run requirement and the block writer's line-endings scenario.
+- The inline map/list refusal traces to "cannot read its devkit: block".
+- The pin reader traces to plan ciPin.
+- setup-no-repo traces to the change-coordination scenario.
+- The ruleset-blocked text traces to step 7 under ADR 0002.
+- The ADR 0026 note traces to the removed-names requirement and ADR 0031's Amends line.
 
 ### Summary
-- 4 findings (0 scope creep, 2 gaps: F1 blocking, F2 partial), plus 1 ambiguity (F3), 1 nit (F4) and 1 praise (F5).
+- 5 findings: 0 scope creep. Of the gaps, F1 (blocking, fixed in 45cbd1c) and F2 (partial, fixed in 387bf15). The ambiguity F3 is fixed in 45cbd1c. 1 nit is still open (F4) and 1 praise (F5).

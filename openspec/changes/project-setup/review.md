@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=1 commit=02e67807136fa670f73202efc2601e0f3b1936c0 -->
+<!-- devkit-stage review result=failed attempt=2 commit=76e88ad3fdab3ffd0ced32b6418bc4c38cef11da -->
 # Review: project-setup, round 1
 
 Path: agents · range `3ca2e47e35e95cf53cf745a23838909c88dcd5ce..02e67807136fa670f73202efc2601e0f3b1936c0` · structural: PASS
@@ -37,3 +37,32 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: project-setup, round 2
+
+Path: agents · range `fc287351f9aee0c2cf1f38eb0a4c28d23f172205..76e88ad3fdab3ffd0ced32b6418bc4c38cef11da` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 76e88ad |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 76e88ad |
+| code-quality-reviewer | rejected | 0 | 1 | 1 | 0 | 76e88ad |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 76e88ad |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 76e88ad |
+| security-reviewer | approved | 0 | 0 | 0 | 0 | 76e88ad |
+
+Consensus: FAIL (round 2/2)
+
+## Open findings
+- code-quality-reviewer — [important] plugins/openspec/hooks/change-loop.mjs:2114 — The no-repo check tests cwd, but root is start ?? top and findRoot climbs past the repository's top: a git repo nested in a folder holding openspec/changes (reproduced: outer non-git folder) or in another devkit project (a submodule) gets mode setup with the outer folder as root, so the setup writes outside the repo the owner typed in. Fix: use start only when it is top or inside it, else top; add the nested-repo case to the setup-no-repo test.
+
+## Refuted by verification
+None.
+
+## Notes
+- Agents path: this round ran on a turn the owner did not type.
+- Round 2 re-reviewed the round-1 findings and the lines changed since 02e6780 (387bf15 fixes, 45cbd1c owner choice A, 22d0706 train-18 merge, 76e88ad evidence).
+- Each stage-3 writer read its prompt, unchanged, from the file the round script printed it to, because of its length.
+
+## Next
+Consensus deadlock after round 2: the owner decides.
