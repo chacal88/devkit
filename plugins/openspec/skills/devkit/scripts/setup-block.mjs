@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { BUILT_DRIVERS, DRIVER_ROUND, LANGUAGE_TAG, isObject, readDevkitSettings, tryGit } from '../../../hooks/change-loop.mjs';
 import { DELIVERY_MODELS, DEVKIT_SCHEMAS, parseDevkitBlock, projectSchema, releaseTagSetting } from '../../../hooks/guard.mjs';
 import { readTestSettings } from '../../../hooks/flow-check.mjs';
-import { MERGE_METHOD_VALUES, SHIP_MODES, parseMergeMethod, parseShip } from '../../../hooks/deliver-check.mjs';
+import { MERGE_METHOD_VALUES, SHIP_MODES, parseMergeMethod, parseShip, pinsIn } from '../../../hooks/deliver-check.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE = join(here, '..', 'templates', 'config.yaml');
@@ -98,9 +98,10 @@ function defaultBranch(root) {
   return ref ? ref.replace(/^origin\//, '') : 'main';
 }
 
+// The CI pin the project records: the first pin of its devkit-reviews workflow, read by the one pin reader (deliver-check pinsIn).
 function ciPinOf(root) {
   try {
-    return /# pinned to the commit of (\S+)/.exec(readFileSync(join(root, '.github', 'workflows', 'devkit-reviews.yml'), 'utf8'))?.[1] ?? null;
+    return pinsIn(readFileSync(join(root, '.github', 'workflows', 'devkit-reviews.yml'), 'utf8'))[0] ?? null;
   } catch { return null; }
 }
 
@@ -257,7 +258,8 @@ function blockOf(rows) {
   return { start, end: end < 0 ? rows.length : end };
 }
 
-// Refuses a block the writer cannot edit without guessing: an inline value, a second `devkit:` line, a tab in an indentation.
+// Refuses a block the writer cannot edit without guessing: an inline value on the `devkit:` line, an inline map or list (a value
+// that starts with `{` or `[`) on any line of the block, a second `devkit:` line, a tab in an indentation.
 function checkBlock(rows) {
   const lines = rows.map((row, i) => (/^devkit\s*:/.test(clean(row)) ? i : -1)).filter((i) => i >= 0);
   const byHand = (i, what) => new SetupRefusal(`openspec/config.yaml line ${i + 1}: ${what}; edit the block by hand, then run the setup again`);
@@ -267,6 +269,7 @@ function checkBlock(rows) {
   const { start, end } = blockOf(rows);
   for (let i = start + 1; i < end; i++) {
     if (clean(rows[i]).trim() !== '' && /^[ \t]*\t/.test(rows[i])) throw byHand(i, 'a tab in the indentation of the devkit block');
+    if (/^\s+[A-Za-z][\w-]*:\s*[{[]/.test(clean(rows[i]))) throw byHand(i, 'an inline map or list in the devkit block');
   }
 }
 

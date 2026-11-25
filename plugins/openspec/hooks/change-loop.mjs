@@ -2108,10 +2108,11 @@ export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, opens
   });
   const say = (key, params = {}) => render(l, key, params);
   if (VERB_ROUND[verb]) return out('not-built', { reply: say('verb-not-built', { verb, round: VERB_ROUND[verb] }) });
-  // `/devkit setup` runs whatever the settings hold, since the step is what repairs them; it only needs a repository (project-setup D-1).
+  // `/devkit setup` runs whatever the settings hold, since the step is what repairs them; it only needs a repository (project-setup D-1):
+  // a folder in no git repository answers setup-no-repo even when it holds openspec/changes.
   if (verb === 'setup') {
-    const root = start ?? (tryGit(cwd ?? process.cwd(), ['rev-parse', '--show-toplevel']) || null);
-    return root ? out('setup', { root, reply: null }) : out('setup-no-repo', { reply: say('setup-no-repo') });
+    const top = tryGit(cwd ?? process.cwd(), ['rev-parse', '--show-toplevel']) || null;
+    return top ? out('setup', { root: start ?? top, reply: null }) : out('setup-no-repo', { reply: say('setup-no-repo') });
   }
   if (!['change', 'roadmap', 'status', 'project', 'train'].includes(verb)) return out('unknown-verb', { reply: say('verb-unknown') });
   const gate = projectGate(start, settings, verb);

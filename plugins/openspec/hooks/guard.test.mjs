@@ -1894,6 +1894,18 @@ test('setup AC-7 skill: step 5 asks the ship mode with merge suggested and step 
   assert.doesNotMatch(step7, /only if the owner asks/);
 });
 
+// Invariant: when GitHub refuses the ruleset, the session tells the owner that the ship map step 5 wrote stays merge and that the
+// owner changes it to pr or plan by hand, since a re-run never rewrites a present ship map (ADR 0002). Layer: skill text (step 7).
+// Suite: guard.
+test('setup AC-7 skill: a blocked ruleset tells the owner the written ship map stays merge and is changed to pr or plan by hand', () => {
+  const step7 = skillPart('7. **GitHub (merge mode).**', '8. **The CompozyOS kit.**');
+  const blocked = step7.split('\n').find((line) => line.includes('A `ruleset` that reads `blocked`'));
+  assert.ok(blocked, 'step 7 has the ruleset-blocked bullet');
+  assert.match(blocked, /`ship:` map[^\n]*stays `merge`/);
+  assert.match(blocked, /changes it to `pr` or `plan` by hand in `openspec\/config\.yaml`/);
+  assert.match(blocked, /never rewrites a `ship:` map already present/);
+});
+
 // Invariant: an old project's configuration, settings and schemas run /devkit change with no setup step, and the change's
 // readout reads. Layer: startMode, open and flow-check on the old-setup fixture. Suite: guard. Passes on the base: old projects
 // already work, and it guards the later tasks.
@@ -1927,6 +1939,28 @@ test('setup AC-4 skill: step 5 writes schema, context, rules and operations only
   assert.match(step, /the `devkit:` block, the `ship:` map and `merge_method` only through `setup-block\.mjs apply`/);
   assert.match(step, /`kept`/);
   for (const old of [/set `schema: devkit-lite` as the default/, /merge in only the missing/, /Fill `context` from the repo/]) assert.doesNotMatch(step, old);
+});
+
+// Invariant: ADR 0026, whose Decision names the suite's folders, records that this change moved two of them: a dated Note naming
+// the new folders and the Amended-by line, ADR <n> (this change's record, its number taken from its file name, as task 6.7 does)
+// naming ADR 0026 in its Amends line, and the ADR list of openspec/config.yaml saying so. Layer: the repository's records.
+// Suite: guard.
+test('setup AC-2 records: ADR 0026 notes the two moved suite folders and is amended by the setup record', () => {
+  const root = join(here, '..', '..', '..');
+  const dir = join(root, 'docs', 'adr');
+  const record = readdirSync(dir).filter((f) => f.endsWith('-one-setup-verb-replaces-the-two-setup-skills.md'));
+  assert.equal(record.length, 1, 'one setup record');
+  const n = record[0].slice(0, 4);
+  const adr26 = readFileSync(join(dir, '0026-the-devkit-test-suite-runs-by-file-in-parallel.md'), 'utf8');
+  const header = adr26.split('\n## Context')[0];
+  assert.ok(header.split('\n').includes(`- Amended by ADR ${n} (${record[0]})`), 'ADR 0026 has the Amended-by line in its header');
+  const note = adr26.split('\n').filter((line) => line.startsWith('Note (project-setup, 2026-11-24)'));
+  assert.equal(note.length, 1, 'one project-setup Note');
+  for (const folder of ['plugins/openspec/skills/devkit/scripts/', 'plugins/compozy/kit/scripts/', `ADR ${n}`]) assert.ok(note[0].includes(folder), folder);
+  const amends = readFileSync(join(dir, record[0]), 'utf8').split('\n## Context')[0];
+  assert.match(amends, /ADR 0026\s+\(0026-the-devkit-test-suite-runs-by-file-in-parallel\.md\)/, 'the setup record amends ADR 0026');
+  assert.ok(readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8').includes(`0026 the devkit test suite runs by file in parallel, each file in its own temporary folder, amended by ${n};`),
+    'the ADR list of openspec/config.yaml');
 });
 
 // Invariant: outside the history (records, past changelog entries, change folders, train records), the two fixture folders that

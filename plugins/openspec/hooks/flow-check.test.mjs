@@ -1913,6 +1913,14 @@ test('stage-roles flow settings: the nested tests block is read, quoted or not, 
   assert.deepEqual(s.unknown, []);
 });
 
+// Invariant: a CRLF config gives the test settings its LF twin gives. Layer: flow-check readTestSettings. Suite: flow-check.
+test('stage-roles flow settings: a CRLF tests block is read as its LF twin', () => {
+  const lf = 'schema: devkit\ndevkit:\n  language: en\n  tests:\n    unit: "npm test"\n    coverage:\n      command: npm run coverage\n      target: 80\n    e2e: npm run e2e\nother: 1\n';
+  const s = FC.readTestSettings(configRoot(lf.replace(/\n/g, '\r\n')));
+  assert.deepEqual(s, FC.readTestSettings(configRoot(lf)));
+  assert.deepEqual([s.unit, s.e2e, s.coverage], ['npm test', 'npm run e2e', { command: 'npm run coverage', target: 80 }]);
+});
+
 test('stage-roles flow settings: a key after the tests block closes it, and keys outside the devkit block are not read', () => {
   const s = FC.readTestSettings(configRoot(['devkit:', '  tests:', '    unit: npm test', '  driver: claude', '  e2e: not-a-tests-key', 'tests:', '  unit: elsewhere', ''].join('\n')));
   assert.equal(s.unit, 'npm test');

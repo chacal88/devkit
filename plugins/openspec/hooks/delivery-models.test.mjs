@@ -91,6 +91,14 @@ test('delivery-models config: nested keys never set driver or language', () => {
   assert.equal(parseDevkitBlock('devkit:\n  delivery:\n    driver: robot\n').driver, undefined);
 });
 
+// Invariant: a CRLF config gives the block its LF twin gives. Layer: guard parseDevkitBlock. Suite: delivery-models.
+test('delivery-models config: a CRLF block is read as its LF twin', () => {
+  const lf = 'schema: devkit\ndevkit:\n  language: en\n  driver: claude\n  release_tag: package.json\n  delivery:\n    model: two-prs\n    base: main\n    test_branch: develop\nship:\n  devkit: pr\n';
+  const crlf = parseDevkitBlock(lf.replace(/\n/g, '\r\n'));
+  assert.deepEqual(crlf, parseDevkitBlock(lf));
+  assert.deepEqual([crlf.language, crlf.driver, crlf.release_tag, crlf.delivery.model], ['en', 'claude', 'package.json', 'two-prs']);
+});
+
 test('delivery-models config: the block keeps the budget at its own level, never one nested under delivery', () => {
   assert.equal(parseDevkitBlock('devkit:\n  budget: 500000\n  delivery:\n    model: trunk\n').budget, '500000');
   assert.equal(parseDevkitBlock('devkit:\n  delivery:\n    budget: 7\n').budget, undefined);

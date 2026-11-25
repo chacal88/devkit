@@ -119,7 +119,7 @@ export function parseDevkitBlock(text) {
   let inDelivery = false;
   let inModels = false;
   let modelsIndent = null;
-  for (const line of String(text).split('\n')) {
+  for (const line of String(text).split(/\r?\n/)) {
     if (/^devkit:\s*(#.*)?\r?$/.test(line)) { inBlock = true; continue; }
     if (!inBlock) continue;
     if (line.trim() === '' || /^\s*#/.test(line)) continue;

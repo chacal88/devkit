@@ -1020,6 +1020,16 @@ test('setup AC-1 start: setup outside a git repository answers setup-no-repo in 
   }
   assert.notEqual(render('en', 'setup-no-repo'), render('pt-BR', 'setup-no-repo'), 'translated');
   assert.deepEqual(readdirSync(bare), [], 'nothing was created');
+  // A folder that holds openspec/changes, so findRoot finds it, is still in no git repository (spec: change-coordination).
+  const opened = tmpFolder('devkit-change-loop-setup-bare-openspec-');
+  mkdirSync(join(opened, 'openspec', 'changes'), { recursive: true });
+  writeFileSync(join(opened, 'openspec', 'config.yaml'), 'schema: devkit\n');
+  const before = filesOf(opened);
+  for (const lang of ['en', 'pt-BR']) {
+    const b = body(startRun(opened, 'setup', { lang }));
+    assert.deepEqual([b.mode, b.reply, b.root], ['setup-no-repo', render(lang, 'setup-no-repo'), undefined], `openspec/changes outside git: ${lang}`);
+  }
+  assert.deepEqual(filesOf(opened), before, 'nothing was created under the openspec folder');
 });
 
 // Invariant: only the exact verb is setup; a near miss is an unknown verb, in the same folder where setup answers. Layer: startMode

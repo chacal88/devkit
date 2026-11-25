@@ -129,7 +129,7 @@ export function readTestSettings(root) {
   const paths = {};
   const open = [];
   let inBlock = false;
-  for (const line of text.split('\n')) {
+  for (const line of text.split(/\r?\n/)) {
     if (/^devkit:\s*(#.*)?\r?$/.test(line)) { inBlock = true; open.length = 0; continue; }
     if (!inBlock) continue;
     if (line.trim() === '' || /^\s*#/.test(line)) continue;

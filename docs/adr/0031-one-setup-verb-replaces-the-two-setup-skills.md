@@ -9,7 +9,10 @@
   takes 0031, the record moves to the next free number.
 - Amends: ADR 0004 (0004-devkit-per-project.md), the sentence of its Decision "The docs and
   `openspec-setup` teach only the per-project install" and the mitigation of its Consequences
-  "`openspec-setup` writes the settings": both now name `/devkit setup`. ADR 0009
+  "`openspec-setup` writes the settings": both now name `/devkit setup`. ADR 0026
+  (0026-the-devkit-test-suite-runs-by-file-in-parallel.md), the suite's folders of its decisions 1
+  and 6: the two setup skills' script folders now read `plugins/openspec/skills/devkit/scripts/` and
+  `plugins/compozy/kit/scripts/`, the same test files moved. ADR 0009
   (0009-compozy-loop-as-a-second-driver.md) keeps its Decision; the pack `devkit-compozy` loses its
   setup skill and stays an opt-in pack, so its review trigger ("`devkit-compozy` becomes a default
   pack") does not fire.

@@ -140,6 +140,32 @@ test('setup AC-3 block apply: a first answer set appends the block, readDevkitSe
   assert.deepEqual([deliveryConfig(merging, 'devkit').ship, deliveryConfig(merging, 'devkit').mergeMethod], ['merge', 'squash']);
 });
 
+// Invariant: the default delivery answer `none` writes no delivery key, so the loop reads no unknown model.
+// Layer: setup-block apply. Suite: setup-block.
+test('setup AC-3 block apply: the default delivery answer none on a project with no train writes no delivery and leaves no unknown value', () => {
+  const root = project(null);
+  const out = applied(root, { delivery: { model: 'none' }, language: 'en' });
+  assert.deepEqual(out, { file: 'created', added: ['language'] });
+  assert.equal(configOf(root), `${TEMPLATE}\n${HEADING}\ndevkit:\n  language: en\n`);
+  assert.deepEqual(readDevkitSettings(root).unknown, []);
+  assert.equal(deliveryConfig(root, 'devkit').model, null);
+});
+
+// Invariant: a delivery model answered in the same call decides what else may be answered: trunk-auto takes a merge_method and
+// no ship map, and a model refuses a ship answer. Layer: setup-block apply. Suite: setup-block.
+test('setup AC-7 block apply: a model answered in the same call accepts trunk-auto with merge_method and no ship map, and refuses trunk with a ship answer', () => {
+  const auto = project(null);
+  assert.deepEqual(applied(auto, { delivery: { model: 'trunk-auto' }, merge_method: 'squash' }), { file: 'created', added: ['delivery', 'merge_method'] });
+  assert.equal(configOf(auto), `${TEMPLATE}\n${HEADING}\ndevkit:\n  delivery:\n    model: trunk-auto\n\nmerge_method: squash\n`);
+  assert.doesNotMatch(configOf(auto), /^ship\s*:/m);
+  const config = deliveryConfig(auto, 'devkit');
+  assert.deepEqual([config.model, config.ship, config.mergeMethod], ['trunk-auto', 'merge', 'squash']);
+
+  const trunk = project('schema: devkit\n');
+  refused(trunk, { delivery: { model: 'trunk' }, ship: 'merge' }, /^setup-block: ship: not missing/, 'trunk with a ship answer');
+  assert.deepEqual([deliveryConfig(trunk, 'devkit').model, deliveryConfig(trunk, 'devkit').ship], [null, 'plan'], 'the refused call wrote nothing');
+});
+
 // Invariant: a re-run with nothing missing does not touch the file. Layer: setup-block apply. Suite: setup-block.
 test('setup AC-4 block apply: nothing missing leaves the file byte-identical and unwritten', () => {
   const config = 'schema: devkit\ndevkit:\n  language: en\n  driver: claude\n  delivery:\n    model: trunk\n  tests:\n    unit: "npm test"\n'
@@ -243,13 +269,28 @@ test('setup AC-3 block parser: CRLF kept, a missing final newline added, an empt
   assert.equal(configOf(empty), `${HEADING}\ndevkit:\n  language: en\n`);
 });
 
-// Invariant: a block the writer cannot read safely, or a config it cannot read at all, is refused and never rewritten.
+// Invariant: a CRLF config is read as its LF twin, so a re-run asks no key the file holds and writes no duplicate.
+// Layer: setup-block plan (the shared readers parseDevkitBlock and readTestSettings). Suite: setup-block.
+test('setup AC-4 block plan: after apply on a CRLF config, plan asks none of the keys the file holds and a second answer is refused', () => {
+  const root = project('schema: devkit\r\ndevkit:\r\n  language: en\r\n');
+  applied(root, { driver: 'claude', tests: { unit: 'npm test', coverage: { target: 80 } } });
+  const p = plan(root);
+  for (const key of ['language', 'driver', 'tests.unit', 'tests.coverage.target']) assert.equal(keysOf(p).includes(key), false, key);
+  assert.deepEqual([p.present.language, p.present.driver, p.present.tests.unit, p.present.tests.coverage.target], ['en', 'claude', 'npm test', 80]);
+  assert.deepEqual(readDevkitSettings(root).unknown, []);
+  refused(root, { language: 'pt-BR' }, /language/, 'a present language in a CRLF file');
+});
+
+// Invariant: a block the writer cannot read safely (an inline value on any of its lines included), or a config it cannot read at all,
+// is refused and never rewritten.
 // Layer: setup-block parser. Suite: setup-block.
 test('setup AC-3 block parser: an inline devkit value, a second devkit line, a tab indent and an openspec/config.yaml that cannot be read are refused with nothing written', () => {
   refused(project('schema: devkit\ndevkit: {}\n'), { driver: 'claude' }, /line 2.*by hand/, 'inline {}');
   refused(project('schema: devkit\ndevkit: x\n'), { driver: 'claude' }, /line 2.*by hand/, 'inline value');
   refused(project('schema: devkit\ndevkit:\n  language: en\nrules: {}\ndevkit:\n  driver: claude\n'), { tests: { unit: 'make test' } }, /line 5.*by hand/, 'a second devkit line');
   refused(project('schema: devkit\ndevkit:\n  language: en\n\tdriver: claude\n'), { tests: { unit: 'make test' } }, /line 4.*by hand/, 'a tab indent');
+  refused(project('schema: devkit\ndevkit:\n  language: en\n  tests: { unit: "npm test" }\n'), { tests: { coverage: { target: 80 } } }, /line 4.*by hand/, 'an inline map in the block');
+  refused(project('schema: devkit\ndevkit:\n  delivery:\n    model: trunk\n    extra: [a, b]\n'), { language: 'en' }, /line 5.*by hand/, 'an inline list in the block');
 
   const folder = project(null);
   mkdirSync(configFile(folder), { recursive: true });
@@ -271,6 +312,18 @@ test('setup AC-5 block plan: pluginVersion is devkit-openspec\'s version and ciP
   assert.equal(p.pluginVersion, PACK_VERSION);
   assert.equal(p.ciPin, 'v0.40.0');
   assert.equal(plan(project('schema: devkit\n')).ciPin, null);
+});
+
+// Invariant: ciPin is the pin the workflow github-setup.mjs writes carries, read as deliver-check reads the pins.
+// Layer: setup-block plan. Suite: setup-block.
+test('setup AC-5 block plan: ciPin reads the pin of the workflow written from templates/devkit-reviews.yml', () => {
+  const template = readFileSync(join(here, '..', 'templates', 'devkit-reviews.yml'), 'utf8');
+  const workflow = template.replaceAll('{{ref}}', '0123456789abcdef0123456789abcdef01234567').replaceAll('{{tag}}', 'v0.41.2');
+  assert.notEqual(workflow, template);
+  assert.equal(plan(project('schema: devkit\n', { '.github/workflows/devkit-reviews.yml': workflow })).ciPin, 'v0.41.2');
+  const moved = workflow.replace('# pinned to the commit of v0.41.2 (resolved', '# pinned to the commit of v0.41.2, resolved');
+  assert.notEqual(moved, workflow);
+  assert.equal(plan(project('schema: devkit\n', { '.github/workflows/devkit-reviews.yml': moved })).ciPin, 'v0.41.2', 'the pin reader of deliver-check, not a second one');
 });
 
 // Invariant: every invalid answer is refused before anything is written. Layer: setup-block apply. Suite: setup-block.
