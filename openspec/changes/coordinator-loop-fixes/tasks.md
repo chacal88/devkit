@@ -522,7 +522,7 @@ every task with `git status --short`.
   passes, and the tests that read the skill's text pass by name:
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^coordinator-loop-fixes AC-7 T44 " --test-name-pattern="^format: review-change" --test-name-pattern="^delivery-models AC-7" --test-name-pattern="^jira-entry-followups docs" --test-name-pattern="^own-files AC-9 docs" plugins/openspec/hooks/change-loop-declared.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs`
   passes.
-- [ ] 6.5 D-10, AC-11's deferred half: add the line `- [ ] host-monitor-wake (after: coordinator-loop-fixes) — ...` to
+- [x] 6.5 D-10, AC-11's deferred half: add the line `- [ ] host-monitor-wake (after: coordinator-loop-fixes) — ...` to
   `## Round 16b: the coordinator loop fixes` of `openspec/roadmap.md`, right after the `coordinator-loop-fixes` line,
   saying in one sentence what R13a and R13b proved (no wait and the session says so with the host's monitor; the
   background wait without it) and what is open (whether the desktop app's monitor wakes the session when the checks
