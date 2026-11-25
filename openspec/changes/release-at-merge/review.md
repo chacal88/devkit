@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=1 commit=4a6e858761c181c549b412025dae02aff354a646 -->
+<!-- devkit-stage review result=failed attempt=2 commit=c1c875e8686bb429ab1bc3d0af2dff21d00082ba -->
 # Review: release-at-merge, round 1
 
 Path: agents · range `d6d7f6a984fd7ae9cbdf6c1b491ea5fbd0112bdd...4a6e858761c181c549b412025dae02aff354a646` · structural: PASS
@@ -41,3 +41,33 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: release-at-merge, round 2
+
+Path: agents · range `4a6e858761c181c549b412025dae02aff354a646..c1c875e8686bb429ab1bc3d0af2dff21d00082ba` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | rejected | 0 | 1 | 1 | 0 | c1c875e |
+| spec-reviewer | rejected | 0 | 2 | 2 | 0 | c1c875e |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | c1c875e |
+| test-coverage-reviewer | rejected | 0 | 1 | 1 | 0 | c1c875e |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | c1c875e |
+
+Consensus: FAIL (round 2/2)
+
+## Open findings
+- adr-reviewer — [important] plugins/openspec/hooks/deliver-check.mjs:2265-2318 (stepRecord, the per-key loop over every recorded commit) — ADR 0032 (`docs/adr/0032-release-at-merge-step-record.md`) § Decision 3 has stepRecord read 'the newest commit' that names Release-change, and § Decision 4 compares against 'the record'. Since 46c3c2e (defect 7), each key comes from the newest recorded commit that wrote it, so older step commits now count too. This keeps § Decision 2's diff-and-tree rule and § Decision 6's never-pass rule, and it is what makes the record's Positive consequence hold. But the accepted text was not touched, and evidence.md lists the change only as a deviation. Fix: before merge, the owner acknowledges the per-key reading, for example in a dated Note in ADR 0032's Context, as ADR 0022 and ADR 0025 carry.
+- spec-reviewer — [important] openspec/changes/release-at-merge/specs/change-delivery/spec.md:71-76; plugins/openspec/hooks/deliver-check.mjs:2277-2319 (stepRecord); docs/adr/0032-release-at-merge-step-record.md:59-61 (decision 3) — Spec ambiguity resolved silently against an accepted ADR: 'A release line the step wrote is known by the step's own record' says the step's own latest recorded commit decides, and ADR 0032 decision 3 says stepRecord reads the newest recorded commit, but 46c3c2e makes each key take the newest of all recorded commits that wrote it. docs/openspec-flow.md was updated, the spec and the record were not, and no scenario covers a number kept across a later step commit. Owner decides: extend the spec (and amend or note ADR 0032) or narrow the code.
+- spec-reviewer — [important] openspec/specs/change-delivery/spec.md:546-563 ('The open items of a forced merge are named', scenarios 'Evidence recorded before a product change' and 'A review that did not pass') vs specs/change-d… — Two specs disagree (escalate): the delta says the delivery checker reads the evidence and approved reviews as current after the step's commit, but the canonical forced-merge requirement (train 16, merged in a47cec8) lists them as open items whenever a file outside openspec/ changed after their Commit:, which the step's release commit always does. Neither scopes the other. Evidence lists this as a follow-up with no test or real run. The owner decides which is authoritative for a noted change.
+- test-coverage-reviewer — [important] plugins/openspec/hooks/deliver-check.mjs:963 — [5] Evidence open item 1 is real and untested: gatesAtHead (forced-merge-path, merged from the base in a47cec8) judges evidence.md with isOpenspec and the reviews with verdictAllowed, but the step's commit comes after both and writes manifests, CHANGELOG.md, docs/adr and citations. So an owner's forced merge of a noted change would list evidence.md and each approved review as '<sha> is behind the merged head, which changes <manifest>', and no test goes red: the forced-merge-path tests in deliver-check-archive.test.mjs (FMP G-rows) build no noted change. The fix needs the GitHub-side read to know the step's record or the release mask, which is code outside this change's plan. Follow-up, it does not reject: the path needs a required check that is not green, and the result is false open items, nothing lost. Write in: deliver-check-archive.test.mjs beside the FMP G-tests (a noted change whose compare from the evidence commit lists only the step's release files: gates is empty).
+
+## Refuted by verification
+None.
+
+## Notes
+- Verify stage run on the four open important findings (adr-reviewer F7, spec-reviewer F8 and F9, test-coverage-reviewer F16): 12 finding verifiers, none refuted. Two themes: (1) stepRecord reads each key from the newest step commit that wrote it, while ADR 0032 decision 3 and the spec delta's requirement text say the newest recorded commit; (2) on an owner's forced merge, gatesAtHead (from the base's forced-merge-path) has no release-edit allowance, so the step's release commit would list the evidence and the approved reviews as open items, against this change's delta.
+- Round 2 of 2: no convergence; per the review-change rules the disputed points go to the owner, with no automatic third round.
+
+## Next
+Consensus deadlock after round 2: the owner decides.

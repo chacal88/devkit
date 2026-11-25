@@ -1,60 +1,78 @@
 Verdict: rejected
-Commit: 4a6e858761c181c549b412025dae02aff354a646
+Commit: c1c875e8686bb429ab1bc3d0af2dff21d00082ba
 
 ## Spec review — release-at-merge
 
 ### Findings
-- [important] plugins/openspec/hooks/deliver-check.mjs:13-18 (CITATION_PATHSPEC, holdsCitations); plugins/openspec/hooks/release-merge.mjs numberRelease (git grep over CITATION_PATHSPEC) — Partial: change-delivery 'An unnumbered ADR is numbered at the delivery' (and ADR 0031 decision 3, design D-4) says citations are rewritten in every tracked text file outside openspec/changes/; the code only rewrites, and only checks for leftovers in, .md/.yaml/.yml files, so an ADR [<slug>] in any other tracked text file is left unrewritten and nothing reports it. This narrowing (evidence defect 4, 620c047) is not listed among the plan deviations and is not in the spec. Extend the spec text or widen the code.
-- [important] openspec/specs/change-coordination/spec.md:203-244 vs openspec/changes/release-at-merge/specs/change-delivery/spec.md (With no train the release is assigned by one step before the merge) — Two specs disagree: canonical change-coordination 'From the implementation on, the step inside the stage goes to its role', scenarios 'A conflict in any other file' (run ends blocked) and 'GitHub reports a conflict the base merges cleanly' (update-branch), still hold for every change, while the delta's 'The pull request in conflict with the base' scenario and the ADDED conductor requirement answer assign-release for a noted change. No MODIFIED block scopes those scenarios to changes with no note; the owner decides which is authoritative.
-- [important] evidence.md 'Open item for the owner'; plugins/core/skills/plan-readiness-review/SKILL.md (The release note paragraph); proof/agents-run.md S-6 — Known open gap: the readiness finding this change adds for a missing or unreadable release.md can only be cleared by editing release.md, which is not in the readiness stage's staleAfter, so readiness is never run again and the loop re-hands the planner the same revision brief until the run ends with no progress. No requirement covers this path (change-coordination 'The planner does not stop without the release note' names readiness as a later check). A fix needs flow.json, which the proposal rules out (no new flow version), so the owner decides.
-- [important] scripts/check.py check_adrs/on_base (design D-12) — AC-6's check.py rules (an unnumbered ADR refused on the base, two records with one slug) have no requirement in any spec delta, and the rule that refuses an unnumbered record no active change's decisions.md lists comes only from design D-12, not from requirements.md or the proposal's AC-6. Write the rules into a spec delta, or drop the extra rule.
-- [nit] plugins/openspec/hooks/deliver-check.mjs releaseOnlyEdit (its 'former number' branch); specs/change-delivery 'A plain commit on the branch keeps its rule' — The MODIFIED requirement lists 'an unnumbered ADR renamed to its number' as a release edit, but the implementation (evidence defect 2, 49a8884) also spares an own ADR re-numbered by a re-run of the step (0031 to 0032 after the base took the number). The behaviour fits AC-4, but the spec text does not name it.
-- [nit] openspec/specs/delivery-train/spec.md:144 'Release numbers follow the boarding order on the train only' — The canonical requirement ('renumber the release files the joined head bumped') is not modified to cover only heads with no note; the ADDED 'A join numbers the release a boarded change's note states' covers noted heads, so the two read side by side with no scope line between them.
-- [nit] plugins/openspec/hooks/release-merge.mjs main (--assign with no devkit.release_tag) — --assign in a project with no devkit.release_tag exits 2 (the deviation evidence.md lists); no requirement specifies it and the script's header reserves exit 3 for setup errors. AC-9 holds because the checker never hands assign-release there.
+- [important] plugins/openspec/hooks/deliver-check.mjs:30-42 (CITATION_PATHSPEC, holdsCitations); plugins/openspec/hooks/release-merge.mjs numberRelease — Partial: citations were rewritten and checked only in .md/.yaml/.yml files, narrower than 'An unnumbered ADR is numbered at the delivery' (every tracked text file outside openspec/changes/). · fixed in 3510ecf43f98b01a0c77eeb3f5825cbcba65b697
+- [important] openspec/specs/change-coordination/spec.md:203-244 vs specs/change-delivery 'With no train the release is assigned by one step before the merge' — Two specs disagreed: the canonical conflict scenarios (blocked end, update-branch) held for every change while the delta answers assign-release for a noted change. · fixed in d66e5600f68aba680c6e976549ecd6dec4ade75f
+- [important] evidence.md 'Open item for the owner' (attempt 1); plan-readiness-review SKILL.md; proof/agents-run.md S-6 — A readiness finding on release.md could only be cleared by editing release.md, which staled nothing, so the loop re-handed the same revision brief until no progress. · fixed in 159d2bacc837a4f9e95f7a0c5e66f179b83e0bdf
+- [important] scripts/check.py check_adrs (design D-12) — AC-6's check.py rules (unnumbered ADR on the base, two records with one slug, an unlisted unnumbered record) had no requirement in any spec delta. · fixed in d66e5600f68aba680c6e976549ecd6dec4ade75f
+- [nit] specs/change-delivery 'A plain commit on the branch keeps its rule'; deliver-check.mjs releaseOnlyEdit — The MODIFIED requirement did not name the change's own ADR renumbered by a later run of the step as a release edit. · fixed in d66e5600f68aba680c6e976549ecd6dec4ade75f
+- [nit] openspec/specs/delivery-train/spec.md:144 'Release numbers follow the boarding order on the train only' — The canonical train-numbering requirement was not scoped to heads with no note beside the ADDED join requirement. · fixed in d66e5600f68aba680c6e976549ecd6dec4ade75f
+- [nit] plugins/openspec/hooks/release-merge.mjs:580 (--assign with no devkit.release_tag) — --assign with no devkit.release_tag exited 2 with no requirement behind it, though the header reserves 3 for setup errors. · fixed in 80d9425aa095f61f46b30cd01da9668abe862f4c
+- [important] openspec/changes/release-at-merge/specs/change-delivery/spec.md:71-76; plugins/openspec/hooks/deliver-check.mjs:2277-2319 (stepRecord); docs/adr/0032-release-at-merge-step-record.md:59-61 (decision 3) — Spec ambiguity resolved silently against an accepted ADR: 'A release line the step wrote is known by the step's own record' says the step's own latest recorded commit decides, and ADR 0032 decision 3 says stepRecord reads the newest recorded commit, but 46c3c2e makes each key take the newest of all recorded commits that wrote it. docs/openspec-flow.md was updated, the spec and the record were not, and no scenario covers a number kept across a later step commit. Owner decides: extend the spec (and amend or note ADR 0032) or narrow the code.
+- [important] openspec/specs/change-delivery/spec.md:546-563 ('The open items of a forced merge are named', scenarios 'Evidence recorded before a product change' and 'A review that did not pass') vs specs/change-d… — Two specs disagree (escalate): the delta says the delivery checker reads the evidence and approved reviews as current after the step's commit, but the canonical forced-merge requirement (train 16, merged in a47cec8) lists them as open items whenever a file outside openspec/ changed after their Commit:, which the step's release commit always does. Neither scopes the other. Evidence lists this as a follow-up with no test or real run. The owner decides which is authoritative for a noted change.
+- [nit] plugins/openspec/skills/ship-change/SKILL.md:124 (the app host bullet) — 'A merge conflict is reported blocked: item 5, except in a project with a delivery train' leaves out the noted change with no train, which specs/change-coordination scenario 'A change with a release note in conflict with its base' (row N5) hands assign-release. This is evidence open item 2.
 
-In-scope specs: openspec/changes/release-at-merge/specs/change-delivery/spec.md, openspec/changes/release-at-merge/specs/change-coordination/spec.md, openspec/changes/release-at-merge/specs/delivery-train/spec.md, openspec/changes/release-at-merge/specs/reviews-check/spec.md; canonical openspec/specs/change-delivery/spec.md, openspec/specs/change-coordination/spec.md, openspec/specs/delivery-train/spec.md, openspec/specs/reviews-check/spec.md, openspec/specs/release-tags/spec.md (AC-13, tag rule unchanged); decisions: docs/adr/0031-release-at-merge.md (amends 0022 and 0025; builds on 0003, 0019, 0027, 0030), docs/adr/0022-*.md, docs/adr/0025-*.md.
+In-scope specs: openspec/changes/release-at-merge/specs/change-delivery/spec.md, openspec/changes/release-at-merge/specs/change-coordination/spec.md, openspec/changes/release-at-merge/specs/change-stages/spec.md (new in round 2), openspec/changes/release-at-merge/specs/delivery-train/spec.md, openspec/changes/release-at-merge/specs/reviews-check/spec.md; canonical openspec/specs/change-delivery/spec.md (with train 16's forced-merge requirements from the base), openspec/specs/change-coordination/spec.md (with train 15's fetch requirements), openspec/specs/change-stages/spec.md, openspec/specs/delivery-train/spec.md, openspec/specs/reviews-check/spec.md, openspec/specs/release-tags/spec.md (AC-13, tag rule unchanged); decisions: docs/adr/0031-release-at-merge.md (amends 0022 and 0025; amended by 0032), docs/adr/0032-release-at-merge-step-record.md (amends 0031 decision 6), docs/adr/0022-*.md and docs/adr/0025-*.md (Amended by lines and notes).
 
 ### Coverage
 | Requirement | Status |
 |-------------|--------|
 | change-delivery: A change states its release in a note when its project names a release file | covered |
-| change-delivery: A malformed release note is refused naming the field | covered |
+| change-delivery: A malformed release note is refused naming the field (the `## ` body line included, D-23) | covered |
 | change-delivery: A change with a release note leaves the release lines as the base has them | covered |
+| change-delivery: A release line the step wrote is known by the step's own record | covered; the code reads each key's newest recorded commit, the text says the latest recorded commit (F8) |
 | change-delivery: The release is never judged without the base | covered |
 | change-delivery: A change with neither a note nor a bump of its own is refused | covered |
 | change-delivery: The plan approval covers the release note | covered |
-| change-delivery: With no train the release is assigned by one step before the merge | covered (conflicts with canonical change-coordination scenarios, F2) |
-| change-delivery: The release step merges the base and commits only release lines | covered |
-| change-delivery: An unnumbered ADR is numbered at the delivery | partial (F1) |
+| change-delivery: Every reader of the plan approval checks the release note | covered (approvalState reads namesReleaseTag(changeRoot(dir)); conduct-check and acceptDecisions use it) |
+| change-delivery: With no train the release is assigned by one step before the merge | covered |
+| change-delivery: The release step merges the base and commits only release lines | covered (no-setting exit 3, release-merge.mjs:580) |
+| change-delivery: The release step records what it wrote and numbers again after a merge by hand | covered (P-13, dogfood 923aab5) |
+| change-delivery: An unnumbered ADR is numbered at the delivery | covered |
+| change-delivery: A citation lives in every text file but tests and fixtures | covered (CITATION_PATHSPEC and holdsCitations match the requirement's exclusions) |
+| change-delivery: The file form of a citation is rewritten only where it names an ADR folder's file | covered (adrFileRe) |
 | change-delivery: The numbering refuses a slug taken and a citation not landed | covered |
 | change-delivery: A consumer project's release file follows the note | covered |
 | change-delivery: A release bump on a pack's own manifest is stated under packs | covered |
+| change-delivery: The repository check refuses an unnumbered ADR on the base | covered (check.py check_adrs) |
+| change-delivery: The repository check refuses an unlisted unnumbered ADR and a slug held twice | covered |
 | change-delivery (MODIFIED): An ADR number taken on the default branch is renumbered without the owner | covered |
-| change-delivery (MODIFIED): A plain commit on the branch keeps its rule | covered (F5) |
+| change-delivery (MODIFIED): A plain commit on the branch keeps its rule | covered; contradicted for a forced merge by canonical 'The open items of a forced merge are named' (F9) |
 | change-coordination: The release assignment is a session step of the delivery | covered |
 | change-coordination: The conductor numbers a noted change only through the release step | covered |
-| change-coordination: The planner does not stop without the release note | covered (the readiness path after it, F3) |
+| change-coordination: The planner does not stop without the release note | covered |
 | change-coordination: A decision record listed without a number is found after its numbering | covered |
-| change-coordination (MODIFIED): A requirement a merged change contradicts reopens the grill | covered (planner text) |
-| delivery-train: A join numbers the release a boarded change's note states | covered (F6) |
+| change-coordination (MODIFIED): From the implementation on, the step inside the stage goes to its role | covered (canonical text and scenarios carried verbatim, three conflict scenarios scoped) |
+| change-coordination (MODIFIED): A requirement a merged change contradicts reopens the grill | covered |
+| change-coordination (MODIFIED): The loop fetches the base branch before it judges a delivery step | covered (verbatim against the canonical text at the merged base) |
+| change-stages (MODIFIED): A plan stage is stale after a plan file changes, until the work starts | covered (flow-check noteFilesOf; conduct-check newestNote) |
+| delivery-train: A join numbers the release a boarded change's note states | covered |
+| delivery-train (MODIFIED): Release numbers follow the boarding order on the train only | covered |
 | reviews-check (MODIFIED): The train's own commits change only releases, the roadmap and its record | covered |
 | release-tags (AC-13, unchanged) | covered |
-| requirements AC-6 (check.py) | implemented, no spec requirement (F4) |
 
-### What I checked in evidence.md
-- Defects found and fixed: 1 (changelog body citing an ADR), 3 (what a pack is), 5 (the merge with jira-entry-followups) and 6 (stale .compozy copies, reinstalled in 3356036) stay within the spec. Defect 2's fix extends what the MODIFIED requirement's text names (F5). Defect 4's fix narrows what the ADDED numbering requirement says (F1).
-- Deviation 'manifests versioned on the merged text': matches the requirement 'The release step merges the base and commits only release lines'. numberRelease writes resolveManifest over the merged working-tree text, so the branch's edits beyond the version stay and only version fields change. The difference is with design D-6's wording only, so there is no finding.
-- Deviation '--assign with no devkit.release_tag exits 2': F7.
-- Deviation '.compozy/kit-manifest.json pack field': no requirement lists it as a release line, and the step does not read or write it. It holds informational data the kit installer writes. Accepted, no finding.
-- Open gap (readiness not re-run when only release.md changes): F3. It is a real flow defect that the change's own readiness rule introduces. Fixing it needs a flow.json change, which the proposal rules out, so it goes to the owner.
+### Re-review scope
+I checked the seven findings of round 1 and the lines changed since 4a6e858 on the change's first-parent line (d66e560 to c1c875e). The trains 15 to 17 merged in a47cec8 were read only where they meet this change's deltas. Every MODIFIED block was diffed against the canonical requirement at HEAD. Each block keeps the canonical text and scenarios word for word, with only this change's sentences and scenarios added or scoped. No scope creep was found.
+
+### The deviations and open items in evidence.md
+- Deviation 'stepRecord reads each key from the newest step commit that wrote it' (46c3c2e): F8. The behaviour fixes defect 7 and fits AC-4, but it differs from the ADDED requirement's text and from accepted ADR 0032 decision 3. So it is reported for the owner, not approved silently.
+- Exports maskCitations and noteMoved: internal names, no spec effect. No finding.
+- --assign also prints its exit-2 error on stderr: consistent with the scenario 'A line the step wrote, edited after its record', which names stderr. No finding.
+- M2 fetch guard built with deliveredChange rather than staleMergeFixture: a test construction choice. The scenario 'A base that moved on the remote, for a change with a release note' is proven. No finding.
+- Merge a47cec8 resolving openspec/config.yaml and plugins/openspec/skills/devkit/SKILL.md beyond task 9.1's two expected hunks: config.yaml is under openspec/. The SKILL.md hunk keeps both sides: the base's added forced-merge retro sentence sits after this change's assign-release sentence, and the diff against the first parent shows only that addition. Task 9.1's stop-for-the-owner rule was not applied, but the merge message records that the coordinating session announced the conflict. No spec effect, so no finding; the owner may want to confirm it.
+- Open item 'forced owner merge of a noted change': F9. The spec conflict came in with the base merge, so the owner decides.
+- Open item 'ship-change app host sentence': F10.
+- Open item of attempt 1 (readiness not re-run): closed by the change-stages MODIFIED block and D-21 (F3).
 
 ### Spot checks against the code
-- N1 to N4 and N7 sit right after the commit row, once every task is ticked; N5 replaces update-branch and the conflict stop; N6 comes before ready-base, ready, wait-merge and enable-auto-merge; none applies in a train project (deliver-check.mjs nextStep).
-- A1 asks for the approval again whether or not a task is ticked; the approval object keeps its four keys with no note (approvalState).
-- The planner stop hook sits inside subagentStopFor's delivered branch, with the key release-note/<missing|malformed>@<fingerprint> (change-loop.mjs).
-- conduct-check: assign-release is a main-session step; a noted change gets no releaseConflict, and adrClash leaves out the ADRs its decisions.md lists unnumbered.
-- The canonical MODIFIED blocks are carried over word for word, with their scenarios, plus the additions.
-- Test run: TMPDIR=/var/tmp/devkit-release-at-merge node scripts/test-suite.mjs plugins/openspec/hooks/release-note.test.mjs printed 'suite: 1 files, 81 tests, 81 pass, 0 fail'; gen-agents.mjs --check printed '21 CompozyOS agents are up to date'.
+- CITATION_PATHSPEC (deliver-check.mjs:35) and holdsCitations (:36-41) exclude openspec/changes, *.test.*, *-fixtures.* and test/ and tests/ folders, as the ADDED requirement says. git grep runs with -I in citedAt and numberRelease.
+- approvalState(dir, { release } = {}) defaults to namesReleaseTag(changeRoot(dir)), and changeRoot returns null outside the openspec/changes or archive layout (scenario 'A folder outside a project's layout').
+- flow-check.mjs noteFilesOf counts release.md only when namesReleaseTag(root) holds, and only in the tasks entry of the staleAfter loop (:559). The started and postMerge guard is unchanged. conduct-check.mjs compares newestNote only in readiness.fresh.
+- parseReleaseNote refuses a `## ` body line outside a fence (deliver-check.mjs:1997).
+- Test run (foreground, no other suite running): TMPDIR=/var/tmp/devkit-release-at-merge node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/flow-check.test.mjs printed 'suite: 2 files, 251 tests, 251 pass, 0 fail, 52.6s, concurrency 3'.
 
 ### Summary
-- 7 findings (0 blocking, 4 important, 3 nit; 0 scope creep, 1 partial gap F1, 1 spec conflict to escalate F2, 1 flow gap for the owner F3, 1 missing spec for implemented behaviour F4).
+- 10 findings: 7 from round 1, all fixed (4 important, 3 nit), and 3 new open ones (F8 important: spec and ADR text versus the per-key record; F9 important: spec conflict with the canonical forced-merge requirement, escalated; F10 nit: ship-change app host sentence). 0 blocking, 0 scope creep, 0 gaps.
