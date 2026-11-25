@@ -1,0 +1,5 @@
+Files the merge 6a67628 (origin/main 4eccbdc, trains 10 to 14) touched or that read the merged texts: change-loop, flow-check, roadmap-loop, guard (N-10 included) and test-suite.
+post-merge check start 2026-11-24T18:14:09-03:00 load: 4.61 7.50 6.86 concurrency: 3
+suite: 5 files, 637 tests, 637 pass, 0 fail, 352.6s, concurrency 3
+exit=0
+end 2026-11-24T18:20:02-03:00 load: 3.73 5.22 6.06

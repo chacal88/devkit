@@ -24,7 +24,7 @@ import { execFileSync } from 'node:child_process';
 import { findRoot, parseRoadmap, readValue, parseCommitLine, sliceReviewStale, parseStageHeader, archivedSliceOf } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, reasonText, readFlow } from './flow-check.mjs';
 import { shipConfig, locateChange, fetchPr, checksItem } from './deliver-check.mjs';
-import { mergeSetup, makeGh } from './merge-setup.mjs';
+import { mergeSetup, makeGh, withoutSetupPointer } from './merge-setup.mjs';
 import {
   LoopUsageError, LoopRefusal, render, normalizeLang, projectGate, readDevkitSettings, locate, cleanOf, checkoutsOf, activeIds, isSliceDir,
   COMMIT_AGENT, agentOf, withAttribution, knownChange, archivedDates, mainRoot, defaultBase, tryGit, NAME, openCheckout, whereOf, waitLoop, readStdin, stagePhrase, filesLanguageOf, filesLanguageName,
@@ -252,7 +252,7 @@ export function decideSlice(facts) {
     if (pr.autoMergeRequest != null) return waitGithub('merge');
     if (ctx.ship === 'pr') return finish('waiting-for-owner', 'project-pr-mode', 'project-pr-mode', { number: pr.number }, 'delivery');
     const setup = a.mergeSetup();
-    if (!setup.ok) return blocked('merge-setup-missing', { list: setup.missing.map((m) => m.replace(/; run the openspec-setup skill.*$/, '')).join('; ') }, 'delivery');
+    if (!setup.ok) return blocked('merge-setup-missing', { list: setup.missing.map(withoutSetupPointer).join('; ') }, 'delivery');
     return sessionAction('delivery', 'enable-auto-merge', { number: pr.number, head: a.head, method: ctx.method });
   }
 }

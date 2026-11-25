@@ -1,7 +1,7 @@
 {
   "name": "devkit-compozy",
-  "version": "0.5.0",
-  "description": "Ships the CompozyOS driver of the devkit flow: one agent per devkit role and three loops (a change, its review round and a roadmap), installed into any project by compozy-setup.",
+  "version": "0.6.0",
+  "description": "Ships the CompozyOS driver of the devkit flow: one agent per devkit role and three loops (a change, its review round and a roadmap), installed into a project by `/devkit setup`.",
   "author": {
     "name": "kaue rodrigues dos santos",
     "url": "https://github.com/chacal88"

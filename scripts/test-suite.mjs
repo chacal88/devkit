@@ -20,9 +20,9 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 // those of plugins/panel stay out (ADR 0026 decision 6).
 const SUITE_FOLDERS = [
   'plugins/openspec/hooks',
-  'plugins/openspec/skills/openspec-setup/scripts',
+  'plugins/openspec/skills/devkit/scripts',
   'plugins/core/skills/review-change/scripts',
-  'plugins/compozy/skills/compozy-setup/scripts',
+  'plugins/compozy/kit/scripts',
 ];
 const TEST_FILE = /\.test\.mjs$/;
 const FIXTURES_FILE = /(?:^|-)fixtures\.mjs$/; // test-fixtures.mjs and every <name>-fixtures.mjs

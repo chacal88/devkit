@@ -552,14 +552,10 @@ The points still to prove are proved together, in one live test session, when th
 
 Every item nobody has decided yet. The command names, the role names, holding a start while the
 machine is loaded (and how the load is measured, answered by the change `roadmap-coordinator` on 2026-11-21, section 2), writing back to Jira, small work and the roadmap, and the lean pull-request
-template were answered on 2026-11-19 and are recorded in their sections; the header's field names were answered by the change `flow-script-checker`; what to do when the task branch conflicts with `develop` was answered by the change `delivery-models` on 2026-11-21 (section 5); and four points were answered by the change `change-coordinator` on 2026-11-20: the ADR 0007 rules the change coordinator keeps, the configuration's field names, how it waits on GitHub and how the two roles called `tech-lead` are told apart (sections 2, 8 and 10); and whether CompozyOS can choose the role at each turn was answered by the change `compozy-driver` on 2026-11-23 (section 10).
+template were answered on 2026-11-19 and are recorded in their sections; the header's field names were answered by the change `flow-script-checker`; what to do when the task branch conflicts with `develop` was answered by the change `delivery-models` on 2026-11-21 (section 5); and four points were answered by the change `change-coordinator` on 2026-11-20: the ADR 0007 rules the change coordinator keeps, the configuration's field names, how it waits on GitHub and how the two roles called `tech-lead` are told apart (sections 2, 8 and 10); and whether CompozyOS can choose the role at each turn was answered by the change `compozy-driver` on 2026-11-23 (section 10); and project setup was answered by the change `project-setup` on 2026-11-24: one verb, `/devkit setup`, with no checker copied into the project (the version pin and the schemas are what lives under its `openspec/`).
 
 - Whether the review stage keeps the Workflow path in the Claude driver (ADR 0008, ADR 0010).
 - The script driver for an AI other than Claude (section 10).
-- Project setup (proposed; to be built in round 26): one setup step per project writes the `devkit:`
-  block of `openspec/config.yaml` (driver, language of the files, delivery model, test commands, task
-  source), installs the schemas and the checker under the project's `openspec/` and wires the chosen
-  driver. It replaces what `openspec-setup` and `compozy-setup` do today.
 
 ## What stays shipped until its round
 

@@ -14,6 +14,7 @@ import { deliveryRow, actorOf, conductState } from './conduct-check.mjs';
 import * as guard from './guard.mjs';
 import * as deliver from './deliver-check.mjs';
 import * as release from './release-merge.mjs';
+import * as mergeSetupModule from './merge-setup.mjs';
 import { readDevkitSettings, MESSAGES, render, decide, exitCodeOf, gateOf, unfinished } from './change-loop.mjs';
 import {
   SET, trainEnv, GIT_ENV, git, SUITE, block, trunkAuto, configRepo, startRun, optedIn, pluginJson, marketplace, entry, CL, H, projectConfig, WORKFLOW,
@@ -1760,6 +1761,31 @@ test('delivery-train P9 N7: a project whose repository does not allow merge comm
   addChange(t, 'alpha');
   liveTrain(t);
   assert.notEqual(nextIn(t, { gh: noMerge(t) }).action.end?.why, 'train-blocked', 'trunk needs no auto-merge setup');
+});
+
+// Invariant: the blocked train reply lists the missing merge facts without the setup pointer each fact carries, and still names the
+// one call that fixes them. Layer: nextAction (train-loop.mjs), through merge-setup.mjs's one strip helper. Suite: delivery-train.
+test('setup AC-2 train: the blocked train reply lists the missing merge facts without the setup pointer', () => {
+  const pointer = mergeSetupModule.SETUP_POINTER;
+  assert.equal(typeof pointer, 'string', 'merge-setup.mjs exports the pointer');
+  assert.match(pointer, /\/devkit setup/);
+  assert.equal(typeof mergeSetupModule.withoutSetupPointer, 'function', 'merge-setup.mjs exports the strip');
+  const noMerge = (p) => (args, opts) => {
+    const r = p.sim.gh(p.t.main)(args, opts);
+    if (args[0] === 'api' && args[1] === 'repos/{owner}/{repo}' && r.status === 0) return { ...r, stdout: JSON.stringify({ ...JSON.parse(r.stdout), allow_merge_commit: false }) };
+    return r;
+  };
+  const p = project();
+  addChange(p, 'alpha');
+  liveTrain(p);
+  const r = nextIn(p, { gh: noMerge(p) });
+  assert.deepEqual(endOf(r), [2, 'end', 'blocked', 'train-blocked']);
+  const { reply, detail } = r.action;
+  assert.match(reply, /merge merges are not allowed \(allow_merge_commit\)/);
+  assert.ok(!reply.includes(pointer), reply);
+  assert.doesNotMatch(reply, /run the GitHub step/);
+  assert.ok(detail.error.endsWith('github-setup.mjs --method merge allows merge commits and auto-merge'), detail.error);
+  assert.ok(reply.includes(`${detail.error}.`), 'the reply holds the error as written');
 });
 
 test('delivery-train P9 N8: trunk-auto with auto-merge off enables it with --merge, pinned to the train head', () => {

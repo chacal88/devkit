@@ -19,7 +19,10 @@ export const MERGE_METHODS = {
   rebase: 'allow_rebase_merge',
 };
 
-const POINTER = '; run the openspec-setup skill (GitHub step) to configure it';
+// The pointer every missing fact ends with, and the one helper that strips it where a reply names the setup in its own words
+// (project-setup D-8).
+export const SETUP_POINTER = '; run the GitHub step of /devkit setup to configure it';
+export const withoutSetupPointer = (m) => (m.endsWith(SETUP_POINTER) ? m.slice(0, -SETUP_POINTER.length) : m);
 
 // The one `gh` runner of the three scripts: a function running `gh <args>` in `cwd`,
 // { status, stdout, stderr, missing, timedOut, overflowed, signal }. Every call is cut after
@@ -129,7 +132,7 @@ function committedAtHead(root, path) {
 // `read` is the readRepoSettings answer when the caller already has it (one call per run).
 // Read-only; any read error fails closed, never passes.
 export function mergeSetup(gh, root, method, read = readRepoSettings(gh)) {
-  const fail = (why) => { const error = unreadable(why); return { ok: false, missing: [error + POINTER], error }; };
+  const fail = (why) => { const error = unreadable(why); return { ok: false, missing: [error + SETUP_POINTER], error }; };
   if (read.error) return fail(read.error);
   const { settings } = read;
   const defaultBranch = settings?.default_branch;
@@ -142,10 +145,10 @@ export function mergeSetup(gh, root, method, read = readRepoSettings(gh)) {
   if (field && settings[field] !== true) missing.push(`${method} merges are not allowed (${field})`);
   if (!required.contexts.includes(DEVKIT_REVIEWS_CHECK)) missing.push(`no active rule requires the ${DEVKIT_REVIEWS_CHECK} check on ${defaultBranch}`);
   if (!committedAtHead(root, WORKFLOW_PATH)) missing.push(`${WORKFLOW_PATH} is not committed`);
-  return { ok: missing.length === 0, missing: missing.map((m) => m + POINTER), defaultBranch };
+  return { ok: missing.length === 0, missing: missing.map((m) => m + SETUP_POINTER), defaultBranch };
 }
 
-// The ruleset `openspec-setup` creates (design D8): a pull request with zero
+// The ruleset the GitHub step of `/devkit setup` creates (design D8): a pull request with zero
 // approvals, the given status checks plus devkit-reviews (strict), no force
 // pushes, no bypass actors. `devkit-reviews` is always required, once.
 export function desiredRuleset(contexts) {

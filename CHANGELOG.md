@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.53.0 — the loop declares the decisions outside the stage gates
+## 0.54.0 — the loop declares the decisions outside the stage gates
 
-- **devkit-openspec** 0.48.0: one table of declared steps (`DECLARED`) in `change-loop.mjs`, read by
+- **devkit-openspec** 0.49.0: one table of declared steps (`DECLARED`) in `change-loop.mjs`, read by
   `roadmap-loop.mjs reply` too: the reply keys `waiting-pause` and `waiting-owner-decision`, and a main-session
   command `declare` that records a fix after a first red gate and an owner-authorized third review round in the
   change's `declared.json`. The stop lock accepts a recorded end only when its `devkit-end:` line names the run's
@@ -13,17 +13,40 @@
   advanced into the base goes to the retro with no new evidence or review. A change's own `budget` and `models:`
   are read from an `x-devkit:` block of its `.openspec.yaml`, which the strict validation accepts (a `devkit:`
   block is still read). The loops' fallback agent map comes from `PACKS`; with a host's own pull-request monitor
-  that forbids polling, the session starts no wait. The CI snippet now pins `v0.48.0`, the release's tag.
+  that forbids polling, the session starts no wait. The CI snippet now pins `v0.49.0`, the release's tag.
 - **devkit-core** 0.17.0: the tdd-implementer leaves a `Conductor:` task to the conducting session; the
   pr-verifier may write under the change's `proof/` folder; the review-change skill and `review-round.workflow.js`
   take the round `limit` that an owner's authorized round raises.
-- **devkit-compozy** 0.5.0: the kit's `tdd-implementer` and `pr-verifier` agent templates are generated again from
+- **devkit-compozy** 0.6.0: the kit's `tdd-implementer` and `pr-verifier` agent templates are generated again from
   the core agents.
 - Docs: [ADR 0032](docs/adr/0032-the-loop-declares-the-decisions-outside-the-stage-gates.md) and
   [ADR 0033](docs/adr/0033-a-changes-own-settings-live-in-an-x-devkit-block.md) (accepted), with Notes in ADR 0011
   and ADR 0023; `docs/openspec-flow.md` (the declared steps, the `x-devkit:` block, the two `devkit-lite`
   decisions), `docs/coordination-design.md`, `docs/compozy-kit.md`, both schemas' review gate and tasks
   instruction, and the `Live roadmap:` rule of `openspec/config.yaml`'s context.
+
+## 0.53.0 — one setup verb, `/devkit setup`
+
+- **devkit-openspec** 0.48.0: a project is set up by the owner's typed `/devkit setup`, a verb of the
+  `devkit` skill (ADR 0031, which amends ADR 0004). `change-loop.mjs start` answers it with the `setup`
+  mode before the project gate, so it runs in a folder not set up yet, and with `setup-no-repo` outside a
+  git repository. It is one step for a first install and for a re-run: `scripts/setup-block.mjs` plans
+  and writes the `devkit:` block, the `ship:` map and `merge_method` of `openspec/config.yaml`, asks only
+  what is missing and leaves the file byte-identical when nothing is. The driver question offers only
+  the drivers that run (`claude` and `compozy`, never `script`), a separate question installs the
+  CompozyOS kit through `scripts/kit-installer.mjs`, and the choice `compozy` installs it. The setup
+  copies no checker into the project and names the version it installs. The skill `openspec-setup` is
+  removed, with no alias: its scripts and templates moved under `skills/devkit/`, and every reply that
+  named it (`not-set-up`, `design-pack-missing`, the merge-setup reasons) names `/devkit setup`. The CI
+  snippet now pins `v0.48.0`, the release's tag.
+- **devkit-compozy** 0.5.0: the skill `compozy-setup` is removed, with no alias. The kit installer
+  (`install-kit.mjs`), its generator and its templates moved to `kit/`, and `/devkit setup` runs the
+  installer. The kit's files change only in the generator path their comments name.
+- **Docs**: the README files, `docs/getting-started.md`, `docs/openspec-flow.md`, `docs/compozy-kit.md`,
+  `docs/conventions.md` and `CONTRIBUTING.md` name `/devkit setup`; `docs/coordination-design.md` records
+  the answer to its "Project setup" open point.
+- Projects: no step is needed; a project the removed skills set up keeps working as it is. The next
+  re-run of the setup is `/devkit setup`.
 
 ## 0.52.2 — the suite script keeps its run root short enough for a Unix socket
 

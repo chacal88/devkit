@@ -107,7 +107,7 @@ test('flow-check tasks: a checkbox inside a fenced block is not a task', () => {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_SCHEMAS = join(HERE, '..', 'schemas');
 const REPO_SCHEMAS = join(HERE, '..', '..', '..', 'openspec', 'schemas');
-const INSTALL = join(HERE, '..', 'skills', 'openspec-setup', 'scripts', 'install-schemas.sh');
+const INSTALL = join(HERE, '..', 'skills', 'devkit', 'scripts', 'install-schemas.sh');
 
 const DEVKIT_STAGES = ['requirements', 'mockup', 'decisions', 'proposal', 'specs', 'design', 'tasks', 'readiness',
   'approval', 'unit-tests', 'e2e-tests', 'evidence', 'review', 'retro'];
@@ -1913,6 +1913,14 @@ test('stage-roles flow settings: the nested tests block is read, quoted or not, 
   assert.equal(s.paths['tests.coverage.command'], 'npm run coverage');
   assert.equal(s.paths['tests.coverage.target'], '80');
   assert.deepEqual(s.unknown, []);
+});
+
+// Invariant: a CRLF config gives the test settings its LF twin gives. Layer: flow-check readTestSettings. Suite: flow-check.
+test('stage-roles flow settings: a CRLF tests block is read as its LF twin', () => {
+  const lf = 'schema: devkit\ndevkit:\n  language: en\n  tests:\n    unit: "npm test"\n    coverage:\n      command: npm run coverage\n      target: 80\n    e2e: npm run e2e\nother: 1\n';
+  const s = FC.readTestSettings(configRoot(lf.replace(/\n/g, '\r\n')));
+  assert.deepEqual(s, FC.readTestSettings(configRoot(lf)));
+  assert.deepEqual([s.unit, s.e2e, s.coverage], ['npm test', 'npm run e2e', { command: 'npm run coverage', target: 80 }]);
 });
 
 test('stage-roles flow settings: a key after the tests block closes it, and keys outside the devkit block are not read', () => {

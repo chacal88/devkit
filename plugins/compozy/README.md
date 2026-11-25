@@ -1,8 +1,8 @@
 # devkit-compozy
 
 The CompozyOS driver of the devkit flow, as files any project installs: one agent for every devkit
-role, three loops and the skills the screen roles can use. `compozy-setup` writes them into the
-project as `.compozy/`; `/devkit` then starts the runs (`driver: compozy` in the `devkit:` block of
+role, three loops and the skills the screen roles can use. `/devkit setup` writes them into the
+project as `.compozy/` through the pack's kit installer; `/devkit` then starts the runs (`driver: compozy` in the `devkit:` block of
 `openspec/config.yaml`). The design is [ADR 0024](../../docs/adr/0024-compozy-runs-the-short-loop.md).
 
 ```bash
@@ -46,7 +46,9 @@ Consequences of ADR 0024.
 
 ## Install
 
-`compozy-setup` writes `.compozy/` into the project: `config.toml`, `README.md`, the twenty-one agents
+`/devkit setup` (the Setup section of devkit-openspec's `devkit` skill) writes `.compozy/` into the project
+when the owner says yes to the kit or chooses `driver: compozy`. It runs the kit installer this pack
+ships, `kit/scripts/install-kit.mjs`, which writes `config.toml`, `README.md`, the twenty-one agents
 under `agents/<role>/AGENT.md`, the loops under `loops/<name>/loop.yaml`, the resolver
 `bin/devkit-kit` and `kit-manifest.json`. It never starts a run and never writes product code. A
 project on the first kit (four role shells and the `openspec-change` loop) runs it again: the unedited
@@ -59,7 +61,6 @@ old files are removed, an edited one is kept and named.
 
 | Skill | What it does / when to use |
 |---|---|
-| [`compozy-setup`](skills/compozy-setup/SKILL.md) | Installs the CompozyOS kit into a project as `.compozy/` - config.toml, one agent per devkit role, the three loops (a change, its review round, a roadmap) and the devkit-kit resolver. Use when a project adopts the CompozyOS kit, or when the user says "install compozy", "set up the compozy loop" or "adopt the compozy kit". |
 | [`screen-demo`](skills/screen-demo/SKILL.md) | Runs a project's demo command and files the screenshots and the journey video a change's declared screens produce, under openspec/changes/<id>/evidence/. Use when a change's `## Screens` section names at least one screen and the project has a demo_command, after verify and before the pull request. |
 | [`screen-design`](skills/screen-design/SKILL.md) | Reads a project's screen map and mockup version, proposes or confirms a row for each screen a change declares, and runs the mechanical check of the screen map (`screens-check`). Use when a change's `## Screens` section names at least one screen, before implementation starts. |
 <!-- catalog:end -->

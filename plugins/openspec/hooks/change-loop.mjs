@@ -63,7 +63,7 @@ export class LoopRefusal extends LoopUsageError {
 // ---------------------------------------------------------------- the settings (D-9)
 
 export const DRIVERS = ['claude', 'compozy', 'script'];
-const LANGUAGE_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
+export const LANGUAGE_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
 
 // The token budget a `budget:` value gives (change-budget D-1) is read by `guard.mjs#budgetValue`; every caller keeps importing it from here.
 export { budgetValue };
@@ -204,8 +204,9 @@ export const filesLanguageName = (tag) => ({ en: 'English', 'pt-BR': 'Brazilian 
 export const MESSAGES = {
   en: {
     'verb-not-built': '/devkit {verb} is not built yet: it arrives in round {round}. Nothing was done.',
-    'verb-unknown': 'So far /devkit change, /devkit roadmap, /devkit status, /devkit project and /devkit train exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, /devkit project and a name to plan a new project or slice, or /devkit train to send the boarded changes on one train.',
-    'not-set-up': 'This project is not set up for devkit yet: run /openspec-setup first. Nothing was run.',
+    'verb-unknown': 'So far /devkit change, /devkit roadmap, /devkit status, /devkit setup, /devkit project and /devkit train exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, /devkit setup to set this project up or update its setup, /devkit project and a name to plan a new project or slice, or /devkit train to send the boarded changes on one train.',
+    'not-set-up': 'This project is not set up for devkit yet: type /devkit setup first. Nothing was run.',
+    'setup-no-repo': '/devkit setup runs inside a git repository: open the project\'s folder, or create its repository there first. Nothing was run.',
     'setting-unknown': 'The project\'s devkit settings have an unknown {setting}, "{value}"; use one of: {accepted}. Nothing was run.',
     'setting-missing': 'The project\'s devkit settings choose two pull requests but do not name the {setting}. Nothing was run.',
     'train-model': 'The project\'s devkit settings set a delivery train, but the delivery model is two-prs: the train runs only with trunk or trunk-auto, because two-prs delivers each change through pull requests of its own. Nothing was run.',
@@ -221,7 +222,7 @@ export const MESSAGES = {
     'compozy-not-installed': 'CompozyOS is not installed on this machine, so nothing was run: install it with {fix}, then call /devkit again.',
     'compozy-stopped': 'CompozyOS is not running, so nothing was run: start it with {fix}, then call /devkit again.',
     'compozy-workspace': 'This project is not a CompozyOS workspace yet, so nothing was run: register it with {fix}, then call /devkit again.',
-    'compozy-kit-missing': 'The devkit kit is not installed in CompozyOS for this project, so nothing was run: run /compozy-setup first, then call /devkit again.',
+    'compozy-kit-missing': 'The devkit kit is not installed in CompozyOS for this project, so nothing was run: type /devkit setup and answer yes to the kit, then call /devkit again.',
     'compozy-roadmap-started': 'The roadmap runs in CompozyOS with up to {places} changes at once: {url}.',
     'compozy-requests': '{n} questions wait for you in CompozyOS.',
     'nothing-to-resume': 'There is no unfinished change to continue: type /devkit change and what you want done.',
@@ -407,7 +408,7 @@ export const MESSAGES = {
     'blocked-why.tests-red': 'the tests of phase {phase} failed',
     'blocked-why.role-failed': '{stage} could not finish its work',
     'blocked-why.wrong-branch': 'its folder is on a branch with another name',
-    'blocked-why.merge-setup': 'the repository is not prepared for automatic merging yet, which /openspec-setup does',
+    'blocked-why.merge-setup': 'the repository is not prepared for automatic merging yet, which the GitHub step of /devkit setup does',
     'blocked-why.archive-failed': 'a step of the archive failed',
     'blocked-why.tag-elsewhere': 'the tag {tag} is already on the remote at {at}, not at the merge commit {sha}; the run never moves a tag, so you settle it',
     'blocked-why.plan-not-approved': 'its plan review is not approved',
@@ -458,7 +459,7 @@ export const MESSAGES = {
     'project-unreadable': 'I could not read that request. Type /devkit project and the name of the slice to plan, or /devkit project alone to continue.',
     'is-slice': '{id} is a slice of a project: /devkit project {id} continues it.',
     'is-change': '{id} is a change: /devkit change {id} continues it.',
-    'design-pack-missing': 'The project flow needs the devkit-design pack in this project: run /openspec-setup with the devkit-design pack, then call /devkit project again. Nothing was run.',
+    'design-pack-missing': 'The project flow needs the devkit-design pack in this project: type /devkit setup and enable the devkit-design pack, then call /devkit project again. Nothing was run.',
     'phase-approval': '{Stage} of {id} is written. Do you approve it, or what should change?',
     'rounds-approval': 'These are the rounds and changes I would add to the roadmap: {list}. Do you approve them, or what should change?',
     'rounds-invalid': 'The proposed rounds cannot go on the roadmap yet: {list}.',
@@ -499,7 +500,7 @@ export const MESSAGES = {
     'why.other-commit': 'the verdict is for another commit than the current one',
     'why.uncommitted': 'the verdict was written with changes that were not committed',
     'blocked-why.checks-failing': 'checks failing on the pull request: {list}',
-    'blocked-why.merge-setup-missing': 'the repository is not prepared for automatic merging yet ({list}), which /openspec-setup does',
+    'blocked-why.merge-setup-missing': 'the repository is not prepared for automatic merging yet ({list}), which the GitHub step of /devkit setup does',
     'blocked-why.branch-conflict': 'pull request #{number} conflicts with {base}: resolve the conflict on the slice\'s branch, then call /devkit project {id} again',
     'blocked-why.archive-refused': 'the slice cannot be archived yet: {list} not settled',
     'blocked-why.undeclared-stage': 'the flow asked for {stage}, which this project script does not declare',
@@ -507,8 +508,9 @@ export const MESSAGES = {
   },
   'pt-BR': {
     'verb-not-built': '/devkit {verb} ainda não existe: chega na rodada {round}. Nada foi feito.',
-    'verb-unknown': 'Por enquanto existem /devkit change, /devkit roadmap, /devkit status, /devkit project e /devkit train: digite /devkit change e o que você quer fazer, /devkit roadmap para rodar o roadmap, /devkit status para ver onde está tudo, /devkit project e um nome para planejar um projeto ou uma fatia nova, ou /devkit train para mandar as changes embarcadas em um trem só.',
-    'not-set-up': 'Este projeto ainda não está preparado para o devkit: rode /openspec-setup primeiro. Nada foi executado.',
+    'verb-unknown': 'Por enquanto existem /devkit change, /devkit roadmap, /devkit status, /devkit setup, /devkit project e /devkit train: digite /devkit change e o que você quer fazer, /devkit roadmap para rodar o roadmap, /devkit status para ver onde está tudo, /devkit setup para preparar este projeto ou atualizar a preparação, /devkit project e um nome para planejar um projeto ou uma fatia nova, ou /devkit train para mandar as changes embarcadas em um trem só.',
+    'not-set-up': 'Este projeto ainda não está preparado para o devkit: digite /devkit setup primeiro. Nada foi executado.',
+    'setup-no-repo': '/devkit setup roda dentro de um repositório git: abra a pasta do projeto, ou crie o repositório dele ali primeiro. Nada foi executado.',
     'setting-unknown': 'As configurações devkit do projeto têm {setting} desconhecido, "{value}"; use um de: {accepted}. Nada foi executado.',
     'setting-missing': 'As configurações devkit do projeto escolhem dois pull requests mas não dizem {setting}. Nada foi executado.',
     'train-model': 'As configurações devkit do projeto definem um trem de entrega, mas o modelo de entrega é two-prs: o trem só roda com trunk ou trunk-auto, porque two-prs entrega cada mudança em pull requests próprios. Nada foi executado.',
@@ -524,7 +526,7 @@ export const MESSAGES = {
     'compozy-not-installed': 'O CompozyOS não está instalado nesta máquina, então nada foi executado: instale com {fix} e chame /devkit de novo.',
     'compozy-stopped': 'O CompozyOS não está rodando, então nada foi executado: inicie com {fix} e chame /devkit de novo.',
     'compozy-workspace': 'Este projeto ainda não é um workspace do CompozyOS, então nada foi executado: registre com {fix} e chame /devkit de novo.',
-    'compozy-kit-missing': 'O kit do devkit não está instalado no CompozyOS para este projeto, então nada foi executado: rode /compozy-setup primeiro e chame /devkit de novo.',
+    'compozy-kit-missing': 'O kit do devkit não está instalado no CompozyOS para este projeto, então nada foi executado: digite /devkit setup, responda sim ao kit e chame /devkit de novo.',
     'compozy-roadmap-started': 'O roadmap roda no CompozyOS com até {places} changes ao mesmo tempo: {url}.',
     'compozy-requests': '{n} perguntas esperam você no CompozyOS.',
     'nothing-to-resume': 'Não há change por terminar: digite /devkit change e o que você quer fazer.',
@@ -710,7 +712,7 @@ export const MESSAGES = {
     'blocked-why.tests-red': 'os testes da fase {phase} falharam',
     'blocked-why.role-failed': '{stage} não conseguiu terminar o trabalho',
     'blocked-why.wrong-branch': 'a pasta dela está num branch com outro nome',
-    'blocked-why.merge-setup': 'o repositório ainda não está preparado para o merge automático, que /openspec-setup prepara',
+    'blocked-why.merge-setup': 'o repositório ainda não está preparado para o merge automático, que a etapa do GitHub de /devkit setup prepara',
     'blocked-why.archive-failed': 'um passo do arquivamento falhou',
     'blocked-why.tag-elsewhere': 'a tag {tag} já está no remoto em {at}, não no commit do merge {sha}; a execução nunca move uma tag, então quem resolve é você',
     'blocked-why.plan-not-approved': 'a revisão do plano dela não está aprovada',
@@ -761,7 +763,7 @@ export const MESSAGES = {
     'project-unreadable': 'Não consegui ler esse pedido. Digite /devkit project e o nome da fatia a planejar, ou só /devkit project para continuar.',
     'is-slice': '{id} é uma fatia de projeto: /devkit project {id} continua.',
     'is-change': '{id} é uma change: /devkit change {id} continua.',
-    'design-pack-missing': 'O fluxo de projeto precisa do pacote devkit-design neste projeto: rode /openspec-setup com o pacote devkit-design e chame /devkit project de novo. Nada foi executado.',
+    'design-pack-missing': 'O fluxo de projeto precisa do pacote devkit-design neste projeto: digite /devkit setup, ative o pacote devkit-design e chame /devkit project de novo. Nada foi executado.',
     'phase-approval': '{Stage} de {id} está escrita. Você aprova, ou o que deve mudar?',
     'rounds-approval': 'Estas são as rodadas e changes que eu acrescentaria ao roadmap: {list}. Você aprova, ou o que deve mudar?',
     'rounds-invalid': 'As rodadas propostas ainda não podem entrar no roadmap: {list}.',
@@ -801,7 +803,7 @@ export const MESSAGES = {
     'why.other-commit': 'o veredito é de outro commit que não o atual',
     'why.uncommitted': 'o veredito foi escrito com alterações que não estavam commitadas',
     'blocked-why.checks-failing': 'checks falhando no pull request: {list}',
-    'blocked-why.merge-setup-missing': 'o repositório ainda não está preparado para o merge automático ({list}), que /openspec-setup prepara',
+    'blocked-why.merge-setup-missing': 'o repositório ainda não está preparado para o merge automático ({list}), que a etapa do GitHub de /devkit setup prepara',
     'blocked-why.branch-conflict': 'o pull request #{number} tem conflito com {base}: resolva o conflito no branch da fatia e chame /devkit project {id} de novo',
     'blocked-why.archive-refused': 'a fatia ainda não pode ser arquivada: {list} não resolvidas',
     'blocked-why.undeclared-stage': 'o fluxo pediu {stage}, que este roteiro de projeto não declara',
@@ -2099,7 +2101,9 @@ function readRequirements(u) {
 }
 
 const VERB_ROUND = { help: 23 };
-const DRIVER_ROUND = { script: 22 };
+export const DRIVER_ROUND = { script: 22 };
+// The drivers that run: the only source of the setup's driver question (project-setup D-2).
+export const BUILT_DRIVERS = DRIVERS.filter((d) => !DRIVER_ROUND[d]);
 
 // The verb is the first word, lower-cased; the text is the rest, trimmed.
 export function parseStart(input) {
@@ -2149,6 +2153,16 @@ export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, opens
   });
   const say = (key, params = {}) => render(l, key, params);
   if (VERB_ROUND[verb]) return out('not-built', { reply: say('verb-not-built', { verb, round: VERB_ROUND[verb] }) });
+  // `/devkit setup` runs whatever the settings hold, since the step is what repairs them; it only needs a repository (project-setup D-1):
+  // a folder in no git repository answers setup-no-repo even when it holds openspec/changes. findRoot climbs past the repository's
+  // top, so its answer is the root only when it is the top or a folder inside it; an outer folder (a nested repository) gives the top.
+  if (verb === 'setup') {
+    const top = tryGit(cwd ?? process.cwd(), ['rev-parse', '--show-toplevel']) || null;
+    if (!top) return out('setup-no-repo', { reply: say('setup-no-repo') });
+    const rel = start ? relative(top, realpathSync(start)) : '..';
+    const inside = !(rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel));
+    return out('setup', { root: inside ? start : top, reply: null });
+  }
   if (!['change', 'roadmap', 'status', 'project', 'train'].includes(verb)) return out('unknown-verb', { reply: say('verb-unknown') });
   const gate = projectGate(start, settings, verb);
   if (gate) return out(gate.mode, { reply: say(gate.key, gate.params) });

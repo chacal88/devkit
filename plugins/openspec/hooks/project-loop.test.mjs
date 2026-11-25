@@ -13,6 +13,7 @@ import * as FC from './flow-check.mjs';
 import * as CL from './change-loop.mjs';
 import * as PL from './project-loop.mjs';
 import * as RL from './roadmap-loop.mjs';
+import * as MS from './merge-setup.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_SCHEMAS = join(HERE, '..', 'schemas');
@@ -785,7 +786,7 @@ test('project-loop start: step 2 without the design pack nothing runs and the re
     assert.equal(b.mode, 'design-pack-missing', String(settings));
     assert.equal(b.reply, CL.render('en', 'design-pack-missing'));
     assert.match(b.reply, /devkit-design/);
-    assert.match(b.reply, /\/openspec-setup/);
+    assert.match(b.reply, /\/devkit setup/);
     assert.equal(state(t.main), before);
   }
   const local = loopProject({ settings: null, files: { '.claude/settings.local.json': DESIGN_ON } });
@@ -1244,6 +1245,24 @@ test('project-loop next: S23 ship merge with the repository not prepared ends bl
   assert.deepEqual([a.end.state, a.end.why], ['blocked', 'merge-setup-missing']);
   assert.match(a.reply, /auto-merge is not allowed/);
   assert.match(a.reply, /no active rule requires the devkit-reviews check on main/);
+});
+
+// Invariant: the blocked reply lists the missing merge facts once, without the pointer each fact carries, which the reply's own
+// reason replaces. Layer: decideSlice (project-loop.mjs), through merge-setup.mjs's one strip helper. Suite: project-loop.
+test('setup AC-2 project: the S23 reply lists the missing facts without the setup pointer', () => {
+  const pointer = MS.SETUP_POINTER;
+  assert.equal(typeof pointer, 'string', 'merge-setup.mjs exports the pointer');
+  assert.match(pointer, /\/devkit setup/);
+  assert.equal(MS.withoutSetupPointer(`auto-merge is not allowed${pointer}`), 'auto-merge is not allowed');
+  const t = loopProject();
+  const { gh } = openPr(t, { rules: [], repo: { default_branch: 'main', allow_auto_merge: false, allow_squash_merge: true } });
+  const a = body(nextP(t.main, 'billing', { gh }));
+  assert.deepEqual([a.end.state, a.end.why], ['blocked', 'merge-setup-missing']);
+  assert.match(a.reply, /auto-merge is not allowed/);
+  assert.match(a.reply, /no active rule requires the devkit-reviews check on main/);
+  assert.ok(!a.reply.includes(pointer), a.reply);
+  assert.doesNotMatch(a.reply, /run the GitHub step/);
+  assert.match(a.reply, /\/devkit setup/, 'the reason names the setup once');
 });
 
 test('project-loop next: S24 ship merge with a green pull request enables auto-merge at the head commit', () => {

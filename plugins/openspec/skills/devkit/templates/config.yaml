@@ -1,0 +1,69 @@
+# Default flow: devkit-lite (requirements grill → proposal → optional spec delta →
+# tasks → apply → evidence + reviews). Use the full flow, which adds an
+# independent readiness gate, the owner's plan approval and code written only
+# by tdd-implementer, for changes that are new capabilities, cross areas,
+# change a public contract or data model, touch auth/money/personal data, or
+# are hard to roll back:
+#   openspec new change <name> --schema devkit
+schema: devkit-lite
+
+# Who merges, per schema (read by the ship-change skill; none set means plan):
+#   plan  - the flow stops before any PR work; the merge is the owner's
+#   pr    - ship-change takes the change to a ready PR; the merge is the owner's
+#   merge - ship-change also enables GitHub auto-merge at 8/8; GitHub merges
+# `merge` needs the GitHub step of /devkit setup first (workflow,
+# auto-merge allowed, a ruleset that requires devkit-reviews). Uncomment to opt in:
+# ship:
+#   devkit-lite: merge
+#   devkit: merge
+#   devkit-project: merge
+# merge_method: squash   # squash | merge | rebase
+
+# The settings of /devkit change; a test stage whose command is absent does not run.
+# devkit:
+#   language: en                       # the language of the project's files
+#   driver: claude                     # who runs the change
+#   tests:
+#     unit: "npm test"                 # the whole unit suite
+#     coverage:
+#       command: "npm run coverage"    # prints the total coverage
+#       target: 80                     # whole number, percent; absent: coverage is recorded, never fails
+#     e2e: "npm run e2e"               # absent: the E2E stage does not run
+#   budget: 200000                     # token cap per change; absent: no cap
+# design:                              # only when the project tracks screens (the screen-design skill)
+#   screen_map: docs/design/screen-map.md
+#   mockup: Figma                      # the tool or document the mockup lives in
+
+# Shown to the agent in every artifact and in apply. Fill in for this project.
+context: |
+  Stack: <languages, frameworks, database>
+  Test command: <e.g. npm test | pytest | go test ./...>
+  Lint / typecheck: <commands, or "none">
+  ADRs: <docs/adr/ | docs/decisions/ | none>
+  Default branch: <main>
+  Conventions: <commit format, ticket keys, code language>
+
+rules:
+  requirements:
+    - Ask the owner; never answer your own grill questions
+  proposal:
+    - Keep it under two pages; the how belongs in design.md
+  design:
+    - Record any decision that changes an ADR as a proposal for a new ADR, not as a silent deviation
+  tasks:
+    - One "## N." group per phase, each ending with a gate task that names the test command
+    - Every acceptance criterion id appears in at least one task
+  readiness:
+    - Written only by the plan-readiness-reviewer agent, never by the plan's author
+
+operations:
+  apply:
+    guidance:
+      - One phase at a time, each dispatched to the devkit-core:tdd-implementer agent; stop at the phase gate
+      - After the last phase, dispatch devkit-core:pr-verifier (writes evidence.md; a defect is fixed and the evidence recorded again), then run review-change for this change (each reviewer writes reviews/<reviewer>.md)
+      - Open the PR with the commit-and-pr agent; the merge is the owner's in `plan` and `pr` mode, GitHub's in `merge` mode (ship-change enables auto-merge)
+  archive:
+    guidance:
+      - In `pr` and `merge` ship modes `ship-change` runs the archive steps after the merge (retro, the owner's answer per proposal, `openspec archive`, roadmap tick, approved proposals, archive PR on `chore/archive-<id>`)
+      - Run the retro skill and propose doc or rule updates to the owner before archiving
+      - If openspec/roadmap.md lists the change, tick its line after archiving

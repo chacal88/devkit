@@ -76,7 +76,7 @@ devkit:
     e2e: "npm run e2e"               # absent: the E2E stage does not run
 ```
 
-`/openspec-setup` asks for the values. The E2E tests the `e2e-tester` writes are a product commit, so the unit and E2E stages run once more after it; the rerun finds the tests present, and it is bounded.
+`/devkit setup` asks for the values. The E2E tests the `e2e-tester` writes are a product commit, so the unit and E2E stages run once more after it; the rerun finds the tests present, and it is bounded.
 
 ## The `devkit-lite` schema
 
@@ -126,7 +126,7 @@ A change to a `flow.json` raises its `version`: the new bytes are copied to `flo
 
 ## Adopting it in a project
 
-The `openspec-setup` skill does all of this; here is what it does, if you prefer by hand.
+`/devkit setup` (the Setup section of the `devkit` skill) does all of this; here is what it does, if you prefer by hand.
 
 1. Install the OpenSpec CLI and initialize the project. devkit supports OpenSpec 2.x only. If the project pins `@fission-ai/openspec` (in `package.json`), the pinned copy in `node_modules/.bin/openspec` is the one every devkit script and hook starts, never the one on `PATH`; a declared pin that is not installed is refused with "install it", and a pin that is not 2.x is refused with the move to 2.x (`npm i -D @fission-ai/openspec@2`). With no pin, the global CLI is used:
 
@@ -141,14 +141,14 @@ The `openspec-setup` skill does all of this; here is what it does, if you prefer
 2. Install the schemas into the project, so the team and CI share them (run it inside the project, no argument needed):
 
    ```bash
-   bash <devkit>/plugins/openspec/skills/openspec-setup/scripts/install-schemas.sh
+   bash <devkit>/plugins/openspec/skills/devkit/scripts/install-schemas.sh
    ```
 
    Or, for every project on this machine, add `--user`: the same command with `--user` installs under `$XDG_DATA_HOME/openspec/schemas/` and leaves the project untouched.
 
    A re-run replaces each schema folder with the release's, which holds every released `flows/<n>.json`, so a change opened before it keeps the flow it was opened with until you ask to move it (see [Moving to a newer flow](#the-change-coordinator-devkit-change)).
 
-3. Copy [`templates/config.yaml`](../plugins/openspec/skills/openspec-setup/templates/config.yaml) to `openspec/config.yaml` and fill in `context` with the real stack, test command and conventions.
+3. Copy [`templates/config.yaml`](../plugins/openspec/skills/devkit/templates/config.yaml) to `openspec/config.yaml` and fill in `context` with the real stack, test command and conventions.
 
 4. Opt the project in: enable the packs `devkit-core` and `devkit-openspec` per project, in its `.claude/settings.json` (see [getting-started.md](getting-started.md)).
 
@@ -496,7 +496,7 @@ The rule goes by author type, not by intent: the checker cannot tell whether a b
 **Merge mode.** With `ship: merge` the contract ends differently: GitHub merges the PR, and the repository must be prepared first. A merged PR is not the end in `pr` or `merge` mode: it leads to the archive steps ("After the merge", below). `plan` mode is unchanged: it asks `gh pr view` for the same fields as before and stops at `stop-plan-mode` whatever the PR says.
 
 - **Items.** `merge` mode also reads `autoMergeRequest` and `mergeStateStatus`. Item 5 is `met` for a PR merged at the local head (`PR #n merged`) and `blocked` for one merged at another head. An open PR whose `mergeStateStatus` is `BEHIND` is `open` (`branch is behind <base>; update it`). Once the PR is merged, the archive steps take over and items 6 and 7 are `met` without calling `gh`. The PR is found by its number once known, else by the branch; when the branch no longer finds it (merged, branch deleted) `gh pr list --head <branch> --state all` finds it among open, merged and closed PRs, preferring an open one. That lookup now runs in `pr` mode too.
-- **Preflight (read-only).** Before any work, merge mode checks that the repository can merge on its own. A missing piece is `blocked: merge setup (...)`, never a silent downgrade to `pr`, and the reason names the `openspec-setup` skill (GitHub step).
+- **Preflight (read-only).** Before any work, merge mode checks that the repository can merge on its own. A missing piece is `blocked: merge setup (...)`, never a silent downgrade to `pr`, and the reason names `/devkit setup` (its GitHub step).
 
   | Fact | Read with | Missing when |
   |---|---|---|
@@ -633,7 +633,7 @@ Any other value, a scalar (`ship: pr`), a nested map or a duplicate schema key i
 
 | `next.step` | What the skill does |
 |---|---|
-| `stop-merge-setup` | Stops: `blocked: merge setup (<missing>)`. Run the GitHub step of `openspec-setup` |
+| `stop-merge-setup` | Stops: `blocked: merge setup (<missing>)`. Run the GitHub step of `/devkit setup` |
 | `disable-auto-merge` | `gh pr merge <n> --disable-auto`, then continues |
 | `update-branch` | `gh pr update-branch <n>`, then `git pull --ff-only`. The ruleset requires the branch to be up to date, so a PR behind its base waits; the update brings base commits; when they or the merge change one of the change's own files, the older reviews and evidence go stale and run again, and an update that brings no own file (only `openspec/` files, or files the change did not change) leaves the evidence and the approved reviews current (a rejected review goes stale and runs again) |
 | `enable-auto-merge` | `gh pr merge <n> --auto --<method> --match-head-commit <head>`: GitHub refuses it if the head moved since the check |
@@ -649,7 +649,7 @@ Any other value, a scalar (`ship: pr`), a nested map or a duplicate schema key i
 | `stop-archive` | Stops: `blocked: archive (<step>): <reason>` |
 | `archived` | Reports `archived` |
 
-**Preparing the repository (setup order).** In the project, run the GitHub step of `/openspec-setup` (`scripts/github-setup.mjs`). It prints a plan of four items (`workflow`, `auto-merge`, `delete-branch`, `ruleset`), applies nothing until you confirm each one, and is safe to run again.
+**Preparing the repository (setup order).** In the project, run the GitHub step of `/devkit setup` (`scripts/github-setup.mjs`). It prints a plan of four items (`workflow`, `auto-merge`, `delete-branch`, `ruleset`), applies nothing until you confirm each one, and is safe to run again.
 
 1. Write the workflow (`.github/workflows/devkit-reviews.yml`); commit it and merge it through a normal PR, so `devkit-reviews` reports at least once (`--watch` waits for that pull request's pending checks at `stop-merge-setup`). The `ruleset` item stays `deferred` until then, because a required check that never reports blocks every PR.
 2. Apply `auto-merge` (allow auto-merge and the merge method) and `delete-branch`.
@@ -736,7 +736,7 @@ Without the key nothing changes: every row of the delivery contract, every actio
 Hooks run only inside Claude Code. To make the gates independent of the agent, run them in CI as well. The `devkit-reviews` workflow runs `deliver-check --ci`: it checks readiness (in `devkit`) and the first four items of the delivery contract (tasks and gates, reviews current at head, findings disposed, acceptance criteria proven) for the change the PR is about. Unlike the review consensus `guard.mjs ci` checked before 0.5.0, it applies the same staleness rule as `deliver-check` and the agent: a review or `evidence.md` recorded before a later product commit fails the job (after a commit of test files only, the reviews of `spec-reviewer`, `adr-reviewer`, `architecture-reviewer` and `security-reviewer` stay current). It applies the own-files rule with `GITHUB_BASE_REF` as the base: a merge of the base that brings none of the change's own files leaves the records current, and `fetch-depth: 0` brings `origin/<base>` that the rule reads (without it the rule is the strict one, never looser). It ignores `DEVKIT_BYPASS` and does not read `ship` or `merge_method`; it reads `devkit.delivery` from the default branch, and applies rules only in `two-prs` (see "Delivery models" and "The `two-prs` rules" below). In a project with `devkit.delivery.train` on the default branch it also judges the train ("The delivery train" above): a pull request from `train/<n>` is judged by its record instead of by one change. `devkit-reviews` reads `openspec/trains/<n>.md` at the pull request's head and fails when the record is missing, cannot be read or says the suite did not pass; when a commit outside `openspec/` came after the head the suite ran at; when a boarded head is not an ancestor of the train; when a commit of the train that no boarded head holds changes a path other than release files, the CI pin, `openspec/roadmap.md` and the record; or when a boarded change fails the check of its own pull request, or a boarded archive the check of an archive pull request, each judged in a scratch worktree at its own head, never at the train's. The train applies the same own-files rule to a boarded change as the check of its own pull request does: the base it judges against is the train pull request's base, so a boarded head that merged only unrelated base files stays current. It prints one result line per boarded entry, makes no GitHub call and passes only when every entry passes. On every other pull request of such a project, item 1 skips the gate parts the train proves: `devkit-reviews` reads the key from the default branch's `openspec/config.yaml`, so a change that itself adds, edits or removes the key proves every part in `evidence.md`; a refused key there is a setup error (exit 3). A change is never selected through an archive branch (`chore/archive-<id>`) once its folder has moved, so an archive PR is never held to another change's reviews even while other changes are open. It is checked as an archive PR instead: when the PR (against `GITHUB_BASE_REF`) brings an `openspec/changes/archive/<date>-<id>/` folder, `devkit-reviews` runs the same exact-path file check as P13 on the PR's changed files, and requires its `retro.md` to be readable with every proposal answered. A file no approved proposal names, an unanswered proposal or a missing retro fails the job. A PR that archives nothing passes with the "nothing to check" note. The check applies only to changes on a devkit script (ADR 0012): the change's own `.openspec.yaml` (else `openspec/config.yaml`) names the schema `devkit` or `devkit-lite`. For a change on any other schema the job passes and prints `devkit-reviews: <id> is on the <schema> script, not a devkit script (devkit, devkit-lite); nothing was checked`; an archive PR judges each archived folder by its own schema, so a folder of another schema is a note. A devkit folder with no `retro.md` still fails, and the message names the file, what it must hold (a `## Proposed updates` section with each proposal and the owner's answer) and the retro step of the archive that writes it.
 
 ```yaml
-# .github/workflows/devkit-reviews.yml (templates/devkit-reviews.yml in the openspec-setup skill)
+# .github/workflows/devkit-reviews.yml (templates/devkit-reviews.yml in the devkit skill)
 name: devkit-reviews
 on:
   pull_request:
@@ -755,8 +755,8 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.48.0 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.48.0>/plugins/openspec/hooks
+          # pinned to the commit of v0.49.0 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.49.0>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
@@ -769,7 +769,7 @@ The readiness is asked of a change when the flow it follows declares it, read fr
 
 The check also judges the archived folder of a `devkit-project` slice by the slice contract (see "Defining a project"); a project that sets `ship: devkit-project: merge` moves this pin to `v0.20.0` or later first, because older releases pass a slice with a note.
 
-Pin the commit sha of the release tag (`v0.48.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.48.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.49.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The GitHub step of `/devkit setup` resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.49.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@2` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 
@@ -827,7 +827,7 @@ Exit codes: `0` pass, `1` something failed, `3` setup or usage error. `--json` p
 | `devkit guard: several active OpenSpec changes` | More than one open change and the branch doesn't name one | `git switch -c feat/<change>`, or start Claude Code with `DEVKIT_CHANGE=<change>` |
 | `gh pr create` refused | A required review is missing or not approved, or `evidence.md` is missing | Dispatch `pr-verifier`, then run `review-change` for the change |
 | `openspec instructions apply` says `blocked` | An artifact `apply` requires is missing | `openspec status --change <id>` lists it |
-| `schema 'devkit' not found` | Schemas not installed where OpenSpec looks | Run `/openspec-setup`, or check `openspec schema which devkit` |
+| `schema 'devkit' not found` | Schemas not installed where OpenSpec looks | Run `/devkit setup`, or check `openspec schema which devkit` |
 | `deliver-check` exits 3 | Unknown change, no `openspec/`, or an invalid `ship` or `merge_method` in `openspec/config.yaml` | Read the message on stderr; fix the id or the config |
 | `devkit-reviews` passes with `nothing was checked` | The change is on a schema that is not `devkit` or `devkit-lite` (a renamed copy counts), so the devkit contract does not apply to it (ADR 0012) | Nothing to fix if that is intended; to have it checked, keep the schema name `devkit` or `devkit-lite` |
 | `devkit-reviews` fails: `this PR delivers no change` | The PR touches devkit changes and none has a ticked task in `tasks.md` at its head | Tick a finished task in the change the PR delivers, or move the plan-only folders to their own PR |
@@ -836,7 +836,7 @@ Exit codes: `0` pass, `1` something failed, `3` setup or usage error. `--json` p
 | `github-setup` says `rulesets refused` | GitHub refuses rulesets for this repository's plan (a private repository on a plan without them); merge mode needs the ruleset (ADR 0002), so auto-merge is deferred too | Make the repository public or move it to a plan with rulesets; `plan` and `pr` modes still work |
 | `github-setup` says `Actions disabled`, or the newest runs failed without starting | GitHub Actions is off for the repository, or runs fail before any step (one possible cause is billing: a failed payment or a spending limit; the API does not say which) | Settings > Actions > General, or Settings > Billing and plans; no check runs until it is fixed |
 | `the project pins @fission-ai/openspec ... but it is not installed`, or `... is not supported: devkit needs OpenSpec 2.x` | The project's `package.json` declares the CLI and the install is missing, or the installed pin is not 2.x | Run the project's install, or move the pin to 2.x (`npm i -D @fission-ai/openspec@2`) |
-| `blocked: merge setup (...)` | `ship: merge`, but the repository lacks a piece: auto-merge or the merge method not allowed, no active rule requiring `devkit-reviews` on the default branch, or the workflow not committed (the message lists which) | Run the GitHub step of `/openspec-setup` and confirm the items; commit the workflow |
+| `blocked: merge setup (...)` | `ship: merge`, but the repository lacks a piece: auto-merge or the merge method not allowed, no active rule requiring `devkit-reviews` on the default branch, or the workflow not committed (the message lists which) | Run the GitHub step of `/devkit setup` and confirm the items; commit the workflow |
 | `auto-merge on: waiting for <what>` | All eight items are met and auto-merge is enabled; GitHub has not merged yet (`GitHub to merge`, `branch rules outside the delivery contract (for example a required approval)`, `GitHub to compute mergeability`) | Run `deliver-check <id> --watch` or `ship-change` again; if the wait is a rule outside the contract, satisfy it or adjust the ruleset |
 | `blocked: item 6` with `devkit-reviews fails in CI while items 1-4 are met locally` | The CI check and the local view disagree: a file not pushed, or a checkout that is not the PR head | Read the CI log of `devkit-reviews`; push what is missing or fix the checkout (see the two `--ci` exit 3 rows) |
 | `blocked: item 5` | The PR has a merge conflict, was closed, or its head isn't in your history (or it was merged at a head other than your local one) | Resolve the conflict (or reopen) and run it again; the loop resolves a conflict in the release files by the release merge (see "Release-file conflicts") and any other by the implementer's merge of the base (`resolve-base-conflict`) |

@@ -48,7 +48,7 @@ test('compozy-driver readiness: kit-missing when the change loop is not in the w
   await k.daemon(t);
   const r = readiness(k.dir, { env: k.env });
   assert.deepEqual([r.ok, r.reason], [false, 'kit-missing']);
-  assert.match(r.fix, /compozy-setup/);
+  assert.match(r.fix, /\/devkit setup/);
   assert.deepEqual(k.argvs().find((a) => a[1] === 'inspect'), ['loop', 'inspect', '--name', 'devkit-change', '--workspace', k.dir, '-o', 'json']);
 });
 
