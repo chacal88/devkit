@@ -12,6 +12,8 @@ the change's release. The change's own folder cites it by its slug, before and a
 
 ## Context
 
+Note (release-at-merge, 2026-11-25): after review round 2 of change release-at-merge the owner acknowledged the per-line reading of decisions 3 and 4: `stepRecord` reads every commit on the branch's first-parent line above the base whose last paragraph names `Release-change: <id>`, and each release line takes the value of the newest of those commits that wrote it, a trailer still counting only when its commit changed what it names (decision 2), so a number an older step commit wrote and a later step commit kept stays the step's own. "The newest commit" of decision 3 and "the record" of decision 4 read that way. The Decision is otherwise unchanged.
+
 ADR 0031 has the `assign-release` step (`release-merge.mjs --assign`) number a change's release and
 ADR on the change's own branch, and run again after every merge of the base that moved the release.
 Decision 6 derives the delivery's state from the trees alone: release lines equal to the merge
