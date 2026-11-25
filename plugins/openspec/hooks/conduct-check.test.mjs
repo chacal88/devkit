@@ -1636,6 +1636,17 @@ test('coordinator-loop-fixes AC-13 T45 a pull request conflicting outside the re
   assert.deepEqual([c.next.paths, c.next.others, c.next.base, c.next.number, c.next.archive], [['README.md'], ['README.md'], 'main', 12, false]);
 });
 
+// Invariant: `conductor-task` is the main session's step: conduct-check maps it to the actor `main`, so its row is runnable and
+// keeps deliver-check's reason, never "unknown step". Layer: conduct-check's actorOf and deliveryStep. Suite: conduct-check.
+test('coordinator-loop-fixes AC-9 T146 conductor-task is the main session\'s step: actor main, a runnable row with deliver-check\'s reason', () => {
+  assert.deepEqual(actorOf('conductor-task'), { actor: 'main' });
+  const reason = 'phase 2 has tasks the conducting session does: 2.1, 2.3';
+  const got = deliveryStep({ id: 'x' }, REPORT({ step: 'conductor-task', reason, phase: 2, tasks: ['2.1', '2.3'] }));
+  assert.deepEqual([got.next.step, got.next.actor, got.next.reason, got.state], ['conductor-task', 'main', reason, 'ready to run: conductor-task']);
+  assert.doesNotMatch(got.state, /^blocked/);
+  assert.deepEqual(got.next.tasks, ['2.1', '2.3'], 'deliver-check\'s fields pass through');
+});
+
 test('coordinator-loop-fixes AC-13 T46 a conflict in release files and in another file lists both in paths and the other alone in others', () => {
   const { t } = conflictRepo(['CHANGELOG.md', '.claude-plugin/marketplace.json', 'README.md']);
   const c = byId(t.state(), 'b');
