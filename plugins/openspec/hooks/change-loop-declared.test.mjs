@@ -1227,7 +1227,7 @@ test('coordinator-loop-fixes AC-19 T139 the flow page, the config comments, the 
 // ---------------------------------------------------------------- review round 1: the plan's limits on record (adr-reviewer F1, F3)
 // Invariant: ADR 0032's `## Decision` section is decisions 1 to 8 as accepted (held here), followed by one dated Note that records
 // the three limits of the approved plan with their sources; docs/compozy-kit.md points at that Note for the declared steps and
-// still names ADR 0024 for the limits it lists. Layer: the documents. Suite:
+// still names ADR 0024 for the limits it lists; ADR 0023's header names ADR 0033 as amending it. Layer: the documents. Suite:
 // change-loop-declared.
 
 const ADR_0032_DECISION = [
@@ -1285,6 +1285,15 @@ test('coordinator-loop-fixes AC-7 T147 ADR 0032 keeps its decisions and records 
   const kit = readFileSync(join(REPO_ROOT, 'docs', 'compozy-kit.md'), 'utf8').replace(/\s+/g, ' ');
   assert.ok(kit.includes('[ADR 0024](adr/0024-compozy-runs-the-short-loop.md) lists each limit'), 'the ADR 0024 sentence stays');
   assert.ok(kit.includes(`the dated Note of [ADR ${file.slice(0, 4)}](adr/${file}) records this limit`), 'the page points at the Note');
+});
+
+test('coordinator-loop-fixes AC-19 T148 ADR 0023\'s header names the settings ADR that amends it', () => {
+  const adr = readFileSync(join(ADR_DIR, '0023-the-model-is-chosen-by-stage.md'), 'utf8');
+  const header = adr.slice(0, adr.indexOf('\n## Context')).split('\n');
+  const file = readdirSync(ADR_DIR).find((f) => SETTINGS_ADR.test(f));
+  const line = `- Amended by ADR ${file.slice(0, 4)} (${file})`;
+  assert.ok(header.includes(line), header.join('\n'));
+  assert.ok(header.indexOf(line) < header.findIndex((l) => l.startsWith('- Date:')), 'with the status lines, before the date');
 });
 
 // ---------------------------------------------------------------- AC-20: no test pins the state of a live roadmap line (D-23)

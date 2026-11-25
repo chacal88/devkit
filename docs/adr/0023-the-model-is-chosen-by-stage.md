@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Status: Accepted by: the owner, on 2026-11-23, in the approval of the plan of change stage-models (openspec/changes/stage-models/approval.md)
+- Amended by ADR 0033 (0033-a-changes-own-settings-live-in-an-x-devkit-block.md)
 - Date: 2026-11-23
 - Change: stage-models
 - Amends: ADR 0014 (0014-each-roadmap-change-runs-in-a-session-of-its-own.md), decision 1, what the
