@@ -125,7 +125,7 @@ Rounds:
 - Rounds count reject-and-fix cycles, nothing else. A call made only because reviewers' `Commit:` lines went stale (after a CI fix, an evidence fix, an answered comment) starts at round 1 and consumes no round budget.
 - Round 1 FAIL → list the blockers; the author fixes; a later round re-summons **only** the reviewers that failed, each with its previous verdict, to check **only** those findings and the lines changed since (see each reviewer's Budget section).
 - Only `blocking` findings, and `important` ones without a rebuttal, trigger a round. `nit` and follow-up items go into the report and never cause a re-review.
-- No convergence after the round limit (2 unless the owner authorized more rounds) → stop and escalate to the human with the disputed points. No round beyond it without the owner's word.
+- No convergence after the round limit (2 unless the owner authorized more rounds) → stop and escalate to the human with the disputed points. No round beyond it without the owner's word. When the owner approves one more round in their own message, run it as round 1 of a new cycle (`review-round` accepts only rounds 1 and 2), summoning the reviewers that rejected and those gone stale, and write in the section's notes that it is the owner's further round, quoting the owner's words.
 - A finding that contradicts an ADR is never routed around: it becomes a proposal for a new ADR and goes to the human.
 
 ### Finding dispositions

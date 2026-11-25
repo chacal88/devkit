@@ -403,3 +403,16 @@ branch>` as its tip, from both entries
 #### Scenario: No origin of the base in the checkout
 - **WHEN** the change's own branch selects the change, `GITHUB_BASE_REF` is unset, the checkout has no `origin/<base>`, and the only later commit merges the local base with unrelated product files
 - **THEN** no merge is exempted and the check fails on the stale records, as before this rule
+
+### Requirement: An archive pull request is not judged on the archived change's tasks
+For a devkit-script folder an archive pull request brings, the check SHALL judge the retro and the
+files the approved proposals name, as before, and SHALL NOT read the archived `tasks.md`, the
+evidence or the reviews: an owner's forced merge archives a change with tasks left unticked.
+
+#### Scenario: An archived change with an unticked task
+- **WHEN** an archive pull request brings a `devkit` folder whose `tasks.md` has an unticked task and no `evidence.md`, and whose `retro.md` has a `## Proposed updates` section with every proposal answered
+- **THEN** the check exits 0, as it does for the same folder with every task ticked
+
+#### Scenario: The retro still decides
+- **WHEN** the same folder's `retro.md` has an unanswered proposal
+- **THEN** the check exits 1 naming it, as before this change
