@@ -379,7 +379,7 @@ every task with `git status --short`.
   exits 1 with no import error: T85 and T86 fail (`createdAfter` is not exported yet), T135 to T140 fail on their own
   assertions (T136's `devkit:` half and T138's `devkit:` half pin what holds today and may pass); T87 to T92 pin what
   holds today and may pass.
-- [ ] 5.2 D-13: "commit-attribution AC-1 T25 the S10 ADR reviewer hand-off does not carry the attribution request"
+- [x] 5.2 D-13: "commit-attribution AC-1 T25 the S10 ADR reviewer hand-off does not carry the attribution request"
   in `plugins/openspec/hooks/project-loop.test.mjs`: its first assertion is that `CL.ATTRIBUTION_ASK` is exported and
   not empty, so the test fails without the export. Check: it passes, and
   `grep -c "ATTRIBUTION_ASK ?? " plugins/openspec/hooks/project-loop.test.mjs` prints 0.
