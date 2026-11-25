@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=10 commit=a27d9c9f3d82d3969f333532b86ceb3ea94775ea -->
+<!-- devkit-stage tasks result=passed attempt=11 commit=ffb52bdc1e6bd5f89e6e6fa0585e5512e5befa74 -->
 # Tasks
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88)
@@ -7,7 +7,7 @@ Work only in this change's worktree, on its branch. Every text, name, test and c
 declared steps, D-2 the end marker, D-3 the red gate, D-4 the extra review round, D-5 the conflict outside the
 release files, D-6 the conducting session's tasks, D-7 the revised plan, D-8 the verifier's `proof/`, D-9 the agent
 map, D-10 the host monitor, D-11 the language, D-12 the documents, D-13 the nits, D-14 the real runs, D-15 the
-existing tests, D-16 the new tests (T1 to T141, T24 dropped with AC-3), D-17 the siblings and the merge that opens each phase, D-18
+existing tests, D-16 the new tests (T1 to T142, T24 dropped with AC-3), D-17 the siblings and the merge that opens each phase, D-18
 the release, D-19 the CompozyOS driver and its kit, D-20 the `archive-` id's own pull request, D-21 the delivered change on a branch advanced into the base,
 D-22 a change's own settings in an `x-devkit:` block (the change's settings ADR), D-23 the tests of the live roadmap. The implementer copies them and makes no design choice.
 The plan names every function, export, constant, table, test and file, never a line: the implementer finds
@@ -63,7 +63,7 @@ every task with `git status --short`.
 | AC-4 | `agent-map-from-pack-table` | 4.2, 4.4, 4.7 |
 | AC-5 | `adr-0011-note` | 4.2, 4.6, 4.7 |
 | AC-6 | `language-never-set` | 4.1, 4.2, 4.6, 4.7 |
-| AC-7 | `review-round-after-limit` | 2.1, 2.2, 2.3, 2.5, 6.3 (R7, R7b), 6.4 (R7s) |
+| AC-7 | `review-round-after-limit` | 2.1, 2.2, 2.3, 2.5, 6.3 (R7, R7b), 6.4 (R7s), 6.4c |
 | AC-8 | `plan-revised-after-start` (a merge-defect fix included, D-7) | 3.1, 3.4, 3.5, 3.6, 3.6a, 3.9, 6.4 (R11, R11b, R15) |
 | AC-9 | `task-for-the-conductor` | 3.1, 3.2, 3.3 (and the kit), 3.9, 6.4 |
 | AC-10 | `fix-after-red-gate` | 2.1, 2.2, 2.5, 6.3 (R6), 6.4 (R5) |
@@ -74,9 +74,9 @@ every task with `git status --short`.
 | AC-14 | `nits-closed` | 5.1, 5.2, 5.3, 5.4, 5.9 |
 | AC-15 | `short-script-decisions-recorded` | 4.2, 4.6, 4.7 |
 | AC-16 | `no-behaviour-change-elsewhere` | 1.0, 1.6, 2.0, 2.3, 2.5, 3.0, 3.9, 4.0, 4.7, 5.0, 5.5, 5.9, 6.6 |
-| AC-17 | `archive-prefixed-id-own-pr` | 3.1, 3.7, 3.9, 6.4 (R16) |
+| AC-17 | `archive-prefixed-id-own-pr` | 3.1, 3.7, 3.9, 6.4 (R16), 6.4a (the commit lookup, T142) |
 | AC-18 | `delivered-advanced-branch-no-rereview` | 3.1, 3.8, 3.9, 6.4 (R17) |
-| AC-19 | `stage-models-override-validates` (a change's `budget` too, D-22) | 5.1, 5.5, 5.6, 5.9 |
+| AC-19 | `stage-models-override-validates` (a change's `budget` too, D-22) | 5.1, 5.5, 5.6, 5.9, 6.4b |
 | AC-20 | `no-test-pins-live-roadmap-state` | 5.1, 5.7, 5.8, 5.9 |
 
 ## 1. The declared steps and the end marker (AC-1, AC-2)
@@ -475,9 +475,53 @@ every task with `git status --short`.
   text is saved as `proof/r13a-host.txt`. No command of this task
   holds a `node … change-loop.mjs declare` line. When a run's check fails, stop and report: the plan is revised
   before anything else. R16's and R17's "before" runs use `origin/main`'s hooks, extracted with `git archive origin/main plugins/openspec`
-  into the scratch run's folder, never a checkout of this repository. Check: `proof/checks.txt` has one line for each of `r1` to `r5`, `r7s`, `r8`, `r9`, `r11`,
+  into the scratch run's folder, never a checkout of this repository. R17 runs again as D-14's R17 row gives it at
+  the plan revision of this task (its "before" and own-commit checks corrected to the `blocked` `pr-problem` end of
+  item 5, with the two `deliver-check.mjs feat --json` probes saved): the run of the earlier text appended no `r17`
+  line to `proof/checks.txt`, and the new run's files under `proof/` replace its files there, if any. The runs
+  still open in this task depend on none of 6.4a, 6.4b and 6.4c, and those depend on no run: R16 found pull request
+  107 through the merged list, which 6.4a does not touch, and no run's check reads the two documents 6.4b and 6.4c
+  edit (R7s's nested session may load `review-change`, but its check is the `declare` call and its record, which
+  6.4c's words do not change), so 6.4's runs and these three tasks may be done in either order.
+  Check: `proof/checks.txt` has one line for each of `r1` to `r5`, `r7s`, `r8`, `r9`, `r11`,
   `r11b`, `r13a`, `r13b`, `r14`, `r15`, `r16` and `r17` (and the `r10` line of 4.1 and the `r6`, `r7` and `r7b` lines of 6.3), each ending in
   `: pass`.
+- [ ] 6.4a D-20's `findByCommits` bullet (plan revision of task 6.4, item (b)). This task, that bullet of D-20 and
+  T142 of D-16 are one unit: when the owner drops it, the three go together, and no other task or check reads them.
+  First write T142 in `plugins/openspec/hooks/deliver-check-archive.test.mjs`, beside T123, with that file's
+  commit-lookup fixtures of the `forced-merge-path 1: L` tests (the full merged list, the commits route of a
+  change's `tasks.md`, the pulls route of a commit). Check: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^coordinator-loop-fixes AC-17 T142 " plugins/openspec/hooks/deliver-check-archive.test.mjs`
+  exits 1 with no import error, T142 failing on its first assertion (the lookup answers `{ none: true }`). Then, in
+  `findByCommits` of `plugins/openspec/hooks/deliver-check.mjs`, change the skip's `isArchiveHead(p.head?.ref)` to
+  `foreignArchiveHead(id, p.head?.ref)` and nothing else (the devkit-openspec bullet of the release's `CHANGELOG.md`
+  section already says that a change whose id starts with `archive-` finds its own pull request, so no other file
+  changes). Check: `grep -c "isArchiveHead(p.head?.ref)" plugins/openspec/hooks/deliver-check.mjs` prints 0,
+  `grep -c "foreignArchiveHead(id, p.head?.ref)" plugins/openspec/hooks/deliver-check.mjs` prints 1, and
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 plugins/openspec/hooks/deliver-check-archive.test.mjs`
+  passes (T142, T119 to T123, and the kept `forced-merge-path 1: L` and `field-fixes 4` tests).
+- [ ] 6.4b D-22's two `## Troubleshooting` rows of `docs/openspec-flow.md` (plan revision of task 6.4, item (c)),
+  worded byte for byte as D-22 gives them, the rest of each row unchanged. Before the edit, grep the test files
+  for each row's text (`grep -rn "reached its token budget\|the reply names, then type\|setting-unknown" plugins/*/hooks/*.test.mjs plugins/*/skills/*/scripts/*.test.mjs`)
+  and read each hit: a test that D-15 does not name is reported, and one that asserts a word the edit removes
+  stops the task, reported, for a plan revision. Check: `grep -c "Raise .budget. in the .devkit:. block" docs/openspec-flow.md`
+  and `grep -c "or of the change's ..openspec.yaml." docs/openspec-flow.md` each print 0,
+  `grep -c "Raise .budget. in the .x-devkit:. block of the ..openspec.yaml. the reply names" docs/openspec-flow.md`
+  and `grep -c "or the .x-devkit:. block of the change's ..openspec.yaml., then type the command again" docs/openspec-flow.md`
+  each print 1,
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^stage-models AC-10" --test-name-pattern="^change-budget AC-10" --test-name-pattern="^coordinator-loop-fixes AC-19 T139 " plugins/openspec/hooks/stage-models.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/change-loop-declared.test.mjs`
+  passes, and `python3 scripts/check.py` passes.
+- [ ] 6.4c D-4's further-round words in `plugins/core/skills/review-change/SKILL.md` (plan revision of task 6.4,
+  item (d)): in the bullet of `### 6. Normalize and decide by consensus` that holds the round limit, the words D-4
+  quotes from the base become D-4's new words, byte for byte, the rest of the bullet unchanged. Before the edit,
+  grep the tests for both sentences (`grep -rn "accepts only rounds\|new cycle\|further round\|No convergence after" plugins/*/hooks/*.test.mjs plugins/*/skills/*/scripts/*.test.mjs`):
+  a test found is reported and stops the task for a plan revision. Check:
+  `grep -c "accepts only rounds 1 and 2" plugins/core/skills/review-change/SKILL.md` prints 0,
+  `grep -c "run it as the next round within the raised limit the caller gives" plugins/core/skills/review-change/SKILL.md`
+  and `grep -c "it is the owner's further round, quoting the owner's words" plugins/core/skills/review-change/SKILL.md`
+  each print 1, `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 plugins/core/skills/review-change/scripts/review-round.test.mjs`
+  passes, and the tests that read the skill's text pass by name:
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^coordinator-loop-fixes AC-7 T44 " --test-name-pattern="^format: review-change" --test-name-pattern="^delivery-models AC-7" --test-name-pattern="^jira-entry-followups docs" --test-name-pattern="^own-files AC-9 docs" plugins/openspec/hooks/change-loop-declared.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs`
+  passes.
 - [ ] 6.5 D-10, AC-11's deferred half: add the line `- [ ] host-monitor-wake (after: coordinator-loop-fixes) — ...` to
   `## Round 16b: the coordinator loop fixes` of `openspec/roadmap.md`, right after the `coordinator-loop-fixes` line,
   saying in one sentence what R13a and R13b proved (no wait and the session says so with the host's monitor; the
@@ -487,7 +531,8 @@ every task with `git status --short`.
   prints 1, and `grep -c "^r13a .*: pass$" openspec/changes/coordinator-loop-fixes/proof/checks.txt` prints 1.
   Then the runs gate 6.6 held before the `Gates:` rule of `openspec/config.yaml` (D-17) pass, before the gate:
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 plugins/compozy/skills/compozy-setup/scripts/gen-agents.test.mjs plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs` and
-  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^coordinator-loop-fixes" --test-name-pattern="^AC-8 release-ready" --test-name-pattern="^the pin in docs/openspec-flow.md" --test-name-pattern="^change-loop docs: the design records the answers" --test-name-pattern="^stage-roles docs" --test-name-pattern="^post-merge-validate 3" --test-name-pattern="^jira-entry AC-10" plugins/openspec/hooks/change-loop-declared.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/stage-models.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/core/skills/review-change/scripts/review-round.test.mjs plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs`.
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^coordinator-loop-fixes" --test-name-pattern="^AC-8 release-ready" --test-name-pattern="^the pin in docs/openspec-flow.md" --test-name-pattern="^change-loop docs: the design records the answers" --test-name-pattern="^stage-roles docs" --test-name-pattern="^post-merge-validate 3" --test-name-pattern="^jira-entry AC-10" --test-name-pattern="^forced-merge-path 1: L" --test-name-pattern="^stage-models AC-10" --test-name-pattern="^change-budget AC-10" --test-name-pattern="^format: review-change" --test-name-pattern="^delivery-models AC-7" --test-name-pattern="^jira-entry-followups docs" --test-name-pattern="^own-files AC-9 docs" plugins/openspec/hooks/change-loop-declared.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/stage-models.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/core/skills/review-change/scripts/review-round.test.mjs plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs`
+  (the patterns after `^jira-entry AC-10` are the D-15 tests of 6.4a, 6.4b and 6.4c, added at the plan revision of task 6.4).
 - [ ] 6.6 Gate: `node scripts/test-suite.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && command claude plugin validate . && test -s openspec/changes/coordinator-loop-fixes/proof/checks.txt && grep -q "^- \[ \] host-monitor-wake (after: coordinator-loop-fixes) — " openspec/roadmap.md` green: the whole suite on the merged head (the train's command, proven again at the train's head), the kit, the catalog, the marketplace, the proof file and the roadmap line of 6.5 (this change's tests, the release's tests, the kit's and the roadmap tests after the 6.5 line run by name in 6.5's Check; D-17, D-18), and the plan's strict validation after 6.1 is the loop's `merge-check` before `verify` (D-17); covers AC-16 through the gates of every phase and every AC through its tests, and AC-11's deferred half carried.
 
 ## Workflow follow-up

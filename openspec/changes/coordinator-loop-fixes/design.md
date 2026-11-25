@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=10 commit=a27d9c9f3d82d3969f333532b86ceb3ea94775ea -->
+<!-- devkit-stage design result=passed attempt=11 commit=ffb52bdc1e6bd5f89e6e6fa0585e5512e5befa74 -->
 # Design
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a ·
@@ -463,6 +463,16 @@ an authorization still gives one round. T113 pins the shipped flows' `review` ce
   failed), "No convergence after 2 rounds -> stop and escalate ... No automatic third round" (after the
   round limit, 2 unless the owner authorized more; no round beyond it without the owner's word) and "no
   convergence after round 2 goes to the owner" (after the last round). No test pins them.
+  The merge of 6.1 brought, into the same bullet of `### 6. Normalize and decide by consensus` as the round-limit sentence, the base's sentence on
+  an owner-approved further round (from `forced-merge-path`'s retro, owner-approved): "run it as round 1 of a new
+  cycle (`review-round` accepts only rounds 1 and 2)", which holds on this branch only when no `limit` is passed.
+  At the plan revision of task 6.4 (task 6.4c) the words "run it as round 1 of a new cycle (`review-round` accepts
+  only rounds 1 and 2), summoning" become "run it as the next round within the raised limit the caller gives
+  (the `round` and `limit` of the loop's `review` or `review-resolution` step once the owner's words are
+  recorded; `review-round` accepts a round from 1 to its `limit`, 2 when no `limit` is passed), or as round 1 of
+  a new cycle when the caller gives no `limit`, summoning"; the rest of the bullet (who is summoned, the note that
+  quotes the owner's words) is unchanged, so its meaning, an owner-approved further round, is kept. No test reads
+  either sentence (`grep -rn "accepts only rounds\|new cycle\|further round\|No convergence after" plugins/*/hooks/*.test.mjs plugins/*/skills/*/scripts/*.test.mjs` finds none).
 - `plugins/openspec/skills/ship-change/SKILL.md`: the `review` and `review-resolution` rows pass
   `next.limit` when present; the `stop-review-deadlock` row's "after round 2" becomes "after its last
   round (2 unless the owner authorized more)", and the row adds: "Only the owner's own typed message asking for one more round
@@ -869,7 +879,7 @@ this change keeps or adds:
 | R13b | the same project and run without the host text | implementer (`claude -p`, fake `gh`) | `r13b-*.jsonl` | a Bash call with `run_in_background: true` whose command holds `change-loop.mjs wait --change <id>` |
 | R14 | a real `tdd-implementer` subagent told to run `change-loop.mjs declare <id> review-round --param words=x` | implementer (`claude -p`, the Agent tool, rule 2) | `r14-*.jsonl`, `r14-hooklog.jsonl` | the subagent's Bash call is refused naming the main session; no `declared.json` is written |
 | R16 | AC-17 on the real repository: `change-loop.mjs next --change archive-release-pin --lang en` run from this worktree's root, first with `origin/main`'s hooks (extracted by `git archive origin/main plugins/openspec` into the scratch run's folder), then with this worktree's. `archive-release-pin` waits on this change for its own archive (the conducting session's input of 2026-11-24), so it is merged and not archived when 6.4 runs; if it was archived anyway, the run stops and is reported, and the plan is revised | implementer (loop commands, read-only on GitHub; rule 4: output to files, checked with `grep -c`) | `r16-before.txt`, `r16-after.txt` | before: no retro step and the answer that the change has no pull request; after: the action is the retro (or the post-merge row the delivery gives) naming pull request 107 |
-| R17 | AC-18: a scratch project (fake `gh`, real git, no train setting) whose change's pull request merged with a merge commit and every task ticked, its evidence and reviews recorded at the reviewed head, `origin/main` holding a later base commit touching `src/a.ts`; the change's own branch advanced with `git merge --ff-only origin/main`, its change folder clean (every file of it committed, so neither `commit` row of `nextStep` answers first); `next` with `origin/main`'s hooks, then with this worktree's; then one commit outside `openspec/` on the advanced branch and `next` again | implementer (loop commands, rule 3) | `r17-before.txt`, `r17-after.txt`, `r17-own-commit.txt` | before: a `verify` or `review` step (the defect); after: the retro, no reviewer hand-off; with the own commit: the walk judges staleness again (a `verify` or `review` step) |
+| R17 | AC-18: a scratch project (fake `gh`, real git, no train setting) whose change's pull request merged with a merge commit and every task ticked, its evidence and reviews recorded at the reviewed head, `origin/main` holding a later base commit touching `src/a.ts`; the change's own branch advanced with `git merge --ff-only origin/main`, its change folder clean (every file of it committed, so neither `commit` row of `nextStep` answers first); `next` with `origin/main`'s hooks, then with this worktree's; then one commit outside `openspec/` on the advanced branch and `next` again; right after the "before" `next` and the own-commit `next`, the same hooks' `deliver-check.mjs feat --json` on the same checkout | implementer (loop commands, rule 3) | `r17-before.txt`, `r17-after.txt`, `r17-own-commit.txt`, `r17-before-dc.json`, `r17-own-commit-dc.json` | before: an `end` whose state is `blocked` and whose `why` is `pr-problem`, on the stage `evidence`, with no retro step and no `verify` or `review` step, and in `r17-before-dc.json` item 5 `blocked` with a reason matching `PR #<n> merged at <sha>; local head <sha> differs` (the defect as the loop shows it: `collectState` takes every delivered change as after the merge, so item 5 answers before any `verify` or `review` row, and `origin/main`'s merged arm of `prItem` needs the local head to be the pull request's head; D-21); after: the retro, no reviewer hand-off; with the own commit: the same `blocked` `pr-problem` end on the stage `evidence`, no retro and no reviewer hand-off, and item 5 `blocked` with the same reason in `r17-own-commit-dc.json` (D-21, "What stays as today": a head with a commit of its own is not in the base, so the guard of item 5 holds; the stage walk's own half, staleness judged again on a branch ahead of the base, is T128's, at the stage checker) |
 
 Which tasks are the conducting session's: 4.1 (R10), 6.3 (R6, R7, R7b) and the fetch of `origin/main`
 before each phase that opens with a merge (D-17) and before 6.1. This `tasks.md` is written before the `Conductor:` marker exists (D-6), so 4.1 and 6.3 are
@@ -976,6 +986,7 @@ plugins/*/skills/*/scripts/*.test.mjs`. Before each gate the implementer also ru
 | the `own-files` tests (deliver-check.test.mjs, flow-check.test.mjs, delivery-train-after.test.mjs; `grep -ln "own-files" plugins/openspec/hooks/*.test.mjs`) | ADR 0025's rule, `ownFiles` null when the head is in the base | kept: `ownFiles` reads `headInBase` with the same result (T126) | 3.8 |
 | the `change-budget` tests (change-loop-remote-state.test.mjs), `jira-entry AC-6 next carries the task but no writeBack on a budget end held at the pull request` (change-loop-remote.test.mjs), `upfront budget session-next: ...` (roadmap-loop-followups.test.mjs), the `stage-models` tests that write a change's table (stage-models.test.mjs) and `version-pin AC-1 writePin: the change budget block and the pin live in one .openspec.yaml` (version-pin.test.mjs) | a change's `budget` and `models:` in a `devkit:` block of its `.openspec.yaml` | kept: a file with no `x-devkit:` block is still read from its `devkit:` block (D-22) | 5.5 |
 | `change-budget AC-10 docs/openspec-flow.md describes the budget` (change-loop-remote-state.test.mjs), `stage-models AC-1 the flow document says what the model of each stage is: ...`, `stage-models AC-2 the settings comment names the optional models table and the ADRs line names 0023` and `stage-models AC-2 the coordination design names devkit.models as final, decided by stage-models` (stage-models.test.mjs) | the words of the two paragraphs, the config comment and the coordination design | kept: D-22 keeps every word they match (`budget:`, `.openspec.yaml`, `models:`, the project's `devkit:` block, "final") | 5.6 |
+| `stage-models AC-10 the flow document Troubleshooting table has the four model rows` (stage-models.test.mjs; added at the plan revision of task 6.4) | invariant: the `## Troubleshooting` table of `docs/openspec-flow.md` has a row naming `setting-unknown` and `models`, and the three other model rows; layer: the flow document, read as text; suite: stage-models.test.mjs | kept: the `models` row's revised words (D-22) keep `setting-unknown` and `models`, and the three other rows are not edited; the budget row it does not read is asserted by no test (`grep -rn "reached its token budget\|the reply names, then type" plugins/*/hooks/*.test.mjs plugins/*/skills/*/scripts/*.test.mjs` finds none) | 6.4b |
 | `change-loop settings: shipConfig of deliver-check gives the same with and without the block` (change-loop.test.mjs) | rule: `parseDevkitBlock` of `openspec/config.yaml` read with and without a `devkit:` block | kept: its second argument defaults to `devkit` (D-22) | 5.5 |
 | `delivery-train config: deliverySettings keeps its shape with a train set` (delivery-train.test.mjs), `release-tags 1: a release_tag followed by indented lines is unset ...` (release-tags.test.mjs), `delivery-models config: ...` (delivery-models.test.mjs) and the `parseDevkitBlock` tests of guard.test.mjs | `parseDevkitBlock` of `openspec/config.yaml` | kept: its second argument defaults to `devkit`, so every caller reads as today (D-22) | 5.5 |
 | `post-merge-validate 3: the roadmap line names the merge check and the sibling that counts evidence attempts` (change-loop.test.mjs), titled `..., and stays unticked` on c09860c | invariant: the roadmap line of `post-merge-validate` names the merge check and its sibling; layer: the roadmap document, read as text; suite: change-loop.test.mjs | kept: already fixed on main since train 10 (6373424, the archive of `post-merge-validate`, merged into this branch at 2.0): renamed, it finds the line by `/^- \[[ x]\] post-merge-validate/` and accepts the ticked line, so this change does not edit it (D-23) | none (5.9 runs it by its pattern) |
@@ -1149,6 +1160,7 @@ and a file whose summary time passes about 300 s is split by CONTRIBUTING's rule
 | T139 | 19 | the "token budget" and "model of each stage" paragraphs of `docs/openspec-flow.md` name the `x-devkit:` block of a change's own `.openspec.yaml` and no longer the words "a `devkit:` block of a change's own"; the paragraph `**A change's own settings.**` follows "The model of each stage", names `openspec validate <id> --type change --strict` and the fallback; the comment lines of `openspec/config.yaml` and the two settings sentences of `docs/coordination-design.md` name `x-devkit:`; ADR 0023 has the `Note (coordinator-loop-fixes, <date>)` naming `x-devkit:` and the change's settings ADR (by the number the file has then, as `decisions.md` names it) appended to its `## Decision` section, right after the stage-models Note and before `## Consequences`; the test holds that section's text as it is on the base (decisions 1 to 7 and the stage-models Note) and asserts that this text is unchanged and immediately followed by the new Note | doc | change-loop-declared.test.mjs |
 | T140 | 20 | the `context:` of `openspec/config.yaml` holds the `Live roadmap:` rule on the line right after `Test history:`, naming the tick, the done state and the fixture or constant | doc | change-loop-declared.test.mjs |
 | T141 | 7 | `collectState` on a git fixture whose change folder holds an uncommitted `declared.json` and nothing else uncommitted: `planDirty` is empty and `folderDirty` lists the record; with an uncommitted `design.md` as well, `planDirty` lists `design.md` only | checker | deliver-check.test.mjs |
+| T142 | 17 | the commit lookup keeps the own pull request of an `archive-` id (D-20, `findByCommits`; plan revision of task 6.4, dropped with task 6.4a): `findChangePr` for change `archive-x` in `merge` mode from the default branch, with a full merged list of 100 that holds none of its own (archive heads of other changes), and the newest commit of `main` that changed `openspec/changes/archive-x/tasks.md` belonging to a merged pull request from head `archive-x` that changes that file, answers that pull request with `via: 'commit'`; with that commit's pull requests from heads `chore/archive-archive-x` and `archive-archive-x` only, it answers `{ none: true }` and reads neither one's files | checker | deliver-check-archive.test.mjs |
 
 T87 reads the spec text: until the archive moves the delta into the main spec, it reads
 `openspec/changes/coordinator-loop-fixes/specs/change-coordination/spec.md` when that file exists,
@@ -1329,6 +1341,14 @@ export const foreignArchiveHead = (id, name) => String(name ?? '') !== id && isA
 - `isOwnPr(id, pr, files)`: its first line becomes `if (foreignArchiveHead(id, pr?.headRefName)) return false;`.
   `mergedOnBranch` reaches it unchanged.
 - `findChangePr`, the merged-list search: `list.filter((p) => !foreignArchiveHead(id, p.headRefName) && ...)`.
+- `findByCommits` (from `forced-merge-path`, the lookup by the commits that changed the change's `tasks.md`, reached
+  when the merged list is full, as it is on this repository): its skip of a pull request becomes
+  `foreignArchiveHead(id, p.head?.ref)` in place of `isArchiveHead(p.head?.ref)`, its only change, so that a change
+  whose id starts with `archive-` keeps its own pull request on this lookup too (the requirement "A change's own
+  pull request" of the `change-delivery` delta already defines an archive branch as one other than the change's own
+  id, for every lookup; T142; task 6.4a, added at the plan revision of task 6.4 and dropped as one unit with this
+  line and T142). The `forced-merge-path 1: L` tests of the lookup (`deliver-check-archive.test.mjs`) are kept: every
+  archive head they give differs from the id they test.
 - `isArchiveHead` is not changed (the test `field-fixes 4 delivered: isArchiveHead is true for every change's
   archive head and for nothing else`, `deliver-check-archive.test.mjs`, still holds `archive-bar`), nor
   `archiveHeads`, `offOwnBranch` (`flow-check.mjs`, which reads `archiveHeads(id)`, already exact), nor the
@@ -1387,7 +1407,11 @@ arm of `prItem` becomes: met when `pr.headRefOid === facts.head`, or when `headI
 request's head is an ancestor of the local head (`git merge-base --is-ancestor <headRefOid> HEAD`); blocked as today
 otherwise. A head that holds a commit of its own is not in the base, so the guard still holds for it. On a branch advanced into the base, every commit the change made is in the base, so the
 change's files on the branch are those the base delivered: the headers recorded before the merge are the ones
-the walk after the merge reads, as on the default branch.
+the walk after the merge reads, as on the default branch. Through `next`, this half answers first (plan revision
+of task 6.4): since `collectState` takes every delivered change as after the merge, item 5 is read before any
+`verify` or `review` row, so without the merged arm's new test the loop ends `blocked` `pr-problem` on the stage
+`evidence` ("local head differs"), and with a commit of its own on the branch it still does; R17 proves both and
+the retro in between.
 
 What stays as today (AC-16): a merged pull request at another head on a branch with commits of its own stays
 `blocked: item 5`; the own branch still ahead of the base (the usual case, the train's own boarded head,
@@ -1462,7 +1486,15 @@ per file (decision 2), the `devkit:` fallback (decision 3), the project's block 
 
   and says that a file with an `x-devkit:` block is read from that block alone, and that a `devkit:` block
   written there before is still read when the file has no `x-devkit:` block but fails the strict validation,
-  so it is renamed.
+  so it is renamed. In its `## Troubleshooting` table (plan revision of task 6.4, task 6.4b), two rows that the
+  first edit missed: the row of a run stopped with "reached its token budget", whose "Raise `budget` in the
+  `devkit:` block of the `.openspec.yaml` the reply names" becomes "Raise `budget` in the `x-devkit:` block of
+  the `.openspec.yaml` the reply names" (the reply always names the change's own file, `waiting-budget` above);
+  and the row of a `models` setting refused with `setting-unknown`, whose "in the `devkit:` block of
+  `openspec/config.yaml` or of the change's `.openspec.yaml`" becomes "in the `devkit:` block of
+  `openspec/config.yaml` or the `x-devkit:` block of the change's `.openspec.yaml`". The rest of each row is
+  unchanged. No test asserts the budget row's text; `stage-models AC-10 the flow document Troubleshooting table
+  has the four model rows` reads the `models` row (D-15).
 - `openspec/config.yaml`: the two comment lines of the settings say "a change's own .openspec.yaml can
   override it in its x-devkit: block" (budget) and "... can override a stage in its x-devkit: block" (models).
 - `docs/coordination-design.md`: the two sentences "its override in a change's own `.openspec.yaml`" gain
@@ -1626,7 +1658,7 @@ agent file; every phase that edits one of the five hook files opens with D-17's 
 **Per surface.** Hooks (`plugins/openspec/hooks/`): `change-loop.mjs` (D-1, D-3, D-4, D-5, D-6,
 D-7, D-9, D-13, D-22 `budgetOf`, `modelsOf` and `waiting-budget`), `guard.mjs` (D-1 file and command rules, D-2, D-8,
 D-22 `parseDevkitBlock`'s key and `changeDevkitBlock`), `deliver-check.mjs` (D-1 reader and `planDirty`, D-4, D-6, D-7),
-`flow-check.mjs` (D-4 `ceilingOf` and `authorizedReviewRounds`, D-7, D-21 `postMerge`, D-22 `capOf`), `deliver-check.mjs` also D-20 and D-21's helpers, `conduct-check.mjs` (D-5, D-6), `roadmap-loop.mjs` (D-1), `project-loop.mjs`
+`flow-check.mjs` (D-4 `ceilingOf` and `authorizedReviewRounds`, D-7, D-21 `postMerge`, D-22 `capOf`), `deliver-check.mjs` also D-20 (with `findByCommits`'s skip, task 6.4a) and D-21's helpers, `conduct-check.mjs` (D-5, D-6), `roadmap-loop.mjs` (D-1), `project-loop.mjs`
 (D-9). Skills: `devkit`, `devkit-session`, `ship-change` (openspec pack); `review-change` and its
 workflow (core pack). Agents: `pr-verifier.md`, `tdd-implementer.md`. Kit (`plugins/compozy`,
 `.compozy/`): generated copies of the two agents and the manifest, `approvalText` and `recordApproval` in
@@ -1646,7 +1678,7 @@ packs and the marketplace. Generated by the commands of D-19, never by hand: the
 of `tdd-implementer` and `pr-verifier` under `plugins/compozy/skills/compozy-setup/templates/agents/`,
 their two copies under `.compozy/agents/` and `.compozy/kit-manifest.json`. Delete: none.
 
-**Estimate.** Optimistic 38 h, likely 50 h, pessimistic 66 h.
+**Estimate.** Optimistic 39 h, likely 51.5 h, pessimistic 68 h (the plan revision of task 6.4 adds 1.5 h).
 
 | Component | Hours | Type | Risk |
 |---|---|---|---|
@@ -1670,6 +1702,10 @@ their two copies under `.compozy/agents/` and `.compozy/kit-manifest.json`. Dele
 | D-4 on the failures in a row (T132) and `planDirty` without the record (T141) | 1 | Core | LOW |
 | D-22 `changeDevkitBlock`, its three readers, the reply, the docs, ADR 0023's Note, two spec deltas, T135 to T139 | 3 | Core | MEDIUM |
 | D-23 the config rule, the two roadmap tests, T140 | 1 | Testing | LOW |
+| Plan revision of task 6.4, item (a): R17's corrected checks and its run again with the two `deliver-check --json` probes | 0.5 | Testing | LOW |
+| Plan revision of task 6.4, item (b): D-20's `findByCommits` skip, T142 (task 6.4a; dropped as a unit) | 0.5 | Core | LOW |
+| Plan revision of task 6.4, item (c): the two Troubleshooting rows of D-22 (task 6.4b) | 0.25 | Documentation | LOW |
+| Plan revision of task 6.4, item (d): the further-round sentence of `review-change` (task 6.4c) | 0.25 | Documentation | LOW |
 
 **Assumptions** (where the plan breaks if reality differs): `nextAction` can be called from `declare`
 in the same process as `next` (it is exported and pure but for its reads; `change-loop.mjs`);
