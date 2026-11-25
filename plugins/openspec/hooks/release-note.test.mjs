@@ -485,7 +485,7 @@ test('release-note AC-7 citation: once the cited ADR landed on the base, the ste
 // it alone.
 const FIXTURE_SRC = "const a = 'Amends ADR [other].';\nconst b = 'ADR [feat] in docs/adr/feat.md';\n";
 
-test('release-note AC-7 citation: an ADR [x] literal in a changed .mjs file is neither cited nor rewritten', () => {
+test('release-note AC-7 citation: an ADR [x] literal in a changed test file is neither cited nor rewritten', () => {
   const root = noteRepo({ extra: { 'plugins/openspec/hooks/x.test.mjs': FIXTURE_SRC } });
   const r = assignIn(root);
   assert.equal(r.code, 0, r.text);
@@ -495,7 +495,7 @@ test('release-note AC-7 citation: an ADR [x] literal in a changed .mjs file is n
   assert.deepEqual([stateOf(root).kind, stateOf(root).paths], ['assigned', []], 'the literal left in the source file is not a citation still standing');
 });
 
-test('release-note AC-7 citation: the same token in a changed .md file is refused while unlanded and rewritten once landed, the .mjs literal never', () => {
+test('release-note AC-7 citation: the same token in a changed .md file is refused while unlanded and rewritten once landed, the literal in the test file never', () => {
   const extra = { 'plugins/openspec/hooks/x.test.mjs': FIXTURE_SRC, 'docs/y.md': 'Amends ADR [other].\n' };
   const root = noteRepo({ extra });
   const refused = assignIn(root);
@@ -793,7 +793,7 @@ function mergeByHand(root, { files = {}, ours = [] } = {}) {
 }
 const OTHER_CHANGELOG = (version) => `# Changelog\n\n## ${version} — other\n\n- **devkit-openspec**: other\n\n## 1.0.0 — first\n\n- **devkit-openspec**: start\n`;
 
-test('release-note AC-4 record: stepRecord reads the newest recorded commit, ignores a trailer whose commit wrote nothing, and is null without one', () => {
+test('release-note AC-4 record: stepRecord reads each key from the newest recorded commit that wrote it, ignores a trailer whose commit wrote nothing, and is null without one', () => {
   const root = noteRepo();
   const recordOf = (tip = 'origin/main', id = 'feat') => D.stepRecord(root, { head: 'HEAD', tip, id });
   assert.equal(recordOf(), null, 'no commit of the branch carries a record');

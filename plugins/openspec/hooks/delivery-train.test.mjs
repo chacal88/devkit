@@ -513,7 +513,7 @@ test('release-note AC-7 join: a citation of an ADR an earlier join of the train 
 
 // Found by the dogfood (task 8.1): a citation never lives in a test file or a fixture (D-18), so the join neither gives back nor renumbers an
 // `ADR <NNNN>` or `ADR [<x>]` literal in a test file or a fixture.
-test('release-note AC-7 join: a head numbered before the train is renumbered in its Markdown citations, and its source literals stay as written', () => {
+test('release-note AC-7 join: a head numbered before the train is renumbered in its Markdown citations, and its test-file literals stay as written', () => {
   const src = "const a = 'ADR 0001';\nconst b = 'ADR [beta] in docs/adr/beta.md';\n";
   const { root, heads } = notedJoinRepo({
     alpha: { 'openspec/changes/alpha/release.md': 'packs: []\n', ...unnumberedAdr('alpha') },

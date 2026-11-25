@@ -508,7 +508,7 @@ End every task with `git status --short`.
   docs/adr` names that one file with the count 1, `git show --numstat --format= HEAD -- docs/adr`
   lists that one file with 2 lines added and 0 removed, `git grep -n -F "ADR [release-at-merge" --
   docs/adr` finds nothing, and `python3 scripts/check.py` passes (AC-4, AC-14).
-- [ ] 10.2 (owner 1a; adr-reviewer nit F9, spec-reviewer nit F10, code-quality nit F9,
+- [x] 10.2 (owner 1a; adr-reviewer nit F9, spec-reviewer nit F10, code-quality nit F9,
   test-coverage nit F17; D-28, D-30) In `plugins/openspec/skills/ship-change/SKILL.md`: in the
   `assign-release` row, the closing parenthesis "(the `Release-` trailers of its last commit)"
   becomes "(the `Release-` trailers of its own commits, each line read from the newest one that
@@ -527,7 +527,7 @@ End every task with `git status --short`.
   (`guard.test.mjs`), T-29 (`flow-check.test.mjs`), T-35 (`delivery-models.test.mjs`), T-39
   (`release-tags.test.mjs`), T-28 (`change-loop-compozy.test.mjs`) and T-34
   (`change-loop-remote-state.test.mjs`) (AC-4, AC-14).
-- [ ] 10.3 (owner 1a; test-coverage nit F20; D-28, D-30) Rename, with the assertions and the bodies
+- [x] 10.3 (owner 1a; test-coverage nit F20; D-28, D-30) Rename, with the assertions and the bodies
   unchanged, the four tests D-30 lists: in `plugins/openspec/hooks/release-note.test.mjs` "release-note
   AC-7 citation: an ADR [x] literal in a changed .mjs file is neither cited nor rewritten" to
   "release-note AC-7 citation: an ADR [x] literal in a changed test file is neither cited nor
@@ -551,7 +551,7 @@ End every task with `git status --short`.
   hand" -- plugins/openspec/hooks/release-merge.test.mjs` prints the file with 1 (the proof of the
   scenario "A number the step kept across a later step commit", D-28), and the four renamed tests pass
   in gate 10.5 (AC-4, AC-7).
-- [ ] 10.4 (owner 2b; spec-reviewer F9, test-coverage F16, adr-reviewer nit F8, architecture nit F7;
+- [x] 10.4 (owner 2b; spec-reviewer F9, test-coverage F16, adr-reviewer nit F8, architecture nit F7;
   D-29) Append to the end of `openspec/roadmap.md`, in the form of its rounds of a change's follow-ups
   (28k, 28n, 28o), one blank line, the heading `## Round 28<letter>: follow-ups of release-at-merge`
   with `<letter>` the next after the highest `## Round 28<letter>` the file holds then (`p` while it
