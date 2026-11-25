@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "steps": [
+    {
+      "key": "review-round",
+      "scope": "review",
+      "round": 3,
+      "words": "I read the findings and I don't agree with all of them: run one more review round after the fix, \"F1\" included. Keep `touch ver-tick-a` and $(touch ver-tick-b) as plain text.",
+      "at": "2026-11-25T17:58:28.181Z"
+    }
+  ]
+}
