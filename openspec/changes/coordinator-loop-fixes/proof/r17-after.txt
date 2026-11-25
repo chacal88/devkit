@@ -1,0 +1,41 @@
+devkit-run: feat
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit-lite",
+  "root": "<scratch>/proj/.claude/worktrees/feat",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "retro",
+  "stageTitle": "Retro and archive",
+  "role": "change-coordinator",
+  "skills": [
+    "retro"
+  ],
+  "model": "sonnet",
+  "step": "retro",
+  "detail": {
+    "step": "retro",
+    "reason": "the change PR is merged; run the retro",
+    "number": 31,
+    "base": "main"
+  },
+  "progressKey": "retro/retro@86d036b2639d",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "📦",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "retro",
+    "stageTitle": "Retro and archive",
+    "phase": null,
+    "stageIcon": "📦",
+    "stateIcon": null,
+    "title": "📦 feat"
+  },
+  "sessionTitle": "📦 feat"
+}

@@ -467,7 +467,7 @@ every task with `git status --short`.
   run to `proof/checks.txt` in the D-14 form. When a run's check fails, stop and report: the plan is revised before
   anything else. Check: `grep -c "^r6 .*: pass$" openspec/changes/coordinator-loop-fixes/proof/checks.txt`,
   the same for `r7` and for `r7b`, each prints 1.
-- [ ] 6.4 D-14 runs R1 to R5, R7s, R8, R9, R11, R11b, R13a, R13b, R14, R15 and R17 in scratch projects, and R16 on `archive-release-pin` from this worktree's root (when that change was archived anyway, stop and report: the plan is revised), outside this repository, with
+- [x] 6.4 D-14 runs R1 to R5, R7s, R8, R9, R11, R11b, R13a, R13b, R14, R15 and R17 in scratch projects, and R16 on `archive-release-pin` from this worktree's root (when that change was archived anyway, stop and report: the plan is revised), outside this repository, with
   this worktree's packs (D-14 rules 2 and 3: every nested prompt in a file of the scratch run's folder, written with a
   quoted heredoc and passed as `claude -p "$(cat <file>)"`; every scratch file built by the fixture script), each
   output under `openspec/changes/coordinator-loop-fixes/proof/` as D-14 names it and its one-line check appended to
