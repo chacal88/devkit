@@ -170,3 +170,68 @@ $ node plugins/openspec/hooks/deliver-check.mjs release-at-merge --json   (next)
 ```
 
 No row N1 to N7: the next step is task 9.17 itself.
+
+## After phase 10: the step merges train 18 by itself
+
+Run on 2026-11-25 from this worktree at 2cd3aa8, origin/main at fc28735 (train 18, the archive of suite-socket-path; no release line moved, no conflict):
+
+```
+TMPDIR=/var/tmp/devkit-release-at-merge node plugins/openspec/hooks/release-merge.mjs --assign --base main --json
+```
+
+Exit 0; one merge commit, the numbers unchanged (devkit-openspec 0.48.0, devkit-core 0.17.0, devkit-compozy 0.4.1, marketplace 0.53.0, ADR 0031 and ADR 0032). JSON:
+
+```json
+{
+  "resolved": true,
+  "oldHead": "2cd3aa8870a866b370ff679879e13f8f36e00b3f",
+  "newHead": "e633b9af535725fccd5a8dfc5f15ee13f29e5219",
+  "versions": {
+    "packs": {
+      "devkit-openspec": "0.48.0",
+      "devkit-core": "0.17.0",
+      "devkit-compozy": "0.4.1"
+    },
+    "metadata": "0.53.0"
+  },
+  "files": [
+    "docs/openspec-flow.md"
+  ],
+  "change": "release-at-merge",
+  "adrs": [
+    {
+      "from": "docs/adr/release-at-merge.md",
+      "to": "docs/adr/0031-release-at-merge.md"
+    },
+    {
+      "from": "docs/adr/release-at-merge-step-record.md",
+      "to": "docs/adr/0032-release-at-merge-step-record.md"
+    }
+  ],
+  "citations": [
+    "CONTRIBUTING.md",
+    "docs/adr/0022-reviewed-changes-leave-on-a-delivery-train.md",
+    "docs/adr/0025-a-base-merge-stales-only-on-the-changes-own-files.md",
+    "docs/openspec-flow.md",
+    "openspec/config.yaml"
+  ],
+  "mode": "assign"
+}
+```
+
+`git log -1 --format=%B`:
+
+```
+chore(release): merge origin/main and assign the release of release-at-merge
+
+Release-change: release-at-merge
+Release-line: docs/openspec-flow.md
+Release-adr: docs/adr/release-at-merge.md -> docs/adr/0031-release-at-merge.md
+Release-adr: docs/adr/release-at-merge-step-record.md -> docs/adr/0032-release-at-merge-step-record.md
+Release-citation: CONTRIBUTING.md
+Release-citation: docs/adr/0022-reviewed-changes-leave-on-a-delivery-train.md
+Release-citation: docs/adr/0025-a-base-merge-stales-only-on-the-changes-own-files.md
+Release-citation: docs/openspec-flow.md
+Release-citation: openspec/config.yaml
+
+```
