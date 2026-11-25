@@ -410,7 +410,7 @@ every task with `git status --short`.
   read these paragraphs pass by name:
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^change-budget AC-10" --test-name-pattern="^stage-models AC-1 " --test-name-pattern="^stage-models AC-2" --test-name-pattern="^stage-models AC-4" --test-name-pattern="^stage-models AC-7" --test-name-pattern="^stage-models AC-10" plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/stage-models.test.mjs`
   passes, and `python3 scripts/check.py` passes.
-- [ ] 5.7 D-23's rule: the `Live roadmap:` line of `openspec/config.yaml`'s `context:`, right after `Test history:`, as
+- [x] 5.7 D-23's rule: the `Live roadmap:` line of `openspec/config.yaml`'s `context:`, right after `Test history:`, as
   D-23 words it. Check: T140 passes, "stage-models AC-2 the settings comment names the optional models table and the ADRs
   line names 0023" (`stage-models.test.mjs`) still passes, and `python3 scripts/check.py` passes.
 - [ ] 5.8 D-23's tests. First search the suite for a test that reads the live roadmap and asserts a tick or a done

@@ -39,6 +39,7 @@ context: |
   Parsers: A plan that moves or writes a parser decides what unterminated input does (an unclosed fence, a missing closing line, an empty file); the readiness review asks for it.
   Existing tests: A plan that changes a message, a schema key or a doc string greps the test files for it, and every test that asserts it is a row of the plan's test table; the readiness review asks for the grep.
   Test history: A test never reads the repository's git history (CI checks out at depth 1); old content is held as a fixture or a constant.
+  Live roadmap: A test never asserts the tick or the done state of a line of openspec/roadmap.md, which the line's own archive changes; it finds a line whatever its tick, and a line's old content is held as a fixture or a constant.
   Gates: A phase gate the delivery train runs names the train's command (`node scripts/test-suite.mjs`, `python3 scripts/check.py`); a gate naming one test file needs a passing local row after every base merge, so a plan uses one only when that file must pass before the train.
   Conventions: conventional commits; docs and assets in English; bump the version of each changed pack in plugin.json and marketplace.json, plus a CHANGELOG line
 
