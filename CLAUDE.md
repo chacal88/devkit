@@ -28,7 +28,7 @@ code closed until the plan is ready, reviewer agents, checkers and a side panel.
 | Action | Command |
 | --- | --- |
 | Catalog is up to date | `python3 scripts/gen-catalog.py --check` |
-| CompozyOS agents are up to date | `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check` |
+| CompozyOS agents are up to date | `node plugins/compozy/kit/scripts/gen-agents.mjs --check` |
 | Names, descriptions, links, language | `python3 scripts/check.py` |
 | The suite's test files, each in its own process, several at once (about 10 minutes on an idle 8-core machine; run it as a background command of the tool, never with a shell `&`) | `node scripts/test-suite.mjs` |
 | Validate the marketplace | `claude plugin validate .` |

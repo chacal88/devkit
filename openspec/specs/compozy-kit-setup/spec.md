@@ -1,9 +1,9 @@
 # compozy-kit-setup Specification
 
 ## Purpose
-Says how `compozy-setup` installs the CompozyOS kit's files into a project and installs them again
-on a later run without losing a project's own edits, and what the kit tells an unattended run
-about the grill.
+Says how the kit installer of devkit-compozy, which `/devkit setup` runs, installs the CompozyOS kit's
+files into a project and installs them again on a later run without losing a project's own edits,
+and what the kit tells an unattended run about the grill.
 
 ## Requirements
 

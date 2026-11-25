@@ -2,7 +2,8 @@
 
 `devkit-compozy` (`plugins/compozy/`) ships the CompozyOS driver of the devkit flow as a pack: twenty-one
 agents, three loops, the `bin/devkit-kit` resolver, a workspace `config.toml`, and the
-`compozy-setup` skill that installs them into a project as `.compozy/`. CompozyOS runs the loops and
+kit installer (`kit/scripts/install-kit.mjs`) that `/devkit setup` runs to install them into a project
+as `.compozy/`. CompozyOS runs the loops and
 holds the owner's questions; the devkit itself (OpenSpec change files, the hooks that keep product
 code closed until the plan is ready, the reviewer agents and the checkers) decides every step and
 does the work inside it. A project installs the kit only when it runs CompozyOS: a project that does
@@ -34,7 +35,7 @@ role (`change-planner`, `tdd-implementer`, `commit-and-pr`, `pr-verifier`, `scre
 hands its work, unchanged, to the Claude agent of the same name (`devkit-core:<role>` or
 `devkit-openspec:<role>`) and returns that agent's report in the shape the loop's node asks for. The
 devkit hooks therefore judge the work exactly as they do in Claude Code. The agents are generated
-from the Claude agent files by `plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs`, and CI
+from the Claude agent files by `plugins/compozy/kit/scripts/gen-agents.mjs`, and CI
 fails when one is out of date, so a change goes into the Claude agent, never into the copy. A
 description is shortened to the 280 characters CompozyOS accepts; the body is the source's.
 
@@ -81,10 +82,11 @@ See [the pack's README](../plugins/compozy/README.md) for the contract.
 
 ## How to adopt it
 
-1. **Install the pack and run `compozy-setup`.** It writes `.compozy/` into the project:
-   `config.toml`, `README.md`, the twenty-one agents (`agents/<role>/AGENT.md`), the three loops
-   (`loops/<name>/loop.yaml`) and the resolver `bin/devkit-kit`; it adds the `design:` block to
-   `openspec/config.yaml` only when the project has screens. It never starts a run or writes
+1. **Install the pack and type `/devkit setup`.** On the owner's yes to the kit, or with the driver
+   `compozy`, it runs the kit installer, which writes `.compozy/` into the project: `config.toml`,
+   `README.md`, the twenty-one agents (`agents/<role>/AGENT.md`), the three loops
+   (`loops/<name>/loop.yaml`) and the resolver `bin/devkit-kit`; the `design:` block of
+   `openspec/config.yaml` is set by hand, only when the project has screens. It never starts a run or writes
    product code. A loop file in the workspace's `.compozy/loops/` is listed and run by name; there is
    no step to publish it.
 
@@ -99,8 +101,8 @@ See [the pack's README](../plugins/compozy/README.md) for the contract.
 
 ### Reinstalling over the first kit
 
-A project on the first kit (four role shells and the `openspec-change` loop) runs `compozy-setup`
-again. Each file of the old kit that is still equal to its recorded digest is removed (`remove`); one
+A project on the first kit (four role shells and the `openspec-change` loop) types `/devkit setup`
+again, which runs the kit installer again. Each file of the old kit that is still equal to its recorded digest is removed (`remove`); one
 the project edited is kept and named (`kept`), and is removed only when it is named in `--accept`. The
 inputs the old templates recorded and the new ones no longer have are dropped from the manifest
 (`dropped`). The twenty-one agents and the three loops are created. Runs of the old loop under way finish

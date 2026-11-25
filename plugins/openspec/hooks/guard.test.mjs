@@ -9,7 +9,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap, findRoot, changeSchema, changeDir, archiveBranchChange, commandSegments, classify, DEVKIT_SCHEMAS, projectSchema, optedIn } from './guard.mjs';
 
 import * as GUARD from './guard.mjs';
-import { gitRepo, put, commitAll, git as gitIn, openspecStub } from './test-fixtures.mjs'; // ship-modes tests ride on the same command
+import { gitRepo, put, commitAll, git as gitIn, openspecStub, typedLine, toolResultLine, transcriptOf, roundRepo } from './test-fixtures.mjs'; // ship-modes tests ride on the same command
+import { startRun, openRun, body as startBody } from './change-loop-fixtures.mjs'; // setup AC-8: an old project opens a change
 
 const here = dirname(fileURLToPath(import.meta.url));
 const guard = join(here, 'guard.mjs');
@@ -628,9 +629,12 @@ test('the hook docs say where the hooks act (1.7)', () => {
   assert.match(read('plugins', 'openspec', 'hooks', 'hooks.json'), /opted-in|opted in/);
 });
 
-test('openspec-setup SKILL.md teaches the per-project opt-in (2.4)', () => {
+test('setup skill: the Setup section teaches the per-project opt-in (2.4)', () => {
   const root = join(here, '..', '..', '..');
-  const skill = readFileSync(join(root, 'plugins', 'openspec', 'skills', 'openspec-setup', 'SKILL.md'), 'utf8');
+  const md = readFileSync(join(root, 'plugins', 'openspec', 'skills', 'devkit', 'SKILL.md'), 'utf8');
+  const from = md.indexOf('\n## Setup\n');
+  assert.ok(from >= 0, 'the devkit skill has a Setup section');
+  const skill = md.slice(from, md.indexOf('\n## ', from + 1));
   assert.match(skill, /scripts\/project-settings\.mjs/);
   assert.match(skill, /--user/);
   assert.match(skill, /\.claude\/settings\.json/);
@@ -638,7 +642,7 @@ test('openspec-setup SKILL.md teaches the per-project opt-in (2.4)', () => {
   for (const line of skill.split('\n').filter((l) => /install-schemas\.sh/.test(l) && /bash /.test(l))) {
     assert.match(line, /install-schemas\.sh (<project-root>|--user)/, `install-schemas.sh call needs an argument: ${line}`);
   }
-  const never = skill.slice(skill.indexOf('## Never'));
+  const never = md.slice(md.indexOf('## Never'));
   assert.match(never, /user scope/);
   assert.match(never, /~\/\.claude/);
 });
@@ -651,7 +655,7 @@ test('this repository opts in through .claude/settings.json (2.5, ADR 0004)', ()
   assert.deepEqual(s.extraKnownMarketplaces.devkit.source, { source: 'github', repo: 'chacal88/devkit' });
   assert.equal(s.enabledPlugins['devkit-core@devkit'], true);
   assert.equal(s.enabledPlugins['devkit-openspec@devkit'], true);
-  const script = join(root, 'plugins', 'openspec', 'skills', 'openspec-setup', 'scripts', 'project-settings.mjs');
+  const script = join(root, 'plugins', 'openspec', 'skills', 'devkit', 'scripts', 'project-settings.mjs');
   const r = spawnSync('node', [script, root, '--dry-run'], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /file: unchanged /);
@@ -1539,7 +1543,7 @@ test('stage-roles guard: the implementer is unchanged, and the main session is s
 
 // ---------------------------------------------------------------- stage-roles: the setup (design D-3; tasks 2.1, 2.8)
 
-const setupRoot = join(here, '..', 'skills', 'openspec-setup');
+const setupRoot = join(here, '..', 'skills', 'devkit');
 const setupStep5 = () => {
   const md = readFileSync(join(setupRoot, 'SKILL.md'), 'utf8');
   const from = md.indexOf('5. **Write `openspec/config.yaml`.**');
@@ -1780,7 +1784,8 @@ test('upfront AC-5 docs: the flow doc names the released flow versions, the 0.37
   const openspec = entry.slice(entry.indexOf('**devkit-openspec** 0.33.0'), entry.indexOf('- **devkit-core**'));
   assert.ok(openspec.includes('The `devkit` and `devkit-lite` flows are released as flow version 2, which adds the `requirements-triage` helper to the grill'), 'the devkit-openspec bullet names flow version 2');
   assert.ok(openspec.includes('a change opened before keeps flow 1 and its grill with no triage until the owner moves it with `change-loop.mjs flow <id>`'), 'and what a change under way keeps');
-  assert.ok(entry.includes('- Projects: re-run `openspec-setup` to install `flows/2.json`; changes under way keep flow 1 and their grill'), 'the Projects line');
+  // The past entry's literal is split so that no source line names the removed skill (project-setup D-9); the string is the same.
+  assert.ok(entry.includes('- Projects: re-run `' + 'openspec' + '-setup` to install `flows/2.json`; changes under way keep flow 1 and their grill'), 'the Projects line');
   // ADR 0021: the Note after the Decision list
   const adr = read('docs', 'adr', '0021-a-roadmap-run-opens-every-change-at-its-start.md');
   const noteAt = adr.indexOf('Note (roadmap-sessions-upfront, 2026-11-23):');
@@ -1791,4 +1796,220 @@ test('upfront AC-5 docs: the flow doc names the released flow versions, the 0.37
     'a change on flow 1 (opened before devkit-openspec 0.33.0, or with no recorded flow) keeps its grill with no triage until the owner moves it',
   ]) assert.ok(note.includes(part), `ADR 0021's Note says: ${part}`);
   assert.match(adr, /^- Status: accepted$/m, 'its status stays');
+});
+
+// ---------------------------------------------------------------- /devkit setup (project-setup D-1)
+
+// A transcript of `lines`, as the hooks read it.
+const setupTranscript = (...lines) => ({ transcript_path: transcriptOf(lines) });
+
+// Invariant: a typed /devkit setup ends the hold of a /devkit change run, as any other typed command does, with no code of its own.
+// Layer: guard.mjs#runOf. Suite: guard. Passes on the base (project-setup D-1).
+test('setup AC-1 guard: a typed /devkit setup ends a /devkit change run', () => {
+  const marker = toolResultLine('devkit-run: feat\n{"version":1}');
+  assert.equal(GUARD.runOf(setupTranscript(typedLine('change add an export'), marker))?.change, 'feat', 'the fixture is a change run');
+  assert.equal(GUARD.runOf(setupTranscript(typedLine('change add an export'), marker, typedLine('setup'))), null);
+  assert.equal(GUARD.runOf(setupTranscript(typedLine('change add an export'), marker, typedLine('setup', '/devkit-openspec:devkit'))), null, 'plugin-scoped');
+});
+
+// Invariant: a typed /devkit setup ends the hold of a /devkit roadmap run, and a typed /devkit status keeps it. Layer:
+// guard.mjs#roadmapRunOf. Suite: guard. Passes on the base (project-setup D-1).
+test('setup AC-1 guard: a typed /devkit setup ends a /devkit roadmap run and /devkit status does not', () => {
+  const marker = toolResultLine('devkit-roadmap: 2\n{}');
+  assert.deepEqual(GUARD.roadmapRunOf(setupTranscript(typedLine('roadmap 2'), marker, typedLine('status'))), { command: 'roadmap 2', stopping: false }, 'status keeps the run');
+  assert.equal(GUARD.roadmapRunOf(setupTranscript(typedLine('roadmap 2'), marker, typedLine('setup'))), null);
+  assert.equal(GUARD.roadmapRunOf(setupTranscript(typedLine('roadmap 2'), marker, typedLine('status'), typedLine('setup'))), null, 'status, then setup');
+});
+
+// ---------------------------------------------------------------- the Setup section of the devkit skill (project-setup D-5 to D-7)
+
+const DEVKIT_SKILL_MD = join(here, '..', 'skills', 'devkit', 'SKILL.md');
+// The text of the devkit skill from `from` to the next `to` after it (the end of the file when there is none).
+function skillPart(from, to) {
+  const md = readFileSync(DEVKIT_SKILL_MD, 'utf8');
+  const at = md.indexOf(from);
+  assert.ok(at >= 0, `the devkit skill holds ${from}`);
+  const end = md.indexOf(to, at + from.length);
+  return md.slice(at, end < 0 ? md.length : end);
+}
+
+// Invariant: /devkit setup is a typed verb of the devkit skill, listed right after status, and Start sends it to the Setup
+// section whatever the driver, so a re-run on the compozy driver runs the setup. Layer: skill text. Suite: guard.
+test('setup AC-1 skill: the hint lists setup right after status, the description names /devkit setup, the skill stays not model-invocable, and Start sends setup to the Setup section on every driver', () => {
+  const fm = skillPart('---\n', '\n---\n').split('\n');
+  assert.ok(fm.includes('argument-hint: "change [<request> | <change-id> | <Jira key or link>] | roadmap [<n> | stop] | status | setup | train | project [<name>]"'), 'the hint');
+  assert.ok(fm.includes('disable-model-invocation: true'), 'typed only');
+  const description = /^description: "(.*)"$/m.exec(fm.join('\n'))?.[1] ?? '';
+  assert.ok(description.includes('/devkit train departs the boarded changes of a project with a delivery train, together on one train. /devkit setup sets the project up for the devkit flow, or updates its setup.'), 'the setup sentence right after the train sentence');
+  assert.ok(description.includes('/devkit status, /devkit setup, /devkit train or /devkit project [<name>].'), 'the Use when list');
+  const start = skillPart('\n## Start\n', '\n## On the CompozyOS driver\n');
+  const say = start.split('\n').find((l) => l.startsWith('- `not-built`')) ?? '';
+  assert.ok(say.includes('`setup-no-repo`'), 'setup-no-repo says its reply');
+  assert.ok(say.endsWith("When the JSON's `settings.driver` is `compozy` and the mode is neither `setup` nor `setup-no-repo`, read the next section instead of the lines below."), say);
+  assert.match(start, /^- `setup`: the Setup section below, in `root`, whatever the driver/m);
+  assert.doesNotMatch(skillPart('\n## On the CompozyOS driver\n', '\n## A new change\n'), /^- `setup/m, 'the CompozyOS section gains no setup item');
+});
+
+// Invariant: the kit is a question of its own, asked from the plan's `kit` and the driver, and a re-run of an installed kit runs the
+// installer again with no question. Layer: skill text (step 8). Suite: guard.
+test('setup AC-6 skill: step 8 asks the kit apart from the driver, runs kit-installer on yes and enables devkit-compozy, writes nothing on no, and the compozy driver installs the kit', () => {
+  const step = skillPart('8. **The CompozyOS kit.**', '9. **Report**');
+  assert.match(step, /Ask whether to install the kit, one question, when the plan's `kit` is `absent` and the driver[^\n]* is not `compozy`/);
+  assert.match(step, /A no writes nothing for the kit/);
+  assert.match(step, /A yes, or the driver `compozy`, runs `node <skill-dir>\/scripts\/kit-installer\.mjs <project-root>`/);
+  assert.match(step, /`devkit-compozy` added to `--packs`/);
+  assert.match(step, /When the plan's `kit` is `installed`, ask no kit question: the installer runs again/);
+  assert.match(skillPart('5. **Write `openspec/config.yaml`.**', '6. **Check.**'), /`driverNotBuilt`/, 'a present driver not built is said, never asked');
+});
+
+// Invariant: the setup copies no checker, and names the devkit-openspec version, each pack not enabled and a CI pin that differs.
+// Layer: skill text (steps 2 and 9). Suite: guard.
+test('setup AC-5 skill: the Setup section copies no checker, names the version, the packs not enabled and a CI pin that differs', () => {
+  const setup = skillPart('\n## Setup\n', '\n## Roadmap\n');
+  assert.match(setup, /copies no checker/);
+  assert.doesNotMatch(setup, /\b(guard|flow-check|deliver-check|merge-setup)\.mjs\b/, 'no checker is named for copying');
+  const step2 = skillPart('2. **Opt the project in.**', '3. **Initialize OpenSpec**');
+  const dry = step2.indexOf('node <skill-dir>/scripts/project-settings.mjs <project-root> --packs <list> --dry-run --json');
+  assert.ok(dry >= 0, 'the packs dry run');
+  assert.ok(dry < step2.indexOf('node <skill-dir>/scripts/project-settings.mjs <project-root>`'), 'the dry run comes before the opt-in');
+  assert.match(step2, /each item whose `action` is not `ok`, by its pack/);
+  const report = skillPart('9. **Report**', '\n## Roadmap\n');
+  assert.match(report, /the schemas come from devkit-openspec <the plan's `pluginVersion`>/);
+  assert.match(report, /`ciPin`[^\n]*differs from `v<pluginVersion>`[^\n]*the `workflow` item of step 7 moves it/);
+  assert.match(report, /`\/devkit change <what to do>`/, 'the first command');
+});
+
+// Invariant: the ship mode is asked in step 5 with the plan's default suggested, merge_method only when the mode merges, and
+// the GitHub step asks one question per item. Layer: skill text (steps 5 and 7). Suite: guard.
+test('setup AC-7 skill: step 5 asks the ship mode with merge suggested and step 7 asks one question per item', () => {
+  const step5 = skillPart('5. **Write `openspec/config.yaml`.**', '6. **Check.**');
+  assert.match(step5, /the `missing` questions in order, one question each/);
+  assert.match(step5, /its `options` with its `default` suggested/);
+  assert.match(step5, /Skip `ship` when the delivery answer is a model/);
+  assert.match(step5, /Skip `merge_method` when the mode does not merge/);
+  const step7 = skillPart('7. **GitHub (merge mode).**', '8. **The CompozyOS kit.**');
+  assert.match(step7, /Runs when the mode merges/);
+  assert.match(step7, /one question per item/);
+  assert.match(step7, /`ship` and `merge_method` are asked in step 5, `merge` suggested/);
+  assert.doesNotMatch(step7, /only if the owner asks/);
+});
+
+// Invariant: when GitHub refuses the ruleset, the session tells the owner that the ship map step 5 wrote stays merge and that the
+// owner changes it to pr or plan by hand, since a re-run never rewrites a present ship map (ADR 0002). Layer: skill text (step 7).
+// Suite: guard.
+test('setup AC-7 skill: a blocked ruleset tells the owner the written ship map stays merge and is changed to pr or plan by hand', () => {
+  const step7 = skillPart('7. **GitHub (merge mode).**', '8. **The CompozyOS kit.**');
+  const blocked = step7.split('\n').find((line) => line.includes('A `ruleset` that reads `blocked`'));
+  assert.ok(blocked, 'step 7 has the ruleset-blocked bullet');
+  assert.match(blocked, /`ship:` map[^\n]*stays `merge`/);
+  assert.match(blocked, /changes it to `pr` or `plan` by hand in `openspec\/config\.yaml`/);
+  assert.match(blocked, /never rewrites a `ship:` map already present/);
+});
+
+// Invariant: an old project's configuration, settings and schemas run /devkit change with no setup step, and the change's
+// readout reads. Layer: startMode, open and flow-check on the old-setup fixture. Suite: guard. Passes on the base: old projects
+// already work, and it guards the later tasks.
+test('setup AC-8 old project: the configuration the old skill wrote opens a change with no setup step and its readout reads', () => {
+  const fixture = join(here, '..', 'skills', 'devkit', 'scripts', 'fixtures', 'old-setup');
+  const config = readFileSync(join(fixture, 'config.yaml'), 'utf8');
+  assert.equal(/^devkit:/m.test(config), false, 'every line of its devkit example is a comment');
+  // roundRepo copies the pack's schemas into openspec/schemas, as install-schemas.sh does.
+  const t = roundRepo({ roadmap: '# Roadmap\n', config, files: { '.claude/settings.json': readFileSync(join(fixture, 'settings.json'), 'utf8') } });
+  const start = startRun(t.main, 'change add an export');
+  assert.equal(start.code, 0, start.stdout + start.stderr);
+  assert.deepEqual([startBody(start).mode, startBody(start).settings.driver], ['new', 'claude']);
+  const opened = openRun(t.main, 'add-an-export', { script: 'devkit-lite', why: 'small', request: 'add an export\n' });
+  assert.equal(opened.code, 0, opened.stdout + opened.stderr);
+  const readout = spawnSync(process.execPath, [join(here, 'flow-check.mjs'), 'add-an-export', '--lang', 'en'], { cwd: join(t.main, '.claude', 'worktrees', 'add-an-export'), env: { ...process.env, ...clean }, encoding: 'utf8' });
+  // A change just opened waits for the owner's grill: the readout exits 1 (3 is the checker's error), with no error line.
+  assert.equal(readout.status, 1, readout.stdout + readout.stderr);
+  assert.equal(readout.stderr, '');
+  assert.ok(readout.stdout.startsWith('Change add-an-export (devkit-lite script)\n'), readout.stdout);
+  assert.match(readout.stdout, /^ +1 +Open the change +passed$/m);
+});
+
+// Invariant: step 5 writes outside the block only what `fill` names, and the block only through the block writer, so a re-run
+// with nothing to fill writes nothing. Layer: skill text (step 5). Suite: guard.
+test('setup AC-4 skill: step 5 writes schema, context, rules and operations only where fill names them, and the block only through setup-block.mjs apply', () => {
+  const step = skillPart('5. **Write `openspec/config.yaml`.**', '6. **Check.**');
+  assert.ok(step.includes('node <skill-dir>/scripts/setup-block.mjs plan <project-root> --json'), 'the plan first');
+  assert.ok(step.includes('Every part of `openspec/config.yaml` that `fill` does not name stays as it is: a re-run with an empty `fill` and nothing `missing` writes nothing.'), 'the pinned sentence');
+  for (const part of ['`schema` in `fill`', '`context` in `fill`', '`rules` or `operations` in `fill`']) assert.ok(step.includes(part), part); // D-7's wording
+  assert.ok(step.includes("node <skill-dir>/scripts/setup-block.mjs apply <project-root> <<'DEVKIT_SETUP'"), 'apply through the quoted heredoc');
+  assert.match(step, /the `devkit:` block, the `ship:` map and `merge_method` only through `setup-block\.mjs apply`/);
+  assert.match(step, /`kept`/);
+  for (const old of [/set `schema: devkit-lite` as the default/, /merge in only the missing/, /Fill `context` from the repo/]) assert.doesNotMatch(step, old);
+});
+
+// Invariant: ADR 0026, whose Decision names the suite's folders, records that this change moved two of them: a dated Note naming
+// the new folders and the Amended-by line, ADR <n> (this change's record, its number taken from its file name, as task 6.7 does)
+// naming ADR 0026 in its Amends line, and the ADR list of openspec/config.yaml saying so. Layer: the repository's records.
+// Suite: guard.
+test('setup AC-2 records: ADR 0026 notes the two moved suite folders and is amended by the setup record', () => {
+  const root = join(here, '..', '..', '..');
+  const dir = join(root, 'docs', 'adr');
+  const record = readdirSync(dir).filter((f) => f.endsWith('-one-setup-verb-replaces-the-two-setup-skills.md'));
+  assert.equal(record.length, 1, 'one setup record');
+  const n = record[0].slice(0, 4);
+  const adr26 = readFileSync(join(dir, '0026-the-devkit-test-suite-runs-by-file-in-parallel.md'), 'utf8');
+  const header = adr26.split('\n## Context')[0];
+  assert.ok(header.split('\n').includes(`- Amended by ADR ${n} (${record[0]})`), 'ADR 0026 has the Amended-by line in its header');
+  const note = adr26.split('\n').filter((line) => line.startsWith('Note (project-setup, 2026-11-24)'));
+  assert.equal(note.length, 1, 'one project-setup Note');
+  for (const folder of ['plugins/openspec/skills/devkit/scripts/', 'plugins/compozy/kit/scripts/', `ADR ${n}`]) assert.ok(note[0].includes(folder), folder);
+  const amends = readFileSync(join(dir, record[0]), 'utf8').split('\n## Context')[0];
+  assert.match(amends, /ADR 0026\s+\(0026-the-devkit-test-suite-runs-by-file-in-parallel\.md\)/, 'the setup record amends ADR 0026');
+  assert.ok(readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8').includes(`0026 the devkit test suite runs by file in parallel, each file in its own temporary folder, amended by ${n};`),
+    'the ADR list of openspec/config.yaml');
+});
+
+// Invariant: outside the history (records, past changelog entries, change folders, train records), the two fixture folders that
+// hold a past commit's bytes and the canonical requirement blocks this change's delta MODIFIES, no file of the working tree
+// names a removed setup skill, and neither skill folder exists. Layer: the repository's files (working tree, never git history).
+// Suite: guard. The names are built by concatenation so that this file names neither (project-setup D-9, N-10).
+test('setup AC-2 tree: no file outside the history names the removed setup skills, and neither skill folder exists', () => {
+  const root = join(here, '..', '..', '..');
+  const removed = ['openspec' + '-setup', 'compozy' + '-setup'];
+  assert.equal(existsSync(join(root, 'plugins', 'openspec', 'skills', removed[0])), false, 'the OpenSpec setup skill folder is gone');
+  assert.equal(existsSync(join(root, 'plugins', 'compozy', 'skills', removed[1])), false, 'the kit setup skill folder is gone');
+  // D-9 point 1, history; point 2, the two fixture folders that hold a past commit's bytes.
+  const skipped = [/^\.git\//, /(^|\/)node_modules\//, /^docs\/adr\//, /^openspec\/changes\//, /^openspec\/trains\//, /^CHANGELOG\.md$/,
+    /^plugins\/openspec\/skills\/devkit\/scripts\/fixtures\/old-setup\//, /^plugins\/openspec\/hooks\/fixtures\/c561553\//];
+  // D-9 point 3: the delta's MODIFIED headers, read from the change folder or, once archived, from its archive folder.
+  const changes = join(root, 'openspec', 'changes');
+  const archive = join(changes, 'archive');
+  const archived = existsSync(archive) ? readdirSync(archive).filter((d) => d.endsWith('-project-setup')) : [];
+  const deltaDir = existsSync(join(changes, 'project-setup')) ? join(changes, 'project-setup') : archived.length ? join(archive, archived[0]) : null;
+  const modified = (capability) => {
+    const file = deltaDir && join(deltaDir, 'specs', capability, 'spec.md');
+    if (!file || !existsSync(file)) return new Set();
+    const text = readFileSync(file, 'utf8');
+    const at = text.indexOf('## MODIFIED Requirements');
+    if (at === -1) return new Set();
+    const next = text.indexOf('\n## ', at + 1);
+    const section = text.slice(at, next === -1 ? undefined : next);
+    return new Set([...section.matchAll(/^### Requirement: (.+)$/gm)].map((m) => m[1].trim()));
+  };
+  const blocks = new Map(['project-setup', 'compozy-kit-setup'].map((c) => [`openspec/specs/${c}/spec.md`, modified(c)]));
+  const listed = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  assert.equal(listed.status, 0, listed.stderr);
+  const stray = [];
+  for (const f of listed.stdout.split('\0').filter(Boolean)) {
+    if (skipped.some((r) => r.test(f)) || !existsSync(join(root, f))) continue;
+    let text;
+    try { text = readFileSync(join(root, f), 'utf8'); } catch { continue; } // a folder (a nested repository) is not a file
+    if (text.includes('\0')) continue;
+    const headers = blocks.get(f);
+    let inSkipped = false;
+    text.split('\n').forEach((line, i) => {
+      if (headers) {
+        const req = /^### Requirement: (.+)$/.exec(line);
+        if (req) inSkipped = headers.has(req[1].trim());
+        else if (/^## /.test(line)) inSkipped = false;
+        if (inSkipped) return;
+      }
+      if (removed.some((name) => line.includes(name))) stray.push(`${f}:${i + 1}: ${line.trim().slice(0, 120)}`);
+    });
+  }
+  assert.deepEqual(stray, [], 'no file outside the history names a removed setup skill');
 });

@@ -21,9 +21,9 @@ const IMPORT = 'imp' + 'ort';
 const FROM = 'fr' + 'om';
 
 const HOOKS = 'plugins/openspec/hooks';
-const SETUP = 'plugins/openspec/skills/openspec-setup/scripts';
+const SETUP = 'plugins/openspec/skills/devkit/scripts';
 const REVIEW = 'plugins/core/skills/review-change/scripts';
-const COMPOZY_SETUP = 'plugins/compozy/skills/compozy-setup/scripts';
+const COMPOZY_SETUP = 'plugins/compozy/kit/scripts';
 
 // A small test file made only of node built-ins. `body` runs inside one async test.
 function probe({ name = 'suite-speed probe passes', body = '' } = {}) {
@@ -101,7 +101,7 @@ test('suite-speed AC-1 the script runs the test files of the four folders and no
     [`${COMPOZY_SETUP}/d${TEST_EXT}`]: probe(),
     [`${HOOKS}/notes.mjs`]: 'throw new Error("not a test file");\n',
     [`${HOOKS}/node_modules/dep/n${TEST_EXT}`]: probe({ body: 'assert.fail("node_modules is not read");' }),
-    [`plugins/compozy/skills/x/c${TEST_EXT}`]: probe({ body: 'assert.fail("only the compozy-setup folder is in the suite");' }),
+    [`plugins/compozy/skills/x/c${TEST_EXT}`]: probe({ body: 'assert.fail("only the kit\'s scripts folder is in the suite");' }),
   });
   const out = await run(root, []);
   assert.equal(out.code, 0, either(out));
@@ -129,6 +129,15 @@ test('suite-speed AC-1 the repository suite holds every file the old command ran
   assert.ok(listed.includes(`${HOOKS}/test-suite${TEST_EXT}`), 'this file is in the suite');
   assert.deepEqual(listed.filter((file) => file.startsWith('plugins/compozy/') && !file.startsWith(`${COMPOZY_SETUP}/`)), [], 'no other compozy test file');
   assert.deepEqual(listed.filter((file) => file.startsWith('plugins/panel/')), []);
+});
+
+// Invariant: the setup's new test files run because their folder is in the suite's list, and no test file is left under the two
+// removed setup folders. Layer: suite wiring (project-setup D-10). Suite: test-suite. The old folder names are built from pieces (D-9).
+test('setup AC-3 suite: the repository suite lists setup-block.test.mjs and kit-installer.test.mjs under the devkit skill\'s scripts, and no test file under the two removed setup folders', () => {
+  const listed = suiteFiles(REPO_ROOT);
+  for (const name of ['setup-block', 'kit-installer']) assert.ok(listed.includes(`${SETUP}/${name}${TEST_EXT}`), name);
+  const removed = [`plugins/openspec/skills/${'openspec' + '-setup'}/`, `plugins/compozy/skills/${'compozy' + '-setup'}/`];
+  assert.deepEqual(listed.filter((file) => removed.some((folder) => file.startsWith(folder))), []);
 });
 
 test('suite-speed AC-1 files run at the same time up to --concurrency', async () => {

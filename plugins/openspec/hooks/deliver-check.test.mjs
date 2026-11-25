@@ -1965,11 +1965,11 @@ test('nextStep row 0b: outside merge mode the auto-merge flag is never read', ()
 });
 
 test('nextStep row 3a: merge setup missing stops after the approval stops and before any work (AC-6)', () => {
-  const missing = ['auto-merge is not allowed (allow_auto_merge); run the openspec-setup skill (GitHub step) to configure it'];
+  const missing = ['auto-merge is not allowed (allow_auto_merge); run the GitHub step of /devkit setup to configure it'];
   const setup = { ok: false, missing };
   const n = nextStep(withItem(1, 'open', {}, { setup, phases: [{ n: 1, open: ['1.1'], gate: null }] }));
   assert.deepEqual([n.step, n.missing], ['stop-merge-setup', missing]);
-  assert.match(n.reason, /openspec-setup/);
+  assert.match(n.reason, /\/devkit setup/);
   assert.equal(nextStep(metState({ setup, branchOk: false })).step, 'stop-branch');
   assert.equal(nextStep(metState({ setup, needsReadiness: true, readiness: null })).step, 'stop-not-approved');
   assert.equal(nextStep(metState({ setup, ship: 'pr' })).step, 'ready', 'outside merge mode the setup is not read');

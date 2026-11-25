@@ -12,7 +12,7 @@ devkit is a plugin marketplace with seven packs. Install the packs per project: 
 | [**devkit-stack**](plugins/stack/README.md) | Technology references: Postgres, Neon, React performance, Vitest, multi-tenant SaaS, threat modeling |
 | [**devkit-ai-engineering**](plugins/ai-engineering/README.md) | Building with LLMs: evaluation, multi-agent patterns, tool and CLI design for agents, context compression, skill vetting |
 | [**devkit-panel**](plugins/panel/README.md) | A side pane in the Claude desktop app over the devkit checkers: the change this session conducts with its next step, phases, PR, delivery items and child sessions, and buttons that put the owner's next command in the prompt box |
-| [**devkit-compozy**](plugins/compozy/README.md) | The CompozyOS driver of the devkit flow: `compozy-setup` installs `.compozy/` (one agent per devkit role and three loops: a change, its review round and a roadmap) into a project. See [docs/compozy-kit.md](docs/compozy-kit.md) |
+| [**devkit-compozy**](plugins/compozy/README.md) | The CompozyOS driver of the devkit flow: `/devkit setup` installs `.compozy/` (one agent per devkit role and three loops: a change, its review round and a roadmap) into a project. See [docs/compozy-kit.md](docs/compozy-kit.md) |
 
 The full list, generated from the files: [docs/catalog.md](docs/catalog.md).
 

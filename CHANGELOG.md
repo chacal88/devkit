@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.53.0 — one setup verb, `/devkit setup`
+
+- **devkit-openspec** 0.48.0: a project is set up by the owner's typed `/devkit setup`, a verb of the
+  `devkit` skill (ADR 0031, which amends ADR 0004). `change-loop.mjs start` answers it with the `setup`
+  mode before the project gate, so it runs in a folder not set up yet, and with `setup-no-repo` outside a
+  git repository. It is one step for a first install and for a re-run: `scripts/setup-block.mjs` plans
+  and writes the `devkit:` block, the `ship:` map and `merge_method` of `openspec/config.yaml`, asks only
+  what is missing and leaves the file byte-identical when nothing is. The driver question offers only
+  the drivers that run (`claude` and `compozy`, never `script`), a separate question installs the
+  CompozyOS kit through `scripts/kit-installer.mjs`, and the choice `compozy` installs it. The setup
+  copies no checker into the project and names the version it installs. The skill `openspec-setup` is
+  removed, with no alias: its scripts and templates moved under `skills/devkit/`, and every reply that
+  named it (`not-set-up`, `design-pack-missing`, the merge-setup reasons) names `/devkit setup`. The CI
+  snippet now pins `v0.48.0`, the release's tag.
+- **devkit-compozy** 0.5.0: the skill `compozy-setup` is removed, with no alias. The kit installer
+  (`install-kit.mjs`), its generator and its templates moved to `kit/`, and `/devkit setup` runs the
+  installer. The kit's files change only in the generator path their comments name.
+- **Docs**: the README files, `docs/getting-started.md`, `docs/openspec-flow.md`, `docs/compozy-kit.md`,
+  `docs/conventions.md` and `CONTRIBUTING.md` name `/devkit setup`; `docs/coordination-design.md` records
+  the answer to its "Project setup" open point.
+- Projects: no step is needed; a project the removed skills set up keeps working as it is. The next
+  re-run of the setup is `/devkit setup`.
+
 ## 0.52.2 — the suite script keeps its run root short enough for a Unix socket
 
 - **devkit-openspec** 0.45.1: `scripts/test-suite.mjs` makes its run root under the real `/tmp` (`/private/tmp` on macOS), with one `run root:` line saying why, when the environment's `TMPDIR` would push a Unix socket path past 104 bytes; it exits 2 when neither folder fits. Test tooling only.

@@ -1,0 +1,226 @@
+start plugins/openspec/hooks/change-loop.test.mjs
+start plugins/openspec/hooks/project-loop.test.mjs
+=== plugins/openspec/hooks/change-loop.test.mjs
+✖ setup AC-1 start: setup in a folder with no openspec answers the setup mode with the git root and creates nothing (33.317155ms)
+✖ setup AC-1 start: setup with an unknown setting, a missing delivery setting or a driver not built still answers the setup mode (77.905544ms)
+✖ setup AC-1 start: setup outside a git repository answers setup-no-repo in both languages and runs nothing (2.282678ms)
+✖ setup AC-1 start: setups is an unknown verb (75.97966ms)
+✖ setup AC-6 drivers: BUILT_DRIVERS is claude and compozy and holds no driver with a round (1.121093ms)
+✖ setup AC-2 replies: no reply key renders openspec-setup or compozy-setup in either language, and not-set-up, design-pack-missing and both merge-setup reasons name /devkit setup (11.370875ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 0
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 523.35777
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:917:1
+✖ setup AC-1 start: setup in a folder with no openspec answers the setup mode with the git root and creates nothing (33.317155ms)
+  AssertionError [ERR_ASSERTION]: "setup"
+  + actual - expected
+  
+    [
+  +   'unknown-verb',
+      'setup',
+  +   undefined,
+  +   'So far /devkit change, /devkit roadmap, /devkit status, /devkit project and /devkit train exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, /devkit project and a name to plan a new project or slice, or /devkit train to send the boarded changes on one train.',
+  -   'setup',
+  -   '/var/tmp/devkit-project-setup/devkit-suite-ezG4CO/09/devkit-change-loop-setup-agNU6E',
+      null,
+  -   null
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-setup/plugins/openspec/hooks/change-loop.test.mjs:924:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'unknown-verb', 'setup', undefined, 'So far /devkit change, /devkit roadmap, /devkit status, /devkit project and /devkit train exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, /devkit project and a name to plan a new project or slice, or /devkit train to send the boarded changes on one train.', null ],
+    expected: [ 'setup', 'setup', '/var/tmp/devkit-project-setup/devkit-suite-ezG4CO/09/devkit-change-loop-setup-agNU6E', null, null ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:934:1
+✖ setup AC-1 start: setup with an unknown setting, a missing delivery setting or a driver not built still answers the setup mode (77.905544ms)
+  AssertionError [ERR_ASSERTION]: schema: devkit
+  devkit:
+    driver: robot
+  
+  + actual - expected
+  
+    [
+  +   'unknown-verb',
+  +   undefined,
+  +   'So far /devkit change, /devkit roadmap, /devkit status, /devkit project and /devkit train exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, /devkit project and a name to plan a new project or slice, or /devkit train to send the boarded changes on one train.'
+  -   'setup',
+  -   '/var/tmp/devkit-project-setup/devkit-suite-ezG4CO/09/devkit-deliver-xNWKa6',
+  -   null
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-setup/plugins/openspec/hooks/change-loop.test.mjs:945:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'unknown-verb', undefined, 'So far /devkit change, /devkit roadmap, /devkit status, /devkit project and /devkit train exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, /devkit project and a name to plan a new project or slice, or /devkit train to send the boarded changes on one train.' ],
+    expected: [ 'setup', '/var/tmp/devkit-project-setup/devkit-suite-ezG4CO/09/devkit-deliver-xNWKa6', null ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:951:1
+✖ setup AC-1 start: setup outside a git repository answers setup-no-repo in both languages and runs nothing (2.282678ms)
+  AssertionError [ERR_ASSERTION]: en
+  + actual - expected
+  
+  + 'unknown-verb'
+  - 'setup-no-repo'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-setup/plugins/openspec/hooks/change-loop.test.mjs:957:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'unknown-verb',
+    expected: 'setup-no-repo',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:967:1
+✖ setup AC-1 start: setups is an unknown verb (75.97966ms)
+  AssertionError [ERR_ASSERTION]: the exact verb answers in this folder
+  + actual - expected
+  
+  + 'unknown-verb'
+  - 'setup'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-setup/plugins/openspec/hooks/change-loop.test.mjs:969:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'unknown-verb',
+    expected: 'setup',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:977:1
+✖ setup AC-6 drivers: BUILT_DRIVERS is claude and compozy and holds no driver with a round (1.121093ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - [
+  -   'claude',
+  -   'compozy'
+  - ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-setup/plugins/openspec/hooks/change-loop.test.mjs:979:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [ 'claude', 'compozy' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:988:1
+✖ setup AC-2 replies: no reply key renders openspec-setup or compozy-setup in either language, and not-set-up, design-pack-missing and both merge-setup reasons name /devkit setup (11.370875ms)
+  AssertionError [ERR_ASSERTION]: en not-set-up names openspec-setup: This project is not set up for devkit yet: run /openspec-setup first. Nothing was run.
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-setup/plugins/openspec/hooks/change-loop.test.mjs:992:42)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/change-loop.test.mjs: FAIL 0.7s
+start plugins/openspec/hooks/delivery-train.test.mjs
+=== plugins/openspec/hooks/delivery-train.test.mjs
+✖ setup AC-2 train: the blocked train reply lists the missing merge facts without the setup pointer (10.218505ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 330.610444
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1768:1
+✖ setup AC-2 train: the blocked train reply lists the missing merge facts without the setup pointer (10.218505ms)
+  AssertionError [ERR_ASSERTION]: merge-setup.mjs exports the pointer
+  + actual - expected
+  
+  + 'undefined'
+  - 'string'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-setup/plugins/openspec/hooks/delivery-train.test.mjs:1770:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'string',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/delivery-train.test.mjs: FAIL 0.4s
+=== plugins/openspec/hooks/project-loop.test.mjs
+✖ setup AC-2 project: the S23 reply lists the missing facts without the setup pointer (8.265328ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3619.563319
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/project-loop.test.mjs:1252:1
+✖ setup AC-2 project: the S23 reply lists the missing facts without the setup pointer (8.265328ms)
+  AssertionError [ERR_ASSERTION]: merge-setup.mjs exports the pointer
+  + actual - expected
+  
+  + 'undefined'
+  - 'string'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-setup/plugins/openspec/hooks/project-loop.test.mjs:1254:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'string',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/project-loop.test.mjs: FAIL 3.7s
+FAIL 0.7s plugins/openspec/hooks/change-loop.test.mjs
+FAIL 0.4s plugins/openspec/hooks/delivery-train.test.mjs
+FAIL 3.7s plugins/openspec/hooks/project-loop.test.mjs
+suite: 3 files, 8 tests, 0 pass, 8 fail, 3.7s, concurrency 2

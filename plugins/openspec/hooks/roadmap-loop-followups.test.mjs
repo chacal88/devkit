@@ -50,7 +50,7 @@ test('roadmap-loop skill: every roadmap-loop command carries the person\'s langu
 test('roadmap-loop skill: the frontmatter and the start modes name the roadmap and the status', () => {
   const md = skillMd();
   const fm = md.split('---')[1];
-  assert.match(fm, /^argument-hint: "change \[<request> \| <change-id> \| <Jira key or link>\] \| roadmap \[<n> \| stop\] \| status \| train \| project \[<name>\]"$/m);
+  assert.match(fm, /^argument-hint: "change \[<request> \| <change-id> \| <Jira key or link>\] \| roadmap \[<n> \| stop\] \| status \| setup \| train \| project \[<name>\]"$/m); // project-setup T-29: setup right after status
   const desc = /^description: (.*)$/m.exec(fm)[1];
   assert.match(desc, /\/devkit roadmap \[<n>\] runs the roadmap's ready changes, several at once, and \/devkit status shows where everything is/);
   assert.match(desc, /Use when the owner types \/devkit.*\/devkit roadmap.*\/devkit status/);

@@ -4,8 +4,11 @@
 - Date: 2026-11-09
 - Change: devkit-opt-in
 - Amended by ADR 0021 (0021-a-roadmap-run-opens-every-change-at-its-start.md)
+- Amended by ADR 0031 (0031-one-setup-verb-replaces-the-two-setup-skills.md)
 
 ## Context
+
+Note (project-setup, 2026-11-24): the setup is the verb `/devkit setup` of the `devkit` skill ([ADR 0031](0031-one-setup-verb-replaces-the-two-setup-skills.md)); the Decision's 'the docs and `openspec-setup`' and the Consequences' 'Mitigated: `openspec-setup` writes the settings' now read `/devkit setup`. The Decision is otherwise unchanged.
 
 Note (roadmap-sessions-upfront, 2026-11-23): the hook on the Skill tool acts whatever the project's opt-in ([ADR 0021](0021-a-roadmap-run-opens-every-change-at-its-start.md), decision 1): it refuses only a call of the `devkit-session` skill, which exists only for a roadmap run, and lets every other skill through. Every other hook still blocks nothing outside a devkit project. The Decision is otherwise unchanged.
 

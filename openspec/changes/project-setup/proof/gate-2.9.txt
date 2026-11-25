@@ -1,0 +1,5 @@
+start 2026-11-24T16:23:48-03:00 load: 4.73 12.52 15.95 cores: 8
+command: gate 2.9 of tasks.md as the loop gives it, run with --concurrency=6 in place of 2 (coordinator's setting for this 8-core worker; same files)
+suite: 32 files, 2814 tests, 2811 pass, 0 fail, 1806.8s, concurrency 6
+exit=0
+end 2026-11-24T16:53:57-03:00 load: 12.82 23.39 24.94

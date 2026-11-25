@@ -908,7 +908,7 @@ test('change-loop start: S2 no verb or an unknown verb names the commands that e
     assert.equal(b.mode, 'unknown-verb', JSON.stringify(text));
     assert.equal(b.reply, render('en', 'verb-unknown'));
   }
-  assert.match(body(startRun(root, '', { lang: 'pt-BR' })).reply, /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit project e \/devkit train/);
+  assert.match(body(startRun(root, '', { lang: 'pt-BR' })).reply, /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit setup, \/devkit project e \/devkit train/);
   assert.match(render('en', 'verb-unknown'), /\/devkit change.*\/devkit roadmap.*\/devkit status.*\/devkit project/);
   assert.equal(body(startRun(root, '', { lang: '${user_config.language}' })).reply, render('pt-BR', 'verb-unknown'));
 });
@@ -924,7 +924,8 @@ test('change-loop start: S3 a folder with no openspec, or another schema, is not
     const b = body(r);
     assert.equal(b.mode, 'not-set-up', cwd);
     assert.equal(b.reply, render('en', 'not-set-up'));
-    assert.match(b.reply, /openspec-setup/);
+    assert.match(b.reply, /\/devkit setup/);
+    assert.doesNotMatch(b.reply, new RegExp('openspec' + '-setup'), 'the removed skill is not named (project-setup D-9)');
     if (before) assert.equal(snapshot(cwd), before);
   }
 });
@@ -957,6 +958,173 @@ test('change-loop start: S5 the script driver is not built and runs nothing', ()
   const claude = devkitRepo('schema: devkit\ndevkit:\n  driver: claude\n');
   assert.equal(body(startRun(claude, 'change add an export')).mode, 'new', 'claude runs');
   assert.equal(body(startRun(devkitRepo(), 'change add an export')).mode, 'new', 'no block runs as claude');
+});
+
+// ---------------------------------------------------------------- /devkit setup (project-setup D-1, D-2, D-8)
+
+// Every file under `root` but `.git/`, sorted: what a start that "creates nothing" leaves as it was, in a folder with no openspec.
+const filesOf = (root) => readdirSync(root, { recursive: true }).map(String).filter((f) => f !== '.git' && !f.startsWith(`.git/`)).sort();
+// A git repository with no openspec folder and one subfolder, where `/devkit setup` is typed.
+function plainGitRepo() {
+  const root = realpathSync(tmpFolder('devkit-change-loop-setup-'));
+  git(root, 'init', '-q', '-b', 'main');
+  mkdirSync(join(root, 'src', 'app'), { recursive: true });
+  return root;
+}
+
+// Invariant: setup answers its own mode with the project's root, even before the project is set up, and creates nothing.
+// Layer: startMode (the setup branch). Suite: change-loop.
+test('setup AC-1 start: setup in a folder with no openspec answers the setup mode with the git root and creates nothing', () => {
+  const root = plainGitRepo();
+  const before = filesOf(root);
+  for (const [cwd, text] of [[root, 'setup'], [join(root, 'src', 'app'), 'SETUP please'], [root, '  setup  \n']]) {
+    const r = startRun(cwd, text);
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    const b = body(r);
+    assert.deepEqual([b.mode, b.verb, b.root, b.reply, b.change], ['setup', 'setup', root, null, null], JSON.stringify(text));
+  }
+  assert.equal(body(startRun(root, 'setup the project now')).text, 'the project now', 'the words after the verb are carried, unused');
+  assert.deepEqual(filesOf(root), before);
+  const opted = devkitRepo();
+  assert.deepEqual([body(startRun(opted, 'setup')).mode, body(startRun(opted, 'setup')).root], ['setup', opted], 'a set-up project answers the same: the root findRoot gives');
+});
+
+// Invariant: no settings check stops setup, since the step is what repairs the settings. Layer: startMode (the setup branch runs
+// before the project gate). Suite: change-loop.
+test('setup AC-1 start: setup with an unknown setting, a missing delivery setting or a driver not built still answers the setup mode', () => {
+  for (const [config, refused] of [
+    ['schema: devkit\ndevkit:\n  driver: robot\n', 'setting-unknown'],
+    ['schema: devkit\ndevkit:\n  delivery:\n    model: two-prs\n    test_branch: develop\n', 'setting-missing'],
+    ['schema: devkit\ndevkit:\n  driver: script\n', 'driver-not-built'],
+  ]) {
+    const root = devkitRepo(config);
+    assert.equal(body(startRun(root, 'change add an export')).mode, refused, `the fixture is refused for change: ${config}`);
+    const before = snapshot(root);
+    const r = startRun(root, 'setup');
+    assert.equal(r.code, 0, config);
+    assert.deepEqual([body(r).mode, body(r).root, body(r).reply], ['setup', root, null], config);
+    assert.equal(snapshot(root), before, config);
+  }
+});
+
+// Invariant: outside a git repository setup runs nothing and says so in the person's language. Layer: startMode. Suite: change-loop.
+test('setup AC-1 start: setup outside a git repository answers setup-no-repo in both languages and runs nothing', () => {
+  const bare = tmpFolder('devkit-change-loop-setup-bare-');
+  for (const lang of ['en', 'pt-BR']) {
+    const r = startRun(bare, 'setup', { lang });
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    const b = body(r);
+    assert.equal(b.mode, 'setup-no-repo', lang);
+    assert.equal(b.reply, render(lang, 'setup-no-repo'), lang);
+    assert.match(b.reply, /\/devkit setup/, lang);
+  }
+  assert.notEqual(render('en', 'setup-no-repo'), render('pt-BR', 'setup-no-repo'), 'translated');
+  assert.deepEqual(readdirSync(bare), [], 'nothing was created');
+  // A folder that holds openspec/changes, so findRoot finds it, is still in no git repository (spec: change-coordination).
+  const opened = tmpFolder('devkit-change-loop-setup-bare-openspec-');
+  mkdirSync(join(opened, 'openspec', 'changes'), { recursive: true });
+  writeFileSync(join(opened, 'openspec', 'config.yaml'), 'schema: devkit\n');
+  const before = filesOf(opened);
+  for (const lang of ['en', 'pt-BR']) {
+    const b = body(startRun(opened, 'setup', { lang }));
+    assert.deepEqual([b.mode, b.reply, b.root], ['setup-no-repo', render(lang, 'setup-no-repo'), undefined], `openspec/changes outside git: ${lang}`);
+  }
+  assert.deepEqual(filesOf(opened), before, 'nothing was created under the openspec folder');
+});
+
+// Invariant: setup's root is never above the git repository where the command was typed, even when findRoot climbs to an outer
+// folder holding openspec/changes (code-quality F6, review round 2). Layer: startMode (the setup branch). Suite: change-loop.
+test('setup AC-1 start: setup in a git repository nested in a folder holding openspec/changes answers the inner repository as root', () => {
+  const outerBare = realpathSync(tmpFolder('devkit-change-loop-setup-nested-bare-'));
+  mkdirSync(join(outerBare, 'openspec', 'changes'), { recursive: true });
+  writeFileSync(join(outerBare, 'openspec', 'config.yaml'), 'schema: devkit\n');
+  const outerRepo = realpathSync(devkitRepo());
+  for (const [label, outer] of [['outer folder in no git repository', outerBare], ['outer devkit project with a nested repository', outerRepo]]) {
+    const inner = join(outer, 'inner');
+    mkdirSync(join(inner, 'src'), { recursive: true });
+    git(inner, 'init', '-q', '-b', 'main');
+    const before = filesOf(outer);
+    for (const cwd of [inner, join(inner, 'src')]) {
+      const r = startRun(cwd, 'setup');
+      assert.equal(r.code, 0, r.stdout + r.stderr);
+      const b = body(r);
+      assert.deepEqual([b.mode, b.root], ['setup', inner], `${label}, typed in ${cwd}`);
+    }
+    assert.deepEqual(filesOf(outer), before, `${label}: nothing was created`);
+  }
+});
+
+// Invariant: a folder holding openspec/changes strictly inside the git top level stays setup's root, typed there or below it;
+// the top level is not taken in its place (design D-1; test-coverage F8, review round 4). Layer: startMode (the setup branch).
+// Suite: change-loop.
+test('setup AC-1 start: setup in a subfolder holding openspec/changes inside the repository answers that subfolder as root', () => {
+  const root = plainGitRepo();
+  const app = join(root, 'app');
+  mkdirSync(join(app, 'openspec', 'changes'), { recursive: true });
+  mkdirSync(join(app, 'src'), { recursive: true });
+  const before = filesOf(root);
+  for (const cwd of [app, join(app, 'src')]) {
+    const r = startRun(cwd, 'setup');
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    const b = body(r);
+    assert.deepEqual([b.mode, b.root], ['setup', app], `typed in ${cwd}`);
+  }
+  assert.deepEqual(filesOf(root), before, 'nothing was created');
+});
+
+// Invariant: only the exact verb is setup; a near miss is an unknown verb, in the same folder where setup answers. Layer: startMode
+// (the verb). Suite: change-loop.
+test('setup AC-1 start: setups is an unknown verb', () => {
+  for (const cwd of [devkitRepo(), plainGitRepo()]) {
+    assert.equal(body(startRun(cwd, 'setup')).mode, 'setup', 'the exact verb answers in this folder');
+    const b = body(startRun(cwd, 'setups'));
+    assert.deepEqual([b.mode, b.reply], ['unknown-verb', render('en', 'verb-unknown')]);
+    assert.equal(b.root, undefined);
+  }
+});
+
+// Invariant: a settings file that exists and cannot be read ends setup with the shared usage error, as it ends every verb: the step
+// cannot repair a file it cannot read. Layer: startMode (readDevkitSettings, before the verb). Suite: change-loop. Passes on the base.
+test('setup AC-1 start: setup with an openspec/config.yaml that cannot be read ends with the usage error and exit 3, as the other verbs do', () => {
+  const broken = tmpFolder('devkit-change-loop-setup-broken-');
+  git(broken, 'init', '-q', '-b', 'main');
+  mkdirSync(join(broken, 'openspec', 'changes'), { recursive: true }); // so findRoot finds the root
+  mkdirSync(join(broken, 'openspec', 'config.yaml'));
+  for (const lang of ['en', 'pt-BR']) {
+    const r = startRun(broken, 'setup', { lang });
+    assert.equal(r.code, 3, r.stdout + r.stderr);
+    const b = body(r);
+    assert.equal(b.reply, render(lang, 'request-unreadable'), lang);
+    assert.match(b.error, /openspec\/config\.yaml cannot be read/);
+    assert.equal(startRun(broken, 'change add x', { lang }).code, 3, 'as the change verb');
+  }
+  assert.deepEqual(readdirSync(join(broken, 'openspec', 'changes')), [], 'nothing was created');
+});
+
+// Invariant: the driver question offers only the drivers that run. Layer: change-loop.mjs's driver list. Suite: change-loop.
+test('setup AC-6 drivers: BUILT_DRIVERS is claude and compozy and holds no driver with a round', () => {
+  const built = changeLoopModule.BUILT_DRIVERS;
+  assert.deepEqual(built, ['claude', 'compozy']);
+  for (const driver of changeLoopModule.DRIVERS) {
+    const mode = body(startRun(devkitRepo(`schema: devkit\ndevkit:\n  driver: ${driver}\n`), 'change add an export')).mode;
+    assert.equal(built.includes(driver), mode !== 'driver-not-built', `${driver}: ${mode}`);
+  }
+});
+
+// Invariant: no reply names the removed setup skills, and the replies that send the owner to the setup name /devkit setup.
+// Layer: the reply table of change-loop.mjs. Suite: change-loop.
+// The removed skills' names are built by concatenation, the test's name included, so no source line holds them (project-setup D-9).
+const REMOVED_SETUP_SKILLS = ['openspec' + '-setup', 'compozy' + '-setup'];
+test(`setup AC-2 replies: no reply key renders ${REMOVED_SETUP_SKILLS[0]} or ${REMOVED_SETUP_SKILLS[1]} in either language, and not-set-up, design-pack-missing and both merge-setup reasons name /devkit setup`, () => {
+  const removed = REMOVED_SETUP_SKILLS;
+  for (const lang of ['en', 'pt-BR']) {
+    for (const { key, text } of renderings(lang)) {
+      for (const name of removed) assert.ok(!text.includes(name), `${lang} ${key} names ${name}: ${text}`);
+    }
+    for (const [key, params] of [['not-set-up', {}], ['design-pack-missing', {}], ['blocked-why.merge-setup', {}], ['blocked-why.merge-setup-missing', { list: 'auto-merge is not allowed' }]]) {
+      assert.match(render(lang, key, params), /\/devkit setup/, `${lang} ${key}`);
+    }
+  }
 });
 
 // Invariant (T-23, D-13): the resume reply names the change and says where it stopped, and nothing else; layer: startMode (the resume); suite: change-loop.

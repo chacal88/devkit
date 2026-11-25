@@ -1,0 +1,4 @@
+gate 3.6 start 2026-11-24T17:02:54-03:00 load: 3.74 8.19 16.18 cores: 8 concurrency: 3
+suite: 11 files, 69 tests, 69 pass, 0 fail, 36.6s, concurrency 3
+exit=0
+end 2026-11-24T17:03:30-03:00 load: 3.85 7.73 15.73

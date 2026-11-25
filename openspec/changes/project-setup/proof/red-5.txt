@@ -1,0 +1,306 @@
+start plugins/openspec/hooks/guard.test.mjs
+start plugins/openspec/skills/devkit/scripts/github-setup.test.mjs
+=== plugins/openspec/skills/devkit/scripts/github-setup.test.mjs
+✖ format: the Setup section has the GitHub step: script path that resolves, one confirmation per item, nothing applied unconfirmed (AC-7) (4.014977ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 125.377855
+
+✖ failing tests:
+
+test at plugins/openspec/skills/devkit/scripts/github-setup.test.mjs:329:1
+✖ format: the Setup section has the GitHub step: script path that resolves, one confirmation per item, nothing applied unconfirmed (AC-7) (4.014977ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /`ship` and `merge_method` are asked in step 5, `merge` suggested/. Input:
+  
+  '---\n' +
+    'name: devkit\n' +
+    `description: "Runs one change from the owner's request to its archive in this session: /devkit change <what to do> opens the change in its own worktree and carries it, stage by stage, asking the owner only at the owner's gates (the grill, the mock-up, the plan approval, the retro answers) and waiting on GitHub with no time limit; /devkit change alone continues the unfinished change. /devkit change <Jira key or link> opens the change from that task, read through the session's Atlassian connector, and asks once, when the pull request opens, whether to write its link back. /devkit roadmap [<n>] runs the roadmap's ready changes, several at once, and /devkit status shows where everything is. /devkit train departs the boarded changes of a project with a delivery train, together on one train. /devkit project [<name>] plans a new project or slice phase by phase with the owner (business, domain model, architecture, implementation plan, roadmap), then delivers it as one pull request. Every decision comes from the change-loop, roadmap-loop and project-loop scripts, never from this text. Use when the owner types /devkit, /devkit change <what to do>, /devkit change <Jira key or link>, /devkit change to continue, /devkit roadmap [<n> | stop], /devkit status, /devkit train or /devkit project [<name>]."\n` +
+    'argument-hint: "change [<request> | <change-id> | <Jira key or link>] | roadmap [<n> | stop] | status | train | project [<name>]"\n' +
+    'disable-model-invocation: true\n' +
+    '---\n' +
+    '\n' +
+    '# /devkit change\n' +
+    '\n' +
+    "`/devkit change <request>` takes one change from the owner's words to its archive, in this session, with one script that decides. This skill is the session's side of it: the script `change-loop.mjs` says what comes next, and this text says how to carry it out. It keeps no state: every call re-reads the change's files, git and GitHub, and the session's transcripts when the project sets a token budget. The session is the change coordinator; it never writes product code itself.\n" +
+    '\n' +
+    "Path used below: `<skill-dir>/../../hooks/change-loop.mjs`, where `<skill-dir>` is this skill's directory. Every call of the script carries `--lang ${user_config.language}`. The roadmap sections below use `<skill-dir>/../../hooks/roadmap-loop.mjs`, whose every call also carries `--load-limit ${user_config.load_limit}`; every call of `run`, `next`, `check`, `status` and `checkout` also carries `--machines '${user_config.machines}'`. The Project section uses `<skill-dir>/../../hooks/project-loop.mjs`.\n" +
+    '\n' +
+    '## Settings\n' +
+    '\n' +
+    "- The person's language is this pack's `language` setting, `${user_config.language}` (`pt-BR` or `en`): the replies, the grill's questions and the stage readout use it. Say every `reply` of the script as it is.\n" +
+    "- The load limit of a roadmap run is this pack's `load_limit` setting, `${user_config.load_limit}`: a whole number, the processor load in percent above which no new change starts.\n" +
+    "- The other machines of a roadmap run are this pack's `machines` setting, `${user_config.machines}`: a JSON list, empty by default. Every roadmap call passes it as it arrives, and the script reads it.\n" +
+    "- Only the last message of a turn reaches the owner: a `reply` followed by more tool calls in the same turn is lost. So every `reply` the script printed in this turn that the owner has not been shown is part of the message that ends the turn, in order, before anything else. The turn that opens a change ends with the opening reply and then the grill's first question; a `resume` reply and a `switch-script` reply likewise.\n" +
+    '- What the session writes itself follows the rule of the message table: see Never, the first item.\n' +
+    "- The project's `devkit:` block in `openspec/config.yaml` holds the language of the project's files (`filesLanguage` in the script's output) and the driver. Write the change's files in `filesLanguage`; the script's `brief` already says so to every stage agent.\n" +
+    '- When the owner asks where the change stands, show the stage readout: `node <skill-dir>/../../hooks/flow-check.mjs <id> --lang ${user_config.language}`.\n' +
+    '\n' +
+    '## Start\n' +
+    '\n' +
+    "Run the script with the owner's arguments on standard input, through a quoted heredoc so no character of the request reaches the shell:\n" +
+    '\n' +
+    '```\n' +
+    "node <skill-dir>/../../hooks/change-loop.mjs start --lang ${user_config.language} <<'DEVKIT_ARGS'\n" +
+    '$ARGUMENTS\n' +
+    'DEVKIT_ARGS\n' +
+    '```\n' +
+    '\n' +
+    'When a line of the request equals `DEVKIT_ARGS`, use `DEVKIT_ARGS_` followed by digits that no line of the request holds as the terminator. The script prints JSON with a `mode` and a `reply`. Act on the mode:\n' +
+    '\n' +
+    "- `not-built`, `unknown-verb`, `not-set-up`, `setting-unknown`, `driver-not-built`, `driver-no-project`, `nothing` and `train-args`: say `reply` and end the turn. When the JSON's `settings.driver` is `compozy`, read the next section instead of the lines below.\n" +
+    '- `choose` and `ask-unfinished`: ask `reply` as one question with AskUserQuestion (else say it and end the turn). The options are each listed id and, for `ask-unfinished`, "start the new request". The answer is `resume` of that id, or the new change below; when `task` is not null, "start the new request" goes to `### A Jira task`.\n' +
+    '- `resume`: keep `reply` for the message that ends the turn, then enter the Loop with `change`. The `reply` may hold a second line, about a newer flow: keep it as it is.\n' +
+    '- `new`: a new change, below.\n' +
+    '- `task`: the request is a Jira key or link, in `task`: a new change from that task, in `### A Jira task` below.\n' +
+    '- `roadmap`: the Roadmap section below.\n' +
+    '- `status`: the Status section below.\n' +
+    '- `train`: the Train section below.\n' +
+    '- `project`: the Project section below, with `text` as the words after `project`.\n' +
+    '- `is-slice`: say `reply` and end the turn: the slice continues with `/devkit project` and its name.\n' +
+    '\n' +
+    '## On the CompozyOS driver\n' +
+    '\n' +
+    "Read this section when `start`'s JSON has `settings.driver: compozy`. CompozyOS runs the loop of the change, and this session only starts or resumes that run: it runs no loop, hands no stage and asks nothing of the change (the grill, the approvals and the retro are asked in CompozyOS). Pass the request through the quoted heredoc as `start` does, with the same terminator rule, and in every case below say `reply` and end the turn.\n" +
+    '\n' +
+    '- `new`: propose the id by the rule of "A new change", choose no script, and run the call below. `name-taken`: propose another id and run it again. `name-invalid`: say `reply` and end the turn.\n' +
+    "- `resume`: run the same call with the JSON's `change` as `<id>` and an empty heredoc.\n" +
+    '- `choose` and `ask-unfinished`: ask as `start` says above, then run the call with the answer: `resume` of the chosen id, or `new` for the new request.\n' +
+    "- `roadmap`: run `node <skill-dir>/../../hooks/roadmap-loop.mjs compozy-start --lang ${user_config.language} --load-limit ${user_config.load_limit} <<'DEVKIT_ARGS'` with `$ARGUMENTS` as the heredoc body, as the Roadmap section does for `run`.\n" +
+    '- `status`: the Status section, unchanged.\n' +
+    '- `driver-no-project`: say `reply` and end the turn.\n' +
+    '\n' +
+    '```\n' +
+    "node <skill-dir>/../../hooks/change-loop.mjs compozy-start <id> --lang ${user_config.language} <<'DEVKIT_ARGS'\n" +
+    '<the request>\n' +
+    'DEVKIT_ARGS\n' +
+    '```\n' +
+    '\n' +
+    "The call prints JSON with a `mode`, a `reply`, the run's `runId` and its `url`, and never a `devkit-run:` line. Every mode ends the turn with `reply`, and an exit 3 too (`compozy-unavailable` names what to fix). A change that CompozyOS already runs answers `compozy-running`: say it, start nothing.\n" +
+    '\n' +
+    '## A new change\n' +
+    '\n' +
+    'Typing `/devkit change <request>` is the go-ahead: ask nothing before the change exists.\n' +
+    '\n' +
+    '1. Propose the id from the request: kebab-case, the subject in at most five words and at most 48 characters. State it in the reply; the session does not ask.\n' +
+    '2. Choose the script with one rule: `devkit-lite` only for a small change that is easy to undo and touches no screen, no boundary between parts of the project and no contract other parts rely on; `devkit` otherwise and whenever in doubt. Pick one reason code for the choice: `small`, `doubt`, `architecture`, `contract`, `ui`, `capability` or `risk`.\n' +
+    '3. Open it, with the request on standard input through the same quoted heredoc, the request verbatim:\n' +
+    '\n' +
+    '```\n' +
+    "node <skill-dir>/../../hooks/change-loop.mjs open <id> --script <devkit|devkit-lite> --why <code> --lang ${user_config.language} <<'DEVKIT_ARGS'\n" +
+    '<the request, verbatim>\n' +
+    'DEVKIT_ARGS\n' +
+    '```\n' +
+    '\n' +
+    'Keep `reply` for the message that ends the turn, then enter the Loop with the id. On `name-taken`, choose another id and call `open` again. On any other exit 3, say `reply` and end the turn.\n' +
+    '\n' +
+    'When the owner asks to switch the script before the plan is written, run `node <skill-dir>/../../hooks/change-loop.mjs script <id> <devkit|devkit-lite> --why <code> --lang ${user_config.language}` and say its reply. The grill may also correct a wrong guess: the loop then hands you a `switch-script` step with its command.\n' +
+    '\n' +
+    'When the owner asks to move the change to the newer flow the readout or the resume reply named, run `node <skill-dir>/../../hooks/change-loop.mjs flow <id> --lang ${user_config.language}` and say its reply; never run it unasked.\n' +
+    '\n' +
+    '### A Jira task\n' +
+    '\n' +
+    'The `task` mode opens the change from a Jira task. The script makes no call to Jira and keeps no token: this session reads the task through its own Atlassian connector.\n' +
+    '\n' +
+    "1. Load the connector's Jira tools with ToolSearch (query `jira issue`). The read tool is the one whose name ends in `getJiraIssue`. Its siblings are `getTransitionsForJiraIssue`, `addCommentToJiraIssue`, `transitionJiraIssue` and `getAccessibleAtlassianResources` (the `cloudId` when the read tool asks for one). Use the site whose host the typed link names, else try each accessible site until one reads the task. When no read tool loads, run `node <skill-dir>/../../hooks/change-loop.mjs reply task-no-connector --param key=<KEY> --lang ${user_config.language}`, say it and end the turn.\n" +
+    '2. Read the task. A not-found, a refusal or any error runs `node <skill-dir>/../../hooks/change-loop.mjs reply task-unreadable --param key=<KEY> --lang $'... 53981 more characters
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-setup/plugins/openspec/skills/devkit/scripts/github-setup.test.mjs:339:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '---\nname: devkit\ndescription: "Runs one change from the owner\'s request to its archive in this session: /devkit change <what to do> opens the change in its own worktree and carries it, stage by stage, asking the owner only at the owner\'s gates (the grill, the mock-up, the plan approval, the retro answers) and waiting on GitHub with no time limit; /devkit change alone continues the unfinished change. /devkit change <Jira key or link> opens the change from that task, read through the session\'s Atlassian connector, and asks once, when the pull request opens, whether to write its link back. /devkit roadmap [<n>] runs the roadmap\'s ready changes, several at once, and /devkit status shows where everything is. /devkit train departs the boarded changes of a project with a delivery train, together on one train. /devkit project [<name>] plans a new project or slice phase by phase with the owner (business, domain model, architecture, implementation plan, roadmap), then delivers it as one pull request. Every decision comes from the change-loop, roadmap-loop and project-loop scripts, never from this text. Use when the owner types /devkit, /devkit change <what to do>, /devkit change <Jira key or link>, /devkit change to continue, /devkit roadmap [<n> | stop], /devkit status, /devkit train or /devkit project [<name>]."\nargument-hint: "change [<request> | <change-id> | <Jira key or link>] | roadmap [<n> | stop] | status | train | project [<name>]"\ndisable-model-invocation: true\n---\n\n# /devkit change\n\n`/devkit change <request>` takes one change from the owner\'s words to its archive, in this session, with one script that decides. This skill is the session\'s side of it: the script `change-loop.mjs` says what comes next, and this text says how to carry it out. It keeps no state: every call re-reads the change\'s files, git and GitHub, and the session\'s transcripts when the project sets a token budget. The session is the change coordinator; it never writes product code itself.\n\nPath used below: `<skill-dir>/../../hooks/change-loop.mjs`, where `<skill-dir>` is this skill\'s directory. Every call of the script carries `--lang ${user_config.language}`. The roadmap sections below use `<skill-dir>/../../hooks/roadmap-loop.mjs`, whose every call also carries `--load-limit ${user_config.load_limit}`; every call of `run`, `next`, `check`, `status` and `checkout` also carries `--machines \'${user_config.machines}\'`. The Project section uses `<skill-dir>/../../hooks/project-loop.mjs`.\n\n## Settings\n\n- The person\'s language is this pack\'s `language` setting, `${user_config.language}` (`pt-BR` or `en`): the replies, the grill\'s questions and the stage readout use it. Say every `reply` of the script as it is.\n- The load limit of a roadmap run is this pack\'s `load_limit` setting, `${user_config.load_limit}`: a whole number, the processor load in percent above which no new change starts.\n- The other machines of a roadmap run are this pack\'s `machines` setting, `${user_config.machines}`: a JSON list, empty by default. Every roadmap call passes it as it arrives, and the script reads it.\n- Only the last message of a turn reaches the owner: a `reply` followed by more tool calls in the same turn is lost. So every `reply` the script printed in this turn that the owner has not been shown is part of the message that ends the turn, in order, before anything else. The turn that opens a change ends with the opening reply and then the grill\'s first question; a `resume` reply and a `switch-script` reply likewise.\n- What the session writes itself follows the rule of the message table: see Never, the first item.\n- The project\'s `devkit:` block in `openspec/config.yaml` holds the language of the project\'s files (`filesLanguage` in the script\'s output) and the driver. Write the change\'s files in `filesLanguage`; the script\'s `brief` already says so to every stage agent.\n- When the owner asks where the change stands, show the stage readout: `node <skill-dir>/../../hooks/flow-check.mjs <id> --lang ${user_config.language}`.\n\n## Start\n\nRun the script with the owner\'s arguments on standard input, through a quoted heredoc so no character of the request reaches the shell:\n\n```\nnode <skill-dir>/../../hooks/change-loop.mjs start --lang ${user_config.language} <<\'DEVKIT_ARGS\'\n$ARGUMENTS\nDEVKIT_ARGS\n```\n\nWhen a line of the request equals `DEVKIT_ARGS`, use `DEVKIT_ARGS_` followed by digits that no line of the request holds as the terminator. The script prints JSON with a `mode` and a `reply`. Act on the mode:\n\n- `not-built`, `unknown-verb`, `not-set-up`, `setting-unknown`, `driver-not-built`, `driver-no-project`, `nothing` and `train-args`: say `reply` and end the turn. When the JSON\'s `settings.driver` is `compozy`, read the next section instead of the lines below.\n- `choose` and `ask-unfinished`: ask `reply` as one question with AskUserQuestion (else say it and end the turn). The options are each listed id and, for `ask-unfinished`, "start the new request". The answer is `resume` of that id, or the new change below; when `task` is not null, "start the new request" goes to `### A Jira task`.\n- `resume`: keep `reply` for the message that ends the turn, then enter the Loop with `change`. The `reply` may hold a second line, about a newer flow: keep it as it is.\n- `new`: a new change, below.\n- `task`: the request is a Jira key or link, in `task`: a new change from that task, in `### A Jira task` below.\n- `roadmap`: the Roadmap section below.\n- `status`: the Status section below.\n- `train`: the Train section below.\n- `project`: the Project section below, with `text` as the words after `project`.\n- `is-slice`: say `reply` and end the turn: the slice continues with `/devkit project` and its name.\n\n## On the CompozyOS driver\n\nRead this section when `start`\'s JSON has `settings.driver: compozy`. CompozyOS runs the loop of the change, and this session only starts or resumes that run: it runs no loop, hands no stage and asks nothing of the change (the grill, the approvals and the retro are asked in CompozyOS). Pass the request through the quoted heredoc as `start` does, with the same terminator rule, and in every case below say `reply` and end the turn.\n\n- `new`: propose the id by the rule of "A new change", choose no script, and run the call below. `name-taken`: propose another id and run it again. `name-invalid`: say `reply` and end the turn.\n- `resume`: run the same call with the JSON\'s `change` as `<id>` and an empty heredoc.\n- `choose` and `ask-unfinished`: ask as `start` says above, then run the call with the answer: `resume` of the chosen id, or `new` for the new request.\n- `roadmap`: run `node <skill-dir>/../../hooks/roadmap-loop.mjs compozy-start --lang ${user_config.language} --load-limit ${user_config.load_limit} <<\'DEVKIT_ARGS\'` with `$ARGUMENTS` as the heredoc body, as the Roadmap section does for `run`.\n- `status`: the Status section, unchanged.\n- `driver-no-project`: say `reply` and end the turn.\n\n```\nnode <skill-dir>/../../hooks/change-loop.mjs compozy-start <id> --lang ${user_config.language} <<\'DEVKIT_ARGS\'\n<the request>\nDEVKIT_ARGS\n```\n\nThe call prints JSON with a `mode`, a `reply`, the run\'s `runId` and its `url`, and never a `devkit-run:` line. Every mode ends the turn with `reply`, and an exit 3 too (`compozy-unavailable` names what to fix). A change that CompozyOS already runs answers `compozy-running`: say it, start nothing.\n\n## A new change\n\nTyping `/devkit change <request>` is the go-ahead: ask nothing before the change exists.\n\n1. Propose the id from the request: kebab-case, the subject in at most five words and at most 48 characters. State it in the reply; the session does not ask.\n2. Choose the script with one rule: `devkit-lite` only for a small change that is easy to undo and touches no screen, no boundary between parts of the project and no contract other parts rely on; `devkit` otherwise and whenever in doubt. Pick one reason code for the choice: `small`, `doubt`, `architecture`, `contract`, `ui`, `capability` or `risk`.\n3. Open it, with the request on standard input through the same quoted heredoc, the request verbatim:\n\n```\nnode <skill-dir>/../../hooks/change-loop.mjs open <id> --script <devkit|devkit-lite> --why <code> --lang ${user_config.language} <<\'DEVKIT_ARGS\'\n<the request, verbatim>\nDEVKIT_ARGS\n```\n\nKeep `reply` for the message that ends the turn, then enter the Loop with the id. On `name-taken`, choose another id and call `open` again. On any other exit 3, say `reply` and end the turn.\n\nWhen the owner asks to switch the script before the plan is written, run `node <skill-dir>/../../hooks/change-loop.mjs script <id> <devkit|devkit-lite> --why <code> --lang ${user_config.language}` and say its reply. The grill may also correct a wrong guess: the loop then hands you a `switch-script` step with its command.\n\nWhen the owner asks to move the change to the newer flow the readout or the resume reply named, run `node <skill-dir>/../../hooks/change-loop.mjs flow <id> --lang ${user_config.language}` and say its reply; never run it unasked.\n\n### A Jira task\n\nThe `task` mode opens the change from a Jira task. The script makes no call to Jira and keeps no token: this session reads the task through its own Atlassian connector.\n\n1. Load the connector\'s Jira tools with ToolSearch (query `jira issue`). The read tool is the one whose name ends in `getJiraIssue`. Its siblings are `getTransitionsForJiraIssue`, `addCommentToJiraIssue`, `transitionJiraIssue` and `getAccessibleAtlassianResources` (the `cloudId` when the read tool asks for one). Use the site whose host the typed link names, else try each accessible site until one reads the task. When no read tool loads, run `node <skill-dir>/../../hooks/change-loop.mjs reply task-no-connector --param key=<KEY> --lang ${user_config.language}`, say it and end the turn.\n2. Read the task. A not-found, a refusal or any error runs `node <skill-dir>/../../hooks/change-loop.mjs reply task-unreadable --param key=<KEY> --lang $'... 53981 more characters,
+    expected: /`ship` and `merge_method` are asked in step 5, `merge` suggested/,
+    operator: 'match',
+    diff: 'simple'
+  }
+=== plugins/openspec/skills/devkit/scripts/github-setup.test.mjs: FAIL 0.2s
+=== plugins/openspec/hooks/guard.test.mjs
+✔ setup AC-1 guard: a typed /devkit setup ends a /devkit change run (5.821097ms)
+✔ setup AC-1 guard: a typed /devkit setup ends a /devkit roadmap run and /devkit status does not (2.644231ms)
+✖ setup AC-1 skill: the hint lists setup right after status, the description names /devkit setup, the skill stays not model-invocable, and Start sends setup to the Setup section on every driver (2.684306ms)
+✖ setup AC-6 skill: step 8 asks the kit apart from the driver, runs kit-installer on yes and enables devkit-compozy, writes nothing on no, and the compozy driver installs the kit (0.964048ms)
+✖ setup AC-5 skill: the Setup section copies no checker, names the version, the packs not enabled and a CI pin that differs (0.930265ms)
+✖ setup AC-7 skill: step 5 asks the ship mode with merge suggested and step 7 asks one question per item (0.61949ms)
+✔ setup AC-8 old project: the configuration the old skill wrote opens a change with no setup step and its readout reads (2962.075181ms)
+✖ setup AC-4 skill: step 5 writes schema, context, rules and operations only where fill names them, and the block only through setup-block.mjs apply (0.406202ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 3
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3110.146043
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/guard.test.mjs:1819:1
+✖ setup AC-1 skill: the hint lists setup right after status, the description names /devkit setup, the skill stays not model-invocable, and Start sends setup to the Setup section on every driver (2.684306ms)
+  AssertionError [ERR_ASSERTION]: the hint
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-setup/plugins/openspec/hooks/guard.test.mjs:1821:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1836:1
+✖ setup AC-6 skill: step 8 asks the kit apart from the driver, runs kit-installer on yes and enables devkit-compozy, writes nothing on no, and the compozy driver installs the kit (0.964048ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Ask whether to install the kit, one question, when the plan's `kit` is `absent` and the driver[^\n]* is not `compozy`/. Input:
+  
+  "8. **The CompozyOS kit.** The kit is `.compozy/`, the files CompozyOS runs the devkit flow from on the `compozy` driver: `config.toml`, `README.md`, the twenty-one agents, the three loops and the resolver `bin/devkit-kit`. `node <skill-dir>/scripts/kit-installer.mjs <project-root> [--set __NAME__=value]... [--accept <path>,...]` finds devkit-compozy's installer and runs it, with its output passed through and its exit code returned. When it exits 3, it names `devkit-compozy` and every location it tried: say that line, and that devkit-compozy must be installed or updated before the kit can be installed.\n" +
+    '   - Ask whether to install the kit, one question, when the project has no `.compozy/` and the driver is not `compozy`. A no writes nothing for the kit, and the question comes again on a later run.\n' +
+    "   - A yes, or the driver `compozy`, runs `node <skill-dir>/scripts/kit-installer.mjs <project-root>`. The only input asked is `__TIMEZONE__`, once, when `.compozy/kit-manifest.json` does not record it: pass it with `--set __TIMEZONE__=<value>`. `__SCREEN_MAP__` and `__MOCKUP__` are never asked: no template uses them, and the installer records their defaults. Then run step 2's `project-settings.mjs` again with `devkit-compozy` added to `--packs`.\n" +
+    '   - The installer prints one line per file (`create`, `same`, `update`, `edited`, `accepted`, `remove` or `kept`) and writes nothing outside `.compozy/`. A file the project did not edit follows the template with no question. For each `edited` or `kept` file, show its difference to the owner and ask yes or no for that file, one question per file; run the installer again with `--accept .compozy/<path>,...` for the files that got a yes.\n' +
+    "   - A project whose `.compozy/` is already installed gets no kit question: the installer runs again, so the kit's files follow the current templates. The manifest's recorded inputs are reused (`--set` overrides one), and an input the templates no longer have is dropped from the manifest and printed as `dropped __NAME__`.\n" +
+    '   - A project on the first kit has five retired files: the four role shells `.compozy/agents/{tech-lead,dev,qa,design}/AGENT.md` and `.compozy/loops/openspec-change/loop.yaml`. One the project did not edit is removed (`remove`); one it edited is kept and named (`kept`), and asked as above. A workspace whose default agent was `tech-lead` needs another one: `compozy workspace edit <name> --default-agent change-coordinator`.\n' +
+    '   - The setup never starts a CompozyOS run: `/devkit change` starts them. It writes no `design:` block: the owner sets it by hand when the project tracks screens (the `screen-design` skill says what the screen map holds).\n' +
+    '\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-setup/plugins/openspec/hooks/guard.test.mjs:1838:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: "8. **The CompozyOS kit.** The kit is `.compozy/`, the files CompozyOS runs the devkit flow from on the `compozy` driver: `config.toml`, `README.md`, the twenty-one agents, the three loops and the resolver `bin/devkit-kit`. `node <skill-dir>/scripts/kit-installer.mjs <project-root> [--set __NAME__=value]... [--accept <path>,...]` finds devkit-compozy's installer and runs it, with its output passed through and its exit code returned. When it exits 3, it names `devkit-compozy` and every location it tried: say that line, and that devkit-compozy must be installed or updated before the kit can be installed.\n   - Ask whether to install the kit, one question, when the project has no `.compozy/` and the driver is not `compozy`. A no writes nothing for the kit, and the question comes again on a later run.\n   - A yes, or the driver `compozy`, runs `node <skill-dir>/scripts/kit-installer.mjs <project-root>`. The only input asked is `__TIMEZONE__`, once, when `.compozy/kit-manifest.json` does not record it: pass it with `--set __TIMEZONE__=<value>`. `__SCREEN_MAP__` and `__MOCKUP__` are never asked: no template uses them, and the installer records their defaults. Then run step 2's `project-settings.mjs` again with `devkit-compozy` added to `--packs`.\n   - The installer prints one line per file (`create`, `same`, `update`, `edited`, `accepted`, `remove` or `kept`) and writes nothing outside `.compozy/`. A file the project did not edit follows the template with no question. For each `edited` or `kept` file, show its difference to the owner and ask yes or no for that file, one question per file; run the installer again with `--accept .compozy/<path>,...` for the files that got a yes.\n   - A project whose `.compozy/` is already installed gets no kit question: the installer runs again, so the kit's files follow the current templates. The manifest's recorded inputs are reused (`--set` overrides one), and an input the templates no longer have is dropped from the manifest and printed as `dropped __NAME__`.\n   - A project on the first kit has five retired files: the four role shells `.compozy/agents/{tech-lead,dev,qa,design}/AGENT.md` and `.compozy/loops/openspec-change/loop.yaml`. One the project did not edit is removed (`remove`); one it edited is kept and named (`kept`), and asked as above. A workspace whose default agent was `tech-lead` needs another one: `compozy workspace edit <name> --default-agent change-coordinator`.\n   - The setup never starts a CompozyOS run: `/devkit change` starts them. It writes no `design:` block: the owner sets it by hand when the project tracks screens (the `screen-design` skill says what the screen map holds).\n\n",
+    expected: /Ask whether to install the kit, one question, when the plan's `kit` is `absent` and the driver[^\n]* is not `compozy`/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1848:1
+✖ setup AC-5 skill: the Setup section copies no checker, names the version, the packs not enabled and a CI pin that differs (0.930265ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /copies no checker/. Input:
+  
+  '\n' +
+    '## Setup\n' +
+    '\n' +
+    "`/devkit setup` leaves the project ready for `openspec new change <name>` to run the devkit flow. Idempotent: re-running it upgrades the schemas and keeps the project's config. Devkit is per project (ADR 0004): the packs and the hooks act only where the project opts in, so nothing here is installed at user scope. The paths below are under this skill's directory:\n" +
+    "- `<skill-dir>/scripts/project-settings.mjs` writes the project's `.claude/settings.json` (step 2).\n" +
+    '- `<skill-dir>/scripts/gh-version.mjs` checks the installed `gh` against the version the `pr` and `merge` ship modes need (step 1).\n' +
+    '- `<skill-dir>/scripts/install-schemas.sh` installs the schemas.\n' +
+    '- `<skill-dir>/scripts/changes-under-way.mjs` lists the changes under way and what the schema upgrade changes for each (step 4).\n' +
+    '- `<skill-dir>/scripts/ship-entry.mjs` adds the `devkit-project` entry to the `ship:` block of `openspec/config.yaml` (step 5).\n' +
+    '- `<skill-dir>/templates/config.yaml` is the starting `openspec/config.yaml`.\n' +
+    '- `<skill-dir>/scripts/github-setup.mjs` plans and applies the GitHub settings of `merge` mode (step 7).\n' +
+    "- `<skill-dir>/scripts/kit-installer.mjs` finds devkit-compozy's kit installer and runs it (step 8).\n" +
+    '\n' +
+    "1. **Check the CLI.** The packs start the project's own OpenSpec: the one installed in the project (`node_modules/.bin/openspec` of the checkout, or of the main checkout when this is a worktree) wins over the one on `PATH`. Run that one with `--version`, and check `gh` (last bullet).\n" +
+    "   - A project that declares `@fission-ai/openspec` in its `package.json` and has it not installed: say so, name the file and the range, tell the user to run the project's install (`npm install` or its package manager), and stop. Never fall back to the one on `PATH`: a project that pins its CLI may forbid the global one.\n" +
+    "   - A pinned CLI that is not 2.x: say so and tell the user to move the project's pin to 2.x (`npm i -D @fission-ai/openspec@2`); stop.\n" +
+    '   - No pin: `openspec --version` on `PATH`. If missing, tell the user to install it (`npm i -g @fission-ai/openspec@2`, a 2.x release: the flow checker refuses another major) and stop. If the installed major is not 2, say so and ask whether to install a 2.x release.\n' +
+    "   - Whatever the OpenSpec check found, run `node <skill-dir>/scripts/gh-version.mjs` once and show its line. A `warning` line never stops the setup: the `plan` ship mode needs no `gh`. Tell the user that the `pr` and `merge` ship modes read a pull request's checks with `gh` 2.50.0 or newer, and to install or update `gh` before choosing them.\n" +
+    '\n' +
+    "2. **Opt the project in.** Run `node <skill-dir>/scripts/project-settings.mjs <project-root>`. It adds the `devkit` marketplace and enables `devkit-core` and `devkit-openspec` in `<project-root>/.claude/settings.json`, keeping every other key; it never touches `settings.local.json` or `~/.claude`. Show its lines and `git diff -- .claude/settings.json`, and tell the user the packs load in this project after a restart of Claude Code (or `/plugin` to accept the project's plugins). Other packs only on request: add `--packs <pack,...>`; the project flow (`/devkit project`) needs `--packs devkit-core,devkit-openspec,devkit-design`, so add `devkit-design` when the owner wants it.\n" +
+    '\n' +
+    '3. **Initialize OpenSpec** if the project has no `openspec/` folder: `openspec init --tools claude`. If it already has one, run `openspec update` so the generated `openspec-*` skills match the installed CLI.\n' +
+    '\n' +
+    '4. **Install the schemas** into the project. Replacing them changes the flow of the changes already under way, so first list those: `node <skill-dir>/scripts/changes-under-way.mjs <project-root>` (read-only; it covers the main checkout and every worktree).\n' +
+    '   - With `no change under way`, install with no question: `bash <skill-dir>/scripts/install-schemas.sh <project-root>`.\n' +
+    '   - Otherwise show every line it printed, each with its script, checkout and what the upgrade changes for it (a slice on `devkit-project` is listed as continuing on the new project script with its files kept; a change on another schema is listed as untouched), and ask the owner one question: upgrade with these effects, yes or no. Without a yes, replace nothing and write nothing.\n' +
+    '   - On yes, run `node <skill-dir>/scripts/changes-under-way.mjs <project-root> --apply --owner-answer "<the owner\'s words>"` first, then `bash <skill-dir>/scripts/install-schemas.sh <project-root>`. The first writes `approval.md`, as not applying and only from that answer, for each full-script change whose implementation had started (so it continues where it was and is not asked an approval that did not exist when it began); it never overwrites a file. A full-script change with only its plan ready asks the owner\'s approval once, before its implementation. A short-script change begun on the previous script is not sent back to the grill.\n' +
+    '   - A worktree gets the new schemas when its branch takes the default branch.\n' +
+    "   - A change opened from devkit-openspec 0.31.0 on records its flow version in its `.openspec.yaml` (`x-devkit-flow`), and replacing the schemas keeps the earlier versions under `flows/`, so such a change keeps its flow until the owner moves it (the `flow` command of `/devkit change`, only on the owner's request). A change opened before that has no record and follows version 1.\n" +
+    '   - The schemas are versioned with the repo, so the whole team and CI get the same flow. Use the machine-wide form (`bash <skill-dir>/scripts/install-schemas.sh --user`) only when the owner asks for it explicitly, and say why it matters: it applies to every project on the machine.\n' +
+    '\n' +
+    '5. **Write `openspec/config.yaml`.**\n' +
+    "   - If it doesn't exist, start from `<skill-dir>/templates/config.yaml`.\n" +
+    "   - If it exists, keep the user's values: set `schema: devkit-lite` as the default (ask first if it names another schema), and merge in only the missing `rules` / `operations` keys.\n" +
+    '   - Fill `context` from the repo, never with placeholders:\n' +
+    '     - stack: `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `pom.xml`, ...;\n' +
+    '     - test, lint and typecheck commands: package scripts, `Makefile`, CI workflows (`.github/workflows/`);\n' +
+    '     - ADR folder: `docs/adr/`, `docs/decisions/`, `adr/`, or "none";\n' +
+    '     - default branch: `git symbolic-ref --short refs/remotes/origin/HEAD`, else `main`;\n' +
+    '     - conventions: commitlint config, `CONTRIBUTING.md`, recent `git log` subjects.\n' +
+    '   - Run the test command once. If it fails, record it in `context` as failing and tell the user.\n' +
+    "   - Fill the `devkit:` block's `tests:` from the repository: `unit` from the test command (package scripts, `Makefile`, CI), `coverage.command` when the stack has a coverage command, `e2e` only when the project has an E2E tool configured (Playwright, Cypress, a CI E2E job). Show each proposed value and ask the owner to confirm or change it, and ask for `coverage.target` (none is a valid answer). Write only what the owner confirmed; keep every value the block already holds and ask nothing about it. A stage whose command is absent does not run.\n" +
+    '   - The schema is also what turns the devkit hooks on (ADR 0004): `devkit-lite` or `devkit`. If the owner keeps another schema, say that the hooks will stay silent. `devkit-project` is not a default schema: a project never selects it in its config.\n' +
+    '   - When the config has a `ship:` entry, run `node <skill-dir>/scripts/ship-entry.mjs <project-root>` and show what it prints: it adds `devkit-project: <the mode of devkit, else plan>` to the block and changes nothing else (a block that already has the key, or a config with no `ship:` entry, is left alone; an entry it cannot read stops it with its message). After the owner agrees, run it again with `--apply`.\n' +
+    "   - A project moves the sha of `.github/workflows/devkit-reviews.yml` to the commit of the new release (the by-hand command of `docs/openspec-flow.md`'s CI section) before it sets `ship: devkit-project: merge`: on an older pin `devkit-reviews` passes a slice's pull request with a note, so the slice would merge with no review check. `ship-entry.mjs` prints this sentence when the mode it adds is `merge`.\n" +
+    '\n' +
+    '6. **Check.**\n' +
+    "   - With the project's CLI (step 1): `openspec schema validate devkit`, `openspec schema validate devkit-lite` and `openspec schema validate devkit-project` all pass.\n" +
+    '   - `openspec schema which devkit` resolves under the project.\n' +
+    '   - Run `node <skill-dir>/scripts/changes-under-way.mjs <project-root>` again: each change the owner said yes for now has its `approval.md`, and no other change got a file.\n' +
+    '   - `.claude/settings.json` lists the packs (step 2).\n' +
+    '\n' +
+    "7. **GitHub (merge mode).** Ask only when the owner wants `ship: merge` or asks for this step; skip it otherwise. It changes repository settings, so nothing is applied without the owner's confirmation of that item.\n" +
+    '   - Run the plan, which reads and writes nothing: `node <skill-dir>/scripts/github-setup.mjs` (add `--method <the merge_method answer of step 5>` when it is not `squash`, `--checks <a,b>` to replace the checks it found). Show every line, with its payload, and the list of checks the ruleset will require: the owner confirms that list (or gives `--checks`) before the `ruleset` item is applied.\n' +
+    "   - The plan also prints the repository's own state before the items: `actions` (is GitHub Actions enabled for the repository) and `runs` (did the newest runs fail without a job starting a step). States: `ok`, `blocked: <why>`, `unknown: <why>`. `unknown` means GitHub did not let the plan read that state (usually missing admin rights): say so, and do not treat it as a fault. Show every `blocked` line to the owner as it is printed. Billing cannot be read from the repository's API: a `runs` line names it only as one possible cause, and the owner checks it in Settings > Billing and plans.\n" +
+    "   - A `ruleset` that reads `blocked` means GitHub refuses rulesets for the repository's plan (the owner makes the repository public or moves to a plan with rulesets). Then `merge` mode is n"... 5012 more characters
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-setup/plugins/openspec/hooks/guard.test.mjs:1850:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '\n## Setup\n\n`/devkit setup` leaves the project ready for `openspec new change <name>` to run the devkit flow. Idempotent: re-running it upgrades the schemas and keeps the project\'s config. Devkit is per project (ADR 0004): the packs and the hooks act only where the project opts in, so nothing here is installed at user scope. The paths below are under this skill\'s directory:\n- `<skill-dir>/scripts/project-settings.mjs` writes the project\'s `.claude/settings.json` (step 2).\n- `<skill-dir>/scripts/gh-version.mjs` checks the installed `gh` against the version the `pr` and `merge` ship modes need (step 1).\n- `<skill-dir>/scripts/install-schemas.sh` installs the schemas.\n- `<skill-dir>/scripts/changes-under-way.mjs` lists the changes under way and what the schema upgrade changes for each (step 4).\n- `<skill-dir>/scripts/ship-entry.mjs` adds the `devkit-project` entry to the `ship:` block of `openspec/config.yaml` (step 5).\n- `<skill-dir>/templates/config.yaml` is the starting `openspec/config.yaml`.\n- `<skill-dir>/scripts/github-setup.mjs` plans and applies the GitHub settings of `merge` mode (step 7).\n- `<skill-dir>/scripts/kit-installer.mjs` finds devkit-compozy\'s kit installer and runs it (step 8).\n\n1. **Check the CLI.** The packs start the project\'s own OpenSpec: the one installed in the project (`node_modules/.bin/openspec` of the checkout, or of the main checkout when this is a worktree) wins over the one on `PATH`. Run that one with `--version`, and check `gh` (last bullet).\n   - A project that declares `@fission-ai/openspec` in its `package.json` and has it not installed: say so, name the file and the range, tell the user to run the project\'s install (`npm install` or its package manager), and stop. Never fall back to the one on `PATH`: a project that pins its CLI may forbid the global one.\n   - A pinned CLI that is not 2.x: say so and tell the user to move the project\'s pin to 2.x (`npm i -D @fission-ai/openspec@2`); stop.\n   - No pin: `openspec --version` on `PATH`. If missing, tell the user to install it (`npm i -g @fission-ai/openspec@2`, a 2.x release: the flow checker refuses another major) and stop. If the installed major is not 2, say so and ask whether to install a 2.x release.\n   - Whatever the OpenSpec check found, run `node <skill-dir>/scripts/gh-version.mjs` once and show its line. A `warning` line never stops the setup: the `plan` ship mode needs no `gh`. Tell the user that the `pr` and `merge` ship modes read a pull request\'s checks with `gh` 2.50.0 or newer, and to install or update `gh` before choosing them.\n\n2. **Opt the project in.** Run `node <skill-dir>/scripts/project-settings.mjs <project-root>`. It adds the `devkit` marketplace and enables `devkit-core` and `devkit-openspec` in `<project-root>/.claude/settings.json`, keeping every other key; it never touches `settings.local.json` or `~/.claude`. Show its lines and `git diff -- .claude/settings.json`, and tell the user the packs load in this project after a restart of Claude Code (or `/plugin` to accept the project\'s plugins). Other packs only on request: add `--packs <pack,...>`; the project flow (`/devkit project`) needs `--packs devkit-core,devkit-openspec,devkit-design`, so add `devkit-design` when the owner wants it.\n\n3. **Initialize OpenSpec** if the project has no `openspec/` folder: `openspec init --tools claude`. If it already has one, run `openspec update` so the generated `openspec-*` skills match the installed CLI.\n\n4. **Install the schemas** into the project. Replacing them changes the flow of the changes already under way, so first list those: `node <skill-dir>/scripts/changes-under-way.mjs <project-root>` (read-only; it covers the main checkout and every worktree).\n   - With `no change under way`, install with no question: `bash <skill-dir>/scripts/install-schemas.sh <project-root>`.\n   - Otherwise show every line it printed, each with its script, checkout and what the upgrade changes for it (a slice on `devkit-project` is listed as continuing on the new project script with its files kept; a change on another schema is listed as untouched), and ask the owner one question: upgrade with these effects, yes or no. Without a yes, replace nothing and write nothing.\n   - On yes, run `node <skill-dir>/scripts/changes-under-way.mjs <project-root> --apply --owner-answer "<the owner\'s words>"` first, then `bash <skill-dir>/scripts/install-schemas.sh <project-root>`. The first writes `approval.md`, as not applying and only from that answer, for each full-script change whose implementation had started (so it continues where it was and is not asked an approval that did not exist when it began); it never overwrites a file. A full-script change with only its plan ready asks the owner\'s approval once, before its implementation. A short-script change begun on the previous script is not sent back to the grill.\n   - A worktree gets the new schemas when its branch takes the default branch.\n   - A change opened from devkit-openspec 0.31.0 on records its flow version in its `.openspec.yaml` (`x-devkit-flow`), and replacing the schemas keeps the earlier versions under `flows/`, so such a change keeps its flow until the owner moves it (the `flow` command of `/devkit change`, only on the owner\'s request). A change opened before that has no record and follows version 1.\n   - The schemas are versioned with the repo, so the whole team and CI get the same flow. Use the machine-wide form (`bash <skill-dir>/scripts/install-schemas.sh --user`) only when the owner asks for it explicitly, and say why it matters: it applies to every project on the machine.\n\n5. **Write `openspec/config.yaml`.**\n   - If it doesn\'t exist, start from `<skill-dir>/templates/config.yaml`.\n   - If it exists, keep the user\'s values: set `schema: devkit-lite` as the default (ask first if it names another schema), and merge in only the missing `rules` / `operations` keys.\n   - Fill `context` from the repo, never with placeholders:\n     - stack: `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `pom.xml`, ...;\n     - test, lint and typecheck commands: package scripts, `Makefile`, CI workflows (`.github/workflows/`);\n     - ADR folder: `docs/adr/`, `docs/decisions/`, `adr/`, or "none";\n     - default branch: `git symbolic-ref --short refs/remotes/origin/HEAD`, else `main`;\n     - conventions: commitlint config, `CONTRIBUTING.md`, recent `git log` subjects.\n   - Run the test command once. If it fails, record it in `context` as failing and tell the user.\n   - Fill the `devkit:` block\'s `tests:` from the repository: `unit` from the test command (package scripts, `Makefile`, CI), `coverage.command` when the stack has a coverage command, `e2e` only when the project has an E2E tool configured (Playwright, Cypress, a CI E2E job). Show each proposed value and ask the owner to confirm or change it, and ask for `coverage.target` (none is a valid answer). Write only what the owner confirmed; keep every value the block already holds and ask nothing about it. A stage whose command is absent does not run.\n   - The schema is also what turns the devkit hooks on (ADR 0004): `devkit-lite` or `devkit`. If the owner keeps another schema, say that the hooks will stay silent. `devkit-project` is not a default schema: a project never selects it in its config.\n   - When the config has a `ship:` entry, run `node <skill-dir>/scripts/ship-entry.mjs <project-root>` and show what it prints: it adds `devkit-project: <the mode of devkit, else plan>` to the block and changes nothing else (a block that already has the key, or a config with no `ship:` entry, is left alone; an entry it cannot read stops it with its message). After the owner agrees, run it again with `--apply`.\n   - A project moves the sha of `.github/workflows/devkit-reviews.yml` to the commit of the new release (the by-hand command of `docs/openspec-flow.md`\'s CI section) before it sets `ship: devkit-project: merge`: on an older pin `devkit-reviews` passes a slice\'s pull request with a note, so the slice would merge with no review check. `ship-entry.mjs` prints this sentence when the mode it adds is `merge`.\n\n6. **Check.**\n   - With the project\'s CLI (step 1): `openspec schema validate devkit`, `openspec schema validate devkit-lite` and `openspec schema validate devkit-project` all pass.\n   - `openspec schema which devkit` resolves under the project.\n   - Run `node <skill-dir>/scripts/changes-under-way.mjs <project-root>` again: each change the owner said yes for now has its `approval.md`, and no other change got a file.\n   - `.claude/settings.json` lists the packs (step 2).\n\n7. **GitHub (merge mode).** Ask only when the owner wants `ship: merge` or asks for this step; skip it otherwise. It changes repository settings, so nothing is applied without the owner\'s confirmation of that item.\n   - Run the plan, which reads and writes nothing: `node <skill-dir>/scripts/github-setup.mjs` (add `--method <the merge_method answer of step 5>` when it is not `squash`, `--checks <a,b>` to replace the checks it found). Show every line, with its payload, and the list of checks the ruleset will require: the owner confirms that list (or gives `--checks`) before the `ruleset` item is applied.\n   - The plan also prints the repository\'s own state before the items: `actions` (is GitHub Actions enabled for the repository) and `runs` (did the newest runs fail without a job starting a step). States: `ok`, `blocked: <why>`, `unknown: <why>`. `unknown` means GitHub did not let the plan read that state (usually missing admin rights): say so, and do not treat it as a fault. Show every `blocked` line to the owner as it is printed. Billing cannot be read from the repository\'s API: a `runs` line names it only as one possible cause, and the owner checks it in Settings > Billing and plans.\n   - A `ruleset` that reads `blocked` means GitHub refuses rulesets for the repository\'s plan (the owner makes the repository public or moves to a plan with rulesets). Then `merge` mode is n'... 5012 more characters,
+    expected: /copies no checker/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1865:1
+✖ setup AC-7 skill: step 5 asks the ship mode with merge suggested and step 7 asks one question per item (0.61949ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /the `missing` questions in order, one question each/. Input:
+  
+  '5. **Write `openspec/config.yaml`.**\n' +
+    "   - If it doesn't exist, start from `<skill-dir>/templates/config.yaml`.\n" +
+    "   - If it exists, keep the user's values: set `schema: devkit-lite` as the default (ask first if it names another schema), and merge in only the missing `rules` / `operations` keys.\n" +
+    '   - Fill `context` from the repo, never with placeholders:\n' +
+    '     - stack: `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `pom.xml`, ...;\n' +
+    '     - test, lint and typecheck commands: package scripts, `Makefile`, CI workflows (`.github/workflows/`);\n' +
+    '     - ADR folder: `docs/adr/`, `docs/decisions/`, `adr/`, or "none";\n' +
+    '     - default branch: `git symbolic-ref --short refs/remotes/origin/HEAD`, else `main`;\n' +
+    '     - conventions: commitlint config, `CONTRIBUTING.md`, recent `git log` subjects.\n' +
+    '   - Run the test command once. If it fails, record it in `context` as failing and tell the user.\n' +
+    "   - Fill the `devkit:` block's `tests:` from the repository: `unit` from the test command (package scripts, `Makefile`, CI), `coverage.command` when the stack has a coverage command, `e2e` only when the project has an E2E tool configured (Playwright, Cypress, a CI E2E job). Show each proposed value and ask the owner to confirm or change it, and ask for `coverage.target` (none is a valid answer). Write only what the owner confirmed; keep every value the block already holds and ask nothing about it. A stage whose command is absent does not run.\n" +
+    '   - The schema is also what turns the devkit hooks on (ADR 0004): `devkit-lite` or `devkit`. If the owner keeps another schema, say that the hooks will stay silent. `devkit-project` is not a default schema: a project never selects it in its config.\n' +
+    '   - When the config has a `ship:` entry, run `node <skill-dir>/scripts/ship-entry.mjs <project-root>` and show what it prints: it adds `devkit-project: <the mode of devkit, else plan>` to the block and changes nothing else (a block that already has the key, or a config with no `ship:` entry, is left alone; an entry it cannot read stops it with its message). After the owner agrees, run it again with `--apply`.\n' +
+    "   - A project moves the sha of `.github/workflows/devkit-reviews.yml` to the commit of the new release (the by-hand command of `docs/openspec-flow.md`'s CI section) before it sets `ship: devkit-project: merge`: on an older pin `devkit-reviews` passes a slice's pull request with a note, so the slice would merge with no review check. `ship-entry.mjs` prints this sentence when the mode it adds is `merge`.\n" +
+    '\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-setup/plugins/openspec/hooks/guard.test.mjs:1867:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '5. **Write `openspec/config.yaml`.**\n   - If it doesn\'t exist, start from `<skill-dir>/templates/config.yaml`.\n   - If it exists, keep the user\'s values: set `schema: devkit-lite` as the default (ask first if it names another schema), and merge in only the missing `rules` / `operations` keys.\n   - Fill `context` from the repo, never with placeholders:\n     - stack: `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `pom.xml`, ...;\n     - test, lint and typecheck commands: package scripts, `Makefile`, CI workflows (`.github/workflows/`);\n     - ADR folder: `docs/adr/`, `docs/decisions/`, `adr/`, or "none";\n     - default branch: `git symbolic-ref --short refs/remotes/origin/HEAD`, else `main`;\n     - conventions: commitlint config, `CONTRIBUTING.md`, recent `git log` subjects.\n   - Run the test command once. If it fails, record it in `context` as failing and tell the user.\n   - Fill the `devkit:` block\'s `tests:` from the repository: `unit` from the test command (package scripts, `Makefile`, CI), `coverage.command` when the stack has a coverage command, `e2e` only when the project has an E2E tool configured (Playwright, Cypress, a CI E2E job). Show each proposed value and ask the owner to confirm or change it, and ask for `coverage.target` (none is a valid answer). Write only what the owner confirmed; keep every value the block already holds and ask nothing about it. A stage whose command is absent does not run.\n   - The schema is also what turns the devkit hooks on (ADR 0004): `devkit-lite` or `devkit`. If the owner keeps another schema, say that the hooks will stay silent. `devkit-project` is not a default schema: a project never selects it in its config.\n   - When the config has a `ship:` entry, run `node <skill-dir>/scripts/ship-entry.mjs <project-root>` and show what it prints: it adds `devkit-project: <the mode of devkit, else plan>` to the block and changes nothing else (a block that already has the key, or a config with no `ship:` entry, is left alone; an entry it cannot read stops it with its message). After the owner agrees, run it again with `--apply`.\n   - A project moves the sha of `.github/workflows/devkit-reviews.yml` to the commit of the new release (the by-hand command of `docs/openspec-flow.md`\'s CI section) before it sets `ship: devkit-project: merge`: on an older pin `devkit-reviews` passes a slice\'s pull request with a note, so the slice would merge with no review check. `ship-entry.mjs` prints this sentence when the mode it adds is `merge`.\n\n',
+    expected: /the `missing` questions in order, one question each/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1902:1
+✖ setup AC-4 skill: step 5 writes schema, context, rules and operations only where fill names them, and the block only through setup-block.mjs apply (0.406202ms)
+  AssertionError [ERR_ASSERTION]: the plan first
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-setup/plugins/openspec/hooks/guard.test.mjs:1904:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/guard.test.mjs: FAIL 3.2s
+FAIL 3.2s plugins/openspec/hooks/guard.test.mjs
+FAIL 0.2s plugins/openspec/skills/devkit/scripts/github-setup.test.mjs
+suite: 2 files, 9 tests, 3 pass, 6 fail, 3.2s, concurrency 2

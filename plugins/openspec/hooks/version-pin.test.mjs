@@ -869,7 +869,7 @@ test('version-pin AC-6 flow: next, wait, another open, a setup re-run and a pack
   same('another open');
 
   const pack = packV2();
-  const setup = spawnSync('bash', [join(pack, 'skills', 'openspec-setup', 'scripts', 'install-schemas.sh'), t.main], { env: ENV, encoding: 'utf8' });
+  const setup = spawnSync('bash', [join(pack, 'skills', 'devkit', 'scripts', 'install-schemas.sh'), t.main], { env: ENV, encoding: 'utf8' });
   assert.equal(setup.status, 0, setup.stdout + setup.stderr);
   assert.ok(existsSync(join(t.main, 'openspec', 'schemas', 'devkit', 'flows', '2.json')), 'the re-run installed version 2');
   same('a setup re-run');

@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "devkit": {
+      "source": {
+        "source": "github",
+        "repo": "chacal88/devkit"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "devkit-core@devkit": true,
+    "devkit-openspec@devkit": true
+  }
+}

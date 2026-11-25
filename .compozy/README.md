@@ -13,7 +13,7 @@ in all. Each is a seat: a CompozyOS session that hands its work, unchanged, to t
 the same name (`devkit-core:<role>` or `devkit-openspec:<role>`) and returns that agent's report in
 the shape the loop's node asks for, so the devkit hooks judge the work exactly as they do in
 Claude Code. They are generated from the Claude agent files by
-`node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs` in the devkit repository, so a
+`node plugins/compozy/kit/scripts/gen-agents.mjs` in the devkit repository, so a
 change goes into the Claude agent, never into a copy here.
 
 The default agent is `change-coordinator`, the hands of the loops: it opens a change, runs one
