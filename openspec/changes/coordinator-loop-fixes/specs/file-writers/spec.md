@@ -46,7 +46,7 @@ write, SHALL be refused, and so SHALL a subagent's Bash command that runs `chang
 - **THEN** the write is allowed
 
 #### Scenario: A subagent runs the declare command
-- **WHEN** `tdd-implementer` runs `node <plugin>/hooks/change-loop.mjs declare feat review-round --param words=x`, with the script's path quoted or not, alone or after a `cd`
+- **WHEN** `tdd-implementer` runs `node <plugin>/hooks/change-loop.mjs declare feat review-round --param words=x`, with the script's path quoted or not, with node option words before it (`--no-warnings`, `--`) or none, alone or after a `cd`
 - **THEN** the command is refused, saying the main session runs it, and nothing is recorded
 
 #### Scenario: The main session runs the declare command

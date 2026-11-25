@@ -1852,13 +1852,24 @@ test('coordinator-loop-fixes AC-1 T98 guardBash: a subagent running change-loop.
   assert.match(r.err, DECLARE_CMD_RE);
 });
 
-test('coordinator-loop-fixes AC-1 T99 guardBash: a quoted plugin path and a cd before the call are refused too', () => {
+// A node option word between `node` and the script path (review round 1): the call is the same declare.
+const OPTION_LINES = [
+  'node --no-warnings plugins/openspec/hooks/change-loop.mjs declare feat review-round --param words=x',
+  'node -- plugins/openspec/hooks/change-loop.mjs declare feat gate-red --param phase=1',
+  'node --no-warnings --stack-size=2000 "$CLAUDE_PLUGIN_ROOT/hooks/change-loop.mjs" declare feat review-round --stdin words',
+];
+
+test('coordinator-loop-fixes AC-1 T99 guardBash: a quoted plugin path, a node option and a cd before the call are refused too, and the main session\'s are allowed', () => {
   const root = repo({ changes: { feat: approved } });
   const scratch = tmpFolder('devkit-guard-scratch-');
-  for (const command of [QUOTED_LINE, `cd ${scratch} && ${DECLARE_LINE}`, `cd ${scratch} && ${QUOTED_LINE}`]) {
+  for (const command of [QUOTED_LINE, `cd ${scratch} && ${DECLARE_LINE}`, `cd ${scratch} && ${QUOTED_LINE}`, ...OPTION_LINES, `cd ${scratch} && ${OPTION_LINES[0]}`]) {
     const r = bash(root, command, 'tdd-implementer');
     assert.equal(r.code, 2, `${command}: ${r.err}`);
     assert.match(r.err, DECLARE_CMD_RE, command);
+  }
+  for (const command of OPTION_LINES) {
+    const r = bash(root, command);
+    assert.equal(r.code, 0, `the main session: ${command}: ${r.err}`);
   }
 });
 

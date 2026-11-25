@@ -262,13 +262,14 @@ item 5 is not edited.
 - The command. `guard.mjs` cannot see what a script writes, but it sees the command a subagent runs:
   this is the same layer as the `gh pr create` rule of `guardBash`. `export function
   declareViolation(cmd, actor)` returns null when `actor` is `''` (the main session); otherwise, when
-  `withoutHeredocs(cmd)` matches `/\bnode\s+(?:"[^"\n]*change-loop\.mjs"|'[^'\n]*change-loop\.mjs'|[^\s;&|]*change-loop\.mjs)\s+declare\b/`,
+  `withoutHeredocs(cmd)` matches `/\bnode(?:\s+-[^\s;&|]*)*\s+(?:"[^"\n]*change-loop\.mjs"|'[^'\n]*change-loop\.mjs'|[^\s;&|]*change-loop\.mjs)\s+declare\b/`,
   it returns "change-loop.mjs declare is run only by the main session (a review round from the owner's
   own typed message, a red gate from its own gate run); not by <actor>". `guardBash` calls it right
   after the git rules, under the same `sessionRoot && optedIn(sessionRoot)` condition, and blocks with
   it. `withoutHeredocs(cmd)` is the heredoc half of today's `sanitize`, split out and exported;
   `sanitize(cmd)` becomes `withoutHeredocs(cmd)` followed by today's quote replacement, so its output is
-  unchanged. The rule reads the command with its quotes kept (a quoted plugin path such as
+  unchanged. Option words of `node` before the script path (`--no-warnings`, `--`) are skipped, so
+  `node --no-warnings <path>/change-loop.mjs declare` is seen too (review round 1). The rule reads the command with its quotes kept (a quoted plugin path such as
   `node "$CLAUDE_PLUGIN_ROOT/hooks/change-loop.mjs" declare` is seen) and without heredoc bodies (a
   file being written that holds the line is not a command). Parser decisions: `next`, `reply` and every
   other verb of `change-loop.mjs` are not matched; a commit message that names `change-loop.mjs` and
@@ -1122,7 +1123,7 @@ and a file whose summary time passes about 300 s is split by CONTRIBUTING's rule
 | T96 | 7 | `declare review-round --param words=...` at the resolution's deadlock records `scope: 'resolution'`, `round` 3, and its action is `push` (the uncommitted `declared.json` is a change-folder file the pull request lacks, D-1), as is `next` while the record is uncommitted; once the fixture commits the record and pushes the branch, `next` gives `fix-resolution`; at the code review's deadlock it records `scope: 'review'` | loop CLI | change-loop-declared.test.mjs |
 | T97 | 7 | `collectState` on a `two-prs` fixture: the resolution's `limit` is 3 with one `resolution` entry and 2 with only a `review` entry | checker | change-loop-declared.test.mjs |
 | T98 | 1 | `guardBash`: a subagent (`tdd-implementer`) running `node plugins/openspec/hooks/change-loop.mjs declare feat review-round --param words=x` is refused, the message naming the main session | hook | guard.test.mjs |
-| T99 | 1 | `guardBash`: the same with a quoted path (`node "$CLAUDE_PLUGIN_ROOT/hooks/change-loop.mjs" declare feat gate-red --param phase=1`) and after `cd <dir> &&` is refused | hook | guard.test.mjs |
+| T99 | 1 | `guardBash`: the same with a quoted path (`node "$CLAUDE_PLUGIN_ROOT/hooks/change-loop.mjs" declare feat gate-red --param phase=1`), with node option words before the script (`node --no-warnings <path>`, `node -- <path>`, two options before a quoted path) and after `cd <dir> &&` is refused; the main session's option forms are allowed (review round 1) | hook | guard.test.mjs |
 | T100 | 1 | `guardBash`: the main session's same two commands are allowed | hook | guard.test.mjs |
 | T101 | 1 | `guardBash`: a subagent running `change-loop.mjs next feat --lang en` or `change-loop.mjs reply waiting-pause --param id=feat` is allowed | hook | guard.test.mjs |
 | T102 | 1 | `guardBash`: a subagent's `git commit -m "add the declare verb to change-loop.mjs"` and a heredoc whose body holds a `node .../change-loop.mjs declare` line are allowed | hook | guard.test.mjs |

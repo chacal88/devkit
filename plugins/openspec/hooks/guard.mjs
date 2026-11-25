@@ -741,8 +741,9 @@ export function sanitize(cmd) {
 }
 
 // Why `actor` may not run the command `cmd` for `change-loop.mjs declare`, or null: the steps it records are the main session's
-// (coordinator-loop-fixes D-1), so a subagent's call is refused, wherever it runs. The quotes are kept, so a quoted plugin path is seen.
-const DECLARE_CALL = /\bnode\s+(?:"[^"\n]*change-loop\.mjs"|'[^'\n]*change-loop\.mjs'|[^\s;&|]*change-loop\.mjs)\s+declare\b/;
+// (coordinator-loop-fixes D-1), so a subagent's call is refused, wherever it runs. The quotes are kept, so a quoted plugin path is seen;
+// node's option words before the script (`--no-warnings`, `--`) are skipped.
+const DECLARE_CALL = /\bnode(?:\s+-[^\s;&|]*)*\s+(?:"[^"\n]*change-loop\.mjs"|'[^'\n]*change-loop\.mjs'|[^\s;&|]*change-loop\.mjs)\s+declare\b/;
 export function declareViolation(cmd, actor) {
   if (actor === '') return null;
   if (!DECLARE_CALL.test(withoutHeredocs(cmd))) return null;
