@@ -316,14 +316,18 @@ phase it SHALL end the run blocked, saying the phase's tests failed.
 
 ### Requirement: The owner authorizes one more review round after the limit
 At a review's deadlock, one more round SHALL run only when the owner's own typed message asks for
-it and the main session records it with `change-loop.mjs declare <id> review-round --param
-words=<the owner's words>`. Each record SHALL name the review in dispute and hand exactly one more
+it and the main session records it with `change-loop.mjs declare <id> review-round --stdin
+words`. Each record SHALL name the review in dispute and hand exactly one more
 round of it; the loop SHALL leave the deadlock by its own steps, with no header edited by hand. The
 code review's deadlock is the blocked end of its stage's ceiling, or `stop-review-deadlock`.
 
 #### Scenario: The owner authorizes a third round
 - **WHEN** the run ended blocked at the code review's ceiling after round 2 and the session records the owner's words with `declare review-round`
 - **THEN** the command prints `devkit-run: <id>` and exits 0, and the next actions fix the rejected findings and hand the review as round 3 of 3
+
+#### Scenario: The owner's words are recorded as typed
+- **WHEN** the owner's words hold a backtick, `$(...)`, an apostrophe or a double quote and the session passes them on standard input through the quoted heredoc `<<'DEVKIT_ARGS'`
+- **THEN** `declared.json` holds the words byte for byte, without the heredoc's final line break, and no command in them runs
 
 #### Scenario: No authorization
 - **WHEN** the code review failed its round 2 and nothing was recorded

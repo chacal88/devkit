@@ -340,7 +340,7 @@ test('coordinator-loop-fixes AC-10 T31 the skill\'s gate item and the roadmap it
 
 // ---------------------------------------------------------------- AC-7: one more review round on the owner's word (D-4)
 // Invariant: at the code review's deadlock (the blocked `ceiling` end of the `review` stage) or the resolution review's (the
-// `waiting-review-dispute` end with `detail.resolution`), `declare review-round --param words=...` records one round of that
+// `waiting-review-dispute` end with `detail.resolution`), `declare review-round` with the owner's words (`--stdin words` or `--param words`) records one round of that
 // review's scope and prints the action that follows, which then runs exactly one more round; away from a deadlock, or without the
 // owner's words, it refuses and records nothing. Layer: the loop CLI on a delivered change in a worktree, `decide`, and
 // `deadlockScope`. Suite: change-loop-declared.
@@ -404,6 +404,50 @@ test('coordinator-loop-fixes AC-7 T40 away from a deadlock, and a second call ri
   assert.equal(again.code, 3, again.stdout);
   assert.equal(errorOf(again), 'declare-not-at-deadlock');
   assert.equal(readFileSync(recordOf(wt), 'utf8'), before);
+});
+
+// The owner's words reach the record through standard input, so no character of them reaches the shell (review round 1,
+// code-quality F1; the `--stdin` of reply, jira-entry-followups D-5). `--param words` stays for a caller with no shell between.
+const SHELL_WORDS = 'yes, one more: `touch y` and $(touch x), the owner\'s "last" round';
+const declareStdin = (cwd, env, stdin, extra = []) => CL.main(['declare', 'feat', 'review-round', '--lang', 'en', ...extra, '--stdin', 'words'], { cwd, env, stdin });
+
+test('coordinator-loop-fixes AC-7 T143 declare review-round --stdin words records the owner\'s words byte for byte, as --param words does', () => {
+  const viaStdin = deadlocked();
+  const r = declareStdin(viaStdin.t.main, viaStdin.env, `${SHELL_WORDS}\n`);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(parsed(r).action.step, 'fix-review');
+  assert.equal(stepsOf(viaStdin.wt)[0].words, SHELL_WORDS, 'one final line break removed, every other byte kept');
+  const viaParam = deadlocked();
+  assert.equal(declare(viaParam.t.main, viaParam.env, 'review-round', [`words=${SHELL_WORDS}`]).code, 0);
+  assert.equal(stepsOf(viaParam.wt)[0].words, SHELL_WORDS, '--param words still records the words');
+});
+
+test('coordinator-loop-fixes AC-7 T144 a spawned declare review-round --stdin words reads the words from a quoted heredoc', () => {
+  const { t, wt, env } = deadlocked();
+  const script = `node '${join(REPO_ROOT, 'plugins', 'openspec', 'hooks', 'change-loop.mjs')}' declare feat review-round --stdin words --lang en <<'DEVKIT_ARGS'\n${SHELL_WORDS}\nDEVKIT_ARGS\n`;
+  const r = spawnSync('bash', ['-c', script], { cwd: t.main, encoding: 'utf8', env });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(linesOf({ stdout: r.stdout })[0], 'devkit-run: feat');
+  assert.equal(stepsOf(wt)[0].words, SHELL_WORDS);
+  for (const f of ['x', 'y']) assert.equal(existsSync(join(t.main, f)), false, `no command of the words ran: no file ${f} in the shell's folder`);
+});
+
+test('coordinator-loop-fixes AC-7 T145 declare --stdin refuses another name, the words named twice and an empty input, recording nothing', () => {
+  const { t, wt, env } = deadlocked();
+  const cases = [
+    { name: 'another name', extra: [], stdin: 'text', args: ['declare', 'feat', 'review-round', '--lang', 'en', '--stdin', 'decision'], message: 'declare --stdin reads only words' },
+    { name: 'a bad name', extra: [], stdin: 'text', args: ['declare', 'feat', 'review-round', '--lang', 'en', '--stdin', 'Words'], message: '--stdin needs a parameter name of letters, starting with a lower-case one' },
+    { name: 'the words twice', extra: ['--param', 'words=x'], stdin: 'text', message: '--param words and --stdin words name the same parameter' },
+    { name: 'an empty input', extra: [], stdin: '\n', message: 'declare --stdin words needs the text on standard input' },
+  ];
+  for (const c of cases) {
+    const r = c.args ? CL.main(c.args, { cwd: t.main, env, stdin: c.stdin }) : declareStdin(t.main, env, c.stdin, c.extra);
+    assert.equal(r.code, 3, `${c.name}: ${r.stdout}`);
+    assert.ok(r.stderr.includes(c.message), `${c.name}: ${r.stderr}`);
+    assert.doesNotMatch(r.stdout, /devkit-(run|end):/, c.name);
+  }
+  assert.equal(existsSync(recordOf(wt)), false, 'nothing recorded');
+  assert.ok(isCeilingOfReview(parsed(loopNext(t.main, [], env)).action), 'the deadlock stays');
 });
 
 test('coordinator-loop-fixes AC-7 T111 one authorized round runs a round 3 through the loop, and its failure is the deadlock again', () => {
@@ -524,13 +568,15 @@ test('coordinator-loop-fixes AC-7 T44 the skills name declare review-round from 
   const ship = readFileSync(join(REPO_ROOT, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8').split('\n');
   const row = (step) => ship.find((l) => l.startsWith(`| \`${step}\` |`));
   const deadlock = row('stop-review-deadlock');
-  assert.ok(deadlock.includes('change-loop.mjs declare <id> review-round --param words="<their words>"'), deadlock);
+  assert.ok(deadlock.includes("change-loop.mjs declare <id> review-round --stdin words` with their words on standard input, through the quoted heredoc `<<'DEVKIT_ARGS'` and its terminator rule"), deadlock);
+  assert.doesNotMatch(deadlock, /--param words/, 'the words never go on the command line');
   assert.ok(deadlock.includes("the owner's own typed message"), deadlock);
   assert.ok(deadlock.includes('`declared.reply`'), deadlock);
   assert.ok(deadlock.includes('after its last round (2 unless the owner authorized more)'), deadlock);
   for (const step of ['review', 'review-resolution']) assert.ok(row(step).includes('`next.limit`'), `${step} passes next.limit`);
   const gates = section(skillText(), '## Owner gates', '## Waiting on GitHub');
-  assert.ok(gates.includes('declare <id> review-round'), 'the Owner gates name the declare');
+  assert.ok(gates.includes("hooks/change-loop.mjs declare <id> review-round --stdin words --lang ${user_config.language} <<'DEVKIT_ARGS'` with their words as the heredoc body, through its terminator rule"), 'the Owner gates pass the words through the quoted heredoc');
+  assert.doesNotMatch(gates, /--param words/, 'the words never go on the command line');
   assert.ok(gates.includes("the owner's own typed message"), 'the Owner gates name the owner\'s own typed message');
   assert.ok(gates.includes('A `blocked` end whose `end.why` is `ceiling` and whose `stage` is `review` is the code review\'s deadlock'), gates);
   const review = readFileSync(join(REPO_ROOT, 'plugins', 'core', 'skills', 'review-change', 'SKILL.md'), 'utf8');

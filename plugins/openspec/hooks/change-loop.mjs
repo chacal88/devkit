@@ -3169,7 +3169,7 @@ export function compozyRetry(cwd, id) {
 // ---------------------------------------------------------------- the command line (D-5)
 
 const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... [--stdin <name>] '
-  + '| declare <id> <gate-red|review-round> --lang <l> [--param name=value]... '
+  + '| declare <id> <gate-red|review-round> --lang <l> [--param name=value]... [--stdin words] '
   + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> [--task <KEY>] --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input, or with --task the task as JSON) '
   + '| write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | accept-decisions <id> --lang <l> | merge-check <id> --lang <l> | flow <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] [--offline] --lang <l> '
   + '| next --change <id> --lang <l> --view compozy | compozy-start <id> --lang <l> (the request on standard input) | confirm --change <id> --lang <l> --view <json> '
@@ -3285,13 +3285,31 @@ function paramsOf(list) {
   return params;
 }
 
+// The text a heredoc hands over: the input without its one final line break, `\r\n` or else `\n`.
+const withoutFinalBreak = (text) => (text.endsWith('\r\n') ? text.slice(0, -2) : text.endsWith('\n') ? text.slice(0, -1) : text);
+
+// `--stdin <name>`: the parameter `name` is read from standard input, so a text with quotes, `$` or line breaks never
+// goes through the command line (jira-entry-followups D-5). `params` with that parameter added; `name` undefined adds none.
+const STDIN_NAME = /^[a-z][a-zA-Z]*$/;
+function withStdinParam(command, params, name, stdin) {
+  if (name === undefined) return params;
+  if (!STDIN_NAME.test(name)) throw new LoopUsageError('--stdin needs a parameter name of letters, starting with a lower-case one');
+  if (Object.hasOwn(params, name)) throw new LoopUsageError(`--param ${name} and --stdin ${name} name the same parameter`);
+  const value = withoutFinalBreak(stdin);
+  if (value === '') throw new LoopUsageError(`${command} --stdin ${name} needs the text on standard input`);
+  return { ...params, [name]: value };
+}
+
 // `declare <id> <key>`: a step the main session records (D-1); a key whose row is `reply`, or that the table lacks, is a usage error.
-function runDeclare(args, { env, cwd, openspec, gh }) {
-  const opts = parseArgs(args, { values: ['--lang'], multi: ['--param'] });
+// `--stdin words`: the owner's words of `review-round` are read from standard input, as reply's `--stdin` (coordinator-loop-fixes D-4).
+function runDeclare(args, { stdin = '', env, cwd, openspec, gh } = {}) {
+  const opts = parseArgs(args, { values: ['--lang', '--stdin'], multi: ['--param'] });
   if (opts.positional.length !== 2) throw new LoopUsageError(USAGE);
   const [id, key] = opts.positional;
   if (DECLARED[key]?.via !== 'declare') throw new LoopUsageError(`${key} is not a step declare records (${Object.keys(DECLARED).filter((k) => DECLARED[k].via === 'declare').join(', ')}); ${USAGE}`);
-  return declaredStep(cwd, key, { params: { ...paramsOf(opts.params), id }, lang: opts.lang, env, openspec, gh });
+  if (opts.stdin !== undefined && STDIN_NAME.test(opts.stdin) && opts.stdin !== 'words') throw new LoopUsageError(`declare --stdin reads only words, not ${opts.stdin}`);
+  const params = withStdinParam('declare', paramsOf(opts.params), opts.stdin, stdin);
+  return declaredStep(cwd, key, { params: { ...params, id }, lang: opts.lang, env, openspec, gh });
 }
 
 function runNext(args, { env, cwd, openspec, gh }) {
@@ -3314,22 +3332,10 @@ function runState(args, { env, cwd, openspec, gh }) {
   return { code: 0, stdout: json({ version: 1, changes }), stderr: '' };
 }
 
-// The text a heredoc hands over: the input without its one final line break, `\r\n` or else `\n`.
-const withoutFinalBreak = (text) => (text.endsWith('\r\n') ? text.slice(0, -2) : text.endsWith('\n') ? text.slice(0, -1) : text);
-
-// `--stdin <name>`: the parameter `name` is read from standard input, so a text with quotes, `$` or line breaks never
-// goes through the command line (jira-entry-followups D-5).
 function runReply(args, { stdin = '', env, cwd, openspec, gh } = {}) {
   const opts = parseArgs(args, { values: ['--lang', '--stdin'], multi: ['--param'] });
   if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
-  const params = paramsOf(opts.params);
-  if (opts.stdin !== undefined) {
-    if (!/^[a-z][a-zA-Z]*$/.test(opts.stdin)) throw new LoopUsageError('--stdin needs a parameter name of letters, starting with a lower-case one');
-    if (Object.hasOwn(params, opts.stdin)) throw new LoopUsageError(`--param ${opts.stdin} and --stdin ${opts.stdin} name the same parameter`);
-    const value = withoutFinalBreak(stdin);
-    if (value === '') throw new LoopUsageError(`reply --stdin ${opts.stdin} needs the text on standard input`);
-    params[opts.stdin] = value;
-  }
+  const params = withStdinParam('reply', paramsOf(opts.params), opts.stdin, stdin);
   const key = opts.positional[0];
   const row = DECLARED[key];
   if (row?.via === 'declare') throw new LoopUsageError(`${key} is recorded with change-loop.mjs declare, never with reply`);
@@ -3512,7 +3518,7 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
     const [sub, ...rest] = argv;
     if (sub === 'next') return runNext(rest, { env, cwd, openspec, gh });
     if (sub === 'reply') return runReply(rest, { stdin, env, cwd, openspec, gh });
-    if (sub === 'declare') return runDeclare(rest, { env, cwd, openspec, gh });
+    if (sub === 'declare') return runDeclare(rest, { stdin, env, cwd, openspec, gh });
     if (sub === 'state') return runState(rest, { env, cwd, openspec, gh });
     if (sub === 'start') return runStart(rest, { env, cwd, stdin, openspec, gh });
     if (sub === 'open') return runOpen(rest, { env, cwd, stdin, openspec, gh });
@@ -3573,7 +3579,7 @@ function isMain() {
 
 if (isMain()) {
   const argv = process.argv.slice(2);
-  runCommand(argv, { stdin: ['start', 'open', 'write-back', 'compozy-start'].includes(argv[0]) || (argv[0] === 'reply' && argv.includes('--stdin')) ? readStdin() : '' }).then((r) => {
+  runCommand(argv, { stdin: ['start', 'open', 'write-back', 'compozy-start'].includes(argv[0]) || (['reply', 'declare'].includes(argv[0]) && argv.includes('--stdin')) ? readStdin() : '' }).then((r) => {
     process.stdout.write(r.stdout);
     process.stderr.write(r.stderr);
     process.exitCode = r.code;
