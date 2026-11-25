@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.53.0 — the loop declares the decisions outside the stage gates
+
+- **devkit-openspec** 0.48.0: one table of declared steps (`DECLARED`) in `change-loop.mjs`, read by
+  `roadmap-loop.mjs reply` too: the reply keys `waiting-pause` and `waiting-owner-decision`, and a main-session
+  command `declare` that records a fix after a first red gate and an owner-authorized third review round in the
+  change's `declared.json`. The stop lock accepts a recorded end only when its `devkit-end:` line names the run's
+  change. A pull request in conflict with its base outside the release files gets `resolve-base-conflict` in a
+  project without the delivery train; a `tasks.md` line that starts with `Conductor:` is the conducting session's;
+  the approval records a `- Plan:` digest of the plan files on both drivers, so a plan edited after the start goes
+  back to its gates; a change whose id starts with `archive-` finds its own pull request; a delivered change whose branch was
+  advanced into the base goes to the retro with no new evidence or review. A change's own `budget` and `models:`
+  are read from an `x-devkit:` block of its `.openspec.yaml`, which the strict validation accepts (a `devkit:`
+  block is still read). The loops' fallback agent map comes from `PACKS`; with a host's own pull-request monitor
+  that forbids polling, the session starts no wait. The CI snippet now pins `v0.48.0`, the release's tag.
+- **devkit-core** 0.17.0: the tdd-implementer leaves a `Conductor:` task to the conducting session; the
+  pr-verifier may write under the change's `proof/` folder; the review-change skill and `review-round.workflow.js`
+  take the round `limit` that an owner's authorized round raises.
+- **devkit-compozy** 0.5.0: the kit's `tdd-implementer` and `pr-verifier` agent templates are generated again from
+  the core agents.
+- Docs: [ADR 0032](docs/adr/0032-the-loop-declares-the-decisions-outside-the-stage-gates.md) and
+  [ADR 0033](docs/adr/0033-a-changes-own-settings-live-in-an-x-devkit-block.md) (accepted), with Notes in ADR 0011
+  and ADR 0023; `docs/openspec-flow.md` (the declared steps, the `x-devkit:` block, the two `devkit-lite`
+  decisions), `docs/coordination-design.md`, `docs/compozy-kit.md`, both schemas' review gate and tasks
+  instruction, and the `Live roadmap:` rule of `openspec/config.yaml`'s context.
+
 ## 0.52.2 — the suite script keeps its run root short enough for a Unix socket
 
 - **devkit-openspec** 0.45.1: `scripts/test-suite.mjs` makes its run root under the real `/tmp` (`/private/tmp` on macOS), with one `run root:` line saying why, when the environment's `TMPDIR` would push a Unix socket path past 104 bytes; it exits 2 when neither folder fits. Test tooling only.
