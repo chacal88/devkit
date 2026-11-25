@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=5 commit=41dd40ed6cb3017dd2a8cc5c623ffa6d19934303 -->
+<!-- devkit-stage design result=passed attempt=6 commit=9b67c11f446bfd8f24407556df9c082589acd50f -->
 # Design
 
 Change: `release-at-merge` · Date: 2026-11-24 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -19,6 +19,19 @@ reason it gets none. Phase 9 of `tasks.md` carries the work. The readiness revie
 (listed in `decisions.md`); the base moved to `a815222` (train 15, D-25 and D-27); the give-back
 refusal gets a scenario and a test (D-20, D-26); task 9.6 names every flow-page sentence that repeats
 the rule D-20 changes.
+
+**Revised after review round 2** (`review.md`, FAIL at `c1c875e`, round 2 of 2, escalated), at
+`9b67c11`, by the owner's own decision typed on 2026-11-25, "1a e 2b": (1a) the owner confirms the
+per-line reading of the step's record, which the code took in `46c3c2e` (defect 7): each release line
+takes the newest step commit that wrote it, a trailer still counting only when its commit changed
+what it names (D-28); (2b) this change's release-edit rule is scoped to the normal delivery path, and
+an owner's forced merge keeps reading the evidence and the reviews by the canonical requirement "The
+open items of a forced merge are named", so `gatesAtHead` is not changed and its release-edit
+allowance is a roadmap follow-up (D-29). The round 2 nits that are one-line text fixes in files this
+change already edits are taken (D-30). "Findings of review round 2", after round 1's map, gives every
+finding its answer; phase 10 of `tasks.md` carries the work. The numbering is done (task 9.17): no
+plan file and no task writes a version or an ADR number, and if the base moves the delivery's
+`assign-release` step runs again.
 
 ## Context
 
@@ -718,15 +731,21 @@ commits never come back to a change branch, and the record is read only from com
 target.
 
 `deliver-check.mjs` exports `stepRecord(root, { head, tip, id })` (`node:` imports only, D-3a): `git
-log --first-parent --format=%H%x00%B%x1e <tip>..<head>`, newest first; the first commit whose
-message's last paragraph holds `Release-change: <id>` is the record; null when none does or when `git
-log` fails (a shallow clone that cannot reach the range). The values come from that commit's own
-tree, never from the trailer text, and a named key counts only when the commit changed it from its
-first parent: a `Release-line` whose line differs between `<commit>^1` and `<commit>`, a `Release-adr`
-whose `to` the commit holds and its first parent does not, a `Release-citation` whose path differs
-between the two. A trailer typed on a commit that wrote nothing is ignored. It returns `{ commit,
-lines, adrs, citations }`: `lines` the values in the form `linesOf` and `adrValue` give (the changelog
-masked with the head's numbers, as D-3 does), `adrs` the `{ from, to }` pairs, `citations` the paths.
+log --first-parent --format=%H%x00%B%x1e <tip>..<head>`, newest first; every commit whose message's
+last paragraph holds `Release-change: <id>` is a recorded commit, and the record is read per line from
+all of them (revised at review round 2, the owner's decision 1a, D-28): each key takes its value from
+the newest recorded commit that wrote it, so a value an older step commit wrote and a later step
+commit kept (a merge that renumbered nothing) stays the step's own (defect 7, `46c3c2e`); null when no
+commit is recorded or when `git log` fails (a shallow clone that cannot reach the range). The values
+come from that commit's own tree, never from the trailer text, and a named key counts for a commit
+only when that commit changed it from its first parent: a `Release-line` whose line differs between
+`<commit>^1` and `<commit>`, a `Release-adr` whose `to` the commit holds and its first parent does
+not, a `Release-citation` whose path differs between the two. A trailer typed on a commit that wrote
+nothing is ignored, and the key keeps the value of an older recorded commit that did write it. It
+returns `{ commit, lines, adrs, citations }`: `commit` the newest recorded commit, `lines` the values
+in the form `linesOf` and `adrValue` give (the changelog masked with the head's numbers, as D-3 does),
+`adrs` the `{ from, to, commit }` renames and `citations` the `{ path, commit }` rewrites, each with
+the recorded commit that wrote it, which the give-back reads as "the record's commit".
 
 **The state.** `releaseStateAt` reads the record and counts a key whose head value is neither the
 merge base's nor the computed one as the step's own when the record holds that same value for it.
@@ -1004,7 +1023,9 @@ again and records exit 3.
 ### D-26 The tests round 1 found missing, and the tests of D-18 to D-24
 
 Each is named `release-note <AC-n> <area>: ...` (D-15). "Red" fails on the code as phase 9 finds it;
-"guard" pins behaviour the code already has and passes there, saying so in `proof/red-9.txt`.
+"guard" pins behaviour the code already has and passes there, saying so in `proof/red-9.txt`. Task
+10.3 renames the `stepRecord` test below and three tests of defect 4 that D-18 names, with their
+assertions unchanged (D-30 gives the new names).
 
 | Finding | File | Test | Kind |
 |---|---|---|---|
@@ -1099,6 +1120,171 @@ records take the next free numbers on the base then, which no task assumes; a la
 base goes through the step (with the record, even after a code conflict). The give-back commit
 stales the records, which phase 9's code changes stale anyway.
 
+### D-28 The step's record is read per line (review round 2: adr-reviewer F7, spec-reviewer F8; the owner's decision 1a)
+
+**The finding.** `ADR [release-at-merge-step-record]` decision 3 has `stepRecord` read "the newest
+commit" on the branch's first-parent line that names `Release-change: <id>`, decision 4 compares a
+line with "the record", and the delta's requirement "A release line the step wrote is known by the
+step's own record" says "the step's own latest recorded commit". Since `46c3c2e` (defect 7, found
+while implementing task 9.6) the code reads each key from the newest recorded commit that wrote it,
+because the whole-commit reading lost a number a later step commit kept (a merge commit of the step
+that renumbered nothing names the ADR in a `Release-adr` trailer that counts for nothing, since that
+commit did not rename it, so the record of that commit alone no longer held the 0002 the first commit
+wrote, and a later merge by hand read `hand`). Evidence
+listed it as a deviation; the accepted record and the delta were not touched, and no scenario covers
+a number kept across a later step commit.
+
+**The owner's answer (1a, 2026-11-25).** The per-line reading is confirmed, and the code stays as it
+is (`stepRecord` in `plugins/openspec/hooks/deliver-check.mjs`; no hook changes in phase 10). It keeps
+decision 2 (a key counts for a commit only when that commit changed it from its first parent, the
+value read from its tree) and decision 6 (a missing or forged record only refuses more, never passes),
+and it is what makes the record's Positive consequence hold for every merge of the base. So the plan
+says it in each place that states the reading:
+
+- D-20's sentence on `stepRecord` (revised above): every commit carrying the trailer is a recorded
+  commit, and each key takes the newest one that wrote it.
+- The delta's requirement "A release line the step wrote is known by the step's own record" reads the
+  record per line, and gains the scenario "A number the step kept across a later step commit" (the
+  first step commit numbers `docs/adr/0002-feat.md`; the base releases with no ADR; the step's merge
+  commit keeps 0002; the base then takes 0002 for `docs/adr/0002-other.md` and changes `src/a.ts`; a
+  person merges by hand; the step exits 0 with `docs/adr/0003-feat.md` and the release assigned and
+  current). Its proof is the existing test "release-note AC-4 assign: a number the step kept across a
+  base merge is still its own after a later merge by hand" (`release-merge.test.mjs`, red before
+  `46c3c2e` and green after it in `proof/red-9.txt`), which asserts each part of the THEN; no new test.
+- The record: decision 3 and 4's text stays, and the adr-author adds one dated note as the first
+  paragraph of its `## Context`, in the form ADR 0022 and ADR 0025 carry (`Note (release-at-merge,
+  <date>): ...`), recording the owner's acknowledgement (task 10.1). Its text: "Note (release-at-merge,
+  2026-11-25): after review round 2 of change release-at-merge the owner acknowledged the per-line
+  reading of decisions 3 and 4: `stepRecord` reads every commit on the branch's first-parent line
+  above the base whose last paragraph names `Release-change: <id>`, and each release line takes the
+  value of the newest of those commits that wrote it, a trailer still counting only when its commit
+  changed what it names (decision 2), so a number an older step commit wrote and a later step commit
+  kept stays the step's own. "The newest commit" of decision 3 and "the record" of decision 4 read
+  that way. The Decision is otherwise unchanged." The note names no record by a citation token and
+  no number of this change, so the release state (which compares the records' names and whether
+  `ADR [<slug>]` is still cited, `adrValue`) and the citation pass do not see it. It is a note and not
+  a new amending record: it adds no outcome to decision 6 as amended (the outcome "a value the step's
+  own recorded commit wrote is given back" is the record's own), and the owner chose the reviewer's
+  offered fix.
+- The texts that repeat the reading: `docs/openspec-flow.md` already says it per line ("The release
+  note" paragraph: "the newest commit whose `Release-` trailers name that line and whose diff from its
+  first parent wrote it"; the `--assign` bullet: "line by line, the value the newest of its own
+  recorded commits that wrote that line gave it"), so it is not edited. The `ship-change` row
+  `assign-release` ends "(the `Release-` trailers of its last commit)", the whole-commit reading; it
+  becomes "(the `Release-` trailers of its own commits, each line read from the newest one that wrote
+  it)" (task 10.2). The test "release-note AC-4 format: ship-change's assign-release row ... names the
+  merge by hand" (`deliver-check-cli.test.mjs`) asserts the part "from its own record", which stays.
+- The test "release-note AC-4 record: stepRecord reads the newest recorded commit, ignores a trailer
+  whose commit wrote nothing, and is null without one" already asserts the per-key reading (its
+  message: "each key takes the newest recorded commit that wrote it"); its name states the old
+  reading and is renamed (task 10.3, D-30).
+
+### D-29 An owner's forced merge reads the gates by its own requirement (review round 2: spec-reviewer F9, test-coverage F16, adr-reviewer nit F8, architecture nit F7; the owner's decision 2b)
+
+**The finding.** The delta's MODIFIED requirement "A plain commit on the branch keeps its rule" and its
+scenario "The step's commit" say the evidence and the approved reviews stay current after the step's
+commit. The canonical requirement "The open items of a forced merge are named"
+(`openspec/specs/change-delivery/spec.md`, train 16, merged into this branch at `a47cec8`) lists a gate
+file as an open item when a file outside `openspec/` changed after its `Commit:` (scenarios "Evidence
+recorded before a product change" and "A review that did not pass"), and its code, `gatesAtHead` in
+`deliver-check.mjs`, reads that through a GitHub compare whose files must all be under `openspec/` or
+allowed by `verdictAllowed`. The step's commit always changes such files (the manifests,
+`CHANGELOG.md`, the ADR rename, the citations), so an owner's forced merge of a noted change would list
+`evidence.md` and each approved review as "behind the merged head, which changes <manifest>". Neither
+requirement scopes the other.
+
+**The owner's answer (2b, 2026-11-25).** This change's release-edit rule is the normal delivery
+path's: the delivery checker, the stage checker and `deliver-check --ci`. The delta's requirement "A
+plain commit on the branch keeps its rule" gains one sentence: on an owner's forced merge the evidence
+and the reviews are read by the requirement "The open items of a forced merge are named", so the
+delivery step's release commit can list them there as open items, an over-report, never a pass. The
+scenario "The step's commit" says the same in the last clause of its THEN. `gatesAtHead` is not
+changed, the canonical forced-merge requirement gets no MODIFIED block, and the flow page's "An
+owner's forced merge" paragraph (a gate file "that holds no passing verdict current at that head,
+read through GitHub") already says what the scoped sentence says, so it is not edited.
+
+**Why the scope is safe.** The forced-merge path is reached only when tasks are left unticked at the
+merge (`deliveryOf`, `left.length > 0`), and `assign-release` is handed only once the contract is
+otherwise met (N6 sits before `enable-auto-merge`), so the case needs an owner who merges with
+admin rights while a task is open, and then the evidence of that head is not complete anyway. The
+result can only be more open items, never fewer (code-quality and architecture reviewers' judgement
+of evidence open item 1). The over-report is the canonical scenario "Evidence recorded before a
+product change" applied to the step's commit, which its forced-merge tests on the base already pin
+(`deliver-check-archive.test.mjs`, the FMP G-rows); this change writes no test of it, since such a
+test would pin the very behaviour the follow-up removes.
+
+**The follow-up, on the roadmap.** Task 10.4 appends, in `openspec/roadmap.md`'s form for a change's
+follow-ups (rounds 28k, 28n and 28o: `## Round 28<letter>: follow-ups of <change>`, then `- [ ] <id>
+(after: <change>) — <text>`), a new round at the end of the file, its letter the next after the
+highest `## Round 28<letter>` the file holds when the task runs (28p while the file ends at 28o), with
+one line `forced-merge-release-edit (after: release-at-merge)`. The line waits until this change is
+archived (`classifyLines` in `roadmap-loop.mjs` reads an `after:` id as done once it is archived), and
+it gives `gatesAtHead` the release-edit allowance in the architecture reviewer's direction: allow the
+files of a commit in the compare that carries `Release-change: <id>` (so the step's record of D-20
+stays the one owner), or apply the release mask; with the test test-coverage F16 named
+(`deliver-check-archive.test.mjs` beside the FMP G-tests: a noted change whose compare from the
+evidence commit lists only the step's release files has no gate open). It names this change and its
+round 2 findings. The roadmap is under `openspec/`, so the line stales no record; no roadmap line
+names this change itself, so the archive ticks nothing. The line, word for word, on one line of the
+file:
+
+```text
+- [ ] forced-merge-release-edit (after: release-at-merge) — from review round 2 of release-at-merge (spec-reviewer F9, test-coverage-reviewer F16, adr-reviewer F8, architecture-reviewer F7; the owner's answer 2b of 2026-11-25): on an owner's forced merge, `gatesAtHead` (`plugins/openspec/hooks/deliver-check.mjs`) reads each gate file through a GitHub compare whose files must all be under `openspec/` or allowed by `verdictAllowed`, so the commit of the `assign-release` step (the manifests, `CHANGELOG.md`, the ADR rename, the citations) lists `evidence.md` and each approved review as open items, an over-report and never a pass, while "A plain commit on the branch keeps its rule" reads them as current on the normal delivery path, the only one release-at-merge gave its release-edit rule. Give `gatesAtHead` the release-edit allowance: allow the files of a commit in the compare that carries `Release-change: <id>` (the step's record, so it stays the one owner), or apply the release mask; drop the forced-merge sentence release-at-merge wrote into that requirement; and add the test beside the forced-merge G-rows of `deliver-check-archive.test.mjs`: a noted change whose compare from the evidence commit lists only the step's release files opens no gate.
+```
+
+### D-30 The round 2 nits taken, and the rest
+
+Taken, each a one-line text fix in a file this change already edits, with no behaviour change, so no
+test is written first:
+
+- The `app` host bullet of `plugins/openspec/skills/ship-change/SKILL.md` (adr-reviewer nit F9,
+  spec-reviewer nit F10, code-quality nit F9, test-coverage nit F17; evidence open item 2): after the
+  sentence that starts "A merge conflict is reported `blocked: item 5`, except in a project with a
+  delivery train" and ends "never because Auto-fix reported the conflict.", one sentence is inserted,
+  the rest of the bullet unchanged: "A change with a release note, in a project that names
+  `devkit.release_tag` and has no delivery train, is the other exception: `next` answers its conflict
+  with the base with `assign-release` (row N5), and the session runs that row." No test pins the
+  bullet (a `grep` of the test files finds no assertion of "Auto-fix" or of the sentence); the tests
+  that read `ship-change` slice its rows (`| \`<step>\` |`) or the `## Hosts` section for "archive PR"
+  and "two|twice" (`deliver-check-archive.test.mjs`, "format: ship-change Start takes the id ..."),
+  which stay true (task 10.2).
+- The test names that state the old citation rule (test-coverage nit F20) and the one that states the
+  old record reading (D-28). Each is a rename with the assertions unchanged (task 10.3); invariant,
+  layer and suite:
+  - `release-note.test.mjs`: "release-note AC-7 citation: an ADR [x] literal in a changed .mjs file is
+    neither cited nor rewritten" becomes "release-note AC-7 citation: an ADR [x] literal in a changed
+    test file is neither cited nor rewritten" (its file is `x.test.mjs`; since D-18 a plain `.mjs` is
+    cited). Invariant: a test file's `ADR [<x>]` literal is never cited, counted as still cited or
+    rewritten; layer: the citation scope (`holdsCitations`, `CITATION_PATHSPEC`) read by the step;
+    suite: `release-note.test.mjs`.
+  - `release-note.test.mjs`: "release-note AC-7 citation: the same token in a changed .md file is
+    refused while unlanded and rewritten once landed, the .mjs literal never" becomes "... rewritten
+    once landed, the literal in the test file never" (the same `x.test.mjs`, the same reason, taken by
+    the planner because it states the rule the nit names). Same invariant, layer and suite.
+  - `delivery-train.test.mjs`: "release-note AC-7 join: a head numbered before the train is renumbered
+    in its Markdown citations, and its source literals stay as written" becomes "... and its test-file
+    literals stay as written" (its file is `src/beta.test.mjs`; D-18 names this test with the two
+    above). Invariant: the join leaves a test file's literal as written; layer: `release-merge.mjs
+    --merge`'s rewrite; suite: `delivery-train.test.mjs`.
+  - `release-note.test.mjs`: "release-note AC-4 record: stepRecord reads the newest recorded commit,
+    ignores a trailer whose commit wrote nothing, and is null without one" becomes "release-note AC-4
+    record: stepRecord reads each key from the newest recorded commit that wrote it, ignores a trailer
+    whose commit wrote nothing, and is null without one". Invariant: the record is read per key;
+    layer: `stepRecord` in `deliver-check.mjs`; suite: `release-note.test.mjs`.
+
+  A `git grep` at `9b67c11` finds the old names only in the two test files and in this change's
+  folder: `proof/red-9.txt` keeps its runs as they were printed, `evidence.md` is the verifier's to
+  write again, and D-18 and D-26 above keep the names phase 9 used, with this pointer.
+
+Not taken, each a follow-up (`tasks.md`, "Workflow follow-up"), because it is code or a new test, not
+a one-line text fix: test-coverage nit F18 (no test that the join's commit carries no record), nit F19
+(no test of the give-back skipping a citation path the merge by hand deleted), architecture nit F8
+(`numberRelease` reads the record a second time after `releaseStateAt`; return it from the state), and
+the nits carried from round 1 (adr-reviewer F3 and F4, architecture F3, test-coverage F11 to F13).
+code-quality nit F10 (the merge `a47cec8` resolved two conflicts outside `openspec/` that task 9.1
+did not expect, on the coordinating session's word, where task 9.1 says to stop for the owner) is a
+process point with a correct result, flagged for the owner (F-11), with no task.
+
 ## Findings of review round 1
 
 Every finding of the five verdict files, with its decision and task, or the reason it gets none.
@@ -1171,6 +1357,39 @@ The readiness review of attempt 5 (NEEDS-REVISION) and its answers:
 | O5 | the dependency line calls `ADR [release-at-merge]` proposed | taken: the Dependencies of phase 9 |
 | O6 | the proposal over two pages | not taken: `proposal.md` is outside this revision's files |
 
+## Findings of review round 2
+
+Round 2 (`review.md` at `c1c875e`) failed on four important findings, each confirmed by its finding
+verifiers (12, none refuted); code-quality and architecture approved. Every finding of the five
+verdict files of round 2 that is not a round 1 finding marked fixed, with its answer. The owner's
+decision of 2026-11-25 ("1a e 2b") settles the two themes the review escalated.
+
+| Reviewer | Finding | Severity | Answer |
+|---|---|---|---|
+| adr-reviewer | F7 `stepRecord` per key against decision 3's "the newest commit" | important | owner 1a: D-28; the adr-author's dated note in the record (task 10.1), D-20's sentence, the delta's per-line requirement and its new scenario |
+| adr-reviewer | F3 decision 4's "no train" (carried) | nit | follow-up, as in round 1 (D-25) |
+| adr-reviewer | F4 `.compozy/kit-manifest.json`'s `pack` (carried) | nit | follow-up, as in round 1 |
+| adr-reviewer | F8 `gatesAtHead` with no release-edit allowance | nit | owner 2b: D-29; the delta scoped (one sentence), the roadmap follow-up (task 10.4) |
+| adr-reviewer | F9 the `app` host sentence of `ship-change` | nit | taken: D-30; task 10.2 |
+| spec-reviewer | F8 the requirement's "latest recorded commit" against the per-key code; no scenario of a kept number | important | owner 1a: D-28; the requirement read per line and the scenario "A number the step kept across a later step commit", proven by the existing test of defect 7 |
+| spec-reviewer | F9 the delta's step commit against the canonical "The open items of a forced merge are named" | important | owner 2b: D-29; "A plain commit on the branch keeps its rule" and its scenario "The step's commit" scoped to the normal path; `gatesAtHead` unchanged; the roadmap follow-up (task 10.4) |
+| spec-reviewer | F10 the `app` host sentence and row N5 | nit | taken: D-30; task 10.2 |
+| code-quality-reviewer | F9 the `app` host sentence and row N5 | nit | taken: D-30; task 10.2 |
+| code-quality-reviewer | F10 the merge `a47cec8` resolved conflicts task 9.1 did not expect | nit | no task: the result keeps both sides, as three reviewers checked; flagged for the owner (F-11) |
+| test-coverage-reviewer | F16 `gatesAtHead` after the step's commit, untested | important | owner 2b: D-29; no test of the over-report (the base's FMP G-rows pin the canonical rule); the fix and its test are the roadmap follow-up (task 10.4) |
+| test-coverage-reviewer | F11, F12, F13 (carried) | nit | accepted follow-ups, as in round 1 |
+| test-coverage-reviewer | F17 the `app` host sentence and row N5 | nit | taken: D-30; task 10.2 |
+| test-coverage-reviewer | F18 the join's commit carries no record, untested | nit | follow-up: a new test (`delivery-train.test.mjs`), not a text fix |
+| test-coverage-reviewer | F19 the give-back's skip of a citation path the merge by hand deleted, untested | nit | follow-up: a new test (`release-merge.test.mjs`), not a text fix |
+| test-coverage-reviewer | F20 a test name states the old citation rule | nit | taken: D-30, with its sibling of the same rule and the join test D-18 names; task 10.3 |
+| architecture-reviewer | F3 numbered-name lookups in several places (carried) | nit | follow-up, as in round 1 |
+| architecture-reviewer | F7 `gatesAtHead` does not follow the release-edit rule | nit | owner 2b: D-29; the roadmap line takes the reviewer's direction (task 10.4) |
+| architecture-reviewer | F8 `numberRelease` reads the record a second time | nit | follow-up: code, not a text fix |
+
+The praise findings need no answer. Every reviewer accepted the deviations evidence listed for round
+2 except the per-key record, which D-28 answers; evidence's two open items are D-29 (the forced
+merge) and D-30 (the `app` host sentence).
+
 ## Flagged for the owner
 
 - F-1 (requirements Decision 2, `ADR [release-at-merge]` decision 2): comparing `release.md` "at the
@@ -1226,6 +1445,12 @@ The readiness review of attempt 5 (NEEDS-REVISION) and its answers:
   requirement "The loop fetches the base branch before it judges a delivery step" joins the
   `change-coordination` delta as a MODIFIED block, its scenario "A base that moved on the remote"
   scoped to a change with no note and one scenario added for a noted change (D-25).
+- F-11 (after review round 2, code-quality nit F10): the merge `a47cec8` resolved, besides the two
+  `change-loop.mjs` hunks task 9.1 expected, `openspec/config.yaml`'s `ADRs:` line and the session
+  bullet of `plugins/openspec/skills/devkit/SKILL.md`, keeping both sides, on the coordinating
+  session's word, where task 9.1 says another conflict outside `openspec/` stops the phase for the
+  owner. Three reviewers checked that both sides are kept, so no task changes it; the owner confirms
+  the resolution or asks for it again.
 
 ## Risks / Trade-offs
 
@@ -1384,3 +1609,54 @@ task 9.1 merges (D-27), which changed `flow-check.mjs`'s `artifactState` next to
 `change-stages` spec outside the requirement D-21 modifies and the `change-coordination` requirement
 D-25 modifies; `ADR [release-at-merge-step-record]` (proposed, accepted by the plan approval; amends
 `ADR [release-at-merge]` decision 6; builds on ADR 0020 and ADR 0025, unchanged).
+
+### Phase 10: answers to review round 2
+
+Order: the record's note (D-28, the adr-author) → the `ship-change` texts (D-28, D-30) → the test
+names (D-28, D-30) → the roadmap follow-up (D-29) → the phase gate → the final gate. The spec delta
+and this design carry the rest of 1a and 2b already; no hook changes.
+
+- **Hooks:** none. `stepRecord`, `releaseStateAt` and `gatesAtHead` in
+  `plugins/openspec/hooks/deliver-check.mjs` stay as they are.
+- **Skills:** `plugins/openspec/skills/ship-change/SKILL.md`: the `assign-release` row's last
+  parenthesis (D-28) and one sentence in the `app` host bullet (D-30).
+- **Tests:** renames only, assertions unchanged: three in `plugins/openspec/hooks/release-note.test.mjs`
+  and one in `plugins/openspec/hooks/delivery-train.test.mjs` (D-30).
+- **Records:** `ADR [release-at-merge-step-record]`'s file (`docs/adr/<NNNN>-release-at-merge-step-record.md`,
+  numbered at task 9.17) gains the dated note from the adr-author (D-28); no other record changes.
+- **Repository:** `openspec/roadmap.md` gains the follow-up round (D-29).
+
+Files to create: none. Files to modify: the five above. Files to delete: none. No task writes a
+version, a changelog line, a CI pin or an ADR number; when the base moves, the delivery's
+`assign-release` step numbers the branch again from its record, as D-20 says.
+
+Estimate for phase 10: optimistic 1.5 h, likely 2.5 h, pessimistic 4 h (the final gate's whole suite
+takes about 20 minutes on an idle machine, and longer under load).
+
+| Component | Hours | Type | Risk |
+|---|---|---|---|
+| The record's dated note, by the adr-author (D-28) | 0.5 | Documentation | LOW |
+| The `ship-change` row and host sentence (D-28, D-30) | 0.25 | Documentation | LOW |
+| The four test names (D-30) | 0.25 | Testing | LOW |
+| The roadmap follow-up round (D-29) | 0.25 | Documentation | LOW |
+| The phase gate and the final gate | 1.25 | Testing | MEDIUM |
+
+| Risk | Probability × impact | Mitigation |
+|---|---|---|
+| The note or a text edit carries a citation token or a number the step would read | LOW × MEDIUM | the note's text is fixed in D-28 and holds no `ADR [<slug>]` and no number of this change; task 10.1 checks `git grep` for the token |
+| An edited `ship-change` line breaks a test that reads the skill | LOW × LOW | D-30's grep found no assertion of the host sentence; the row keeps "from its own record"; the phase gate runs every test file that reads the skill's rows and hosts |
+| A renamed test is run by a filter that still names the old text | LOW × LOW | no gate or proof script filters by those names (`git grep` at `9b67c11`); the gates run whole files |
+| `openspec/roadmap.md` meets a base that appended a round of the same letter | MEDIUM × LOW | the task takes the next free letter when it runs; a later merge conflict there lies under `openspec/`, and the round is kept beside the base's (the step's merge by hand of D-20 if it comes with the step) |
+| The phase's commits stale the evidence and the reviews | HIGH × LOW | expected: a product text and a record change after `c1c875e`; the verification and the review run again on the new head, as the loop asks |
+| The base moves and the release must be assigned again | MEDIUM × MEDIUM | the delivery's `assign-release` runs the step with its record (D-20); no task writes a number; the coordinator holds `main` at the release step (D-17) |
+
+Assumptions of phase 10: the record of the step stays at `docs/adr/` under the number task 9.17 gave
+it until the delivery (`git ls-files docs/adr` at `9b67c11` lists it numbered); the adr-author writes
+only under `docs/adr/` (`guard.mjs` `isDecisionRecord`); the roadmap's `after:` waits on an archived
+id (`roadmap-loop.mjs` `classifyLines`); the whole suite at the final head is the one gate a text
+change of a skill needs beyond the filtered files (CLAUDE.md, "Commands").
+
+Dependencies: the owner's decision of 2026-11-25 ("1a e 2b"); `ADR [release-at-merge-step-record]`
+(accepted, numbered at task 9.17); the canonical `change-delivery` requirement "The open items of a
+forced merge are named" and `gatesAtHead` (train 16, `forced-merge-path`, merged at `a47cec8`),
+unchanged; ADR 0028 (an owner's forced merge leads the change to the archive), unchanged.

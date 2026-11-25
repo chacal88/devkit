@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=5 commit=41dd40ed6cb3017dd2a8cc5c623ffa6d19934303 -->
+<!-- devkit-stage tasks result=passed attempt=6 commit=9b67c11f446bfd8f24407556df9c082589acd50f -->
 # Tasks
 
 Change: `release-at-merge` · Date: 2026-11-24 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -31,17 +31,17 @@ invariant, layer and suite in the commit message. Leave no backup or scratch fil
 | AC-1 | 2.1, 2.3, 2.5, 4.1, 4.3, 6.6, 7.2, 7.3, 7.5, 7.6, 9.11, 9.12 |
 | AC-2 | 2.1, 2.3, 2.5, 6.6, 7.6, 7.7, 9.5, 9.6 |
 | AC-3 | 3.1, 3.3, 6.3, 9.11 |
-| AC-4 | 2.1, 2.4, 2.5, 3.1, 3.2, 4.1, 4.2, 6.2, 8.1, 9.1, 9.5, 9.6, 9.11, 9.12, 9.14, 9.17 |
+| AC-4 | 2.1, 2.4, 2.5, 3.1, 3.2, 4.1, 4.2, 6.2, 8.1, 9.1, 9.5, 9.6, 9.11, 9.12, 9.14, 9.17, 10.1, 10.2, 10.3, 10.4, 10.5 |
 | AC-5 | 2.4, 3.1, 3.2, 3.3, 4.3, 6.2, 6.3, 7.1, 7.4, 7.6, 8.1, 9.2, 9.3, 9.5, 9.6, 9.14, 9.17 |
 | AC-6 | 5.1, 5.2, 5.3, 6.6, 7.1, 8.1, 9.17 |
-| AC-7 | 2.1, 2.5, 3.1, 3.2, 3.3, 6.6, 9.2, 9.3 |
+| AC-7 | 2.1, 2.5, 3.1, 3.2, 3.3, 6.6, 9.2, 9.3, 10.3 |
 | AC-8 | 3.1, 3.2, 6.5, 9.11 |
 | AC-9 | 2.1, 2.2, 2.5, 3.1, 6.5, 7.4, 7.5, 9.11, 9.12, 9.14 |
 | AC-10 | 3.1, 3.3, 4.1, 4.2, 6.4, 7.4 |
 | AC-11 | 2.1, 2.5, 6.6 |
 | AC-12 | 1.2, 2.1, 2.5, 4.3, 6.6, 9.8, 9.9, 9.11 |
 | AC-13 | 4.1, 6.2, 6.3 |
-| AC-14 | 5.1, 5.4, 5.5, 5.6, 5.7, 7.6, 9.1a, 9.3, 9.6, 9.9, 9.12, 9.17 |
+| AC-14 | 5.1, 5.4, 5.5, 5.6, 5.7, 7.6, 9.1a, 9.3, 9.6, 9.9, 9.12, 9.17, 10.1, 10.2, 10.6 |
 | AC-15 | 6.1 to 6.7, 7.1 to 7.8, 9.14, 9.15, 9.16 |
 | AC-16 | 9.8, 9.9, 9.10, 9.15, 9.16 |
 
@@ -478,15 +478,108 @@ ls-files` check needs (readiness attempt 5, O4).
   row N1 to N7 (AC-4, AC-5, AC-6).
 - [x] 9.18 Gate: `node scripts/test-suite.mjs --concurrency=3 && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && claude plugin validate . && openspec validate release-at-merge --strict` green at the final head, the whole suite run once as a background command with no other suite on the machine; the train's suite proves it again.
 
+## 10. Answers to review round 2
+
+Review round 2 failed (`review.md` at `c1c875e`, round 2 of 2, escalated), and the owner decided on
+2026-11-25, "1a e 2b": D-28 (the step's record read per line, confirmed), D-29 (an owner's forced
+merge reads the gates by its own requirement; `gatesAtHead` unchanged, its allowance a roadmap
+follow-up) and D-30 (the round 2 nits that are one-line text fixes). "Findings of review round 2" in
+`design.md` maps every finding to these tasks or to a written follow-up. The spec delta and the
+design already carry the plan text of 1a and 2b; this phase changes no hook and no behaviour, so no
+task has a red run and no `proof/red-10.txt` is written (strict test first applies where behaviour
+changes: nowhere here). No task writes a version, a changelog line, a CI pin or an ADR number: the
+numbering is done (task 9.17), and if the base moves, the delivery's `assign-release` step numbers
+the branch again from its record (D-20); a task names the step's record file by its slug, as `git
+ls-files docs/adr` lists it. An existing test changes only as D-30 says (names only, assertions
+unchanged), its invariant, layer and suite named in the commit message. Every gate runs at most three
+test files at once (`--concurrency=3`) as a background command of the tool, judged by its exit code.
+End every task with `git status --short`.
+
+- [ ] 10.1 (owner 1a; adr-reviewer F7, spec-reviewer F8; D-28) The coordinating session has the
+  adr-author add to the record of `ADR [release-at-merge-step-record]` (the one file of `git ls-files
+  docs/adr` whose name ends `-release-at-merge-step-record.md`, numbered at task 9.17) one dated note,
+  as the first paragraph under its `## Context` heading and followed by one blank line, in the form
+  ADR 0022 and ADR 0025 carry, with D-28's text word for word (it starts `Note (release-at-merge,
+  2026-11-25): after review round 2 of change release-at-merge the owner acknowledged the per-line
+  reading of decisions 3 and 4:` and ends `The Decision is otherwise unchanged.`); no other line of
+  the record changes, the note holds no `ADR [<slug>]` token and no number of this change, and the
+  implementer does not write it. Committed alone as `docs(adr): note the owner's per-line reading of
+  the release step's record`. Done when `git grep -c -F "Note (release-at-merge, 2026-11-25)" --
+  docs/adr` names that one file with the count 1, `git show --numstat --format= HEAD -- docs/adr`
+  lists that one file with 2 lines added and 0 removed, `git grep -n -F "ADR [release-at-merge" --
+  docs/adr` finds nothing, and `python3 scripts/check.py` passes (AC-4, AC-14).
+- [ ] 10.2 (owner 1a; adr-reviewer nit F9, spec-reviewer nit F10, code-quality nit F9,
+  test-coverage nit F17; D-28, D-30) In `plugins/openspec/skills/ship-change/SKILL.md`: in the
+  `assign-release` row, the closing parenthesis "(the `Release-` trailers of its last commit)"
+  becomes "(the `Release-` trailers of its own commits, each line read from the newest one that
+  wrote it)", the rest of the row unchanged; in the `app` bullet of "## Hosts", after the sentence
+  that ends "never because Auto-fix reported the conflict.", insert D-30's sentence "A change with a
+  release note, in a project that names `devkit.release_tag` and has no delivery train, is the other
+  exception: `next` answers its conflict with the base with `assign-release` (row N5), and the
+  session runs that row.", the rest of the bullet unchanged. No other line of the file changes.
+  Done when `grep -c "trailers of its last commit" plugins/openspec/skills/ship-change/SKILL.md`
+  prints 0, `grep -c -F "each line read from the newest one that wrote it"` and `grep -c -F
+  "(row N5), and the session runs that row."` on that file print 1 each, `git diff --numstat HEAD
+  -- plugins/openspec/skills/ship-change/SKILL.md`, run before the task's commit, reports 2 lines added and 2 removed, and these
+  stay green in gate 10.5: "release-note AC-4 format: ship-change's assign-release row ... names the
+  merge by hand" and T-2, T-30, T-31 and T-32 (`deliver-check-cli.test.mjs`), T-33
+  (`deliver-check-archive.test.mjs`), T-9 (`delivery-train-after.test.mjs`), T-16 and T-36
+  (`guard.test.mjs`), T-29 (`flow-check.test.mjs`), T-35 (`delivery-models.test.mjs`), T-39
+  (`release-tags.test.mjs`), T-28 (`change-loop-compozy.test.mjs`) and T-34
+  (`change-loop-remote-state.test.mjs`) (AC-4, AC-14).
+- [ ] 10.3 (owner 1a; test-coverage nit F20; D-28, D-30) Rename, with the assertions and the bodies
+  unchanged, the four tests D-30 lists: in `plugins/openspec/hooks/release-note.test.mjs` "release-note
+  AC-7 citation: an ADR [x] literal in a changed .mjs file is neither cited nor rewritten" to
+  "release-note AC-7 citation: an ADR [x] literal in a changed test file is neither cited nor
+  rewritten"; "release-note AC-7 citation: the same token in a changed .md file is refused while
+  unlanded and rewritten once landed, the .mjs literal never" to "release-note AC-7 citation: the same
+  token in a changed .md file is refused while unlanded and rewritten once landed, the literal in the
+  test file never"; "release-note AC-4 record: stepRecord reads the newest recorded commit, ignores a
+  trailer whose commit wrote nothing, and is null without one" to "release-note AC-4 record:
+  stepRecord reads each key from the newest recorded commit that wrote it, ignores a trailer whose
+  commit wrote nothing, and is null without one"; and in
+  `plugins/openspec/hooks/delivery-train.test.mjs` "release-note AC-7 join: a head numbered before the
+  train is renumbered in its Markdown citations, and its source literals stay as written" to
+  "release-note AC-7 join: a head numbered before the train is renumbered in its Markdown citations,
+  and its test-file literals stay as written". The commit message names each test's invariant, layer
+  and suite as D-30 does. Done when `git grep -c -e "literal in a changed .mjs file" -e "the .mjs
+  literal never" -e "its source literals stay as written" -e "stepRecord reads the newest recorded
+  commit" -- plugins` finds nothing, each new name is found once by `git grep -c -F` under
+  `plugins/openspec/hooks/`, `git diff --numstat HEAD -- plugins/openspec/hooks`, run before the task's commit, reports
+  `release-note.test.mjs` with 3 lines added and 3 removed and `delivery-train.test.mjs` with 1 and 1,
+  `git grep -c -F "a number the step kept across a base merge is still its own after a later merge by
+  hand" -- plugins/openspec/hooks/release-merge.test.mjs` prints the file with 1 (the proof of the
+  scenario "A number the step kept across a later step commit", D-28), and the four renamed tests pass
+  in gate 10.5 (AC-4, AC-7).
+- [ ] 10.4 (owner 2b; spec-reviewer F9, test-coverage F16, adr-reviewer nit F8, architecture nit F7;
+  D-29) Append to the end of `openspec/roadmap.md`, in the form of its rounds of a change's follow-ups
+  (28k, 28n, 28o), one blank line, the heading `## Round 28<letter>: follow-ups of release-at-merge`
+  with `<letter>` the next after the highest `## Round 28<letter>` the file holds then (`p` while it
+  ends at 28o), and the one line D-29 gives in its fenced block, word for word and on one line. No
+  other line of the file changes. Done when `grep -c -F "forced-merge-release-edit (after:
+  release-at-merge)" openspec/roadmap.md` prints 1, the last `## ` line of the file is the new
+  heading, `git diff --numstat HEAD -- openspec/roadmap.md`, run before the task's commit, reports 3
+  lines added and 0 removed, and `python3 scripts/check.py` passes (AC-4).
+- [ ] 10.5 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/release-tags.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs && python3 scripts/check.py && openspec validate release-at-merge --strict` green; covers AC-4 (the per-line record and its scenario), AC-7 (the renamed citation tests) and AC-14 (the texts) on the files phase 10 touches and every test file that reads the `ship-change` skill.
+- [ ] 10.6 Gate: `node scripts/test-suite.mjs --concurrency=3 && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && claude plugin validate . && openspec validate release-at-merge --strict` green at the final head, the whole suite run once as a background command with no other suite on the machine; the train's suite proves it again (AC-14).
+
 ## Workflow follow-up
 
 - After the train that carries this change merges: `tag-release` pushes the devkit-openspec tag on
   the train's merge commit (ADR 0019).
-- At the archive: no roadmap line names this change; moving the ten open changes to notes and removing
-  the old rule are changes of their own (requirements, Out of scope).
+- At the archive: no roadmap line names this change as its own line (task 10.4's line only waits on it
+  with `after:`); moving the ten open changes to notes and removing the old rule are changes of their
+  own (requirements, Out of scope).
 - Follow-ups of review round 1 (design, "Findings of review round 1"), each a change of its own: a
   citation form for the `ADRs:` list of `openspec/config.yaml` (code-quality nit F6); the wording of
   `ADR [release-at-merge]` decision 4 in the next record that touches it (adr-reviewer nit F3); the
   kit installer's `pack` field in `.compozy/kit-manifest.json` (adr-reviewer nit F4); one helper for
   the other numbered-name lookups (architecture nit F3); the AC-13 tests fed by the `gh` fixture and
   the fixture number of `conduct-check.test.mjs` (test-coverage nits F11, F12).
+- Follow-ups of review round 2 (design, "Findings of review round 2", D-30), each a change of its
+  own: `gatesAtHead`'s release-edit allowance on an owner's forced merge, on the roadmap by task 10.4
+  (D-29); a test that the join's commit carries no record (test-coverage nit F18); a test of the
+  give-back skipping a citation path the merge by hand deleted (test-coverage nit F19); the record
+  returned by `releaseStateAt` so `numberRelease` does not read it twice (architecture nit F8); and
+  the round 1 follow-ups above, carried. The owner confirms or not the resolution of the merge
+  `a47cec8` (code-quality nit F10, design F-11).

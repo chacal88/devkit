@@ -1,5 +1,23 @@
-<!-- devkit-stage proposal result=passed attempt=5 commit=41dd40ed6cb3017dd2a8cc5c623ffa6d19934303 -->
+<!-- devkit-stage proposal result=passed attempt=6 commit=9b67c11f446bfd8f24407556df9c082589acd50f -->
 # Proposal
+
+**Revised after review round 2 (FAIL, `review.md` at `c1c875e`, round 2 of 2, escalated)** by the
+owner's own decision of 2026-11-25, "1a e 2b"; `design.md` records it as D-28 to D-30 and "Findings
+of review round 2", and `tasks.md` phase 10 carries the work, with no hook change:
+
+- **1a, the step's record read per line** (adr-reviewer F7, spec-reviewer F8): each release line
+  takes the newest step commit that wrote it, a trailer counting only when its commit changed what it
+  names. The code already does so; the delta's requirement says it, with a scenario for a number a
+  later step commit kept, and the adr-author adds a dated note to
+  `ADR [release-at-merge-step-record]` recording the owner's acknowledgement.
+- **2b, an owner's forced merge keeps its own rule** (spec-reviewer F9, test-coverage F16): this
+  change's release-edit rule is the normal delivery path's; on an owner's forced merge the evidence
+  and the reviews are read by "The open items of a forced merge are named", so the step's commit can
+  list them there as open items (an over-report, never a pass). `gatesAtHead` is not changed; its
+  release-edit allowance is a roadmap follow-up.
+- **The round 2 nits that are one-line text fixes**: the `ship-change` `app` host sentence names row
+  N5, and the test names that state the old citation rule or the old record reading are corrected;
+  the other nits are follow-ups.
 
 **Revised after review round 1 (FAIL, `review.md` at `4a6e858`).** The decisions below were taken
 after that round by the coordinating session under the owner's delegation; `design.md` records them
@@ -101,7 +119,7 @@ and sometimes the owner's approval. The owner asked that a change stop choosing 
 Non-goals: moving the open changes over or removing the old rule; `change-loop-compozy.test.mjs`'s
 pin test and the archive check's pin-line rule (`archive-release-pin`, merged: ADR 0027, ADR 0030); a new stage or flow version; a release pull
 request after the merge; GitHub Releases or other tag kinds; any consumer layout beyond the
-`devkit.release_tag` file and a root `CHANGELOG.md`; the panel (a new step shows by its id).
+`devkit.release_tag` file and a root `CHANGELOG.md`; the panel (a new step shows by its id); after review round 2, the release-edit allowance of an owner's forced merge (`gatesAtHead`), a roadmap follow-up (design D-29).
 
 ## Acceptance criteria
 
@@ -149,7 +167,7 @@ None.
 - Repository: `scripts/check.py`, `docs/openspec-flow.md`, `CONTRIBUTING.md`, `openspec/config.yaml` (its `ADRs:` line lists both records), ADR 0022 and 0025 header lines and notes (ADR 0003, 0027 and 0030 unchanged); the two unnumbered records, numbered by the step.
 
 Exit criteria after review round 1: every gate of phase 9, its last the whole suite at the final
-head. Dependencies: `archive-release-pin` has merged (train 4, in the plan base): the pin definition is in
+head. After review round 2: every gate of phase 10, its last the whole suite at the final head. Dependencies: `archive-release-pin` has merged (train 4, in the plan base): the pin definition is in
 `deliver-check.mjs`, and the pin test reads devkit-openspec's version from its manifest, so this change
 edits no pin assertion and waits for nothing. The line between the two: ADR 0027 and ADR 0030 let the
 pin lines pass unnamed in the archive check; this change removes the rewrite from every branch (design

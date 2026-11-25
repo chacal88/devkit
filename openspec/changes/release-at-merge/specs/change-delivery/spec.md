@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=5 commit=41dd40ed6cb3017dd2a8cc5c623ffa6d19934303 -->
+<!-- devkit-stage specs result=passed attempt=6 commit=9b67c11f446bfd8f24407556df9c082589acd50f -->
 # Spec Delta
 
 ## ADDED Requirements
@@ -71,9 +71,9 @@ release lines are the pack and marketplace versions, `CHANGELOG.md`, the CI pins
 ### Requirement: A release line the step wrote is known by the step's own record
 For a change with a release note, a release line whose head value is the merge base's SHALL be read
 as the base's, even when the step's record holds it too. Otherwise a line whose head value the
-step's own latest recorded commit on the branch wrote SHALL be read as the step's, for the step to
-number again, and never refused as edited by hand. Only that record SHALL decide it; a value no
-recorded commit wrote keeps the refusal.
+step's own record holds SHALL be read as the step's, for the step to number again, and never refused
+as edited by hand. The record SHALL be read per line, each line from the newest recorded commit that
+changed it. A value no recorded commit wrote keeps the refusal.
 
 #### Scenario: The base merged by hand after the step refused a conflict
 - **WHEN** the step numbered the branch `devkit-openspec` 1.1.0 and `docs/adr/0002-feat.md`, the base then released 1.1.0 and took `0002` for `docs/adr/0002-other.md`, and a person merged the base by hand, resolving a conflict in `src/a.ts` and taking the base's side of every release file
@@ -82,6 +82,10 @@ recorded commit wrote keeps the refusal.
 #### Scenario: A version both sides released
 - **WHEN** the step's record wrote `devkit-openspec` 1.1.0, the base released 1.1.0 too, and a person merged the base by hand as above
 - **THEN** the manifest reads as the merge base's, the step gives none of its text back, and the step then writes the version it computes from the base
+
+#### Scenario: A number the step kept across a later step commit
+- **WHEN** the step numbered `docs/adr/0002-feat.md`, the base then released `devkit-openspec` 1.1.0 with no ADR, the step ran again in a merge commit that kept `0002` without renaming it, and the base then took `0002` for `docs/adr/0002-other.md` and changed `src/a.ts`, so the step exited 2 naming `src/a.ts` and a person merged the base by hand as above
+- **THEN** the step does not refuse the branch as edited by hand: it gives back the `0002` the first step commit wrote and exits 0, and the branch holds `docs/adr/0003-feat.md`, the base's `docs/adr/0002-other.md` as it was, `devkit-openspec` 1.2.0, every citation the step had written naming `0003`, and the release assigned and current
 
 #### Scenario: A number the step never wrote
 - **WHEN** the same merged branch also sets a version the step's recorded commit did not write
@@ -392,7 +396,10 @@ merge of the base included, whose every changed path differs from its parent (a 
 parent) only in release lines (versions, the changelog, the CI pins, the version of the release
 file, and an unnumbered ADR renamed to its number, or the change's own ADR renumbered by a later run
 of the step after the base took its number, with its citations rewritten) SHALL leave them current.
-A rejected review and a change with no note SHALL be judged as before.
+A rejected review and a change with no note SHALL be judged as before. On an owner's forced merge
+the evidence and the reviews SHALL be read by the requirement "The open items of a forced merge are
+named", so the delivery step's release commit can list them there as open items, an over-report and
+never a pass.
 
 #### Scenario: A plain product commit after a base merge
 - **WHEN** a merge of `origin/<base>` after R brings only unrelated files and a later one-parent commit on the branch changes `src/unrelated.ts`, a file the branch never changed before
@@ -404,7 +411,7 @@ A rejected review and a change with no note SHALL be judged as before.
 
 #### Scenario: The step's commit
 - **WHEN** the evidence and the approved reviews record commit R and the only later commit is the one `assign-release` made
-- **THEN** the delivery checker, the stage checker and `deliver-check --ci` read them as current
+- **THEN** the delivery checker, the stage checker and `deliver-check --ci` read them as current, while an owner's forced merge of that head reads them by "The open items of a forced merge are named" and can list them as open items
 
 #### Scenario: A later run that renumbers the change's own ADR
 - **WHEN** the evidence and the approved reviews record commit R after a first run of the step numbered `docs/adr/0002-feat.md`, the base then took `0002` and changed no file of the change, and the only later commit is the step's merge of the base that renumbers the record to `0003` and rewrites its citations

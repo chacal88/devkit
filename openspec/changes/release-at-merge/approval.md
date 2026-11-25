@@ -1,8 +1,8 @@
-<!-- devkit-stage approval result=passed attempt=2 commit=41dd40ed6cb3017dd2a8cc5c623ffa6d19934303 -->
+<!-- devkit-stage approval result=passed attempt=3 commit=9b67c11f446bfd8f24407556df9c082589acd50f -->
 # Plan approval: release-at-merge
 
 - Status: APPROVED
-- Readiness: sha256:287e9f7ea64c
+- Readiness: sha256:8534782bcf06
 - Release note: sha256:c55b8f7d9717
-- Date: 2026-11-24
+- Date: 2026-11-25
 - Owner's words: "`Aprovo`"
