@@ -474,6 +474,24 @@ test('release-note AC-3 trainCheck: a join that numbers an ADR passes the train\
   assert.doesNotMatch(bad.out, /changes [^\n]*docs\/adr\/0001-alpha\.md/, 'the numbered record itself is the numbering');
 });
 
+// Review round 1 (test-coverage F3): in a consumer project the join writes the file devkit.release_tag names, which is no release file of
+// the devkit packs; the train's own-commit rule must take it as the numbering.
+const appPkg = (v) => `${JSON.stringify({ name: 'app', version: v }, null, 2)}\n`;
+test('release-note AC-3 trainCheck: a consumer\'s join that writes the release file passes', () => {
+  const config = `${projectConfig('trunk-auto', 'true')}  release_tag: package.json\n`;
+  const p = project({ train: 'true', config, files: { 'package.json': appPkg('1.4.0'), 'CHANGELOG.md': '# Changelog\n\n## 1.4.0 — old\n\n- x\n' } });
+  addChange(p, 'alpha', { files: { 'openspec/changes/alpha/release.md': 'packs: []\nrelease: minor\n\n## alpha\n\nalpha\n' } });
+  const out = departIn(p);
+  assert.equal(out.code, 0, JSON.stringify(out.out));
+  assert.deepEqual(out.out.boarded.map((b) => b.id), ['alpha']);
+  const wt = out.out.worktree;
+  assert.equal(readFileSync(join(wt, 'package.json'), 'utf8'), appPkg('1.5.0'), 'the join wrote the release file');
+  assert.equal(readFileSync(join(wt, 'CHANGELOG.md'), 'utf8'), '# Changelog\n\n## 1.5.0 — alpha\n\nalpha\n\n## 1.4.0 — old\n\n- x\n');
+  const r = ciIn(wt, { head: 'train/1' });
+  assert.equal(r.code, 0, r.out + r.err);
+  assert.equal(trainLines(r).filter((l) => l.startsWith('  change alpha ') && /pass$/.test(l)).length, 1, r.out);
+});
+
 test('release-note AC-5 departure: two noted changes depart on one train, numbered in boarding order, and both boarded heads stay current at their own heads', () => {
   const p = project({ train: 'true', config: NOTED_TRAIN, files: RELEASE_BASE });
   addChange(p, 'alpha', { files: notedFiles('alpha'), at: '2026-11-23T10:00:00Z' });

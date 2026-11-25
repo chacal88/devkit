@@ -742,6 +742,19 @@ test('format: ship-change enables auto-merge with one exact command, only at ena
   for (const report of ['archived', 'archive PR open: waiting for', 'archive PR ready', 'archive: waiting for the owner', 'blocked: archive (', 'auto-merge on: waiting for', 'blocked: merge setup']) assert.ok(md.includes(report), `Report names ${report}`);
 });
 
+// Invariant (release-at-merge D-9, test-coverage F6, the clause's part): the session writes the approval the checker reads, so the
+// stop-plan-approval row puts the note's hash right after the readiness hash, and only when the checker gives one. Owner: the ship-change
+// skill (text pins). Suite: deliver-check-cli.test.mjs.
+test('release-note AC-12 format: ship-change\'s stop-plan-approval row writes - Release note: <next.release> after - Readiness: when next.release is set', () => {
+  const md = readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
+  const rows = md.split('\n').filter((l) => l.startsWith('| `stop-plan-approval` |'));
+  assert.equal(rows.length, 1, 'one stop-plan-approval row');
+  const at = (part) => { const i = rows[0].indexOf(part); assert.ok(i >= 0, `the row names ${part}`); return i; };
+  assert.ok(at('`- Readiness: <next.readiness>`') < at('`- Release note: <next.release>`'), 'the note line follows the readiness line');
+  assert.ok(at('`- Release note: <next.release>`') < at('`- Date: <YYYY-MM-DD>`'), 'and comes before the date');
+  assert.ok(at('`- Release note: <next.release>`') < at('right after it when `next.release` is set'), 'only when the checker gives a hash');
+});
+
 // ---------------------------------------------------------------- --ci: the devkit-reviews check (auto-merge D5)
 
 test('--ci: passes at the head when items 1 to 4 are met, with the D5 human output (AC-5)', () => {

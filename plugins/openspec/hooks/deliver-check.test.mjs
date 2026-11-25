@@ -2791,6 +2791,27 @@ test('release-note AC-4 row N6: a branch merged by hand after the step is handed
   assert.deepEqual(n.command, STEP_COMMAND);
 });
 
+// Review round 1 (test-coverage nit F9): in a two-prs project the test-branch pull request merged, every item met, the release step stands
+// before ready-base, the owner's merge of the base pull request, and ready-base follows the step's commit.
+const TWO_PRS_MERGED = {
+  base: 'main', testBranch: 'develop', defaultBranch: 'main', defaultOk: true, defaultError: null,
+  test: { pr: { number: 13, url: 'https://github.com/o/r/pull/13', state: 'MERGED', headRefName: 'feat', headRefOid: 'a'.repeat(40), mergeable: 'MERGEABLE', mergedAt: '2026-11-22T10:00:00Z' } },
+  rerun: null, root: '/w/feat',
+  support: { branch: 'feat-develop', exists: false, worktree: null, path: '/w/feat-develop', merging: null, head: null, hasTask: false, hasTest: false, pushed: false },
+  resolution: { commits: [], newest: null, verdicts: [], missing: [], stale: [], rejected: [], undisposed: [], round: null, approved: true },
+};
+test('release-note AC-4 row N6: before ready-base in a two-prs project', () => {
+  const t = noteReady({ ship: 'pr' });
+  const twoNext = () => nextStep({ ...collectState(t.root, 'feat', { env: t.env }), twoPrs: TWO_PRS_MERGED });
+  const n = twoNext();
+  assert.equal(n.step, 'assign-release', n.reason);
+  assert.deepEqual([n.number, n.base, n.command], [12, 'main', STEP_COMMAND]);
+  stepCommit(t.root);
+  setPrHead(t);
+  const after = twoNext();
+  assert.deepEqual([after.step, after.number, after.base], ['ready-base', 12, 'main'], after.reason);
+});
+
 test('release-note AC-4 row N5: a branch behind the base is given assign-release in place of update-branch', () => {
   const t = noteReady();
   stepCommit(t.root);
@@ -2994,6 +3015,27 @@ test('release-note AC-4 staleness: the step run again after the base numbered an
   const again = step();
   assert.equal(again.status, 0, again.stderr + again.stdout);
   assert.equal(readFileSync(join(root, 'docs/x.md'), 'utf8'), 'See ADR 0003 for the rule.\n');
+  const after = recordsOf(root);
+  assert.deepEqual([after.tasks, after.acceptance, after.reviews.status], ['current', 'current', 'met'], tasksItem(root, 'feat', relFacts(root)).reason);
+});
+
+// Review round 1 (test-coverage F3): in a consumer project the release lines are the file devkit.release_tag names and CHANGELOG.md, so the
+// release mask must cover that file for the step's commit to be a release edit.
+const CONSUMER_CONFIG = 'schema: devkit-lite\ndevkit:\n  release_tag: package.json\n';
+const consumerPkg = (v) => `${JSON.stringify({ name: 'app', version: v }, null, 2)}\n`;
+test('release-note AC-4 staleness: a consumer\'s step commit leaves tasks, acceptance and approved reviews current', () => {
+  const root = provedNote({
+    config: CONSUMER_CONFIG, adr: false,
+    files: { 'package.json': consumerPkg('1.4.0'), 'CHANGELOG.md': '# Changelog\n\n## 1.4.0 — old\n\n- x\n' },
+    note: relNote('packs: []', 'release: minor', '', '## t', '', 'body'),
+  });
+  const facts = DC.releaseFacts(root, 'feat', relFacts(root));
+  assert.deepEqual([facts.applies, facts.noted, facts.file], [true, true, 'package.json']);
+  assert.deepEqual([recordsOf(root).tasks, recordsOf(root).acceptance, recordsOf(root).reviews.status], ['current', 'current', 'met']);
+  const step = spawnSync(STEP_COMMAND[0], STEP_COMMAND.slice(1), { cwd: root, encoding: 'utf8', env: { ...GIT_ENV, ...CI_ENV } });
+  assert.equal(step.status, 0, step.stderr + step.stdout);
+  assert.equal(readFileSync(join(root, 'package.json'), 'utf8'), consumerPkg('1.5.0'), 'the step wrote the release file');
+  assert.deepEqual(git(root, 'diff', '--name-only', 'HEAD^', 'HEAD').split('\n').sort(), ['CHANGELOG.md', 'package.json']);
   const after = recordsOf(root);
   assert.deepEqual([after.tasks, after.acceptance, after.reviews.status], ['current', 'current', 'met'], tasksItem(root, 'feat', relFacts(root)).reason);
 });

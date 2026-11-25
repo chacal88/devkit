@@ -2308,6 +2308,38 @@ test('fresh-base-check 1: next fetches the base before it judges, and a call wit
   assert.equal(git(d.t.main, 'rev-parse', 'origin/main'), d.remote);
 });
 
+// Readiness M2 (release-at-merge D-25; a guard of the MODIFIED change-coordination requirement "The loop fetches the base branch before it
+// judges a delivery step"): staleMergeFixture's shape with devkit.release_tag set and the change's release.md. A noted change never edits a
+// release line by hand, so its release lines are the step's (written out here by hand) and the remote's newer commit releases another change
+// over them: the fetched base is judged, and the noted change is handed the session step assign-release where a change with no note gets
+// resolve-release-conflict (fresh-base-check 1).
+const CONSUMER_PKG = (v) => `${JSON.stringify({ name: 'app', version: v }, null, 2)}\n`;
+const CONSUMER_CL = (...entries) => `# Changelog\n\n${entries.map((e) => `${e}\n`).join('')}## 1.0.0 — first\n\n- start\n`;
+test('release-note AC-4 fetch: a base that moved on the remote hands assign-release, not resolve-release-conflict, to a noted change', () => {
+  const d = deliveredChange({
+    config: `${MERGE_CONFIG}devkit:\n  release_tag: package.json\n`,
+    files: { ...RELEASE, ...MERGE_FILES, 'package.json': CONSUMER_PKG('1.0.0'), 'CHANGELOG.md': CONSUMER_CL() },
+    mergeable: 'CONFLICTING', checks: [check('build', 'pass')],
+  });
+  put(d.wt, {
+    'openspec/changes/feat/release.md': 'packs: []\nrelease: minor\n\n## the change\n\n- feat\n',
+    'package.json': CONSUMER_PKG('1.1.0'), 'CHANGELOG.md': CONSUMER_CL('## 1.1.0 — the change\n\n- feat\n'),
+  });
+  commitAll(d.wt, 'chore(release): assign the release of feat');
+  d.t.commitOrigin({ 'package.json': CONSUMER_PKG('1.1.0'), 'CHANGELOG.md': CONSUMER_CL('## 1.1.0 — other\n\n- other\n') }, 'another change released');
+  d.gh.set('pr-view', { stdout: prJson('feat', { headRefOid: git(d.wt, 'rev-parse', 'HEAD'), mergeable: 'CONFLICTING' }) });
+  presetMerge(d.gh);
+  const { remote, stale } = staleBase(d.t);
+  assert.equal(git(d.t.main, 'rev-parse', 'origin/main'), stale);
+  const r = next(d.t.main, [], d.env);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const { action } = parsed(r);
+  assert.deepEqual([action.kind, action.step], ['session', 'assign-release'], JSON.stringify(action));
+  assert.deepEqual(action.baseFetch, { ok: true, base: 'main' });
+  assert.equal(git(d.t.main, 'rev-parse', 'origin/main'), remote, 'next moved origin/main to the remote\'s commit');
+  assert.equal(collectState(d.wt, 'feat', { env: d.env }).release.state.current, false, 'the fetched base released over the step\'s lines');
+});
+
 test('fresh-base-check 2: a fetch that fails decides from the local copy, records it and says it in one line, in both languages', () => {
   const d = staleMergeFixture();
   git(d.t.main, 'remote', 'set-url', 'origin', MISSING(d.t));

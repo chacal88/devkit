@@ -1140,3 +1140,114 @@ test('release-note AC-5 assign: two unnumbered records of one change take the ne
   assert.equal(read(root, 'docs/x.md'), 'See ADR 0027 and ADR 0028, in docs/adr/0027-feat.md and docs/adr/0028-feat-store.md.\n');
   assert.equal(git(root, 'log', '-1', '--format=%(trailers:key=Release-adr,valueonly)'), 'docs/adr/feat.md -> docs/adr/0027-feat.md\ndocs/adr/feat-store.md -> docs/adr/0028-feat-store.md');
 });
+
+// ---------------------------------------------------------------- review round 1 (D-26): the paths round 1 found untested, and D-24
+
+// test-coverage F1: the flow page's pins conflict on the step's own merge, and the page cites no ADR, so only the pin clause of D-6 step 2
+// sends it through the masked merge.
+test('release-note AC-4 assign: run again after the base released another devkit-openspec version, the pin-only conflict of a flow page that cites no ADR is resolved by rule', () => {
+  const { root } = notedRepo({ adr: false });
+  assert.equal(assign(root).code, 0);
+  assert.deepEqual([...new Set(pinsIn(read(root, PIN_FILE)))], ['v1.1.0']);
+  mainReleases(root, 'feat', {
+    [PIN_PACK]: pluginJson(PIN_PACK_NAME, '1.0.1'),
+    '.claude-plugin/marketplace.json': marketplace('1.0.1', { [PIN_PACK_NAME]: '1.0.1', 'devkit-core': '1.0.0' }),
+    'CHANGELOG.md': '# Changelog\n\n## 1.0.1 — other\n\n- other\n\n## 1.0.0 — first\n\n- start\n',
+    [PIN_FILE]: pinDoc('1.0.1'),
+  });
+  const oldHead = sha(root);
+  const r = assign(root);
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.deepEqual(parentsOf(root), [oldHead, sha(root, 'origin/main')], 'one merge commit of the base');
+  assert.equal(versionOf(root, PIN_PACK), '1.1.0', 'the note\'s minor above the base\'s 1.0.1');
+  assert.deepEqual([...new Set(pinsIn(read(root, PIN_FILE)))], ['v1.1.0'], 'every pin names the branch\'s new version');
+  assert.equal(read(root, PIN_FILE), pinDoc('1.1.0'));
+  assert.doesNotMatch(read(root, PIN_FILE) + read(root, 'CHANGELOG.md'), /<<<<<<<|=======|>>>>>>>/);
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  const s = stateNow(root);
+  assert.deepEqual([s.kind, s.current], ['assigned', true]);
+});
+
+// test-coverage F4, architecture nit F4 (D-6 step 3): the release lines are set on the merged text, so a manifest field the branch added
+// stays beside the version the step writes.
+const richPack = (version, keywords) => json({ name: PIN_PACK_NAME, version, description: 'pack devkit-openspec', homepage: 'https://example.invalid/devkit', license: 'MIT', keywords });
+test('release-note AC-4 assign: a manifest field the branch added is kept when the step merges a base that released, and only the version moves', () => {
+  const { root } = notedRepo({ main: { [PIN_PACK]: richPack('1.0.0', ['flow']) }, files: { [PIN_PACK]: richPack('1.0.0', ['flow', 'release']) } });
+  const first = assign(root);
+  assert.equal(first.code, 0, first.stderr + first.stdout);
+  assert.equal(read(root, PIN_PACK), richPack('1.1.0', ['flow', 'release']));
+  mainReleases(root, 'feat', { [PIN_PACK]: richPack('1.1.0', ['flow']) });
+  const oldHead = sha(root);
+  const r = assign(root);
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.deepEqual(parentsOf(root), [oldHead, sha(root, 'origin/main')]);
+  assert.equal(read(root, PIN_PACK), richPack('1.2.0', ['flow', 'release']), 'the branch\'s keyword stays and only the version moved');
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  const s = stateNow(root);
+  assert.deepEqual([s.kind, s.current], ['assigned', true], 'assigned right after the step');
+});
+
+// test-coverage nit F7, D-24: every refusal before the step writes anything leaves the branch at its old head; a project with no
+// devkit.release_tag, a setting the reader refuses and a usage error are setup errors (exit 3), a branch with no or two noted changes is
+// not resolvable (exit 2).
+test('release-note AC-9 assign: the refusals before any write', () => {
+  const noKey = notedRepo({ main: { 'openspec/config.yaml': 'schema: devkit-lite\n' } }).root;
+  const noKeyHead = sha(noKey);
+  const none = assign(noKey);
+  assert.equal(none.code, 3, none.stderr + none.stdout);
+  assert.equal(none.stderr, 'release-merge: openspec/config.yaml names no devkit.release_tag: this project has no release to assign\n');
+  assert.equal(none.stdout, '', 'no JSON');
+  asItWas(noKey, noKeyHead);
+
+  const badKey = notedRepo({ main: { 'openspec/config.yaml': 'schema: devkit-lite\ndevkit:\n  release_tag: notes.txt\n' } }).root;
+  const badHead = sha(badKey);
+  const bad = assign(badKey);
+  assert.equal(bad.code, 3, bad.stderr + bad.stdout);
+  assert.match(bad.stderr, /^release-merge: openspec\/config\.yaml: devkit\.release_tag: "notes\.txt" is not a path from the repository root to a \.json file\n$/);
+  asItWas(badKey, badHead);
+
+  const { root } = notedRepo();
+  const oldHead = sha(root);
+  const ticks = runNoted(root, '--assign', '--base', 'main', '--roadmap-ticks', '--json');
+  assert.equal(ticks.code, 3, ticks.stderr + ticks.stdout);
+  assert.match(ticks.stderr, /usage:/);
+  asItWas(root, oldHead);
+
+  const unnoted = notedMain().root;
+  git(unnoted, 'checkout', '-q', '-b', 'feat', 'main');
+  write(unnoted, { 'src/b.ts': 'b\n' });
+  const unnotedHead = commit(unnoted, 'a change with no note');
+  const nothing = assign(unnoted);
+  assert.equal(nothing.code, 2, nothing.stderr + nothing.stdout);
+  assert.match(nothing.out.error, /^no change under openspec\/changes\/ adds a release\.md since its merge base with the base$/);
+  asItWas(unnoted, unnotedHead);
+
+  const two = notedRepo({ files: { 'openspec/changes/other/release.md': noteFor('the change other') } }).root;
+  const twoHead = sha(two);
+  const both = assign(two);
+  assert.equal(both.code, 2, both.stderr + both.stdout);
+  assert.equal(both.out.error, 'more than one change adds a release.md: feat, other');
+  asItWas(two, twoHead);
+});
+
+// test-coverage nit F10: the step's merge gives back its own numbered record (docs/adr/0002-feat.md to docs/adr/feat.md) before the slug check,
+// so a refusal there must take out the unnumbered name HEAD does not hold.
+test('release-note AC-4 assign: a slug refusal after the step gave back its own numbered record leaves the tree as it was', () => {
+  const { root } = notedRepo();
+  assert.equal(assign(root).code, 0);
+  assert.ok(existsSync(join(root, 'docs/adr/0002-feat.md')));
+  git(root, 'checkout', '-q', 'main');
+  write(root, { 'docs/adr/0031-feat.md': '# ADR 0031: feat elsewhere\n' });
+  commit(root, 'the base holds an ADR with the slug');
+  git(root, 'push', '-q', 'origin', 'main');
+  git(root, 'checkout', '-q', 'feat');
+  const oldHead = sha(root);
+  const r = assign(root);
+  assert.equal(r.code, 2, r.stderr + r.stdout);
+  assert.match(r.out.error, /^a second ADR with the slug feat: docs\/adr\/feat\.md, /);
+  assert.match(r.out.error, /docs\/adr\/0031-feat\.md/);
+  asItWas(root, oldHead);
+  assert.ok(!existsSync(join(root, 'docs/adr/feat.md')), 'restore takes out the given-back name');
+  assert.equal(read(root, 'docs/adr/0002-feat.md'), '# ADR 0002: the rule\n\n- Status: proposed\n- Change: `feat`\n');
+  assert.equal(read(root, 'docs/feat.md'), 'See ADR 0002 in docs/adr/0002-feat.md.\n');
+});

@@ -420,7 +420,7 @@ ls-files` check needs (readiness attempt 5, O4).
   the sentence of "The release note" (D-13). No `flow.json` and no schema file changes. Done when the
   9.8 tests pass and T-4, T-13, T-19 and T-29 stay green.
 - [x] 9.10 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/change-state-stages.test.mjs plugins/openspec/hooks/status-line.test.mjs plugins/openspec/hooks/stage-models.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/roadmap-loop-followups.test.mjs && python3 scripts/check.py` green; covers AC-12 and AC-16.
-- [ ] 9.11 Write the remaining D-26 tests (test-coverage F1, F2, F3, F4, F6 and nits F7 to F10;
+- [x] 9.11 Write the remaining D-26 tests (test-coverage F1, F2, F3, F4, F6 and nits F7 to F10;
   code-quality nit F5; spec-reviewer nit F7): in `plugins/openspec/hooks/release-merge.test.mjs` the
   pin-only re-assign, the manifest field, the refusals before any write (exit 3 with no
   `devkit.release_tag`) and the slug refusal after the give-back; in
@@ -435,7 +435,7 @@ ls-files` check needs (readiness attempt 5, O4).
   `change-coordination` requirement "The loop fetches the base branch before it judges a delivery
   step"). Run them; append the run to `proof/red-9.txt`. Done when each
   exists by its D-26 name, the `## ` body test and the exit 3 part fail, and every guard passes.
-- [ ] 9.12 Apply D-23 and D-24 (code-quality nit F5, architecture nit F5, spec-reviewer nit F7): in `plugins/openspec/hooks/deliver-check.mjs` `parseReleaseNote`'s
+- [x] 9.12 Apply D-23 and D-24 (code-quality nit F5, architecture nit F5, spec-reviewer nit F7): in `plugins/openspec/hooks/deliver-check.mjs` `parseReleaseNote`'s
   refusal of a `## ` body line; in `plugins/openspec/hooks/release-merge.mjs` exit 3 with no
   `devkit.release_tag`; in `docs/openspec-flow.md` the `--assign` paragraph's exit 3 (D-13). Done
   when the 9.11 tests pass and every `release-note AC-1` and `AC-9` test stays green.

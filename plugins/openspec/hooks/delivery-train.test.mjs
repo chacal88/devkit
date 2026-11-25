@@ -464,6 +464,30 @@ test('release-note AC-10 join: a noted head and an old-rule head on one train, i
   assert.equal(git(old.root, 'status', '--porcelain'), '');
 });
 
+// Review round 1 (test-coverage nit F8): with no devkit.release_tag no note rule applies (AC-9), so a head that carries release.md and bumps
+// by hand is renumbered by the kind of its own bump, its note is not read and its unnumbered ADR is left as it is.
+test('release-note AC-9 join: with no devkit.release_tag a head carrying release.md joins by the old rule', () => {
+  const { root, heads } = notedJoinRepo({
+    alpha: bumpFiles('0.7.0', 'alpha'),
+    beta: { ...bumpFiles('0.6.1', 'beta'), 'openspec/changes/beta/release.md': noteOf('beta', 'a', 'major'), ...unnumberedAdr('beta') },
+  }, { config: 'schema: devkit-lite\n' });
+  assert.equal(run(root, '--merge', heads.alpha, '--json').code, 0);
+  const r = run(root, '--merge', heads.beta, '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.equal(r.out.mode, 'merge');
+  assert.equal('change' in r.out, false, 'no noted change is named: the old rule ran');
+  assert.equal('adrs' in r.out, false);
+  assert.equal(git(root, 'log', '-1', '--format=%s'), joinMessage(heads.beta));
+  assert.equal(versionOf(root, 'plugins/a/.claude-plugin/plugin.json'), '0.7.1', 'beta\'s own patch above the train\'s 0.7.0, not the note\'s major');
+  assert.equal(metaOf(root), '0.7.1');
+  const cl = read(root, 'CHANGELOG.md');
+  assert.ok(cl.indexOf('## 0.7.1 — beta') >= 0 && cl.indexOf('## 0.7.1 — beta') < cl.indexOf('## 0.7.0 — alpha'), cl);
+  assert.equal(read(root, 'docs/adr/beta.md'), '# ADR [beta]: beta\n', 'the ADR keeps its unnumbered name');
+  assert.equal(read(root, 'docs/beta.md'), 'See ADR [beta] (adr/beta.md).\n');
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  headsKept(root, heads);
+});
+
 test('release-note AC-7 join: a citation of an ADR neither the base nor an earlier join numbered exits 2 naming the slug and leaves the train as it was', () => {
   const { root, heads } = notedJoinRepo({ beta: { 'openspec/changes/beta/release.md': noteOf('beta'), 'docs/beta.md': 'Amends ADR [gamma].\n' } });
   const tip = git(root, 'rev-parse', 'HEAD');

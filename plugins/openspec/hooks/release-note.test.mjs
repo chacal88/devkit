@@ -75,6 +75,18 @@ test('release-note AC-1 reader: a code fence that is closed, backticks or tildes
   }
 });
 
+// Review round 1 (code-quality nit F5, D-23): changelogEntry would write a `## ` body line into CHANGELOG.md as a version heading of its own,
+// which parseChangelog and the changelog rule of check.py read as a version; a `### ` line and a `## ` line inside a fence are text.
+test('release-note AC-1 reader: a ## line in the changelog body is refused naming its line; a ### line and a fenced ## line are kept', () => {
+  const refused = D.parseReleaseNote(note('packs:', '- devkit-core: patch', '', '## t', '', 'text', '## 2.0.0 — another', '- x'));
+  assert.equal(refused.error, 'release.md: changelog body: line 7: "## 2.0.0 — another" is a version heading; write ### or a list item');
+  assert.equal(refused.packs, undefined, 'a refused note gives no fields');
+  const kept = D.parseReleaseNote(note('packs:', '- devkit-core: patch', '', '## t', '', 'text', '### a part', '- x', '```md', '## inside a fence', '```'));
+  assert.equal(kept.error, undefined);
+  assert.equal(kept.title, 't');
+  assert.equal(kept.body, 'text\n### a part\n- x\n```md\n## inside a fence\n```');
+});
+
 const REFUSED = [
   ['an empty file', '', /^release\.md: packs: missing/],
   ['no packs line', note('## t', 'body'), /^release\.md: packs: missing/],
@@ -608,6 +620,23 @@ test('release-note AC-8 consumer: the release file gets the note\'s bump and CHA
   assert.equal(readIn(root, 'CHANGELOG.md'), '# Changelog\n\n## 1.5.0 — t\n\nbody\n\n## 1.4.0 — old\n\n- x\n');
   assert.deepEqual(changedSince(root, oldHead), ['CHANGELOG.md', 'package.json']);
   assert.equal(stateOf(root).kind, 'assigned');
+});
+
+// Review round 1 (test-coverage F2): the step's merge of a base that released the consumer's release file merges that file with the version
+// line set to the base's on both sides (D-6 step 2), then step 3 writes the note's bump above the base's.
+test('release-note AC-8 consumer: run again after the base released, the release file takes the note\'s bump above the base\'s', () => {
+  const root = noteRepo({ config: CONSUMER, files: { 'package.json': pkgJson('1.4.0'), 'CHANGELOG.md': '# Changelog\n\n## 1.4.0 — old\n\n- x\n' }, adr: false, note: CONSUMER_NOTE });
+  assert.equal(assignIn(root).code, 0);
+  assert.equal(readIn(root, 'package.json'), pkgJson('1.5.0'));
+  baseReleases(root, { 'package.json': pkgJson('1.5.0'), 'CHANGELOG.md': '# Changelog\n\n## 1.5.0 — other\n\n- o\n\n## 1.4.0 — old\n\n- x\n' });
+  const oldHead = headOf(root);
+  const r = assignIn(root);
+  assert.equal(r.code, 0, r.text);
+  assert.deepEqual(git(root, 'rev-list', '--parents', '-n', '1', 'HEAD').split(' ').slice(1), [oldHead, git(root, 'rev-parse', 'origin/main')], 'one merge commit of the base');
+  assert.equal(readIn(root, 'package.json'), pkgJson('1.6.0'));
+  assert.equal(readIn(root, 'CHANGELOG.md'), '# Changelog\n\n## 1.6.0 — t\n\nbody\n\n## 1.5.0 — other\n\n- o\n\n## 1.4.0 — old\n\n- x\n');
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  assert.deepEqual([stateOf(root).kind, stateOf(root).current], ['assigned', true]);
 });
 
 test('release-note AC-8 consumer: with no CHANGELOG.md only the release file changes and no file is created', () => {

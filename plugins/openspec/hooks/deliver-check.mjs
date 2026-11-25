@@ -1931,6 +1931,7 @@ function archiveBaseFacts(gh, root, id, { located, repo, facts, changePr, branch
 export const RELEASE_NOTE = 'release.md';
 const NOTE_KINDS = ['patch', 'minor', 'major'];
 const NOTE_FENCE = /^\s*(?:`{3,}|~{3,})/;
+const NOTE_VERSION_HEADING = /^##\s/;
 const esc = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // The note `text` holds: { packs: [{ name, kind }], marketplace, marketplaceGiven, release, title, body }, or { error } (D-1). `marketplace`
@@ -1989,8 +1990,12 @@ export function parseReleaseNote(text) {
   const body = lines.slice(bodyAt).join('\n').replace(/^\n+/, '').trimEnd();
   if (releases && title === null) return refuse('changelog title: missing (a "## <title>" line comes after the fields)');
   if (releases && body === '') return refuse('changelog body: empty (write what the release changes under the title)');
+  // A `## ` line outside a fence would be another version heading in CHANGELOG.md (D-23); `### ` and a fenced line are text.
   let opened = null;
-  for (let k = bodyAt; k < lines.length; k++) if (NOTE_FENCE.test(lines[k])) opened = opened === null ? k + 1 : null;
+  for (let k = bodyAt; k < lines.length; k++) {
+    if (NOTE_FENCE.test(lines[k])) opened = opened === null ? k + 1 : null;
+    else if (opened === null && NOTE_VERSION_HEADING.test(lines[k])) return refuse(`changelog body: line ${k + 1}: "${lines[k]}" is a version heading; write ### or a list item`);
+  }
   if (opened !== null) return refuse(`changelog body: a code fence opened at line ${opened} is never closed`);
   const largest = packs.reduce((top, p) => (top === null || NOTE_KINDS.indexOf(p.kind) > NOTE_KINDS.indexOf(top) ? p.kind : top), null);
   return { packs, marketplace: given.marketplace ?? largest, marketplaceGiven: given.marketplace !== null, release: given.release, title, body };

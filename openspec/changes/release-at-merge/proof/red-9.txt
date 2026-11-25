@@ -1255,3 +1255,312 @@ $ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHU
 === plugins/openspec/hooks/conduct-check.test.mjs: pass 176.1s
 suite: 5 files, 932 tests, 932 pass, 0 fail, 667.2s, concurrency 3
 exit: 0
+
+Task 9.11: the remaining D-26 tests (test-coverage F1, F2, F3, F4, F6 and nits F7 to F10; code-quality nit F5; spec-reviewer nit F7; readiness M2), run on the code as phase 9 finds it after 9.10 (the ## body test and the exit 3 part fail; every guard passes)
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 --test-name-pattern='^release-note (AC-4 assign: (run again after the base released another|a manifest field|a slug refusal after)|AC-9 assign: the refusals|AC-1 reader: a ## line|AC-8 consumer: run again|AC-4 staleness: a consumer|AC-4 row N6: before ready-base|AC-3 trainCheck: a consumer|AC-9 join: with no|AC-12 format: ship-change|AC-4 fetch:)' plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop.test.mjs
+start plugins/openspec/hooks/change-loop.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/delivery-train.test.mjs
+=== plugins/openspec/hooks/delivery-train.test.mjs
+✔ release-note AC-9 join: with no devkit.release_tag a head carrying release.md joins by the old rule (1100.863424ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1404.796794
+=== plugins/openspec/hooks/delivery-train.test.mjs: pass 1.5s
+start plugins/openspec/hooks/deliver-check-cli.test.mjs
+=== plugins/openspec/hooks/deliver-check-cli.test.mjs
+✔ release-note AC-12 format: ship-change's stop-plan-approval row writes - Release note: <next.release> after - Readiness: when next.release is set (7.601472ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 305.967104
+=== plugins/openspec/hooks/deliver-check-cli.test.mjs: pass 0.4s
+start plugins/openspec/hooks/release-merge.test.mjs
+=== plugins/openspec/hooks/change-loop.test.mjs
+✔ release-note AC-4 fetch: a base that moved on the remote hands assign-release, not resolve-release-conflict, to a noted change (5789.330485ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6165.086502
+=== plugins/openspec/hooks/change-loop.test.mjs: pass 6.3s
+start plugins/openspec/hooks/delivery-train-after.test.mjs
+=== plugins/openspec/hooks/release-merge.test.mjs
+✔ release-note AC-4 assign: run again after the base released another devkit-openspec version, the pin-only conflict of a flow page that cites no ADR is resolved by rule (1696.718542ms)
+✔ release-note AC-4 assign: a manifest field the branch added is kept when the step merges a base that released, and only the version moves (2063.43069ms)
+✖ release-note AC-9 assign: the refusals before any write (345.107287ms)
+✔ release-note AC-4 assign: a slug refusal after the step gave back its own numbered record leaves the tree as it was (1514.878144ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5891.576292
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-merge.test.mjs:1193:1
+✖ release-note AC-9 assign: the refusals before any write (345.107287ms)
+  AssertionError [ERR_ASSERTION]: {
+    "resolved": false,
+    "oldHead": "8df9975ba265c6f3d9e354466f2a05516746059e",
+    "conflicts": [],
+    "error": "openspec/config.yaml names no devkit.release_tag: this project has no release to assign",
+    "mode": "assign"
+  }
+  
+  
+  2 !== 3
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:1197:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-merge.test.mjs: FAIL 6.0s
+start plugins/openspec/hooks/release-note.test.mjs
+=== plugins/openspec/hooks/delivery-train-after.test.mjs
+✔ release-note AC-3 trainCheck: a consumer's join that writes the release file passes (3124.59485ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3397.786444
+=== plugins/openspec/hooks/delivery-train-after.test.mjs: pass 3.5s
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✔ release-note AC-4 row N6: before ready-base in a two-prs project (8305.638712ms)
+✔ release-note AC-4 staleness: a consumer's step commit leaves tasks, acceptance and approved reviews current (1420.71204ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10047.088608
+=== plugins/openspec/hooks/deliver-check.test.mjs: pass 10.2s
+=== plugins/openspec/hooks/release-note.test.mjs
+✖ release-note AC-1 reader: a ## line in the changelog body is refused naming its line; a ### line and a fenced ## line are kept (11.945495ms)
+✔ release-note AC-8 consumer: run again after the base released, the release file takes the note's bump above the base's (1853.035908ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2139.190226
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-note.test.mjs:80:1
+✖ release-note AC-1 reader: a ## line in the changelog body is refused naming its line; a ### line and a fenced ## line are kept (11.945495ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'release.md: changelog body: line 7: "## 2.0.0 — another" is a version heading; write ### or a list item'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:82:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'release.md: changelog body: line 7: "## 2.0.0 — another" is a version heading; write ### or a list item',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-note.test.mjs: FAIL 2.2s
+pass 6.3s plugins/openspec/hooks/change-loop.test.mjs
+pass 0.4s plugins/openspec/hooks/deliver-check-cli.test.mjs
+pass 10.2s plugins/openspec/hooks/deliver-check.test.mjs
+pass 3.5s plugins/openspec/hooks/delivery-train-after.test.mjs
+pass 1.5s plugins/openspec/hooks/delivery-train.test.mjs
+FAIL 6.0s plugins/openspec/hooks/release-merge.test.mjs
+FAIL 2.2s plugins/openspec/hooks/release-note.test.mjs
+suite: 7 files, 12 tests, 10 pass, 2 fail, 10.2s, concurrency 3
+exit: 1
+
+Task 9.11, reading of the run: the two red tests fail for the missing behaviour. "a ## line in the changelog body is refused naming its line; ..." gets no error from parseReleaseNote, which reads "## 2.0.0 — another" as body text (D-23). "the refusals before any write" fails on its first case, the project with no devkit.release_tag, which --assign answers with exit 2 and a JSON error in place of exit 3, the stderr line and no JSON (D-24); its other cases (a setting the reader refuses, --roadmap-ticks, no and two noted changes) run after it and are proven by the 9.12 run. The ten guards pass on this code: the pin-only conflict of a flow page that cites no ADR (test-coverage F1), the consumer run again after the base released (F2), the consumer step commit that leaves the records current and the consumer join that passes trainCheck (F3), the manifest field kept on the merged text (F4), the stop-plan-approval clause (F6), the join with no devkit.release_tag (F8), row N6 before ready-base (F9), the slug refusal after the give-back (F10) and the fetch that hands assign-release to a noted change (readiness M2). The M2 guard builds the noted change with the step's release lines written out by hand and the remote's newer commit releasing another change over them, since a noted change whose branch edits the release files of staleMergeFixture is refused as a hand edit (row N3) before any fetch decides.
+
+Task 9.12: the 9.11 tests after D-23 and D-24 are applied (deliver-check.mjs parseReleaseNote's refusal of a ## body line outside a fence; release-merge.mjs --assign exits 3 with no devkit.release_tag, on stderr with no JSON; the --assign bullet of docs/openspec-flow.md names that exit 3), with every release-note AC-1 and AC-9 test
+Before this run, a first run of the same command failed one assertion of "the refusals before any write": its case of a setting the reader refuses (code as phase 9 found it: exit 3) expected the stderr without the "openspec/config.yaml: " prefix that ShipConfigError gives every message; the test now expects the real message, and the code of that case is unchanged.
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 --test-name-pattern='^release-note (AC-1 |AC-9 |AC-4 assign: (run again after the base released another|a manifest field|a slug refusal after)|AC-8 consumer: run again|AC-4 staleness: a consumer|AC-4 row N6: before ready-base|AC-3 trainCheck: a consumer|AC-12 format: ship-change|AC-4 fetch:)' plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/merge-setup.test.mjs
+start plugins/openspec/hooks/change-loop.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/delivery-train.test.mjs
+=== plugins/openspec/hooks/delivery-train.test.mjs
+✔ release-note AC-9 join: with no devkit.release_tag a head carrying release.md joins by the old rule (1111.965877ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1441.778437
+=== plugins/openspec/hooks/delivery-train.test.mjs: pass 1.5s
+start plugins/openspec/hooks/deliver-check-cli.test.mjs
+=== plugins/openspec/hooks/deliver-check-cli.test.mjs
+✔ release-note AC-12 format: ship-change's stop-plan-approval row writes - Release note: <next.release> after - Readiness: when next.release is set (9.009039ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 301.59879
+=== plugins/openspec/hooks/deliver-check-cli.test.mjs: pass 0.4s
+start plugins/openspec/hooks/release-merge.test.mjs
+=== plugins/openspec/hooks/release-merge.test.mjs
+✔ release-note AC-4 assign: run again after the base released another devkit-openspec version, the pin-only conflict of a flow page that cites no ADR is resolved by rule (2062.463367ms)
+✔ release-note AC-4 assign: a manifest field the branch added is kept when the step merges a base that released, and only the version moves (2097.682082ms)
+✔ release-note AC-9 assign: the refusals before any write (1839.523923ms)
+✔ release-note AC-4 assign: a slug refusal after the step gave back its own numbered record leaves the tree as it was (1679.255614ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8058.343266
+=== plugins/openspec/hooks/release-merge.test.mjs: pass 8.2s
+start plugins/openspec/hooks/delivery-train-after.test.mjs
+=== plugins/openspec/hooks/delivery-train-after.test.mjs
+✔ release-note AC-3 trainCheck: a consumer's join that writes the release file passes (3416.703203ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3709.952584
+=== plugins/openspec/hooks/delivery-train-after.test.mjs: pass 3.8s
+start plugins/openspec/hooks/release-note.test.mjs
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✔ release-note AC-1 row N1: a bump that is not one blocks the delivery with the reason of the reader (832.712626ms)
+✔ release-note AC-1 row N1: a pack the project does not have blocks the delivery with the reason of the reader (755.218584ms)
+✔ release-note AC-1 row N1: marketplace: in a project with no marketplace file blocks the delivery with the reason of the reader (990.716069ms)
+✔ release-note AC-1 row N1: release: on a pack manifest blocks the delivery with the reason of the reader (857.819386ms)
+✔ release-note AC-4 row N6: before ready-base in a two-prs project (8582.98217ms)
+✔ release-note AC-4 staleness: a consumer's step commit leaves tasks, acceptance and approved reviews current (1573.291786ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13935.742475
+=== plugins/openspec/hooks/deliver-check.test.mjs: pass 14.1s
+start plugins/openspec/hooks/merge-setup.test.mjs
+=== plugins/openspec/hooks/merge-setup.test.mjs
+✔ release-note AC-9 boundary: deliver-check --ci and guard.mjs ci run from the three downloaded files for a noted change (2029.691449ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2304.036067
+=== plugins/openspec/hooks/merge-setup.test.mjs: pass 2.4s
+=== plugins/openspec/hooks/release-note.test.mjs
+✔ release-note AC-1 reader: a complete note is read with its packs, the largest bump as the marketplace bump, the title and the body (8.872242ms)
+✔ release-note AC-1 reader: the marketplace and release lines are read when given, and a file name constant names the note (1.126929ms)
+✔ release-note AC-1 reader: packs: [] is no release and needs no title and no body (1.16253ms)
+✔ release-note AC-1 reader: CRLF is read as LF and a last line with no newline as if it had one (1.306354ms)
+✔ release-note AC-1 reader: a code fence that is closed, backticks or tildes, is part of the body (1.576629ms)
+✔ release-note AC-1 reader: a ## line in the changelog body is refused naming its line; a ### line and a fenced ## line are kept (1.34497ms)
+✔ release-note AC-1 reader: refuses an empty file naming the field (0.598468ms)
+✔ release-note AC-1 reader: refuses no packs line naming the field (0.4684ms)
+✔ release-note AC-1 reader: refuses a list line that is not "- name: kind" naming the field (0.783909ms)
+✔ release-note AC-1 reader: refuses a kind outside patch, minor and major naming the field (1.013566ms)
+✔ release-note AC-1 reader: refuses a pack twice naming the field (0.447308ms)
+✔ release-note AC-1 reader: refuses marketplace: before packs: naming the field (0.496948ms)
+✔ release-note AC-1 reader: refuses release: before marketplace: naming the field (3.726286ms)
+✔ release-note AC-1 reader: refuses marketplace: twice naming the field (0.452099ms)
+✔ release-note AC-1 reader: refuses a marketplace bump that is not one naming the field (2.308487ms)
+✔ release-note AC-1 reader: refuses a release bump that is not one naming the field (0.254041ms)
+✔ release-note AC-1 reader: refuses an unknown line before the title naming the field (0.212456ms)
+✔ release-note AC-1 reader: refuses no title for a note that releases naming the field (0.275413ms)
+✔ release-note AC-1 reader: refuses no title for a release: bump alone naming the field (0.215954ms)
+✔ release-note AC-1 reader: refuses no body for a note that releases naming the field (0.329783ms)
+✔ release-note AC-1 reader: refuses a code fence never closed naming the field (0.368513ms)
+✔ release-note AC-1 reader: releaseNoteHash is the first 12 hex of the sha256 of the file bytes, null with no file (236.233912ms)
+✔ release-note AC-1 reader: a pack the project does not have is refused naming it (174.105243ms)
+✔ release-note AC-1 reader: marketplace: in a project with no marketplace file is refused, a default marketplace is not (278.657691ms)
+✔ release-note AC-1 reader: release: when the release file is a pack manifest is refused naming the pack (303.264909ms)
+✔ release-note AC-9 no key: the project names no devkit.release_tag, so no rule applies whatever release.md holds (335.750591ms)
+✔ release-note AC-9 no key: the delivery checker walks a change with a malformed release.md to ready as before (3478.614348ms)
+✔ release-note AC-9 release file missing: the key names a file the project does not have and nothing is written or refused (398.936674ms)
+✔ release-note AC-9 no key: releaseTagOf names the file the key gives, and null without the key (358.0987ms)
+✔ release-note AC-8 consumer: run again after the base released, the release file takes the note's bump above the base's (1721.152322ms)
+✔ release-note AC-9 no docs/adr: a project with no ADR folder gets its release lines and no docs/adr (616.343476ms)
+✔ release-note AC-9 boundary: release-merge.mjs re-exports the moved names as the same objects (0.439472ms)
+✔ release-note AC-9 boundary: deliver-check.mjs names no relative module but guard.mjs and merge-setup.mjs (2.294961ms)
+✔ release-note AC-1 texts: the planner says a pack is a plugin manifest of the project and that the release file's bump goes under release: (0.68752ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8244.00674
+=== plugins/openspec/hooks/release-note.test.mjs: pass 8.3s
+=== plugins/openspec/hooks/change-loop.test.mjs
+✔ release-note AC-1 planner stop: no release.md is refused once naming the file, the same state goes through, a changed plan is refused again, a written note goes through (10331.897487ms)
+✔ release-note AC-1 planner stop: a malformed release.md is refused once with the reader's message (5145.393852ms)
+✔ release-note AC-1 planner stop: another role, a plan with no tasks.md yet and a project with no release_tag are not asked for the note (7206.244427ms)
+✔ release-note AC-4 fetch: a base that moved on the remote hands assign-release, not resolve-release-conflict, to a noted change (4803.553722ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 27801.563333
+=== plugins/openspec/hooks/change-loop.test.mjs: pass 27.9s
+pass 27.9s plugins/openspec/hooks/change-loop.test.mjs
+pass 0.4s plugins/openspec/hooks/deliver-check-cli.test.mjs
+pass 14.1s plugins/openspec/hooks/deliver-check.test.mjs
+pass 3.8s plugins/openspec/hooks/delivery-train-after.test.mjs
+pass 1.5s plugins/openspec/hooks/delivery-train.test.mjs
+pass 2.4s plugins/openspec/hooks/merge-setup.test.mjs
+pass 8.2s plugins/openspec/hooks/release-merge.test.mjs
+pass 8.3s plugins/openspec/hooks/release-note.test.mjs
+suite: 8 files, 52 tests, 52 pass, 0 fail, 27.9s, concurrency 3
+exit: 0
+
+Task 9.12, reading of the run: the two red tests of 9.11 pass ("a ## line in the changelog body is refused naming its line; ..." and "the refusals before any write", all five cases: no devkit.release_tag exit 3 with the stderr line and no JSON, a refused setting exit 3, --roadmap-ticks exit 3, no and two noted changes exit 2, each with the tree as it was), the ten guards of 9.11 still pass, and every release-note AC-1 and AC-9 test stays green (52 tests, 0 fail).
+Task 9.12, the two files of the reader and the step whole (env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/release-merge.test.mjs): suite: 2 files, 156 tests, 156 pass, 0 fail, 55.1s, concurrency 3; exit: 0.

@@ -575,7 +575,8 @@ export function main(argv, { cwd = process.cwd(), stdout = (s) => process.stdout
     }
   }
   if (opts.assign) {
-    if (file === null) return report(2, { resolved: false, oldHead, conflicts: [], error: 'openspec/config.yaml names no devkit.release_tag: this project has no release to assign' }, 'not resolved: no devkit.release_tag');
+    // No release to assign is a setup error, as a setting the reader refuses is (D-24): no JSON, nothing written.
+    if (file === null) { stderr('release-merge: openspec/config.yaml names no devkit.release_tag: this project has no release to assign\n'); return 3; }
     const noted = notedChangeOf(root, mergeBase, oldHead);
     if (noted.error) return report(2, { resolved: false, oldHead, conflicts: [], error: noted.error }, `not resolved: ${noted.error}`);
     return numbered(numberRelease(root, { side: oldHead, target: ref, id: noted.id, file, label: opts.base }));
