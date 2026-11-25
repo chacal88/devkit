@@ -1,0 +1,42 @@
+devkit-run: feat
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit-lite",
+  "root": "<scratch>/proj/.claude/worktrees/feat",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "delivery",
+  "stageTitle": "Delivery",
+  "role": "commit-and-pr",
+  "skills": [
+    "commit-message-guidelines"
+  ],
+  "model": "haiku",
+  "agent": "devkit-core:commit-and-pr",
+  "step": "commit",
+  "detail": {
+    "step": "commit",
+    "reason": "uncommitted files in the change folder before the review round: openspec/changes/feat/evidence.md, openspec/changes/feat/declared.json",
+    "paths": []
+  },
+  "brief": "Change feat (devkit-lite script), stage delivery: step commit {\"step\":\"commit\",\"reason\":\"uncommitted files in the change folder before the review round: openspec/changes/feat/evidence.md, openspec/changes/feat/declared.json\",\"paths\":[]}. Work only in <scratch>/proj/.claude/worktrees/feat on branch feat; every file path is absolute under it; start every Bash command with cd <scratch>/proj/.claude/worktrees/feat && ; do not fetch. Write the change's files in English. Attribution: the session handing this off appends below this brief, verbatim, the lines it ends its own commit messages and pull-request descriptions with, as the block `Attribution (from the caller):` with one `Commit trailer: <line>` per commit line and one `PR footer: <line>` per pull-request line, or the line `Attribution (from the caller): none` when it ends them with none.",
+  "progressKey": "delivery/commit@2060aaad704f",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🚀",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "delivery",
+    "stageTitle": "Delivery",
+    "phase": null,
+    "stageIcon": "🚀",
+    "stateIcon": null,
+    "title": "🚀 feat"
+  },
+  "sessionTitle": "🚀 feat"
+}

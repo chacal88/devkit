@@ -1,0 +1,39 @@
+devkit-run: feat
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit-lite",
+  "root": "<scratch>/proj/.claude/worktrees/feat",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "implementation",
+  "stageTitle": "Implementation",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "model": "sonnet",
+  "agent": "devkit-core:tdd-implementer",
+  "step": "fix-gate",
+  "detail": {
+    "phase": 1,
+    "task": "1.2",
+    "command": "false"
+  },
+  "brief": "Change feat (devkit-lite script), stage implementation: the gate of phase 1 is red: run its command, find the cause, fix it test first within the approved tasks, and leave the gate task unticked; the gate runs again after you. Work only in <scratch>/proj/.claude/worktrees/feat on branch feat; every file path is absolute under it; start every Bash command with cd <scratch>/proj/.claude/worktrees/feat && ; do not fetch. Write the change's files in English.",
+  "progressKey": "implementation/fix-gate@a885d9b0fe0d",
+  "icon": "🛠️",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "implementation",
+    "stageTitle": "Implementation",
+    "phase": 1,
+    "stageIcon": "🛠️",
+    "stateIcon": null,
+    "title": "🛠️ feat"
+  },
+  "sessionTitle": "🛠️ feat"
+}

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "steps": [
+    {
+      "key": "review-round",
+      "scope": "resolution",
+      "round": 3,
+      "words": "Give the resolution review one more round; I want the fix checked again.",
+      "at": "2026-11-25T03:33:01.434Z"
+    }
+  ]
+}

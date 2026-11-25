@@ -1,0 +1,44 @@
+devkit-run: feat
+devkit-end: feat blocked
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit-lite",
+  "root": "<scratch>/proj/.claude/worktrees/feat",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "end",
+  "stage": "implementation",
+  "stageTitle": "Implementation",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "model": "sonnet",
+  "end": {
+    "state": "blocked",
+    "why": "tests-red"
+  },
+  "params": {
+    "id": "feat",
+    "why": "tests-red",
+    "phase": 1
+  },
+  "reply": "The change feat stopped: the tests of phase 1 failed. Nothing more runs until this is sorted out.",
+  "icon": "🛠️",
+  "state": {
+    "state": "blocked",
+    "reason": {
+      "code": "tests-red",
+      "text": "the tests of phase 1 failed"
+    },
+    "stage": "implementation",
+    "stageTitle": "Implementation",
+    "phase": null,
+    "stageIcon": "🛠️",
+    "stateIcon": "⛔",
+    "title": "⛔ 🛠️ feat"
+  },
+  "sessionTitle": "⛔ 🛠️ feat"
+}

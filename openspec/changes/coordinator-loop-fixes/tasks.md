@@ -456,7 +456,7 @@ every task with `git status --short`.
   of plugins/compozy/.claude-plugin/plugin.json>"' .compozy/kit-manifest.json` prints 1, and
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 plugins/compozy/skills/compozy-setup/scripts/gen-agents.test.mjs plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs`
   passes.
-- [ ] 6.3 The conducting session's task (D-14 rules 1, 3 and 4), done on the merged head after 6.2 and ticked before
+- [x] 6.3 The conducting session's task (D-14 rules 1, 3 and 4), done on the merged head after 6.2 and ticked before
   phase 6 is handed again; an implementer that reaches it open stops before it and reports it, without doing it. Run
   R6, R7 and R7b of D-14 in scratch projects outside this repository with this worktree's
   `plugins/openspec/hooks/change-loop.mjs`, each scratch project built by a fixture script kept in the scratch run's
