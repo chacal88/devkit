@@ -1823,7 +1823,7 @@ test('delivery-train P9 N2: a train branch with its record that is not on origin
   const r = nextIn(p);
   assert.deepEqual([r.code, r.action.kind, r.action.step], [0, 'session', 'push-train']);
   assert.deepEqual(r.action.detail.command, ['git', '-C', wt, 'push', 'origin', 'train/4']);
-  assert.doesNotMatch(JSON.stringify(r.action.detail), /force|-f\b/);
+  assert.ok(!r.action.detail.command.some((a) => /^(-f|--force(-with-lease)?)$/.test(a)), 'a plain push, never a force push');
   assert.equal(perform(p, r.action).status, 0);
   assert.equal(nextIn(p).action.step, 'open-train-pr', 'once pushed the next is the pull request');
 });

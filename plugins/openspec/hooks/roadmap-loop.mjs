@@ -45,6 +45,7 @@ import { randomBytes } from 'node:crypto';
 import { findRoot, readRoadmap, changeFlow, changeSchemaAt, readFlow, roadmapRunOf, runOf, isChangeId, firstMessageOf, startedTaskOf, parseStageHeader, START_LINE, ENTRY_SKILL, namesEntrySkill, sessionTranscript, handOffsOf, typedSince, STAGE_OF } from './guard.mjs';
 import { collectFlow, computeFlow, makeOpenspec, spendBlock } from './flow-check.mjs';
 import { locateChange, readPhases } from './deliver-check.mjs';
+import { OFFLINE_GH } from './merge-setup.mjs';
 import {
   render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, baseFetches, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, sessionTitle, changeState, runFactsOf, PLAN_NOT_HELD, partOfStage, isPlanStage,
   HOOKS_DIR, PACKS, locate, cleanOf, runFilePath, readRun, emptyRun, OUTLIVES, isObject, GATE_OF_WHY, gateOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile, HELD_TEXT,
@@ -850,7 +851,6 @@ export function collectRoadmap(cwd, {
 // { decision, why, change, reason }, takes `run` (the guard's `roadmapRunOf`, read again when absent) and lets everything through on
 // any error of its own, an unreadable run file included. The two stop locks refuse once per state (change-loop's record).
 const BRIEF_OF = /^Change ([A-Za-z0-9][\w.-]*) \(/;
-const OFFLINE_GH = () => ({ status: 1, stdout: '', stderr: 'offline' });
 
 // The run file of the repository, which must exist and hold a JSON object: a lock does not guess over a file it cannot read.
 function strictRunFile(cwd) {

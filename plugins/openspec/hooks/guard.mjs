@@ -573,9 +573,13 @@ export function changeDeclaresOrInstalled(root, dir, stageId) {
 // The single value of a "Status:" / "Verdict:" line, upper-cased. A template
 // line with the alternatives still in it ("APPROVED | BLOCKED") is not a value.
 export function readValue(file, key) {
-  if (!existsSync(file)) return null;
+  return existsSync(file) ? valueIn(readFileSync(file, 'utf8'), key) : null;
+}
+
+// The same value read from a text (a file already read, or one GitHub answered); an empty text has none.
+export function valueIn(text, key) {
   const re = new RegExp(`^\\s*[-*]?\\s*\\**${key}\\**\\s*:\\s*\\**\\s*(.+?)\\s*\\**\\s*$`, 'im');
-  const m = readFileSync(file, 'utf8').match(re);
+  const m = String(text ?? '').match(re);
   if (!m) return null;
   const v = m[1].replace(/[`*]/g, '').trim();
   if (v.includes('|')) return null;

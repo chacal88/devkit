@@ -617,6 +617,28 @@ test('delivery-models AC-9 delivered: the merged-list path drops a pull request 
   assert.deepEqual([done.fetched.pr.number, done.fetched.via, done.delivered], [base, 'list', true]);
 });
 
+test('forced-merge-path 1: N11 two-prs: the base pull request merged with a task left and devkit-reviews FAILURE answers the retro, and the test-branch pull request is never read as forced', () => {
+  const s = scenario();
+  put(s.wt, { 'openspec/changes/feat/tasks.md': '# Tasks\n\n## 1. Phase\n\n- [x] 1.1 code\n- [ ] 1.2 left after the merge\n' });
+  commitAll(s.wt, 'a task left');
+  git(s.wt, 'push', '-q', 'origin', 'feat');
+  const { base, test } = s.openBoth();
+  s.sim.setRules([{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'check' }, { context: 'devkit-reviews' }] } }]);
+  const run = (name, conclusion) => ({ __typename: 'CheckRun', name, status: 'COMPLETED', conclusion });
+  s.sim.setRollup(base, [run('check', 'SUCCESS'), run('devkit-reviews', 'FAILURE')]);
+  s.sim.setRollup(test, [run('check', 'FAILURE'), run('devkit-reviews', 'FAILURE')]);
+  s.sim.merge(test);
+  s.sim.merge(base);
+  const n = s.next();
+  assert.equal(n.step, 'retro', n.reason);
+  assert.deepEqual([n.number, n.forced.number, n.forced.count], [base, base, 3]);
+  assert.deepEqual(n.forced.items.map((i) => i.kind), ['task', 'check', 'gate']);
+  assert.deepEqual(n.forced.items.slice(0, 2).map((i) => i.text), ['task 1.2', 'devkit-reviews (FAILURE)']);
+  assert.match(n.reason, new RegExp(`^PR #${base} merged by the owner with 3 items open: task 1\\.2; devkit-reviews \\(FAILURE\\); `));
+  assert.equal(s.sim.calls().some((c) => c[0] === 'pr' && c[1] === 'view' && c[2] === String(test)), false, 'the test-branch pull request is never read as forced');
+  assert.equal(s.sim.writes().length, 2, 'only the two pull requests the scenario opened were written');
+});
+
 // ---------------------------------------------------------------- AC-2, AC-3, AC-8, AC-9
 
 test('delivery-models AC-2: both pull requests open together from the task branch and the state names both', () => {

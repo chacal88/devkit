@@ -9,7 +9,7 @@ import { tmpFolder } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import * as FC from './flow-check.mjs';
-import { parseStageHeader, readFlow, pendingTasks, FlowUsageError, collectFlow, computeFlow, renderText, TEXT, reasonText } from './flow-check.mjs';
+import { parseStageHeader, readFlow, pendingTasks, FlowUsageError, collectFlow, computeFlow, renderText, TEXT, reasonText, notApplicableOf, appliedStages } from './flow-check.mjs';
 import { makeGh } from './deliver-check.mjs';
 import { gitRepo, put, commitAll, git, fakeGh, openspecStub, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, roundRepo } from './test-fixtures.mjs';
 import { collectState, nextStep, approvalState } from './deliver-check.mjs';
@@ -1143,17 +1143,45 @@ test('release-note AC-16 stages: once a task is ticked the note stales nothing',
 const MERGED_OWN = { number: 12, url: 'https://github.com/o/r/pull/12', state: 'MERGED', headRefOid: 'f'.repeat(40), baseRefName: 'main', mergeable: 'UNKNOWN', autoMergeRequest: null, mergeStateStatus: 'UNKNOWN', headRefName: 'feat', mergedAt: '2026-11-19T10:00:00Z', body: 'evidence: openspec/changes/feat/evidence.md' };
 const repoMain = { stdout: { default_branch: 'main' } };
 
+// The rules of the default branch and the rollup of merged pull request #12, as the forced-merge read asks for them.
+const REQUIRED_RULES = { stdout: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'check' }, { context: 'devkit-reviews' }] } }] };
+const NO_CLASSIC = { exit: 1, stderr: 'gh: Branch not protected (HTTP 404)\n' };
+const runOf = (name, conclusion) => ({ __typename: 'CheckRun', name, status: 'COMPLETED', conclusion });
+
 test('field-fixes 4 delivered: a merged pull request with tasks left is not delivered; the next stage is the implementation naming the pull request and the tasks', () => {
   const { report } = deliveryReport({ branch: 'main', fill: (set) => {
     set('pr-list-state-merged', { stdout: [MERGED_OWN] });
     set('api-GET-repos__owner___repo_', repoMain);
     set(PR_FILES_KEY(12), filesFixture(['openspec/changes/feat/tasks.md', 'src/a.ts']));
     set(TASKS_ON_KEY('feat'), tasksFixture(tasksText({ ticked: ['1.1'], unticked: ['3.1', '3.2'] })));
+    // Every required check was green on the merged head: not an owner's forced merge, so the readout keeps its partial-merge answer.
+    set('api-GET-repos__owner___repo__rules_branches_main', REQUIRED_RULES);
+    set('api-GET-repos__owner___repo__branches_main_protection_required_status_checks', NO_CLASSIC);
+    set('pr-view-12', { stdout: { statusCheckRollup: [runOf('check', 'SUCCESS'), runOf('devkit-reviews', 'SUCCESS')] } });
   } });
   assert.deepEqual(outcome(report), { next: 'implementation', reasonCode: 'tasks-left-after-merge' });
   assert.match(report.next.reason, /#12/);
   assert.match(report.next.reason, /3\.1, 3\.2/);
   assert.notEqual(report.stages.find((s) => s.id === 'delivery').state, 'passed');
+});
+
+test('forced-merge-path 1: a forced merge read that fails ends the readout blocked gh-error, quoting the error', () => {
+  for (const [name, fill] of Object.entries({
+    'a rollup read that fails': (set) => set('pr-view-12', { exit: 1, stderr: 'gh: boom\n' }),
+    'a rollup with no check list': (set) => set('pr-view-12', { stdout: { number: 12 } }),
+  })) {
+    const { report } = deliveryReport({ branch: 'main', fill: (set) => {
+      set('pr-list-state-merged', { stdout: [MERGED_OWN] });
+      set('api-GET-repos__owner___repo_', repoMain);
+      set('api-GET-repos__owner___repo__rules_branches_main', REQUIRED_RULES);
+      set('api-GET-repos__owner___repo__branches_main_protection_required_status_checks', NO_CLASSIC);
+      set(PR_FILES_KEY(12), filesFixture(['openspec/changes/feat/tasks.md', 'src/a.ts']));
+      set(TASKS_ON_KEY('feat'), tasksFixture(tasksText({ ticked: ['1.1'], unticked: ['3.1'] })));
+      fill(set);
+    } });
+    assert.deepEqual(outcome(report), { end: 'blocked', reasonCode: 'gh-error' }, name);
+    assert.match(report.end.params.error, /boom|statusCheckRollup/, name);
+  }
 });
 
 test('field-fixes 4 delivered: a pull request that only links the evidence does not switch to the walk after the merge', () => {
@@ -2172,6 +2200,74 @@ test('review-openspec-fix 20: the stage readout keeps the fix after a commit of 
   const r = liveReport(root);
   assert.equal(r.next.stage, 'implementation');
   assert.equal(r.next.reasonCode, 'fix-after-failure');
+});
+
+// ---------------------------------------------------------------- run-status-bar: the stages that apply (design D-4)
+
+const stageDecl = (id, flow = FLOW_DEVKIT) => flow.stages.find((s) => s.id === id);
+
+// Invariant (H-1, checker, flow-check.test.mjs): a skipped stage is not applicable, whether or not it has a file.
+test('run-status-bar AC-3 helper: notApplicableOf gives skipped for a skipped stage, file or not', () => {
+  assert.equal(notApplicableOf(stageDecl('specs'), synth({}, { skipped: ['specs'] })), 'skipped', 'with a file');
+  assert.equal(notApplicableOf(stageDecl('specs'), synth({ specs: null }, { skipped: ['specs'] })), 'skipped', 'with no file');
+  assert.equal(notApplicableOf(stageDecl('specs'), synth({ specs: null }, { skipped: ['design'] })), null, 'another stage skipped');
+});
+
+// Invariant (H-2): a stage with no file whose notAfter stage already has one was passed by.
+test('run-status-bar AC-3 helper: notApplicableOf gives past-point for a stage with no file whose notAfter file exists', () => {
+  const past = synth({ mockup: null }, { flags: ['ui'] });
+  assert.equal(notApplicableOf(stageDecl('mockup'), past), 'past-point', 'the proposal exists, the ui flag holds: the point wins');
+  assert.equal(notApplicableOf(stageDecl('mockup'), synth({ mockup: null, proposal: null }, { flags: ['ui'] })), null, 'the proposal is not written yet');
+});
+
+// Invariant (H-3): a flag stage with no file applies only when its flag is listed.
+test('run-status-bar AC-3 helper: notApplicableOf gives flag-absent for a flag the flags lack and null when they hold it', () => {
+  const open = { mockup: null, proposal: null };
+  assert.equal(notApplicableOf(stageDecl('mockup'), synth(open, { flags: ['contract'] })), 'flag-absent');
+  assert.equal(notApplicableOf(stageDecl('mockup'), synth(open, { flags: [] })), 'flag-absent', 'no flags at all');
+  assert.equal(notApplicableOf(stageDecl('mockup'), synth(open, { flags: ['ui'] })), null);
+});
+
+// Invariant (H-4): a setting stage with no file applies only when its setting is set.
+test('run-status-bar AC-3 helper: notApplicableOf gives setting-absent for a setting not set and null when set', () => {
+  const open = { 'unit-tests': null, evidence: null };
+  assert.equal(notApplicableOf(stageDecl('unit-tests'), synth(open, { settings: {} })), 'setting-absent');
+  assert.equal(notApplicableOf(stageDecl('unit-tests'), synth(open, { settings: { 'tests.e2e': 'npm run e2e' } })), 'setting-absent', 'another setting');
+  assert.equal(notApplicableOf(stageDecl('unit-tests'), synth(open, { settings: { 'tests.unit': 'npm test' } })), null);
+});
+
+// Invariant (H-5): a role the flow does not ship has no stage to apply.
+test('run-status-bar AC-3 helper: notApplicableOf gives role-not-shipped for shipped false', () => {
+  const flow = unshippedFlow(['decisions']);
+  assert.equal(notApplicableOf(stageDecl('decisions', flow), synth({ decisions: null })), 'role-not-shipped');
+  assert.equal(notApplicableOf(stageDecl('decisions'), synth({ decisions: null, proposal: null })), null, 'the shipped declaration, the proposal not written');
+});
+
+// Invariant (H-6): only a skip reaches a stage that has a file.
+test('run-status-bar AC-3 helper: notApplicableOf gives null for a stage with a file, whatever its condition', () => {
+  assert.equal(notApplicableOf(stageDecl('mockup'), synth({}, { flags: [] })), null, 'a flag stage, flag absent');
+  assert.equal(notApplicableOf(stageDecl('unit-tests'), synth({}, { settings: {} })), null, 'a setting stage, setting absent');
+  assert.equal(notApplicableOf(stageDecl('decisions'), synth({})), null, 'a stage past its point');
+  assert.equal(notApplicableOf(stageDecl('decisions', unshippedFlow(['decisions'])), synth({})), null, 'a role not shipped');
+});
+
+// Invariant (H-7): the list is the flow's, in its order, less the stages the rules flag; a header's own not-applicable stays.
+test('run-status-bar AC-3 helper: appliedStages keeps flow order, drops exactly the stages flagged, keeps a header not-applicable stage', () => {
+  const flow = unshippedFlow(['readiness']);
+  const facts = synth({ mockup: null, decisions: null, readiness: null, 'unit-tests': null, 'e2e-tests': null, design: { result: 'not-applicable' } },
+    { skipped: ['specs'], flags: [], settings: {} });
+  assert.deepEqual(appliedStages(facts, flow),
+    ['open', 'requirements', 'proposal', 'design', 'tasks', 'approval', 'implementation', 'evidence', 'review', 'delivery', 'retro']);
+  const all = synth({}, { flags: ['ui'], settings: { 'tests.unit': 'npm test', 'tests.e2e': 'npm run e2e' } });
+  assert.deepEqual(appliedStages(all, FLOW_DEVKIT), FLOW_DEVKIT.stages.map((s) => s.id), 'nothing flagged: the whole flow');
+});
+
+// Invariant (H-8): no flow is read for an archived change, no declaration or a previous-script change.
+test('run-status-bar AC-3 helper: appliedStages is null for an archived change, no flow and a previous-script change', () => {
+  assert.equal(appliedStages(synth({}, { archived: true }), FLOW_DEVKIT), null, 'archived');
+  assert.equal(appliedStages(synth(), null), null, 'no flow');
+  assert.equal(appliedStages(synth({ requirements: { header: null } }), FLOW_DEVKIT), null, 'previous script');
+  assert.notEqual(appliedStages(synth(), FLOW_DEVKIT), null, 'a current change');
 });
 
 // ---------------------------------------------------------------- stage-ceiling-consecutive: the ceiling counts failures in a row

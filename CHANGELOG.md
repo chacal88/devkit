@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.52.2 — the suite script keeps its run root short enough for a Unix socket
+
+- **devkit-openspec** 0.45.1: `scripts/test-suite.mjs` makes its run root under the real `/tmp` (`/private/tmp` on macOS), with one `run root:` line saying why, when the environment's `TMPDIR` would push a Unix socket path past 104 bytes; it exits 2 when neither folder fits. Test tooling only.
+
+## 0.52.1 — forced-merge-path retro
+
+- **devkit-core** 0.16.3: the review-change skill says how a further round the owner approves after a round-2
+  deadlock runs (as round 1 of a new cycle, noted as the owner's round); the pr-verifier runs each gate part whole,
+  as the one command `tasks.md` writes, since subsets of its test files or test names give no row for it.
+- **devkit-openspec** 0.47.1: the ship-change skill no longer promises `blocked: item 5` for a merge conflict in a
+  project with a delivery train (the train joins and renumbers; the session merges the base only when `next` asks);
+  the `delivery-train P9 N2` test reads the push command per argument, so a temporary folder named with "force" no
+  longer turns it red. The CI snippet now pins `v0.47.1`, the release's tag.
+
+## 0.52.0 — an owner's forced merge leads the change to the archive
+
+- **devkit-openspec** 0.46.0: the delivery checker recognises a change's own pull request that was merged while a
+  required check was not green and a task stayed unticked as the owner's forced merge, by the pull request number or by
+  its merge commit, and names the items it left open (the unticked tasks and the checks that were not green). The loop
+  no longer answers `implement` for such a change: it leads it to the retro and then to the archive. `retro.md`
+  records the open items; nothing is ticked.
+- Docs: [ADR 0028](docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md) (accepted) amends ADR 0003,
+  with a Note in it; `docs/openspec-flow.md` and the ADR list of `openspec/config.yaml` follow. The CI snippet now pins
+  `v0.46.0`, the release's tag.
+
+## 0.51.1 — fresh-base-check retro
+
+- **devkit-core** 0.16.2: the pr-verifier reads a suite summary by each file's status; a `LEFT` file
+  fails the run even with 0 failing tests, and a run that exits non-zero is never recorded as a pass.
+- **devkit-openspec** 0.46.1: `nextAction` no longer reads the default branch twice. The CI snippet
+  now pins `v0.46.1`, the release's tag.
+
+## 0.51.0 — a status line for the session of a change or a roadmap run
+
+- **devkit-openspec** 0.46.0: a new command, `hooks/status-line.mjs`, draws the one line under the message
+  box of Claude Code. A session that conducts one change shows the change's name, its stage, a strip of
+  marks, `<n> of <N>` and, while the change is stopped, the reason in words; the session that coordinates
+  a roadmap run shows the counts (in play, working, waiting on the owner, blocked); a session that
+  conducts nothing shows nothing. The owner turns it on once with the `statusLine` entry in
+  `docs/openspec-flow.md` (the newest installed copy, so a plugin update needs no edit); the plugin
+  writes no settings file. The bar reads only `state`, writes nothing and itself starts only `node` and
+  `git` (`state` keeps its own reads), with a bound on each; at the bound, or when Claude Code stops it,
+  it ends the `state` call and everything that call started. `state` gains a `stages` field (the stages
+  that apply to the change, in order) and an `--offline` option (a listing with no GitHub call), and the
+  offline stub that listing uses lives in one place. The CI snippet now pins `v0.46.0`, the release's
+  tag.
+
+## 0.50.1 — the grill and the readiness review refuse a criterion only the archive can prove
+
+- **devkit-core** 0.16.1: `requirements-grill` never writes an acceptance criterion that only the archive or a later step can prove, and `plan-readiness-review` flags one as a Mandatory finding; the work goes in the plan's `## Workflow follow-up` (stage-ceiling-consecutive retro, proposal 1). Skill text only.
+
 ## 0.50.0 — the loop fetches the base before it judges
 
 - **devkit-openspec** 0.45.0: `/devkit change` and `/devkit roadmap` fetch the base branch into its

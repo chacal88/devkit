@@ -489,20 +489,43 @@ export const reasonText = (lang, code, params = {}, names = {}) => (TEXT[lang] ?
 
 const maxMtime = (files) => (files.length ? Math.max(...files.map((f) => f.mtimeMs)) : null);
 
+// Why an artifact stage does not apply, by a rule, or null: the one place those rules live (run-status-bar D-4).
+// First match wins (design stage-roles D-2): a skipped stage; then, only when the stage has no file, a stage the change
+// was already past, a flag or a setting that does not hold, a role that is not shipped. A file that exists skips all but the first.
+export function notApplicableOf(stage, facts) {
+  if (facts.skipped.includes(stage.id)) return 'skipped';
+  if ((facts.files[stage.id] ?? []).length > 0) return null;
+  if (stage.notAfter && (facts.files[stage.notAfter] ?? []).length > 0) return 'past-point';
+  const when = stage.appliesWhen;
+  if (when?.flag && !(facts.flags ?? []).includes(when.flag.toLowerCase())) return 'flag-absent';
+  if (when?.setting && !(when.setting in (facts.settings ?? {}))) return 'setting-absent';
+  return stage.shipped === false ? 'role-not-shipped' : null;
+}
+
+// The reason params each code of `notApplicableOf` carries.
+const NOT_APPLICABLE_PARAMS = {
+  skipped: () => ({}),
+  'past-point': (stage) => ({ after: stage.notAfter }),
+  'flag-absent': (stage) => ({ flag: stage.appliesWhen.flag }),
+  'setting-absent': (stage) => ({ setting: stage.appliesWhen.setting }),
+  'role-not-shipped': (stage) => ({ role: stage.role }),
+};
+
+// The ids of the stages of `flow` that apply to the change, in the flow's order: those of the stage walk that no rule flags
+// (a stage whose own header says not-applicable is kept). null when no flow is read: an archived change, no declaration,
+// a change begun under the previous script.
+export function appliedStages(facts, flow) {
+  if (facts.archived || !flow || isPreviousScript(facts.files, flow)) return null;
+  return flow.stages.filter((s) => s.source !== 'artifact' || notApplicableOf(s, facts) === null).map((s) => s.id);
+}
+
 // The raw state of one artifact stage, before the walk: { state, result, attempt, commit, reasonCode, params, fixed }.
 function artifactState(stage, files, facts, flow, started) {
   const base = { result: null, attempt: null, commit: null, fixed: false };
   const out = (state, reasonCode, params = {}, more = {}) => ({ ...base, state, reasonCode, params, ...more });
-  if (facts.skipped.includes(stage.id)) return out('not-applicable', 'skipped');
-  if (files.length === 0) {
-    // First match wins (design stage-roles D-2): a stage the change was already past, a flag or a setting that does not
-    // hold, a role that is not shipped; else the file is the next thing to write. A file that exists skips all of these.
-    if (stage.notAfter && (facts.files[stage.notAfter] ?? []).length > 0) return out('not-applicable', 'past-point', { after: stage.notAfter });
-    const when = stage.appliesWhen;
-    if (when?.flag && !(facts.flags ?? []).includes(when.flag.toLowerCase())) return out('not-applicable', 'flag-absent', { flag: when.flag });
-    if (when?.setting && !(when.setting in (facts.settings ?? {}))) return out('not-applicable', 'setting-absent', { setting: when.setting });
-    return stage.shipped === false ? out('not-applicable', 'role-not-shipped', { role: stage.role }) : out('pending', 'no-file', { file: stage.file });
-  }
+  const rule = notApplicableOf(stage, facts);
+  if (rule) return out('not-applicable', rule, NOT_APPLICABLE_PARAMS[rule](stage));
+  if (files.length === 0) return out('pending', 'no-file', { file: stage.file });
   for (const f of files) {
     const h = f.header;
     if (h === null) return out('pending', 'no-header', { file: f.path });

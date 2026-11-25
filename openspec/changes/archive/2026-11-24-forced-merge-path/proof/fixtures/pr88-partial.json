@@ -1,0 +1,27 @@
+{
+  "case": "pr88-partial",
+  "about": "AC-2: PR 88's git state with every required check SUCCESS at the merged head, a deliberate partial pull request. From the default branch the answer is stop-branch before and after; from the other two checkouts it is whatever it was before (implement), unchanged.",
+  "rollup": [
+    "check",
+    "devkit-reviews"
+  ],
+  "gates": {
+    "evidence": "passed",
+    "reviews": {
+      "code-quality-reviewer": "APPROVED",
+      "test-coverage-reviewer": "APPROVED"
+    }
+  },
+  "expect": {
+    "main": {
+      "before": "stop-branch",
+      "after": "stop-branch"
+    },
+    "branch": {
+      "same": true
+    },
+    "other-change": {
+      "same": true
+    }
+  }
+}
