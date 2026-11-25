@@ -1054,6 +1054,24 @@ test('setup AC-1 start: setup in a git repository nested in a folder holding ope
   }
 });
 
+// Invariant: a folder holding openspec/changes strictly inside the git top level stays setup's root, typed there or below it;
+// the top level is not taken in its place (design D-1; test-coverage F8, review round 4). Layer: startMode (the setup branch).
+// Suite: change-loop.
+test('setup AC-1 start: setup in a subfolder holding openspec/changes inside the repository answers that subfolder as root', () => {
+  const root = plainGitRepo();
+  const app = join(root, 'app');
+  mkdirSync(join(app, 'openspec', 'changes'), { recursive: true });
+  mkdirSync(join(app, 'src'), { recursive: true });
+  const before = filesOf(root);
+  for (const cwd of [app, join(app, 'src')]) {
+    const r = startRun(cwd, 'setup');
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    const b = body(r);
+    assert.deepEqual([b.mode, b.root], ['setup', app], `typed in ${cwd}`);
+  }
+  assert.deepEqual(filesOf(root), before, 'nothing was created');
+});
+
 // Invariant: only the exact verb is setup; a near miss is an unknown verb, in the same folder where setup answers. Layer: startMode
 // (the verb). Suite: change-loop.
 test('setup AC-1 start: setups is an unknown verb', () => {
