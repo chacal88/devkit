@@ -386,7 +386,7 @@ every task with `git status --short`.
 - [x] 5.3 D-13: "commit-attribution AC-2 T31 Method steps 3 and 5 point to Attribution and drop the environment
   rule" in `plugins/openspec/hooks/deliver-check-archive.test.mjs`. Check: it passes, and
   `grep -c "split('Attribution below')" plugins/openspec/hooks/deliver-check-archive.test.mjs` prints 0.
-- [ ] 5.4 D-13: export `createdAfter` in `plugins/openspec/hooks/change-loop.mjs`, unchanged otherwise. Check: T85
+- [x] 5.4 D-13: export `createdAfter` in `plugins/openspec/hooks/change-loop.mjs`, unchanged otherwise. Check: T85
   to T92 pass.
 - [ ] 5.5 D-22 in code: `parseDevkitBlock(text, key = 'devkit')` and the exported `changeDevkitBlock(text)` in
   `plugins/openspec/hooks/guard.mjs`; `budgetOf` and `modelsOf` reading the change's `.openspec.yaml` through

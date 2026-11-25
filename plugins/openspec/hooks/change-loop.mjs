@@ -1970,7 +1970,7 @@ export const archivedOnDefault = (start, opts) => new Set(archivedDates(start, o
 
 // True when the active folder of `id` in `root` records a creation day later than the archive day: a new change that
 // reuses an archived id, not the stale copy of the archived one. A folder that records no day is the stale copy.
-function createdAfter(root, id, archivedDay) {
+export function createdAfter(root, id, archivedDay) {
   try {
     const m = /^created:\s*['"]?(\d{4}-\d{2}-\d{2})/m.exec(readFileSync(join(root, 'openspec', 'changes', id, '.openspec.yaml'), 'utf8'));
     return Boolean(m) && m[1] > archivedDay;
