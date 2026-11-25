@@ -1032,6 +1032,28 @@ test('setup AC-1 start: setup outside a git repository answers setup-no-repo in 
   assert.deepEqual(filesOf(opened), before, 'nothing was created under the openspec folder');
 });
 
+// Invariant: setup's root is never above the git repository where the command was typed, even when findRoot climbs to an outer
+// folder holding openspec/changes (code-quality F6, review round 2). Layer: startMode (the setup branch). Suite: change-loop.
+test('setup AC-1 start: setup in a git repository nested in a folder holding openspec/changes answers the inner repository as root', () => {
+  const outerBare = realpathSync(tmpFolder('devkit-change-loop-setup-nested-bare-'));
+  mkdirSync(join(outerBare, 'openspec', 'changes'), { recursive: true });
+  writeFileSync(join(outerBare, 'openspec', 'config.yaml'), 'schema: devkit\n');
+  const outerRepo = realpathSync(devkitRepo());
+  for (const [label, outer] of [['outer folder in no git repository', outerBare], ['outer devkit project with a nested repository', outerRepo]]) {
+    const inner = join(outer, 'inner');
+    mkdirSync(join(inner, 'src'), { recursive: true });
+    git(inner, 'init', '-q', '-b', 'main');
+    const before = filesOf(outer);
+    for (const cwd of [inner, join(inner, 'src')]) {
+      const r = startRun(cwd, 'setup');
+      assert.equal(r.code, 0, r.stdout + r.stderr);
+      const b = body(r);
+      assert.deepEqual([b.mode, b.root], ['setup', inner], `${label}, typed in ${cwd}`);
+    }
+    assert.deepEqual(filesOf(outer), before, `${label}: nothing was created`);
+  }
+});
+
 // Invariant: only the exact verb is setup; a near miss is an unknown verb, in the same folder where setup answers. Layer: startMode
 // (the verb). Suite: change-loop.
 test('setup AC-1 start: setups is an unknown verb', () => {
