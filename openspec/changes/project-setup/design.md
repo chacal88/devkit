@@ -173,9 +173,18 @@ by its name (`grep -rn`), and the tests are the contract.
 ### D-1 The verb and the start mode
 
 `startMode` gains one branch, after the `VERB_ROUND` check and before the verb list. When the verb is
-`setup`, it answers `out('setup', { root, reply: null })`, where `root` is `findRoot(cwd)`, else the
-git top level of `cwd` (`git rev-parse --show-toplevel`), else `null`. With `root` null it answers
-`out('setup-no-repo', { reply: say('setup-no-repo') })`. No check of the settings' values (an
+`setup`, it first reads the git top level of `cwd` (`git rev-parse --show-toplevel`). With none it
+answers `out('setup-no-repo', { reply: say('setup-no-repo') })`, even when `findRoot(cwd)` finds a
+folder holding `openspec/changes`. Otherwise it answers `out('setup', { root, reply: null })`, where
+`root` is `findRoot(cwd)`'s folder only when that folder, compared through its real path, is the top
+level or a folder inside it, and the top level in every other case (no folder found, or one above the
+top level). The order is the review's: a non-git folder holding `openspec/changes` answering `setup`
+broke the spec's scenario "The setup verb outside a git repository" (spec-reviewer F2, round 1), and
+`findRoot` climbs past the top level, so a repository nested in a folder holding `openspec/changes`,
+or in another devkit project as a submodule, got the outer folder as its root and the setup wrote
+outside the repository where the command was typed (code-quality F6, round 2); such a repository
+keeps its own top level as root (N-3 and N-20 pin both). The settings are still read from
+`findRoot(cwd)`'s folder, as before. No check of the settings' values (an
 unknown value, a missing delivery setting, a driver not built), no project gate and no driver check
 runs for `setup`: the step is what repairs them. The settings file itself is still read first, as for
 every verb (`readDevkitSettings` at the top of `startMode`, unchanged). An `openspec/config.yaml` that
@@ -809,7 +818,8 @@ exist; their task says so.
 |---|---|---|
 | N-1 | `change-loop.test.mjs` | `setup AC-1 start: setup in a folder with no openspec answers the setup mode with the git root and creates nothing` |
 | N-2 | `change-loop.test.mjs` | `setup AC-1 start: setup with an unknown setting, a missing delivery setting or a driver not built still answers the setup mode` (three cases) |
-| N-3 | `change-loop.test.mjs` | `setup AC-1 start: setup outside a git repository answers setup-no-repo in both languages and runs nothing` |
+| N-3 | `change-loop.test.mjs` | `setup AC-1 start: setup outside a git repository answers setup-no-repo in both languages and runs nothing` (extended in `387bf15`: a non-git folder holding `openspec/changes/` and `openspec/config.yaml`, so `findRoot` finds it, still answers `setup-no-repo` with no `root`, in both languages, and nothing is created under it; spec-reviewer F2, round 1) |
+| N-20 | `change-loop.test.mjs` | `setup AC-1 start: setup in a git repository nested in a folder holding openspec/changes answers the inner repository as root` (added in `ac5958e`: an inner repository inside an outer non-git folder holding `openspec/changes/`, and inside an outer devkit repository, answers `setup` with the inner top level as `root`, typed from the inner top level and from a subfolder of it, and nothing is created under the outer folder; code-quality F6, round 2) |
 | N-4 | `change-loop.test.mjs` | `setup AC-1 start: setups is an unknown verb` (negative) |
 | N-5 | `change-loop.test.mjs` | `setup AC-6 drivers: BUILT_DRIVERS is claude and compozy and holds no driver with a round` |
 | N-6 | `guard.test.mjs` | `setup AC-1 guard: a typed /devkit setup ends a /devkit change run` (passes on the base) |
