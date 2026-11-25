@@ -430,7 +430,7 @@ every task with `git status --short`.
 
 ## 6. The merge, the release and the real runs (AC-16, the real-run proof of AC-1 to AC-13, and AC-11's deferred half)
 
-- [ ] 6.1 D-17: merge `origin/main` (as the conducting session fetched it) into the branch by D-17
+- [x] 6.1 D-17: merge `origin/main` (as the conducting session fetched it) into the branch by D-17
   (`release-merge.mjs --base main --roadmap-ticks`, then `git merge origin/main` on its exit 2, never a rebase) and
   resolve each conflict by D-17; when another change took the number of any of the change's ADRs as listed in
   `decisions.md`, run the loop's `renumber-adr` step (it renames each such file to the next free number at merge, of
