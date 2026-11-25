@@ -1,18 +1,18 @@
-# ADR [release-at-merge-step-record]: The release step's commits record the lines they wrote, so a branch merged by hand is numbered again instead of refused
+# ADR 0032: The release step's commits record the lines they wrote, so a branch merged by hand is numbered again instead of refused
 
 - Status: accepted
 - Accepted by: the owner, on 2026-11-24, in the approval of the plan of change release-at-merge (openspec/changes/release-at-merge/approval.md)
 - Date: 2026-11-24
 - Change: release-at-merge
-- Amends: ADR [release-at-merge] (release-at-merge.md), decision 6 ("The delivery's state is derived, with no marker commit: … anything else is refused as 'release lines edited by hand'"): the state stays a comparison of the trees, and a value the step's own recorded commit wrote is told apart from a hand edit
-- Builds on: ADR [release-at-merge] decisions 1, 3 and 5 (who writes the numbers, the unnumbered ADR, release-class edits), unchanged; ADR 0025 (0025-a-base-merge-stales-only-on-the-changes-own-files.md), decision 2 (a base edit to an own file stales), unchanged; ADR 0020 (0020-a-change-can-run-on-another-machine.md), whose clones must keep reading the record; amends none of them
+- Amends: ADR 0031 (0031-release-at-merge.md), decision 6 ("The delivery's state is derived, with no marker commit: … anything else is refused as 'release lines edited by hand'"): the state stays a comparison of the trees, and a value the step's own recorded commit wrote is told apart from a hand edit
+- Builds on: ADR 0031 decisions 1, 3 and 5 (who writes the numbers, the unnumbered ADR, release-class edits), unchanged; ADR 0025 (0025-a-base-merge-stales-only-on-the-changes-own-files.md), decision 2 (a base edit to an own file stales), unchanged; ADR 0020 (0020-a-change-can-run-on-another-machine.md), whose clones must keep reading the record; amends none of them
 
 This record was written without a number; the delivery of its change gives it one, together with
 the change's release. The change's own folder cites it by its slug, before and after.
 
 ## Context
 
-ADR [release-at-merge] has the `assign-release` step (`release-merge.mjs --assign`) number a change's release and
+ADR 0031 has the `assign-release` step (`release-merge.mjs --assign`) number a change's release and
 ADR on the change's own branch, and run again after every merge of the base that moved the release.
 Decision 6 derives the delivery's state from the trees alone: release lines equal to the merge
 base's mean the step is next, equal to what the step computes from the base mean done, and anything
@@ -28,7 +28,7 @@ After it the merge base is the base's tip, and the change's record still holds t
 run gave it. That value is neither the merge base's nor the computed one, so the state reads `hand`
 and every later `--assign` refuses with `release lines edited by hand: docs/adr/feat.md`. The
 conductor no longer offers `renumber-adr` or `resolve-release-conflict` to a change with a note
-(ADR [release-at-merge] decision 8 keeps them for the old rule), and no document names a way out.
+(ADR 0031 decision 8 keeps them for the old rule), and no document names a way out.
 
 This is not a rare path. Changes in this repository merge the base two to five times before they
 land (the branch of change release-at-merge has merged it six times so far), trains land several
@@ -39,14 +39,14 @@ the dead end.
 The planner's fix (design D-20 of the change) has the step leave a record of what it wrote on its own
 commits and read it back. The readiness review of the revised plan (blocker 1) found that this
 contradicts decision 6, which refuses "anything else" and derives the state "with no marker
-commit", and the project's design rule asks for a new record rather than a reading. ADR [release-at-merge] is
+commit", and the project's design rule asks for a new record rather than a reading. ADR 0031 is
 accepted and stays as written; this record amends its decision 6 for the owner to decide.
 
 ## Decision
 
 1. **The record.** Every commit the step makes for `--assign`, a plain commit or a merge commit,
    keeps its subject and ends its message with a block of Git trailers, one per thing it wrote:
-   `Release-change: <id>` first, then `Release-line: <path>` for each release line ADR [release-at-merge] compares
+   `Release-change: <id>` first, then `Release-line: <path>` for each release line ADR 0031 compares
    that the commit wrote (a pack manifest, the marketplace, `CHANGELOG.md`, the CI pin page, the
    file `devkit.release_tag` names), `Release-adr: <from> -> <to>` for each record it renamed, and
    `Release-citation: <path>` for each path whose citations it rewrote. `docs/catalog.md` is not
@@ -90,7 +90,7 @@ accepted and stays as written; this record amends its decision 6 for the owner t
    decision 6 says. The record can only turn a refusal into "the step runs again"; it never makes a
    branch read `assigned`, so a missing or forged record never gives a false pass.
 7. **A shallow CI checkout changes no verdict.** `deliver-check --ci` never computes the release
-   state: it judges staleness through the masked comparison of ADR [release-at-merge] decision 5, which reads no
+   state: it judges staleness through the masked comparison of ADR 0031 decision 5, which reads no
    trailer. CI's `check` job (checkout at depth 1) runs `scripts/check.py` and the test suite, and
    neither reads a record; the suite's tests build their own repositories. The `devkit-reviews`
    workflows check out the full history anyway.
@@ -104,9 +104,9 @@ accepted and stays as written; this record amends its decision 6 for the owner t
 ## Consequences
 
 - Positive: a branch with a note that meets a code conflict with a base that also released recovers
-  with one merge by hand and one run of the step, so ADR [release-at-merge]'s "runs again after every merge of the
+  with one merge by hand and one run of the step, so ADR 0031's "runs again after every merge of the
   base that moved the release" holds for every merge, not only clean ones. No change author writes a
-  release line (ADR [release-at-merge] decision 1 holds). No file is added: the record travels with its commit
+  release line (ADR 0031 decision 1 holds). No file is added: the record travels with its commit
   through push, fetch and merge, on the very commit whose diff proves it.
 - Negative: the state now depends on commit-message metadata as well as the trees, so an amend that
   drops the trailers changes the state while the trees stay the same (Accepted: the change can only
@@ -127,7 +127,7 @@ accepted and stays as written; this record amends its decision 6 for the owner t
 A branch merged by hand after a code conflict is still refused as edited by hand with its record
 present; a value no recorded commit wrote is accepted as the step's; a CI job or any reader without
 the branch's history starts computing the release state; the train's join starts writing to change
-branches; or the old rule of ADR [release-at-merge] decision 8 is removed and the conductor's recovery steps go
+branches; or the old rule of ADR 0031 decision 8 is removed and the conductor's recovery steps go
 with it.
 
 ## Alternatives considered
@@ -136,6 +136,6 @@ with it.
 |---|---|---|---|
 | A guess from the trees: a numbered record whose text masks equal to the unnumbered one, with no `ADR [<slug>]` left, counts as the step's (the review's first suggestion) | No metadata; decision 6 stays a pure tree comparison | Cannot tell a number the step wrote from one a person typed, which decision 6 exists to refuse; covers records only, not a version or a changelog entry the person kept | low |
 | `--assign --continue`: the step leaves its merge in progress for the person to resolve the code conflict, then finishes it | No record; the step resolves the release lines itself | A half-merged worktree across a session boundary, which the checker cannot read while it waits and a session that ends leaves behind; every later command meets a merge in progress | medium |
-| A file holding the numbers the step wrote | Readable from any checkout, shallow or not | Under `openspec/changes/<id>/` it changes the change folder and stales the approval, the evidence and the reviews on every run; anywhere else it is one more shared file every change edits, the conflict ADR [release-at-merge] removed | medium |
+| A file holding the numbers the step wrote | Readable from any checkout, shallow or not | Under `openspec/changes/<id>/` it changes the change folder and stales the approval, the evidence and the reviews on every run; anywhere else it is one more shared file every change edits, the conflict ADR 0031 removed | medium |
 | `git notes` on the step's commit | Leaves the commit message as it is | Notes are neither pushed nor fetched by default, so another machine (ADR 0020), the train's clone or CI loses them and refuses; each project would need its fetch and push configuration changed | medium |
-| Keep refusing and document a manual recovery (rename the record back, rewrite the step's citations back to `ADR [<slug>]`, then run the step) | Decision 6 stays as written; no code | The person hand-edits release lines, which ADR [release-at-merge] decision 1 forbids, and must undo only the tokens the step wrote while keeping the base's citations of the same number, an error-prone edit repeated at every conflicting merge of the base | low |
+| Keep refusing and document a manual recovery (rename the record back, rewrite the step's citations back to `ADR [<slug>]`, then run the step) | Decision 6 stays as written; no code | The person hand-edits release lines, which ADR 0031 decision 1 forbids, and must undo only the tokens the step wrote while keeping the base's citations of the same number, an error-prone edit repeated at every conflicting merge of the base | low |
