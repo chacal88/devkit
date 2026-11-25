@@ -495,7 +495,7 @@ unchanged), its invariant, layer and suite named in the commit message. Every ga
 test files at once (`--concurrency=3`) as a background command of the tool, judged by its exit code.
 End every task with `git status --short`.
 
-- [ ] 10.1 (owner 1a; adr-reviewer F7, spec-reviewer F8; D-28) The coordinating session has the
+- [x] 10.1 (owner 1a; adr-reviewer F7, spec-reviewer F8; D-28) The coordinating session has the
   adr-author add to the record of `ADR [release-at-merge-step-record]` (the one file of `git ls-files
   docs/adr` whose name ends `-release-at-merge-step-record.md`, numbered at task 9.17) one dated note,
   as the first paragraph under its `## Context` heading and followed by one blank line, in the form
