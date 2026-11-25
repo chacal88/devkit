@@ -510,7 +510,7 @@ every task with `git status --short`.
   each print 1,
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^stage-models AC-10" --test-name-pattern="^change-budget AC-10" --test-name-pattern="^coordinator-loop-fixes AC-19 T139 " plugins/openspec/hooks/stage-models.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/change-loop-declared.test.mjs`
   passes, and `python3 scripts/check.py` passes.
-- [ ] 6.4c D-4's further-round words in `plugins/core/skills/review-change/SKILL.md` (plan revision of task 6.4,
+- [x] 6.4c D-4's further-round words in `plugins/core/skills/review-change/SKILL.md` (plan revision of task 6.4,
   item (d)): in the bullet of `### 6. Normalize and decide by consensus` that holds the round limit, the words D-4
   quotes from the base become D-4's new words, byte for byte, the rest of the bullet unchanged. Before the edit,
   grep the tests for both sentences (`grep -rn "accepts only rounds\|new cycle\|further round\|No convergence after" plugins/*/hooks/*.test.mjs plugins/*/skills/*/scripts/*.test.mjs`):
