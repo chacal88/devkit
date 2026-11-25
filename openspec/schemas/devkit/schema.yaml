@@ -561,7 +561,7 @@ artifacts:
       line 1: `result=passed` when the consensus is PASS, `result=failed` when it is FAIL, `attempt` the
       round and `commit` the reviewed commit.
 
-      Gate: the reviewers reach consensus; two rounds at most.
+      Gate: the reviewers reach consensus; two rounds at most, one more for each round the owner authorizes.
     requires:
       - evidence
 

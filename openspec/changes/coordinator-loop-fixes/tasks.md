@@ -343,7 +343,7 @@ every task with `git status --short`.
   after a merge-base exit 3 the change session declares the end blocked with base-conflict and ends the run"
   (`roadmap-loop-upfront.test.mjs`, which reads that item 3, D-15) still passes:
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^upfront AC-8 skill" plugins/openspec/hooks/roadmap-loop-upfront.test.mjs` passes.
-- [ ] 4.6 D-11 and D-12: the Note of `docs/adr/0011-the-change-coordinator-is-the-owners-session.md`, the sentences
+- [x] 4.6 D-11 and D-12: the Note of `docs/adr/0011-the-change-coordinator-is-the-owners-session.md`, the sentences
   of `docs/openspec-flow.md` that D-12 lists (the `devkit-lite` section's two decisions among them, and the language
   sentence written from the `r10` line of `proof/checks.txt` and the `proof/r10-*` files that 4.1 recorded: when that
   line is missing or does not end in `: pass`, write no language sentence, stop and report),

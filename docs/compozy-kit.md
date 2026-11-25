@@ -122,6 +122,10 @@ The merge itself stays the owner's unless the project's ship mode says `merge`
 The CompozyOS driver does not carry every feature of the Claude driver: the token budget, the Jira
 entry and write-back, the `state` command's view of a run, and the machines of a remote roadmap are not
 reached from a CompozyOS run. [ADR 0024](adr/0024-compozy-runs-the-short-loop.md) lists each limit.
+It does not carry the steps the Claude driver declares outside the stage gates either (the declared pause and
+decision, the one fix after a red gate and the review round the owner authorizes: a CompozyOS run asks the owner
+at a red gate and stops its review at two rounds), but it does carry the plan digest in the approval: its
+`record-approval` writes the `- Plan:` line, so a plan revised after the start goes back to its gates there too.
 
 ### Not carried yet
 
