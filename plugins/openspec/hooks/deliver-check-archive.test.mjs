@@ -2226,9 +2226,18 @@ test('commit-attribution AC-2 T30 the caller\'s block wins over the agent\'s env
   assert.ok(attributionOfAgent().includes('wins over the lines your own environment gives you'));
 });
 
+// The text of step `n` of the agent's Method, from its number to the next step's (or the section's end).
+const methodStep = (m, n) => {
+  const at = m.search(new RegExp(`^${n}\\. `, 'm'));
+  assert.ok(at >= 0, `Method step ${n}`);
+  const after = m.slice(at).search(new RegExp(`^${n + 1}\\. `, 'm'));
+  return after >= 0 ? m.slice(at, at + after) : m.slice(at);
+};
+
 test('commit-attribution AC-2 T31 Method steps 3 and 5 point to Attribution and drop the environment rule', () => {
   const m = methodOfAgent();
-  assert.equal(m.split('Attribution below').length - 1, 2, m);
+  assert.match(coreAgent('commit-and-pr'), /^## Attribution$/m, 'the Attribution section exists');
+  for (const n of [3, 5]) assert.ok(methodStep(m, n).includes('Attribution below'), `step ${n} points to Attribution: ${methodStep(m, n)}`);
   assert.ok(!m.includes('the environment or the user requires'), m);
 });
 

@@ -383,7 +383,7 @@ every task with `git status --short`.
   in `plugins/openspec/hooks/project-loop.test.mjs`: its first assertion is that `CL.ATTRIBUTION_ASK` is exported and
   not empty, so the test fails without the export. Check: it passes, and
   `grep -c "ATTRIBUTION_ASK ?? " plugins/openspec/hooks/project-loop.test.mjs` prints 0.
-- [ ] 5.3 D-13: "commit-attribution AC-2 T31 Method steps 3 and 5 point to Attribution and drop the environment
+- [x] 5.3 D-13: "commit-attribution AC-2 T31 Method steps 3 and 5 point to Attribution and drop the environment
   rule" in `plugins/openspec/hooks/deliver-check-archive.test.mjs`. Check: it passes, and
   `grep -c "split('Attribution below')" plugins/openspec/hooks/deliver-check-archive.test.mjs` prints 0.
 - [ ] 5.4 D-13: export `createdAfter` in `plugins/openspec/hooks/change-loop.mjs`, unchanged otherwise. Check: T85
