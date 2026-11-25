@@ -443,7 +443,7 @@ every task with `git status --short`.
   prints 0, stop and report it, so that the copy of 3.6a is added by a plan revision before the evidence (D-7). Check:
   `git merge-base --is-ancestor origin/main HEAD` exits 0, `git status --short` prints nothing, and every path
   `decisions.md` names exists.
-- [ ] 6.2 D-18 and D-19: the next free minor version after `origin/main`'s at the last merge, 6.1 (the conducting
+- [x] 6.2 D-18 and D-19: the next free minor version after `origin/main`'s at the last merge, 6.1 (the conducting
   session fetched it; no version is written in any plan file; on the train the join renumbers it later, and no test is edited for it, D-18) for devkit-openspec, devkit-core and devkit-compozy, in each
   `plugin.json` and in `.claude-plugin/marketplace.json`, the marketplace's own next minor, the `CHANGELOG.md` section
   (one bullet per pack and a docs bullet), and every devkit-openspec version tag of the CI snippet in
