@@ -1,7 +1,7 @@
 Verdict: approved
-Commit: 816d17933190f34f883f55651ac90c99d3bfd5d5
+Commit: ca7ca7bbc145acdb5a1523f5bcc29397a868f930
 
-## Quality review — project-setup (round 4, owner-authorized; numbered 2 of 2 by the round script)
+## Quality review — project-setup (round 5, re-review; numbered 2 of 2 by the round script)
 
 ### Findings
 - [blocking] openspec/changes/project-setup/specs/project-setup/spec.md:23 — The typed-only requirement and its scenario ('no file of the setup is written') were contradicted by R-6 while task 7.6 was ticked; fix: narrow the wording to what the change enforces or add the refusing hook. · fixed in 45cbd1c86593727bbf88fe940be4a4a29f196052
@@ -15,18 +15,20 @@ Commit: 816d17933190f34f883f55651ac90c99d3bfd5d5
 - [praise] plugins/openspec/hooks/guard.mjs:122 — The CRLF fix lands in the shared readers rather than in setup-block, each pinned by a test that compares it with its LF twin; ciPinOf reuses deliver-check's pinsIn instead of a second pin regex.
 - [blocking] openspec/changes/project-setup/design.md:175 — D-1 still said root is findRoot(cwd), else the git top, else null (no-repo), while the code checks the git top first (387bf15) and drops a findRoot answer above the top (ac5958e); fix: restate D-1 as the code does it and add the nested-repository test to the N table. · fixed in 78001deab6fa351e075e439ad583fe9a07142c9e
 - [praise] plugins/openspec/hooks/change-loop.test.mjs:1035 — The F6 test names its invariant, layer and suite, covers both outer variants at two cwd depths, and asserts nothing is created; probed red on 76e88ad and green on HEAD in round 3.
-- [nit] openspec/changes/project-setup/tasks.md:15 — With N-20 added, tasks.md:15 still says 'N-1 to N-19' and design.md:1000 says 'N-1 to N-9'; the N-20 row also sits between N-3 and N-4 (design.md:822) instead of after N-19; a follow-up could widen the counts and move the row.
-- [praise] openspec/changes/project-setup/design.md:175 — The restated D-1 follows startMode's setup branch step by step (top first, setup-no-repo with no top even when findRoot finds a folder, findRoot's folder only when its real path is the top or inside it, settings still read from findRoot's folder) and records why the order holds, citing spec-reviewer F2 and code-quality F6 with the tests that pin each.
+- [nit] openspec/changes/project-setup/tasks.md:15 — With N-20 and now N-21 added, tasks.md:15 still says 'N-1 to N-19' and design.md:1001 says 'N-1 to N-9'; the N-20 and N-21 rows sit between N-3 and N-4 (design.md:822-823) instead of after N-19; a follow-up could widen the counts and move the rows.
+- [praise] openspec/changes/project-setup/design.md:175 — The restated D-1 follows startMode's setup branch step by step (top first, setup-no-repo with no top even when findRoot finds a folder, findRoot's folder only when its real path is the top or inside it, settings still read from findRoot's folder) and records why the order holds.
+- [praise] plugins/openspec/hooks/change-loop.test.mjs:1057 — The N-21 test names its invariant, layer and suite, types from the subfolder and from a folder below it, asserts nothing is created, and is the only setup test that goes red when 'root: inside ? start : top' becomes 'root: top' (mutation probed this round on a scratch copy of HEAD).
 
 ### Summary
-- 13 findings (2 blocking, 3 important, 3 nit) + 5 praise. Open: F4, F5 and F12 (nit). F1, F2, F3, F6 and F10 are fixed.
-- Justification: this is a re-review, the fourth round the owner authorized ("Sim", limited to code-quality and F10). It covers my round-3 findings and the lines changed since b8253f7: 78001de (D-1 restated, N-3 row extended, N-20 row added) and 816d179 (round-3 review files). `git diff b8253f7..816d179` touches only `openspec/changes/project-setup/design.md`, `review.md` and `reviews/code-quality-reviewer.md`. No product or test file changed.
-  - F10: I checked the new D-1 text against `startMode` (`plugins/openspec/hooks/change-loop.mjs`, setup branch after the `VERB_ROUND` check). `tryGit(... show-toplevel)` runs first, and no top answers `setup-no-repo` whatever `findRoot` found. `relative(top, realpathSync(start))` decides inside versus outside, and a null `start` falls back to `'..'` and so to the top. `settings` still comes from `readDevkitSettings(start)` at the top of the function. The text says each of these. The N-3 and N-20 test names in the table match `change-loop.test.mjs:1011` and `:1037` exactly, and the N-20 description (both outer variants, the inner top and a subfolder as cwd, nothing created under the outer folder) matches the test body. Fixed.
-  - F12 is a new nit from 78001de: adding N-20 left the N counts in tasks.md and the design's risk table stale, and the row is out of numeric order. Tests are found by name, so nothing breaks.
-  - F4 and F5 stay nits, unchanged.
-- Checks: `python3 scripts/check.py` prints all checks passed. I ran no test suite: no product or test file changed since round 3, whose filtered run of `change-loop.test.mjs` (setup pattern, 9 of 9 pass) still covers the same code.
+- 14 findings (2 blocking, 3 important, 3 nit) + 6 praise. Open: F4, F5 and F12 (nit). F1, F2, F3, F6 and F10 are fixed.
+- Justification: this is a re-review. It covers my round-4 findings and the lines changed since 816d179. `git diff --stat 816d179..ca7ca7b` touches one test file, `plugins/openspec/hooks/change-loop.test.mjs` (+18, in 9f9aef1, the N-21 test for test-coverage F8), and files under `openspec/changes/project-setup/`: `design.md` (+1, the N-21 row), `evidence.md` (attempt 5 at 9f9aef1), `review.md` and the six `reviews/*.md` (review records only). No production file changed.
+  - N-21 (`setup AC-1 start: setup in a subfolder holding openspec/changes inside the repository answers that subfolder as root`): it builds `app/openspec/changes/` inside a plain git repository and types `setup` from `app/` and `app/src/`. It asserts `[mode, root]` equals `['setup', app]` and that `filesOf(root)` does not change. `filesOf` lists folders too, so a created folder would be caught. The branch it pins is `change-loop.mjs:2119` (`root: inside ? start : top`).
+  - Mutation check: I extracted HEAD with `git archive` into the scratchpad, changed line 2119 to `root: top`, and ran `node --test --test-name-pattern="^setup AC-1 start"` on the copy. Only N-21 failed; the other 6 passed. That confirms the design row's claim and closes the gap test-coverage F8 named. I deleted the scratch copy afterwards.
+  - The N-21 design row matches the test's name and body. F12 grows by one row: N-21 also sits between N-20 and N-4, and the counts in `tasks.md:15` and `design.md:1001` were not widened. Tests are found by name, so nothing breaks; it stays a nit.
+  - Evidence attempt 5 says which gate suite parts were re-run on 9f9aef1 (3.6 and 7.8) and why 6.10 and 2.9 were not. 6.10's patterns do not select an AC-1 test, and 2.9's files are a subset of 7.8's. Both reasons hold against the commands shown in the gate table.
+- Checks: `python3 scripts/check.py` prints `all checks passed`. With no other suite run on the machine (`pgrep` found none), I ran `node scripts/test-suite.mjs --concurrency=3 --test-name-pattern="^setup AC-1 start" plugins/openspec/hooks/change-loop.test.mjs` with `TMPDIR=/var/tmp/devkit-project-setup`. Result: 7 tests, 7 pass, 0 fail, 0.5 s.
 
 ### Acceptance
-- AC-1: unchanged since round 3. The real run in evidence attempt 4 and the N-20 test cover the nested-repository root, and the design now states the rule the code enforces (F10 fixed).
+- AC-1: the nested-repository root (N-20) and the subfolder-inside-the-repository root (N-21) are now both pinned. Evidence attempt 5 re-ran gates 3.6 and 7.8 on 9f9aef1; the real runs R-1 and attempt 4's nested case are unchanged, because no production file changed.
 - AC-7: still no real run of the ruleset question (F4, nit).
-- AC-2 to AC-6 and AC-8 to AC-10: unchanged since round 2. No product line changed in this range.
+- AC-2 to AC-6 and AC-8 to AC-10: unchanged since round 2. No production line changed in this range.

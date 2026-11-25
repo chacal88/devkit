@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=5 commit=2079b0f84d05c024a14338da7f9117b44b14c137 -->
+<!-- devkit-stage review result=passed attempt=6 commit=ca7ca7bbc145acdb5a1523f5bcc29397a868f930 -->
 # Review: project-setup, round 1
 
 Path: agents · range `3ca2e47e35e95cf53cf745a23838909c88dcd5ce..02e67807136fa670f73202efc2601e0f3b1936c0` · structural: PASS
@@ -138,3 +138,26 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: project-setup, round 2
+
+Path: agents · range `fc287351f9aee0c2cf1f38eb0a4c28d23f172205..ca7ca7bbc145acdb5a1523f5bcc29397a868f930` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | ca7ca7b |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | ca7ca7b |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Round 2 after the staleness re-review: test-coverage F8 fixed in 9f9aef1 (test only); code-quality re-checked because a test file changed after its round-4 approval. adr, architecture, security and spec stay approved at 2079b0f (only a test file and plan, evidence and review text changed since).
+
+## Next
+Ready to ship.
