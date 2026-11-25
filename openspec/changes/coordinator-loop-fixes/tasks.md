@@ -499,7 +499,7 @@ every task with `git status --short`.
   `grep -c "foreignArchiveHead(id, p.head?.ref)" plugins/openspec/hooks/deliver-check.mjs` prints 1, and
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 plugins/openspec/hooks/deliver-check-archive.test.mjs`
   passes (T142, T119 to T123, and the kept `forced-merge-path 1: L` and `field-fixes 4` tests).
-- [ ] 6.4b D-22's two `## Troubleshooting` rows of `docs/openspec-flow.md` (plan revision of task 6.4, item (c)),
+- [x] 6.4b D-22's two `## Troubleshooting` rows of `docs/openspec-flow.md` (plan revision of task 6.4, item (c)),
   worded byte for byte as D-22 gives them, the rest of each row unchanged. Before the edit, grep the test files
   for each row's text (`grep -rn "reached its token budget\|the reply names, then type\|setting-unknown" plugins/*/hooks/*.test.mjs plugins/*/skills/*/scripts/*.test.mjs`)
   and read each hit: a test that D-15 does not name is reported, and one that asserts a word the edit removes
