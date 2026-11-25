@@ -1,6 +1,6 @@
-# Real-run proof: release-at-merge (tasks 6.1 to 6.6)
+# Real-run proof: release-at-merge (tasks 6.1 to 6.6, and 9.14 after review round 1)
 
-Every case below ran for real, on 2026-11-24, against this worktree's own scripts (`$DEV` is
+Every case below ran for real, on 2026-11-25, against this worktree's own scripts (`$DEV` is
 `plugins/openspec/hooks` of the worktree `$WT`; never the installed plugin), in scratch repositories under a private `TMPDIR`
 (`$TMPDIR` is `/var/tmp/devkit-release-at-merge`, `$CASES` is `$TMPDIR/devkit-proof-release-at-merge`, removed after the run).
 Each block is one command as it ran, the folder it ran in, its whole output and its exit code; a block that starts with a list of
@@ -25,6 +25,16 @@ case below was run again:
   record renumbered from its former number is a release edit too (tests "release-note AC-4 staleness: the step run again after the base
   numbered another ADR ..." and its guard "release-note AC-5 staleness: a citation of the change's own record moved to another
   record's number ..." in `deliver-check.test.mjs`).
+
+After review round 1 the whole script ran again with P-13 (task 9.14), and its first run of P-13 found one defect in
+`release-merge.mjs`, fixed test-first before this run:
+
+- The note's body cites `ADR [feat]`, so the step's record lists `CHANGELOG.md` among the citations it rewrote. After the merge by
+  hand, which takes the base's changelog as the `assign-release` row says, the give-back of D-20 tried to put `ADR [feat]` back in an
+  entry the file no longer held and refused (`cannot give back the numbers the step wrote in CHANGELOG.md`, exit 2), though the flow
+  page already says a `CHANGELOG.md` entry the record wrote is not given back. The give-back now skips `CHANGELOG.md`, whose whole
+  text the step writes from the note on the base (test "release-note AC-4 assign: a merge by hand that takes the base's CHANGELOG.md,
+  where the step had cited the ADR by its number, is numbered again" in `release-merge.test.mjs`).
 
 ## How the seed is built
 
@@ -148,8 +158,8 @@ $ grep -n v1.0.0 docs/openspec-flow.md
 ```text
 (in $CASES/seed/main)
 $ git ls-remote origin
-095da02b4735ac90923934e156f054149ceffe06	HEAD
-095da02b4735ac90923934e156f054149ceffe06	refs/heads/main
+611036d4a364cf2c104a497738aa1e7e7a916956	HEAD
+611036d4a364cf2c104a497738aa1e7e7a916956	refs/heads/main
 [exit 0]
 ```
 
@@ -206,7 +216,7 @@ The plan of `feat` as committed on its branch (the note, the record, the decisio
 ```text
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ git show --stat '--format=%h %s' HEAD -- . ':(exclude)openspec/changes/feat/proposal.md'
-494f7ae docs(feat): the plan of feat
+74b5cbe docs(feat): the plan of feat
 
  docs/adr/feat.md                     |  6 ++++++
  docs/guide.md                        |  2 +-
@@ -237,7 +247,7 @@ packs:
 # Decisions and ADRs
 
 - ADR: `docs/adr/feat.md` — the record of feat
-<!-- devkit-stage approval result=passed attempt=1 commit=3af213729adcee4ecd1eef425bdac14b44994638 -->
+<!-- devkit-stage approval result=passed attempt=1 commit=611036d4a364cf2c104a497738aa1e7e7a916956 -->
 # Plan approval: feat
 
 - Status: APPROVED
@@ -257,11 +267,11 @@ $ node $DEV/deliver-check.mjs feat --json   -> 1/8, next: implement (phase 1 has
 $ node $DEV/deliver-check.mjs feat --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs feat --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/feat-1.ts)
-    did: git commit: 99998a1
+    did: git commit: 866fe36
 $ node $DEV/deliver-check.mjs feat --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 99998a1; git commit: 598e7db
+    did: wrote evidence.md at 866fe36; git commit: bed73b6
 $ node $DEV/deliver-check.mjs feat --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 598e7db; git commit: 83163e5
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at bed73b6; git commit: 0bf11f7
 $ node $DEV/deliver-check.mjs feat --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin feat; gh pr create -> https://github.invalid/o/devkit/pull/11
 $ node $DEV/deliver-check.mjs feat --json   -> 8/8, next: assign-release (the release of feat is not assigned yet; assign it before the merge)
@@ -270,12 +280,12 @@ $ node $DEV/deliver-check.mjs feat --json   -> 8/8, next: assign-release (the re
 ```text
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ node $DEV/deliver-check.mjs feat
-deliver-check: feat (schema devkit, ship merge, host cli, head 18c5cb3)
+deliver-check: feat (schema devkit, ship merge, host cli, head aacf8a0)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #11 open at 18c5cb3
+  5 met      PR open at local head: PR #11 open at aacf8a0
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
@@ -318,8 +328,8 @@ From $CASES/p1/origin
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": true,
-  "oldHead": "18c5cb3b1a7810fadc36bdaab874b8d4eab2dabd",
-  "newHead": "9cddfab52632f211162063d6164f8eb79a056f63",
+  "oldHead": "aacf8a0aeb4b712282ae68c5fb277038d7f9460d",
+  "newHead": "3330914addd4317c908008f53c37bdacacf3c3ca",
   "versions": {
     "packs": {
       "devkit-openspec": "1.1.0",
@@ -356,7 +366,7 @@ $ node $DEV/release-merge.mjs --assign --base main --json
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ git push origin feat
 To $CASES/p1/origin.git
-   18c5cb3..9cddfab  feat -> feat
+   aacf8a0..3330914  feat -> feat
 [exit 0]
 ```
 
@@ -365,7 +375,7 @@ The step's one commit holds only release lines, the record's number and the rewr
 ```text
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ git show --stat '--format=%h %s' HEAD
-9cddfab chore(release): assign the release of feat
+3330914 chore(release): assign the release of feat
 
  .claude-plugin/marketplace.json             | 6 +++---
  CHANGELOG.md                                | 5 +++++
@@ -376,6 +386,27 @@ $ git show --stat '--format=%h %s' HEAD
  plugins/core/.claude-plugin/plugin.json     | 2 +-
  plugins/openspec/.claude-plugin/plugin.json | 2 +-
  8 files changed, 18 insertions(+), 13 deletions(-)
+[exit 0]
+```
+
+Its message ends with the step's record (D-20): the change, each release line it wrote, the record's rename and each citation it rewrote, as `Release-` trailers:
+
+```text
+(in $CASES/p1/main/.claude/worktrees/feat)
+$ git log -1 --format=%B
+chore(release): assign the release of feat
+
+Release-change: feat
+Release-line: plugins/core/.claude-plugin/plugin.json
+Release-line: plugins/openspec/.claude-plugin/plugin.json
+Release-line: .claude-plugin/marketplace.json
+Release-line: CHANGELOG.md
+Release-line: docs/openspec-flow.md
+Release-adr: docs/adr/feat.md -> docs/adr/0002-feat.md
+Release-citation: CHANGELOG.md
+Release-citation: docs/guide.md
+Release-citation: docs/openspec-flow.md
+
 [exit 0]
 ```
 
@@ -468,17 +499,17 @@ After the step the evidence and the approved reviews recorded before it are stil
 ```text
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ node $DEV/deliver-check.mjs feat
-deliver-check: feat (schema devkit, ship merge, host cli, head 9cddfab)
+deliver-check: feat (schema devkit, ship merge, host cli, head 3330914)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #11 open at 9cddfab
+  5 met      PR open at local head: PR #11 open at 3330914
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
 8/8 met: ready
-next: enable-auto-merge PR #11 with --squash at 9cddfab
+next: enable-auto-merge PR #11 with --squash at 3330914
 [exit 0]
 ```
 
@@ -489,7 +520,7 @@ next: enable-auto-merge PR #11 with --squash at 9cddfab
   "reason": "all eight items are met",
   "number": 11,
   "method": "squash",
-  "head": "9cddfab52632f211162063d6164f8eb79a056f63"
+  "head": "3330914addd4317c908008f53c37bdacacf3c3ca"
 }
 ```
 
@@ -504,11 +535,11 @@ $ node $DEV/deliver-check.mjs sib --json   -> 1/8, next: implement (phase 1 has 
 $ node $DEV/deliver-check.mjs sib --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs sib --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/sib-1.ts)
-    did: git commit: 3e929ed
+    did: git commit: 81204cc
 $ node $DEV/deliver-check.mjs sib --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 3e929ed; git commit: 935357c
+    did: wrote evidence.md at 81204cc; git commit: 7147798
 $ node $DEV/deliver-check.mjs sib --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 935357c; git commit: 2305004
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 7147798; git commit: 7f01504
 $ node $DEV/deliver-check.mjs sib --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin sib; gh pr create -> https://github.invalid/o/devkit/pull/12
 $ node $DEV/deliver-check.mjs sib --json   -> 8/8, next: assign-release (the release of sib is not assigned yet; assign it before the merge)
@@ -527,8 +558,8 @@ From $CASES/p1/origin
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": true,
-  "oldHead": "fc2aa4a5fce9864f898702f3e16ebd0c376b6085",
-  "newHead": "8263ef1fcc5ac46d5042a31d114c0654f9a52fe9",
+  "oldHead": "e5b6247d280a63b545581ef8a0043b62fba76956",
+  "newHead": "bb9f80efa932546c9d5daa861691e7cb75ef9427",
   "versions": {
     "packs": {
       "devkit-openspec": "1.0.1"
@@ -561,13 +592,13 @@ $ node $DEV/release-merge.mjs --assign --base main --json
 (in $CASES/p1/main/.claude/worktrees/sib)
 $ git push origin sib
 To $CASES/p1/origin.git
-   fc2aa4a..8263ef1  sib -> sib
+   e5b6247..bb9f80e  sib -> sib
 [exit 0]
 ```
 
 ```text
 (in $CASES/p1/main/.claude/worktrees/sib)
-$ gh pr merge 12 --auto --squash --match-head-commit 8263ef1fcc5ac46d5042a31d114c0654f9a52fe9
+$ gh pr merge 12 --auto --squash --match-head-commit bb9f80efa932546c9d5daa861691e7cb75ef9427
 (no output)
 [exit 0]
 ```
@@ -575,15 +606,15 @@ $ gh pr merge 12 --auto --squash --match-head-commit 8263ef1fcc5ac46d5042a31d114
 ```text
 (in $CASES/p1/main)
 $ gh __merge 12   # the stub: GitHub merges the pull request once its rules pass
-99d76e55b4542d6cc9e600e7e1bac41ccafb0282
+894614b5cd95c2ca0a6e45ac4af5f9a28d945133
 [exit 0]
 ```
 
 ```text
 (in $CASES/p1/main)
 $ git log --oneline --graph -6 origin/main
-* 99d76e5 Merge pull request #12 from sib
-* 3af2137 seed: the project at its first release
+* 894614b Merge pull request #12 from sib
+* 611036d seed: the project at its first release
 [exit 0]
 ```
 
@@ -594,7 +625,7 @@ GitHub now reports `feat` in conflict with `main` (both wrote the same release l
 ```text
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ node $DEV/deliver-check.mjs feat
-deliver-check: feat (schema devkit, ship merge, host cli, head 9cddfab)
+deliver-check: feat (schema devkit, ship merge, host cli, head 3330914)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -640,8 +671,8 @@ From $CASES/p1/origin
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": true,
-  "oldHead": "9cddfab52632f211162063d6164f8eb79a056f63",
-  "newHead": "a62646369843315d1d35e703770a9dd068f8ebc0",
+  "oldHead": "3330914addd4317c908008f53c37bdacacf3c3ca",
+  "newHead": "53bf1614ebaef4e62ecdb8af22ffb0a89ab9c2f8",
   "versions": {
     "packs": {
       "devkit-openspec": "1.1.0",
@@ -677,7 +708,7 @@ $ node $DEV/release-merge.mjs --assign --base main --json
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ git push origin feat
 To $CASES/p1/origin.git
-   9cddfab..a626463  feat -> feat
+   3330914..53bf161  feat -> feat
 [exit 0]
 ```
 
@@ -686,19 +717,19 @@ No conflict was left: the merge commit holds the base, `feat`'s numbers above it
 ```text
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ git log --oneline --graph -5
-*   a626463 chore(release): merge origin/main and assign the release of feat
+*   53bf161 chore(release): merge origin/main and assign the release of feat
 |\  
-| * 99d76e5 Merge pull request #12 from sib
-* | 9cddfab chore(release): assign the release of feat
-* | 18c5cb3 docs(feat): change files
-* | 83163e5 docs(feat): reviews
+| * 894614b Merge pull request #12 from sib
+* | 3330914 chore(release): assign the release of feat
+* | aacf8a0 docs(feat): change files
+* | 0bf11f7 docs(feat): reviews
 [exit 0]
 ```
 
 ```text
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ git show --stat '--format=%h %s' HEAD
-a626463 chore(release): merge origin/main and assign the release of feat
+53bf161 chore(release): merge origin/main and assign the release of feat
 
  CHANGELOG.md                                           |  6 +++++-
  docs/adr/0002-sib.md                                   |  6 ++++++
@@ -718,6 +749,24 @@ a626463 chore(release): merge origin/main and assign the release of feat
  openspec/changes/sib/tasks.md                          |  6 ++++++
  src/sib-1.ts                                           |  1 +
  17 files changed, 79 insertions(+), 4 deletions(-)
+[exit 0]
+```
+
+```text
+(in $CASES/p1/main/.claude/worktrees/feat)
+$ git log -1 --format=%B
+chore(release): merge origin/main and assign the release of feat
+
+Release-change: feat
+Release-line: plugins/openspec/.claude-plugin/plugin.json
+Release-line: .claude-plugin/marketplace.json
+Release-line: CHANGELOG.md
+Release-line: docs/openspec-flow.md
+Release-adr: docs/adr/feat.md -> docs/adr/0003-feat.md
+Release-citation: CHANGELOG.md
+Release-citation: docs/guide.md
+Release-citation: docs/openspec-flow.md
+
 [exit 0]
 ```
 
@@ -810,17 +859,17 @@ $ ls docs/adr
 ```text
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ node $DEV/deliver-check.mjs feat
-deliver-check: feat (schema devkit, ship merge, host cli, head a626463)
+deliver-check: feat (schema devkit, ship merge, host cli, head 53bf161)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #11 open at a626463
+  5 met      PR open at local head: PR #11 open at 53bf161
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
 8/8 met: ready
-next: enable-auto-merge PR #11 with --squash at a626463
+next: enable-auto-merge PR #11 with --squash at 53bf161
 [exit 0]
 ```
 
@@ -831,7 +880,7 @@ next: enable-auto-merge PR #11 with --squash at a626463
   "reason": "all eight items are met",
   "number": 11,
   "method": "squash",
-  "head": "a62646369843315d1d35e703770a9dd068f8ebc0"
+  "head": "53bf1614ebaef4e62ecdb8af22ffb0a89ab9c2f8"
 }
 ```
 
@@ -839,7 +888,7 @@ The session enables auto-merge with the row's exact command; P-12 lets GitHub me
 
 ```text
 (in $CASES/p1/main/.claude/worktrees/feat)
-$ gh pr merge 11 --auto --squash --match-head-commit a62646369843315d1d35e703770a9dd068f8ebc0
+$ gh pr merge 11 --auto --squash --match-head-commit 53bf1614ebaef4e62ecdb8af22ffb0a89ab9c2f8
 (no output)
 [exit 0]
 ```
@@ -847,12 +896,12 @@ $ gh pr merge 11 --auto --squash --match-head-commit a62646369843315d1d35e703770
 ```text
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ node $DEV/deliver-check.mjs feat
-deliver-check: feat (schema devkit, ship merge, host cli, head a626463)
+deliver-check: feat (schema devkit, ship merge, host cli, head 53bf161)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #11 open at a626463
+  5 met      PR open at local head: PR #11 open at 53bf161
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
@@ -887,11 +936,11 @@ $ node $DEV/deliver-check.mjs alpha --json   -> 1/8, next: implement (phase 1 ha
 $ node $DEV/deliver-check.mjs alpha --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs alpha --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/alpha-1.ts)
-    did: git commit: 5281a2e
+    did: git commit: 0bf0880
 $ node $DEV/deliver-check.mjs alpha --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 5281a2e; git commit: dda9a21
+    did: wrote evidence.md at 0bf0880; git commit: 1ecd8c9
 $ node $DEV/deliver-check.mjs alpha --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at dda9a21; git commit: db36b39
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 1ecd8c9; git commit: 9d1f6f8
 $ node $DEV/deliver-check.mjs alpha --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin alpha; gh pr create -> https://github.invalid/o/devkit/pull/11
 $ node $DEV/deliver-check.mjs alpha --json   -> 8/8, next: boarded (every item of the contract is met; the change leaves with the next train)
@@ -904,11 +953,11 @@ $ node $DEV/deliver-check.mjs beta --json   -> 1/8, next: implement (phase 1 has
 $ node $DEV/deliver-check.mjs beta --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs beta --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/beta-1.ts)
-    did: git commit: 6cc4715
+    did: git commit: 96173e7
 $ node $DEV/deliver-check.mjs beta --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 6cc4715; git commit: 244c2ad
+    did: wrote evidence.md at 96173e7; git commit: 99af545
 $ node $DEV/deliver-check.mjs beta --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 244c2ad; git commit: 866fbdd
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 99af545; git commit: db744ca
 $ node $DEV/deliver-check.mjs beta --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin beta; gh pr create -> https://github.invalid/o/devkit/pull/12
 $ node $DEV/deliver-check.mjs beta --json   -> 8/8, next: boarded (every item of the contract is met; the change leaves with the next train)
@@ -917,12 +966,12 @@ $ node $DEV/deliver-check.mjs beta --json   -> 8/8, next: boarded (every item of
 ```text
 (in $CASES/p2/main/.claude/worktrees/alpha)
 $ node $DEV/deliver-check.mjs alpha
-deliver-check: alpha (schema devkit, ship merge, host cli, head c90b5ed)
+deliver-check: alpha (schema devkit, ship merge, host cli, head 42cd0e3)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #11 open at c90b5ed
+  5 met      PR open at local head: PR #11 open at 42cd0e3
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
@@ -936,8 +985,8 @@ The heads of both branches, locally and on origin, before the departure:
 ```text
 (in $CASES/p2/main)
 $ git ls-remote origin refs/heads/alpha refs/heads/beta
-c90b5edb64ad6775543475a9c13e60fa06a08bb7	refs/heads/alpha
-f0f0a7b9d3e7f3268bca8c113786b232a911261b	refs/heads/beta
+42cd0e3104a5802d18de05b981a9a22f719305e8	refs/heads/alpha
+e0fa7db64dc829915d88d5955b085b9aa4ffe4c4	refs/heads/beta
 [exit 0]
 ```
 
@@ -995,15 +1044,15 @@ $ node $DEV/train-loop.mjs depart --lang en
       "kind": "change",
       "id": "alpha",
       "number": 11,
-      "head": "c90b5edb64ad6775543475a9c13e60fa06a08bb7",
-      "at": "2026-11-24T17:38:03Z"
+      "head": "42cd0e3104a5802d18de05b981a9a22f719305e8",
+      "at": "2026-11-25T01:12:38Z"
     },
     {
       "kind": "change",
       "id": "beta",
       "number": 12,
-      "head": "f0f0a7b9d3e7f3268bca8c113786b232a911261b",
-      "at": "2026-11-24T17:38:11Z"
+      "head": "e0fa7db64dc829915d88d5955b085b9aa4ffe4c4",
+      "at": "2026-11-25T01:12:42Z"
     }
   ],
   "left": [],
@@ -1017,27 +1066,27 @@ The train: one join per boarded head (each numbered above the train's tip), then
 ```text
 (in $CASES/p2/main/.claude/worktrees/train-1)
 $ git log --oneline --graph origin/main..HEAD
-* db69aab chore(train): record train 1
-*   3be634f chore(train): join f0f0a7b and renumber its release above the train
+* 82a92ef chore(train): record train 1
+*   ee43a78 chore(train): join e0fa7db and renumber its release above the train
 |\  
-| * f0f0a7b docs(beta): change files
-| * 866fbdd docs(beta): reviews
-| * 244c2ad docs(beta): evidence
-| * 6cc4715 feat(beta): phase work
-| * 5903053 docs(beta): the plan of beta
-* 1e799e6 chore(train): join c90b5ed and renumber its release above the train
-* c90b5ed docs(alpha): change files
-* db36b39 docs(alpha): reviews
-* dda9a21 docs(alpha): evidence
-* 5281a2e feat(alpha): phase work
-* fe23fb3 docs(alpha): the plan of alpha
+| * e0fa7db docs(beta): change files
+| * db744ca docs(beta): reviews
+| * 99af545 docs(beta): evidence
+| * 96173e7 feat(beta): phase work
+| * be048d5 docs(beta): the plan of beta
+* 42537a2 chore(train): join 42cd0e3 and renumber its release above the train
+* 42cd0e3 docs(alpha): change files
+* 9d1f6f8 docs(alpha): reviews
+* 1ecd8c9 docs(alpha): evidence
+* 0bf0880 feat(alpha): phase work
+* bda60b1 docs(alpha): the plan of alpha
 [exit 0]
 ```
 
 ```text
 (in $CASES/p2/main/.claude/worktrees/train-1)
 $ git show --stat '--format=%h %s' 'HEAD~2'
-1e799e6 chore(train): join c90b5ed and renumber its release above the train
+42537a2 chore(train): join 42cd0e3 and renumber its release above the train
 
  .claude-plugin/marketplace.json                          |  4 ++--
  CHANGELOG.md                                             |  4 ++++
@@ -1064,7 +1113,7 @@ $ git show --stat '--format=%h %s' 'HEAD~2'
 ```text
 (in $CASES/p2/main/.claude/worktrees/train-1)
 $ git show --stat '--format=%h %s' 'HEAD~1'
-3be634f chore(train): join f0f0a7b and renumber its release above the train
+ee43a78 chore(train): join e0fa7db and renumber its release above the train
 
  .claude-plugin/marketplace.json                         |  4 ++--
  CHANGELOG.md                                            |  4 ++++
@@ -1094,23 +1143,23 @@ $ cat openspec/trains/1.md
 <!-- devkit-train n=1 base=main result=passed -->
 # Train 1
 
-- Base: `main` at `ec65319e975cad6f4725a5463e14743f01745320`
+- Base: `main` at `bb7b50a0f592882e27b1616408df532f7cafe91b`
 - Suite: `true`
-- Ran at: `3be634f401f0d00a238c757d2246986c8e3d4f97`
+- Ran at: `ee43a786f23dc8ff0c3b35a6d2293468ac23392a`
 - Result: passed
 
 ## Boarded
 
 | Order | Kind | Change | Pull request | Head | Boarded at |
 | --- | --- | --- | --- | --- | --- |
-| 1 | change | `alpha` | #11 | `c90b5edb64ad6775543475a9c13e60fa06a08bb7` | 2026-11-24T17:38:03Z |
-| 2 | change | `beta` | #12 | `f0f0a7b9d3e7f3268bca8c113786b232a911261b` | 2026-11-24T17:38:11Z |
+| 1 | change | `alpha` | #11 | `42cd0e3104a5802d18de05b981a9a22f719305e8` | 2026-11-25T01:12:38Z |
+| 2 | change | `beta` | #12 | `e0fa7db64dc829915d88d5955b085b9aa4ffe4c4` | 2026-11-25T01:12:42Z |
 
 ## Runs
 
 | Run | Changes | Head | Result |
 | --- | --- | --- | --- |
-| 1 | alpha, beta | `3be634f401f0d00a238c757d2246986c8e3d4f97` | passed |
+| 1 | alpha, beta | `ee43a786f23dc8ff0c3b35a6d2293468ac23392a` | passed |
 [exit 0]
 ```
 
@@ -1237,8 +1286,8 @@ $ git diff --stat beta HEAD -- openspec/changes/beta/   # empty: the train holds
 (in $CASES/p2/main/.claude/worktrees/train-1)
 $ node $DEV/deliver-check.mjs --ci
 devkit-reviews: train 1 (openspec/trains/1.md, 2 boarded)
-  change alpha (#11, head c90b5ed): pass
-  change beta (#12, head f0f0a7b): pass
+  change alpha (#11, head 42cd0e3): pass
+  change beta (#12, head e0fa7db): pass
 pass
 [exit 0]
 ```
@@ -1248,20 +1297,20 @@ Both boarded heads are unchanged, locally and on origin:
 ```text
 (in $CASES/p2/main)
 $ git ls-remote origin refs/heads/alpha refs/heads/beta
-c90b5edb64ad6775543475a9c13e60fa06a08bb7	refs/heads/alpha
-f0f0a7b9d3e7f3268bca8c113786b232a911261b	refs/heads/beta
+42cd0e3104a5802d18de05b981a9a22f719305e8	refs/heads/alpha
+e0fa7db64dc829915d88d5955b085b9aa4ffe4c4	refs/heads/beta
 [exit 0]
 ```
 
 ```text
 (in $CASES/p2/main/.claude/worktrees/alpha)
 $ node $DEV/deliver-check.mjs alpha
-deliver-check: alpha (schema devkit, ship merge, host cli, head c90b5ed)
+deliver-check: alpha (schema devkit, ship merge, host cli, head 42cd0e3)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #11 open at c90b5ed
+  5 met      PR open at local head: PR #11 open at 42cd0e3
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
@@ -1273,12 +1322,12 @@ next: boarded: every item of the contract is met; the change leaves with the nex
 ```text
 (in $CASES/p2/main/.claude/worktrees/beta)
 $ node $DEV/deliver-check.mjs beta
-deliver-check: beta (schema devkit, ship merge, host cli, head f0f0a7b)
+deliver-check: beta (schema devkit, ship merge, host cli, head e0fa7db)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #12 open at f0f0a7b
+  5 met      PR open at local head: PR #12 open at e0fa7db
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
@@ -1300,7 +1349,7 @@ in `docs/old.md`, with a code file of the pack.
 ```text
 (in $CASES/p3/main/.claude/worktrees/old)
 $ git show --stat '--format=%h %s' HEAD
-7cf7e95 docs(old): the plan of old
+77093f5 docs(old): the plan of old
 
  .claude-plugin/marketplace.json         | 4 ++--
  CHANGELOG.md                            | 4 ++++
@@ -1326,11 +1375,11 @@ $ node $DEV/deliver-check.mjs old --json   -> 1/8, next: implement (phase 1 has 
 $ node $DEV/deliver-check.mjs old --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs old --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/old-1.ts)
-    did: git commit: e3e9c61
+    did: git commit: f566951
 $ node $DEV/deliver-check.mjs old --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at e3e9c61; git commit: e27bcac
+    did: wrote evidence.md at f566951; git commit: 6090a5b
 $ node $DEV/deliver-check.mjs old --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at e27bcac; git commit: b4216ec
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 6090a5b; git commit: b09a8d2
 $ node $DEV/deliver-check.mjs old --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin old; gh pr create -> https://github.invalid/o/devkit/pull/11
 $ node $DEV/deliver-check.mjs old --json   -> 8/8, next: enable-auto-merge (all eight items are met)
@@ -1342,14 +1391,14 @@ With no note the checker asks no `assign-release`: the last step is `enable-auto
 (in $CASES/p3/main)
 $ git push origin main
 To $CASES/p3/origin.git
-   fe4d7d4..085e6f9  main -> main
+   ff0e711..4e166e8  main -> main
 [exit 0]
 ```
 
 ```text
 (in $CASES/p3/main/.claude/worktrees/old)
 $ node $DEV/deliver-check.mjs old
-deliver-check: old (schema devkit, ship merge, host cli, head 5733b3d)
+deliver-check: old (schema devkit, ship merge, host cli, head 5cad585)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -1452,7 +1501,7 @@ $ git commit -q -am 'docs(old): renumber the ADR the base took'
 ```text
 (in $CASES/p3/main/.claude/worktrees/old)
 $ git show -M '--format=%h %s' HEAD
-88f6aa0 docs(old): renumber the ADR the base took
+37387e3 docs(old): renumber the ADR the base took
 
 diff --git a/docs/adr/0002-old.md b/docs/adr/0002-old.md
 deleted file mode 100644
@@ -1498,16 +1547,16 @@ The renumbering is a plain commit that touches the change's own files, so it sta
 ```text
 (in $CASES/p3/main/.claude/worktrees/old)
 $ node $DEV/deliver-check.mjs old --json   -> 4/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 88f6aa0; git commit: 3ae281f
+    did: wrote evidence.md at 37387e3; git commit: cd427c1
 $ node $DEV/deliver-check.mjs old --json   -> 6/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 3ae281f; git commit: 3f5c695
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at cd427c1; git commit: f34146f
 $ node $DEV/deliver-check.mjs old --json   -> 7/8, next: blocked (PR #11 has merge conflicts with main)
 ```
 
 ```text
 (in $CASES/p3/main/.claude/worktrees/old)
 $ node $DEV/deliver-check.mjs old
-deliver-check: old (schema devkit, ship merge, host cli, head 3f5c695)
+deliver-check: old (schema devkit, ship merge, host cli, head f34146f)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -1606,8 +1655,8 @@ Its command, `release-merge.mjs --base main`, merges `origin/main` and numbers t
 $ node $DEV/release-merge.mjs --base main --json
 {
   "resolved": true,
-  "oldHead": "3f5c6957bc053e8fe544a3b4fbb60f20c8049f23",
-  "newHead": "13018f9b62b4425a0eba706c83c8f452c24fc15d",
+  "oldHead": "f34146fe0c905c218dc6fde5efda31497a846827",
+  "newHead": "468cd297e96e4f334ccea974793f18873bd6335d",
   "versions": {
     "packs": {
       "devkit-core": "1.1.0"
@@ -1629,7 +1678,7 @@ $ node $DEV/release-merge.mjs --base main --json
 (in $CASES/p3/main/.claude/worktrees/old)
 $ git push origin old
 To $CASES/p3/origin.git
-   5733b3d..13018f9  old -> old
+   5cad585..468cd29  old -> old
 [exit 0]
 ```
 
@@ -1699,17 +1748,17 @@ The merge of the base touched no own file of `old` beyond its release lines, so 
 ```text
 (in $CASES/p3/main/.claude/worktrees/old)
 $ node $DEV/deliver-check.mjs old
-deliver-check: old (schema devkit, ship merge, host cli, head 13018f9)
+deliver-check: old (schema devkit, ship merge, host cli, head 468cd29)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #11 open at 13018f9
+  5 met      PR open at local head: PR #11 open at 468cd29
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
 8/8 met: ready
-next: enable-auto-merge PR #11 with --squash at 13018f9
+next: enable-auto-merge PR #11 with --squash at 468cd29
 [exit 0]
 ```
 
@@ -1726,11 +1775,11 @@ $ node $DEV/deliver-check.mjs oldt --json   -> 1/8, next: implement (phase 1 has
 $ node $DEV/deliver-check.mjs oldt --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs oldt --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/oldt-1.ts)
-    did: git commit: 2b24d32
+    did: git commit: 016c6eb
 $ node $DEV/deliver-check.mjs oldt --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 2b24d32; git commit: 1d79fe9
+    did: wrote evidence.md at 016c6eb; git commit: 0a7c583
 $ node $DEV/deliver-check.mjs oldt --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 1d79fe9; git commit: eede9a7
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 0a7c583; git commit: c099544
 $ node $DEV/deliver-check.mjs oldt --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin oldt; gh pr create -> https://github.invalid/o/devkit/pull/11
 $ node $DEV/deliver-check.mjs oldt --json   -> 8/8, next: boarded (every item of the contract is met; the change leaves with the next train)
@@ -1743,11 +1792,11 @@ $ node $DEV/deliver-check.mjs notedt --json   -> 1/8, next: implement (phase 1 h
 $ node $DEV/deliver-check.mjs notedt --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs notedt --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/notedt-1.ts)
-    did: git commit: f9231ad
+    did: git commit: 88cb9c7
 $ node $DEV/deliver-check.mjs notedt --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at f9231ad; git commit: 28023b4
+    did: wrote evidence.md at 88cb9c7; git commit: 17f23bf
 $ node $DEV/deliver-check.mjs notedt --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 28023b4; git commit: 66e4ed8
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 17f23bf; git commit: 29c708b
 $ node $DEV/deliver-check.mjs notedt --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin notedt; gh pr create -> https://github.invalid/o/devkit/pull/12
 $ node $DEV/deliver-check.mjs notedt --json   -> 8/8, next: boarded (every item of the contract is met; the change leaves with the next train)
@@ -1805,15 +1854,15 @@ $ node $DEV/train-loop.mjs depart --lang en
       "kind": "change",
       "id": "oldt",
       "number": 11,
-      "head": "0e70bba52696d9fb1ae83669bcbe72bb09cda96d",
-      "at": "2026-11-24T17:38:53Z"
+      "head": "7cd9df8553e29dc386f01ef65a69bccbac0f0116",
+      "at": "2026-11-25T01:13:00Z"
     },
     {
       "kind": "change",
       "id": "notedt",
       "number": 12,
-      "head": "cf65e199ca4e7abfbcfb339603d082768d4e1df9",
-      "at": "2026-11-24T17:38:59Z"
+      "head": "94d43845822a5c48b5284bb7820f0bc0d1e92951",
+      "at": "2026-11-25T01:13:03Z"
     }
   ],
   "left": [],
@@ -1825,20 +1874,20 @@ $ node $DEV/train-loop.mjs depart --lang en
 ```text
 (in $CASES/p3t/main/.claude/worktrees/train-1)
 $ git log --oneline --graph origin/main..HEAD
-* ce2a4f2 chore(train): record train 1
-*   590f084 chore(train): join cf65e19 and renumber its release above the train
+* c820298 chore(train): record train 1
+*   ecb5ec5 chore(train): join 94d4384 and renumber its release above the train
 |\  
-| * cf65e19 docs(notedt): change files
-| * 66e4ed8 docs(notedt): reviews
-| * 28023b4 docs(notedt): evidence
-| * f9231ad feat(notedt): phase work
-| * 64f26bc docs(notedt): the plan of notedt
-* 16bfc79 chore(train): join 0e70bba and renumber its release above the train
-* 0e70bba docs(oldt): change files
-* eede9a7 docs(oldt): reviews
-* 1d79fe9 docs(oldt): evidence
-* 2b24d32 feat(oldt): phase work
-* ca1c7cc docs(oldt): the plan of oldt
+| * 94d4384 docs(notedt): change files
+| * 29c708b docs(notedt): reviews
+| * 17f23bf docs(notedt): evidence
+| * 88cb9c7 feat(notedt): phase work
+| * 338d33a docs(notedt): the plan of notedt
+* aca5406 chore(train): join 7cd9df8 and renumber its release above the train
+* 7cd9df8 docs(oldt): change files
+* c099544 docs(oldt): reviews
+* 0a7c583 docs(oldt): evidence
+* 016c6eb feat(oldt): phase work
+* 2ed57e8 docs(oldt): the plan of oldt
 [exit 0]
 ```
 
@@ -1915,8 +1964,8 @@ $ ls docs/adr
 (in $CASES/p3t/main/.claude/worktrees/train-1)
 $ node $DEV/deliver-check.mjs --ci
 devkit-reviews: train 1 (openspec/trains/1.md, 2 boarded)
-  change oldt (#11, head 0e70bba): pass
-  change notedt (#12, head cf65e19): pass
+  change oldt (#11, head 7cd9df8): pass
+  change notedt (#12, head 94d4384): pass
 pass
 [exit 0]
 ```
@@ -1956,11 +2005,11 @@ $ node $DEV/deliver-check.mjs feature --json   -> 1/8, next: implement (phase 1 
 $ node $DEV/deliver-check.mjs feature --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs feature --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/feature-1.ts)
-    did: git commit: b3a655e
+    did: git commit: dccc8e4
 $ node $DEV/deliver-check.mjs feature --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at b3a655e; git commit: 8d8d229
+    did: wrote evidence.md at dccc8e4; git commit: 9d7f6dd
 $ node $DEV/deliver-check.mjs feature --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 8d8d229; git commit: 635d3dc
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 9d7f6dd; git commit: c8df322
 $ node $DEV/deliver-check.mjs feature --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin feature; gh pr create -> https://github.invalid/o/devkit/pull/11
 $ node $DEV/deliver-check.mjs feature --json   -> 8/8, next: assign-release (the release of feature is not assigned yet; assign it before the merge)
@@ -1998,8 +2047,8 @@ From $CASES/p4a/origin
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": true,
-  "oldHead": "ca4821370da74fcb39101b02ae1a976d2f08e526",
-  "newHead": "2dc88db355db49e0395bc627976c7f4ec7b0fa0c",
+  "oldHead": "befa87145e0373ac1345791ea745aa27264199f0",
+  "newHead": "0b2bd74ea07a1f71579004f78b69578a31870676",
   "versions": {
     "packs": {},
     "release": "1.5.0"
@@ -2027,14 +2076,14 @@ $ node $DEV/release-merge.mjs --assign --base main --json
 (in $CASES/p4a/main/.claude/worktrees/feature)
 $ git push origin feature
 To $CASES/p4a/origin.git
-   ca48213..2dc88db  feature -> feature
+   befa871..0b2bd74  feature -> feature
 [exit 0]
 ```
 
 ```text
 (in $CASES/p4a/main/.claude/worktrees/feature)
 $ git show --stat '--format=%h %s' HEAD
-2dc88db chore(release): assign the release of feature
+0b2bd74 chore(release): assign the release of feature
 
  CHANGELOG.md                             | 4 ++++
  docs/adr/{feature.md => 0002-feature.md} | 2 +-
@@ -2093,17 +2142,17 @@ src/feature-1.ts
 ```text
 (in $CASES/p4a/main/.claude/worktrees/feature)
 $ node $DEV/deliver-check.mjs feature
-deliver-check: feature (schema devkit, ship merge, host cli, head 2dc88db)
+deliver-check: feature (schema devkit, ship merge, host cli, head 0b2bd74)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #11 open at 2dc88db
+  5 met      PR open at local head: PR #11 open at 0b2bd74
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
 8/8 met: ready
-next: enable-auto-merge PR #11 with --squash at 2dc88db
+next: enable-auto-merge PR #11 with --squash at 0b2bd74
 [exit 0]
 ```
 
@@ -2118,11 +2167,11 @@ $ node $DEV/deliver-check.mjs feature --json   -> 1/8, next: implement (phase 1 
 $ node $DEV/deliver-check.mjs feature --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs feature --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/feature-1.ts)
-    did: git commit: ffd7363
+    did: git commit: 79c81a1
 $ node $DEV/deliver-check.mjs feature --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at ffd7363; git commit: a990100
+    did: wrote evidence.md at 79c81a1; git commit: 519dbaa
 $ node $DEV/deliver-check.mjs feature --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at a990100; git commit: 6734128
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 519dbaa; git commit: 3e84d50
 $ node $DEV/deliver-check.mjs feature --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin feature; gh pr create -> https://github.invalid/o/devkit/pull/11
 $ node $DEV/deliver-check.mjs feature --json   -> 8/8, next: assign-release (the release of feature is not assigned yet; assign it before the merge)
@@ -2141,8 +2190,8 @@ From $CASES/p4b/origin
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": true,
-  "oldHead": "3d65a57c5bb7e24644b8633282659fcabe1ee1b3",
-  "newHead": "92eb7e3983cfc408fc162548be8fb620e86f599f",
+  "oldHead": "aabb551dea265cc4e54e3ac8928d287736cf6820",
+  "newHead": "3e05b6941f79adc07dd27d600c6795ccb7854525",
   "versions": {
     "packs": {},
     "release": "1.5.0"
@@ -2162,14 +2211,14 @@ $ node $DEV/release-merge.mjs --assign --base main --json
 (in $CASES/p4b/main/.claude/worktrees/feature)
 $ git push origin feature
 To $CASES/p4b/origin.git
-   3d65a57..92eb7e3  feature -> feature
+   aabb551..3e05b69  feature -> feature
 [exit 0]
 ```
 
 ```text
 (in $CASES/p4b/main/.claude/worktrees/feature)
 $ git show --stat '--format=%h %s' HEAD
-92eb7e3 chore(release): assign the release of feature
+3e05b69 chore(release): assign the release of feature
 
  package.json | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
@@ -2223,17 +2272,17 @@ src/feature-1.ts
 ```text
 (in $CASES/p4b/main/.claude/worktrees/feature)
 $ node $DEV/deliver-check.mjs feature
-deliver-check: feature (schema devkit, ship merge, host cli, head 92eb7e3)
+deliver-check: feature (schema devkit, ship merge, host cli, head 3e05b69)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #11 open at 92eb7e3
+  5 met      PR open at local head: PR #11 open at 3e05b69
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
 8/8 met: ready
-next: enable-auto-merge PR #11 with --squash at 92eb7e3
+next: enable-auto-merge PR #11 with --squash at 3e05b69
 [exit 0]
 ```
 
@@ -2248,11 +2297,11 @@ $ node $DEV/deliver-check.mjs feature --json   -> 1/8, next: implement (phase 1 
 $ node $DEV/deliver-check.mjs feature --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs feature --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/feature-1.ts)
-    did: git commit: 60151d9
+    did: git commit: a09aed0
 $ node $DEV/deliver-check.mjs feature --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 60151d9; git commit: 7a47f5f
+    did: wrote evidence.md at a09aed0; git commit: 5042d4c
 $ node $DEV/deliver-check.mjs feature --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 7a47f5f; git commit: f58b43c
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 5042d4c; git commit: a5dc81f
 $ node $DEV/deliver-check.mjs feature --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin feature; gh pr create -> https://github.invalid/o/devkit/pull/11
 $ node $DEV/deliver-check.mjs feature --json   -> 8/8, next: enable-auto-merge (all eight items are met)
@@ -2261,17 +2310,17 @@ $ node $DEV/deliver-check.mjs feature --json   -> 8/8, next: enable-auto-merge (
 ```text
 (in $CASES/p4c/main/.claude/worktrees/feature)
 $ node $DEV/deliver-check.mjs feature
-deliver-check: feature (schema devkit, ship merge, host cli, head 066a8ef)
+deliver-check: feature (schema devkit, ship merge, host cli, head 82c37fb)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #11 open at 066a8ef
+  5 met      PR open at local head: PR #11 open at 82c37fb
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
 8/8 met: ready
-next: enable-auto-merge PR #11 with --squash at 066a8ef
+next: enable-auto-merge PR #11 with --squash at 82c37fb
 [exit 0]
 ```
 
@@ -2280,8 +2329,8 @@ next: enable-auto-merge PR #11 with --squash at 066a8ef
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": true,
-  "oldHead": "066a8efb36efd4b5d2d67704a5856f8318ec39c5",
-  "newHead": "066a8efb36efd4b5d2d67704a5856f8318ec39c5",
+  "oldHead": "82c37fb5d9df74da497b5be7db59d302faabab5b",
+  "newHead": "82c37fb5d9df74da497b5be7db59d302faabab5b",
   "versions": {
     "packs": {}
   },
@@ -2337,11 +2386,11 @@ $ node $DEV/deliver-check.mjs plain --json   -> 1/8, next: implement (phase 1 ha
 $ node $DEV/deliver-check.mjs plain --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs plain --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/plain-1.ts)
-    did: git commit: 455b188
+    did: git commit: b43b1bf
 $ node $DEV/deliver-check.mjs plain --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 455b188; git commit: 736e0c4
+    did: wrote evidence.md at b43b1bf; git commit: 4163a82
 $ node $DEV/deliver-check.mjs plain --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 736e0c4; git commit: bad8ea4
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 4163a82; git commit: 852542d
 $ node $DEV/deliver-check.mjs plain --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin plain; gh pr create -> https://github.invalid/o/devkit/pull/11
 $ node $DEV/deliver-check.mjs plain --json   -> 8/8, next: enable-auto-merge (all eight items are met)
@@ -2350,17 +2399,17 @@ $ node $DEV/deliver-check.mjs plain --json   -> 8/8, next: enable-auto-merge (al
 ```text
 (in $CASES/p5/main/.claude/worktrees/plain)
 $ node $DEV/deliver-check.mjs plain
-deliver-check: plain (schema devkit, ship merge, host cli, head 257f680)
+deliver-check: plain (schema devkit, ship merge, host cli, head 9e1edd0)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #11 open at 257f680
+  5 met      PR open at local head: PR #11 open at 9e1edd0
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
 8/8 met: ready
-next: enable-auto-merge PR #11 with --squash at 257f680
+next: enable-auto-merge PR #11 with --squash at 9e1edd0
 [exit 0]
 ```
 
@@ -2408,11 +2457,11 @@ $ node $DEV/deliver-check.mjs noted --json   -> 1/8, next: implement (phase 1 ha
 $ node $DEV/deliver-check.mjs noted --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs noted --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/noted-1.ts)
-    did: git commit: 3dbe1d3
+    did: git commit: 23b4fbb
 $ node $DEV/deliver-check.mjs noted --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 3dbe1d3; git commit: e53607a
+    did: wrote evidence.md at 23b4fbb; git commit: c2521b6
 $ node $DEV/deliver-check.mjs noted --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at e53607a; git commit: e4d4698
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at c2521b6; git commit: 4439cad
 $ node $DEV/deliver-check.mjs noted --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin noted; gh pr create -> https://github.invalid/o/devkit/pull/12
 $ node $DEV/deliver-check.mjs noted --json   -> 8/8, next: enable-auto-merge (all eight items are met)
@@ -2421,33 +2470,27 @@ $ node $DEV/deliver-check.mjs noted --json   -> 8/8, next: enable-auto-merge (al
 ```text
 (in $CASES/p5/main/.claude/worktrees/noted)
 $ node $DEV/deliver-check.mjs noted
-deliver-check: noted (schema devkit, ship merge, host cli, head 5bec118)
+deliver-check: noted (schema devkit, ship merge, host cli, head 6dab834)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #12 open at 5bec118
+  5 met      PR open at local head: PR #12 open at 6dab834
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
 8/8 met: ready
-next: enable-auto-merge PR #12 with --squash at 5bec118
+next: enable-auto-merge PR #12 with --squash at 6dab834
 [exit 0]
 ```
 
-The step, run by hand, refuses to run in a project with no release setting and writes nothing (the checker never asks for it there):
+The step, run by hand, refuses to run in a project with no release setting with a usage error (exit 3, D-24) and writes nothing (the checker never asks for it there):
 
 ```text
 (in $CASES/p5/main/.claude/worktrees/noted)
 $ node $DEV/release-merge.mjs --assign --base main --json
-{
-  "resolved": false,
-  "oldHead": "5bec1187ed25cf0460ba8a1d52e8660beb3856d7",
-  "conflicts": [],
-  "error": "openspec/config.yaml names no devkit.release_tag: this project has no release to assign",
-  "mode": "assign"
-}
-[exit 2]
+release-merge: openspec/config.yaml names no devkit.release_tag: this project has no release to assign
+[exit 3]
 ```
 
 ```text
@@ -2499,14 +2542,14 @@ $ node $DEV/deliver-check.mjs hand --json   -> 1/8, next: implement (phase 1 has
 $ node $DEV/deliver-check.mjs hand --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs hand --json   -> 1/8, next: commit (uncommitted changes outside openspec/: plugins/core/.claude-plugin/plugin.json, src/hand-1.ts)
-    did: git commit: e36dcb6
+    did: git commit: 4fbbd57
 $ node $DEV/deliver-check.mjs hand --json   -> 1/8, next: blocked (release lines edited by hand: plugins/core/.claude-plugin/plugin.json)
 ```
 
 ```text
 (in $CASES/p6/main/.claude/worktrees/hand)
 $ node $DEV/deliver-check.mjs hand
-deliver-check: hand (schema devkit, ship merge, host cli, head e36dcb6)
+deliver-check: hand (schema devkit, ship merge, host cli, head 4fbbd57)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -2525,12 +2568,13 @@ next: blocked release lines edited by hand: plugins/core/.claude-plugin/plugin.j
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "e36dcb62600010d12f0c3537c35dbf98685b3d08",
+  "oldHead": "4fbbd575031717ebf9200f08247b0bcfabd2bd8a",
   "change": "hand",
   "conflicts": [],
   "error": "release lines edited by hand: plugins/core/.claude-plugin/plugin.json",
   "mode": "assign"
 }
+release-merge: release lines edited by hand: plugins/core/.claude-plugin/plugin.json
 [exit 2]
 ```
 
@@ -2553,9 +2597,9 @@ $ git commit -q -m 'fix(hand): leave the release lines to the delivery'
 ```text
 (in $CASES/p6/main/.claude/worktrees/hand)
 $ node $DEV/deliver-check.mjs hand --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at edeb72f; git commit: e41a225
+    did: wrote evidence.md at eb1bb2f; git commit: 30a1c7a
 $ node $DEV/deliver-check.mjs hand --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at e41a225; git commit: 344aed0
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 30a1c7a; git commit: d85dd96
 $ node $DEV/deliver-check.mjs hand --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin hand; gh pr create -> https://github.invalid/o/devkit/pull/11
 $ node $DEV/deliver-check.mjs hand --json   -> 8/8, next: assign-release (the release of hand is not assigned yet; assign it before the merge)
@@ -2574,8 +2618,8 @@ From $CASES/p6/origin
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": true,
-  "oldHead": "0afa3a037efc26adde1c659867073ff86c0e1930",
-  "newHead": "227b495fc98707385080a6ae1d60cffbc7fcba75",
+  "oldHead": "7b264f89022166dfcff5bd12d50d0c0ca1685004",
+  "newHead": "e2f35309d9cd5f48f5a551c1b047a29140365b09",
   "versions": {
     "packs": {
       "devkit-openspec": "1.0.1"
@@ -2601,24 +2645,24 @@ $ node $DEV/release-merge.mjs --assign --base main --json
 (in $CASES/p6/main/.claude/worktrees/hand)
 $ git push origin hand
 To $CASES/p6/origin.git
-   0afa3a0..227b495  hand -> hand
+   7b264f8..e2f3530  hand -> hand
 [exit 0]
 ```
 
 ```text
 (in $CASES/p6/main/.claude/worktrees/hand)
 $ node $DEV/deliver-check.mjs hand
-deliver-check: hand (schema devkit, ship merge, host cli, head 227b495)
+deliver-check: hand (schema devkit, ship merge, host cli, head e2f3530)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #11 open at 227b495
+  5 met      PR open at local head: PR #11 open at e2f3530
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
 8/8 met: ready
-next: enable-auto-merge PR #11 with --squash at 227b495
+next: enable-auto-merge PR #11 with --squash at e2f3530
 [exit 0]
 ```
 
@@ -2650,14 +2694,14 @@ $ node $DEV/deliver-check.mjs nonote --json   -> 1/8, next: implement (phase 1 h
 $ node $DEV/deliver-check.mjs nonote --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs nonote --json   -> 1/8, next: commit (uncommitted changes outside openspec/: plugins/core/README.md, src/nonote-1.ts)
-    did: git commit: 6f6be6f
+    did: git commit: fde78b3
 $ node $DEV/deliver-check.mjs nonote --json   -> 1/8, next: blocked (no release: plugins/core: the change has no release note and no version bump of its own; write openspec/changes/nonote/release.md)
 ```
 
 ```text
 (in $CASES/p7/main/.claude/worktrees/nonote)
 $ node $DEV/deliver-check.mjs nonote
-deliver-check: nonote (schema devkit-lite, ship merge, host cli, head 6f6be6f)
+deliver-check: nonote (schema devkit-lite, ship merge, host cli, head fde78b3)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -2690,7 +2734,7 @@ $ git commit -q -m 'docs(nonote): the release note: no release'
 ```text
 (in $CASES/p7/main/.claude/worktrees/nonote)
 $ git show '--format=%h %s' HEAD
-1a1dc49 docs(nonote): the release note: no release
+ea452ca docs(nonote): the release note: no release
 
 diff --git a/openspec/changes/nonote/release.md b/openspec/changes/nonote/release.md
 new file mode 100644
@@ -2705,9 +2749,9 @@ index 0000000..03309a0
 ```text
 (in $CASES/p7/main/.claude/worktrees/nonote)
 $ node $DEV/deliver-check.mjs nonote --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 1a1dc49; git commit: b0ca0ba
+    did: wrote evidence.md at ea452ca; git commit: 056f9c3
 $ node $DEV/deliver-check.mjs nonote --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at b0ca0ba; git commit: 7141772
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 056f9c3; git commit: 7bc0151
 $ node $DEV/deliver-check.mjs nonote --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin nonote; gh pr create -> https://github.invalid/o/devkit/pull/11
 $ node $DEV/deliver-check.mjs nonote --json   -> 8/8, next: enable-auto-merge (all eight items are met)
@@ -2716,17 +2760,17 @@ $ node $DEV/deliver-check.mjs nonote --json   -> 8/8, next: enable-auto-merge (a
 ```text
 (in $CASES/p7/main/.claude/worktrees/nonote)
 $ node $DEV/deliver-check.mjs nonote
-deliver-check: nonote (schema devkit-lite, ship merge, host cli, head 05e7fa2)
+deliver-check: nonote (schema devkit-lite, ship merge, host cli, head 8dd7019)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #11 open at 05e7fa2
+  5 met      PR open at local head: PR #11 open at 8dd7019
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
 8/8 met: ready
-next: enable-auto-merge PR #11 with --squash at 05e7fa2
+next: enable-auto-merge PR #11 with --squash at 8dd7019
 [exit 0]
 ```
 
@@ -2741,14 +2785,14 @@ $ node $DEV/deliver-check.mjs noadr --json   -> 1/8, next: implement (phase 1 ha
 $ node $DEV/deliver-check.mjs noadr --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs noadr --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/noadr-1.ts)
-    did: git commit: dd5024a
+    did: git commit: 78bc241
 $ node $DEV/deliver-check.mjs noadr --json   -> 1/8, next: blocked (no release: docs/adr/noadr.md: the change has no release note and no version bump of its own; write openspec/changes/noadr/release.md)
 ```
 
 ```text
 (in $CASES/p7/main/.claude/worktrees/noadr)
 $ node $DEV/deliver-check.mjs noadr
-deliver-check: noadr (schema devkit-lite, ship merge, host cli, head dd5024a)
+deliver-check: noadr (schema devkit-lite, ship merge, host cli, head 78bc241)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -2781,7 +2825,7 @@ $ git commit -q -m 'docs(noadr): the release note: no release'
 ```text
 (in $CASES/p7/main/.claude/worktrees/noadr)
 $ git show '--format=%h %s' HEAD
-1229735 docs(noadr): the release note: no release
+d3a7408 docs(noadr): the release note: no release
 
 diff --git a/openspec/changes/noadr/release.md b/openspec/changes/noadr/release.md
 new file mode 100644
@@ -2796,9 +2840,9 @@ index 0000000..03309a0
 ```text
 (in $CASES/p7/main/.claude/worktrees/noadr)
 $ node $DEV/deliver-check.mjs noadr --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 1229735; git commit: b670004
+    did: wrote evidence.md at d3a7408; git commit: 04e6ace
 $ node $DEV/deliver-check.mjs noadr --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at b670004; git commit: 806e5ca
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 04e6ace; git commit: f0519b7
 $ node $DEV/deliver-check.mjs noadr --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin noadr; gh pr create -> https://github.invalid/o/devkit/pull/12
 $ node $DEV/deliver-check.mjs noadr --json   -> 8/8, next: assign-release (the release of noadr is not assigned yet; assign it before the merge)
@@ -2817,8 +2861,8 @@ From $CASES/p7/origin
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": true,
-  "oldHead": "2092bbf7c2e77363dea86f739cd1d76c386981c5",
-  "newHead": "b953b9c4d0d5008872facc8f0eec513c30f4116e",
+  "oldHead": "1f75ccb7cb16bea532e4447526742d0068f52555",
+  "newHead": "7d10bfd2ae9974944fe446e14ab2eba4aea06ca4",
   "versions": {
     "packs": {}
   },
@@ -2840,24 +2884,24 @@ $ node $DEV/release-merge.mjs --assign --base main --json
 (in $CASES/p7/main/.claude/worktrees/noadr)
 $ git push origin noadr
 To $CASES/p7/origin.git
-   2092bbf..b953b9c  noadr -> noadr
+   1f75ccb..7d10bfd  noadr -> noadr
 [exit 0]
 ```
 
 ```text
 (in $CASES/p7/main/.claude/worktrees/noadr)
 $ node $DEV/deliver-check.mjs noadr
-deliver-check: noadr (schema devkit-lite, ship merge, host cli, head b953b9c)
+deliver-check: noadr (schema devkit-lite, ship merge, host cli, head 7d10bfd)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #12 open at b953b9c
+  5 met      PR open at local head: PR #12 open at 7d10bfd
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
 8/8 met: ready
-next: enable-auto-merge PR #12 with --squash at b953b9c
+next: enable-auto-merge PR #12 with --squash at 7d10bfd
 [exit 0]
 ```
 
@@ -2877,7 +2921,7 @@ AC-12. Project `p8` (the seed). Change `late` (schema `devkit`) was approved wit
 ```text
 (in $CASES/p8/main/.claude/worktrees/late)
 $ cat openspec/changes/late/approval.md
-<!-- devkit-stage approval result=passed attempt=1 commit=b6a2cef27acaa5f110f02f72908cd50c4f8e00bd -->
+<!-- devkit-stage approval result=passed attempt=1 commit=076bbb57481ac7261d4a11117ea9065628b0a202 -->
 # Plan approval: late
 
 - Status: APPROVED
@@ -2895,11 +2939,11 @@ $ node $DEV/deliver-check.mjs late --json   -> 1/8, next: implement (phase 1 has
 $ node $DEV/deliver-check.mjs late --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs late --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/late-1.ts)
-    did: git commit: d5322a7
+    did: git commit: 64d8043
 $ node $DEV/deliver-check.mjs late --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at d5322a7; git commit: 2277d59
+    did: wrote evidence.md at 64d8043; git commit: 5d15348
 $ node $DEV/deliver-check.mjs late --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 2277d59; git commit: 201d1cf
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 5d15348; git commit: 883e5dd
 $ node $DEV/deliver-check.mjs late --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin late; gh pr create -> https://github.invalid/o/devkit/pull/11
 $ node $DEV/deliver-check.mjs late --json   -> 8/8, next: assign-release (the release of late is not assigned yet; assign it before the merge)
@@ -2915,7 +2959,7 @@ $ git commit -q -am 'docs(late): a bigger release'
 ```text
 (in $CASES/p8/main/.claude/worktrees/late)
 $ git show '--format=%h %s' HEAD
-3d69166 docs(late): a bigger release
+e8e69ae docs(late): a bigger release
 
 diff --git a/openspec/changes/late/release.md b/openspec/changes/late/release.md
 index 994700d..541fcad 100644
@@ -2941,12 +2985,12 @@ af3ed4c72b840a23709ca12aa7f746d8ef3412dfb24d3c9a4a6971a89258c7fb  openspec/chang
 ```text
 (in $CASES/p8/main/.claude/worktrees/late)
 $ node $DEV/deliver-check.mjs late
-deliver-check: late (schema devkit, ship merge, host cli, head 3d69166)
+deliver-check: late (schema devkit, ship merge, host cli, head e8e69ae)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 open     PR open at local head: local is ahead of PR head 2b4bb7c; push
+  5 open     PR open at local head: local is ahead of PR head 018639c; push
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
@@ -2971,7 +3015,7 @@ The session stops and asks the owner; once the owner's own message approves agai
 ```text
 (in $CASES/p8/main/.claude/worktrees/late)
 $ cat openspec/changes/late/approval.md
-<!-- devkit-stage approval result=passed attempt=2 commit=3d6916687d82cbc834a6ca779c68a61cef97588f -->
+<!-- devkit-stage approval result=passed attempt=2 commit=e8e69ae53dd985d4c216bf22115551d51c92914a -->
 # Plan approval: late
 
 - Status: APPROVED
@@ -2991,7 +3035,7 @@ $ git commit -q -am 'docs(late): the owner approves the plan again'
 
 ```text
 (in $CASES/p8/main/.claude/worktrees/late)
-$ node $DEV/deliver-check.mjs late --json   -> 7/8, next: push (local is ahead of PR head 2b4bb7c; push)
+$ node $DEV/deliver-check.mjs late --json   -> 7/8, next: push (local is ahead of PR head 018639c; push)
     did: git push origin late
 $ node $DEV/deliver-check.mjs late --json   -> 8/8, next: assign-release (the release of late is not assigned yet; assign it before the merge)
 ```
@@ -3009,8 +3053,8 @@ From $CASES/p8/origin
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": true,
-  "oldHead": "bff25bd3e2d4997c1de7fd0f150e5881cc5deeda",
-  "newHead": "65d210d65b30d4992ce9bc42958326886c8d1a9b",
+  "oldHead": "2a3560a19dcb33ccddbcc64eeaf2d0469fb4a5a3",
+  "newHead": "7e21a2b88feda49b003de1878d6ac8eaa6f7ffd2",
   "versions": {
     "packs": {
       "devkit-core": "1.1.0"
@@ -3035,24 +3079,24 @@ $ node $DEV/release-merge.mjs --assign --base main --json
 (in $CASES/p8/main/.claude/worktrees/late)
 $ git push origin late
 To $CASES/p8/origin.git
-   bff25bd..65d210d  late -> late
+   2a3560a..7e21a2b  late -> late
 [exit 0]
 ```
 
 ```text
 (in $CASES/p8/main/.claude/worktrees/late)
 $ node $DEV/deliver-check.mjs late
-deliver-check: late (schema devkit, ship merge, host cli, head 65d210d)
+deliver-check: late (schema devkit, ship merge, host cli, head 7e21a2b)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #11 open at 65d210d
+  5 met      PR open at local head: PR #11 open at 7e21a2b
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
 8/8 met: ready
-next: enable-auto-merge PR #11 with --squash at 65d210d
+next: enable-auto-merge PR #11 with --squash at 7e21a2b
 [exit 0]
 ```
 
@@ -3079,14 +3123,14 @@ $ node $DEV/deliver-check.mjs citing --json   -> 1/8, next: implement (phase 1 h
 $ node $DEV/deliver-check.mjs citing --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs citing --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/citing-1.ts)
-    did: git commit: 87dbcd0
+    did: git commit: 2fb0961
 $ node $DEV/deliver-check.mjs citing --json   -> 1/8, next: blocked (ADR [cited] is cited but has not landed on main)
 ```
 
 ```text
 (in $CASES/p9/main/.claude/worktrees/citing)
 $ node $DEV/deliver-check.mjs citing
-deliver-check: citing (schema devkit, ship merge, host cli, head 87dbcd0)
+deliver-check: citing (schema devkit, ship merge, host cli, head 2fb0961)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -3105,12 +3149,13 @@ next: blocked ADR [cited] is cited but has not landed on main
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "87dbcd08efa9d3e119fd8e2b8b7618d5b8f450bd",
+  "oldHead": "2fb0961204db570f582633304a6ace6ebefe5a36",
   "change": "citing",
   "conflicts": [],
   "error": "ADR [cited] is cited but has not landed on main; it lands with its own change",
   "mode": "assign"
 }
+release-merge: ADR [cited] is cited but has not landed on main; it lands with its own change
 [exit 2]
 ```
 
@@ -3123,11 +3168,11 @@ $ node $DEV/deliver-check.mjs cited --json   -> 1/8, next: implement (phase 1 ha
 $ node $DEV/deliver-check.mjs cited --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs cited --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/cited-1.ts)
-    did: git commit: a3f09da
+    did: git commit: 011b03a
 $ node $DEV/deliver-check.mjs cited --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at a3f09da; git commit: 5e65051
+    did: wrote evidence.md at 011b03a; git commit: 31ea9ef
 $ node $DEV/deliver-check.mjs cited --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 5e65051; git commit: 7b1687e
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 31ea9ef; git commit: 878a31a
 $ node $DEV/deliver-check.mjs cited --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin cited; gh pr create -> https://github.invalid/o/devkit/pull/11
 $ node $DEV/deliver-check.mjs cited --json   -> 8/8, next: assign-release (the release of cited is not assigned yet; assign it before the merge)
@@ -3146,8 +3191,8 @@ From $CASES/p9/origin
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": true,
-  "oldHead": "526aa906cca5ec6128ee1278ef2143899c4234f8",
-  "newHead": "5cafb5c050854aba6636994c743eca635c586afb",
+  "oldHead": "96bba60b7766870403fc1fe324d048f47d9a85c3",
+  "newHead": "d67c55f95830d2e07b460a9fa41b55225b081007",
   "versions": {
     "packs": {
       "devkit-openspec": "1.0.1"
@@ -3178,13 +3223,13 @@ $ node $DEV/release-merge.mjs --assign --base main --json
 (in $CASES/p9/main/.claude/worktrees/cited)
 $ git push origin cited
 To $CASES/p9/origin.git
-   526aa90..5cafb5c  cited -> cited
+   96bba60..d67c55f  cited -> cited
 [exit 0]
 ```
 
 ```text
 (in $CASES/p9/main/.claude/worktrees/cited)
-$ gh pr merge 11 --auto --squash --match-head-commit 5cafb5c050854aba6636994c743eca635c586afb
+$ gh pr merge 11 --auto --squash --match-head-commit d67c55f95830d2e07b460a9fa41b55225b081007
 (no output)
 [exit 0]
 ```
@@ -3192,7 +3237,7 @@ $ gh pr merge 11 --auto --squash --match-head-commit 5cafb5c050854aba6636994c743
 ```text
 (in $CASES/p9/main)
 $ gh __merge 11   # the stub: GitHub merges the pull request once its rules pass
-1776355f53bde07d011e86bfeb58e78ae6b244d0
+78a5b140d42a16d86af56accc21704db79b81788
 [exit 0]
 ```
 
@@ -3202,16 +3247,16 @@ $ gh __merge 11   # the stub: GitHub merges the pull request once its rules pass
 (in $CASES/p9/main/.claude/worktrees/citing)
 $ git fetch origin
 From $CASES/p9/origin
-   ed00354..1776355  main       -> origin/main
+   33e46a5..78a5b14  main       -> origin/main
 [exit 0]
 ```
 
 ```text
 (in $CASES/p9/main/.claude/worktrees/citing)
 $ node $DEV/deliver-check.mjs citing --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 87dbcd0; git commit: fb71063
+    did: wrote evidence.md at 2fb0961; git commit: d11b79e
 $ node $DEV/deliver-check.mjs citing --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at fb71063; git commit: c930e72
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at d11b79e; git commit: a6759c1
 $ node $DEV/deliver-check.mjs citing --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin citing; gh pr create -> https://github.invalid/o/devkit/pull/12
 $ node $DEV/deliver-check.mjs citing --json   -> 7/8, next: assign-release (branch is behind main; update it)
@@ -3230,8 +3275,8 @@ From $CASES/p9/origin
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": true,
-  "oldHead": "f28bddf8552aa625443792452cad9ce70a8720dc",
-  "newHead": "b29ee56bf7d76eb743727f45b99ddb207ece6849",
+  "oldHead": "f26f7ebeab333e1735ea3aba39a663b6a36a8fcb",
+  "newHead": "67cc6379df3fbfeaaaa0f461c4a21f379fbcb379",
   "versions": {
     "packs": {
       "devkit-openspec": "1.0.2"
@@ -3264,24 +3309,24 @@ $ node $DEV/release-merge.mjs --assign --base main --json
 (in $CASES/p9/main/.claude/worktrees/citing)
 $ git push origin citing
 To $CASES/p9/origin.git
-   f28bddf..b29ee56  citing -> citing
+   f26f7eb..67cc637  citing -> citing
 [exit 0]
 ```
 
 ```text
 (in $CASES/p9/main/.claude/worktrees/citing)
 $ node $DEV/deliver-check.mjs citing
-deliver-check: citing (schema devkit, ship merge, host cli, head b29ee56)
+deliver-check: citing (schema devkit, ship merge, host cli, head 67cc637)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #12 open at b29ee56
+  5 met      PR open at local head: PR #12 open at 67cc637
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
 8/8 met: ready
-next: enable-auto-merge PR #12 with --squash at b29ee56
+next: enable-auto-merge PR #12 with --squash at 67cc637
 [exit 0]
 ```
 
@@ -3325,11 +3370,11 @@ $ node $DEV/deliver-check.mjs cache --json   -> 1/8, next: implement (phase 1 ha
 $ node $DEV/deliver-check.mjs cache --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs cache --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/cache-1.ts)
-    did: git commit: 0c58b3d
+    did: git commit: 2ec6eeb
 $ node $DEV/deliver-check.mjs cache --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 0c58b3d; git commit: 09216c6
+    did: wrote evidence.md at 2ec6eeb; git commit: fae0ae3
 $ node $DEV/deliver-check.mjs cache --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 09216c6; git commit: 9d7c1a6
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at fae0ae3; git commit: 66b5cad
 $ node $DEV/deliver-check.mjs cache --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin cache; gh pr create -> https://github.invalid/o/devkit/pull/11
 $ node $DEV/deliver-check.mjs cache --json   -> 8/8, next: assign-release (the release of cache is not assigned yet; assign it before the merge)
@@ -3348,8 +3393,8 @@ From $CASES/p10/origin
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": true,
-  "oldHead": "078dbdafac34055f7effd32480e7abc74b133fb5",
-  "newHead": "564e7ddde45f8545168d07f7bdbbfa906110bd91",
+  "oldHead": "8f409d7428be3bf57bd41e0deffbb7acfef899b9",
+  "newHead": "bb6c5eaf9652d90d0a66bdc3699018fe3d137354",
   "versions": {
     "packs": {
       "devkit-core": "1.0.1"
@@ -3379,13 +3424,13 @@ $ node $DEV/release-merge.mjs --assign --base main --json
 (in $CASES/p10/main/.claude/worktrees/cache)
 $ git push origin cache
 To $CASES/p10/origin.git
-   078dbda..564e7dd  cache -> cache
+   8f409d7..bb6c5ea  cache -> cache
 [exit 0]
 ```
 
 ```text
 (in $CASES/p10/main/.claude/worktrees/cache)
-$ gh pr merge 11 --auto --squash --match-head-commit 564e7ddde45f8545168d07f7bdbbfa906110bd91
+$ gh pr merge 11 --auto --squash --match-head-commit bb6c5eaf9652d90d0a66bdc3699018fe3d137354
 (no output)
 [exit 0]
 ```
@@ -3393,7 +3438,7 @@ $ gh pr merge 11 --auto --squash --match-head-commit 564e7ddde45f8545168d07f7bdb
 ```text
 (in $CASES/p10/main)
 $ gh __merge 11   # the stub: GitHub merges the pull request once its rules pass
-a64c64c2b7977d2ba04eb90dce00e0002679cd9a
+dfd615a174dd339b1090871d47300dd8e07875c4
 [exit 0]
 ```
 
@@ -3403,7 +3448,7 @@ a64c64c2b7977d2ba04eb90dce00e0002679cd9a
 (in $CASES/p10/main/.claude/worktrees/cache-store)
 $ git fetch origin
 From $CASES/p10/origin
-   57f52b2..a64c64c  main       -> origin/main
+   6d916d5..dfd615a  main       -> origin/main
 [exit 0]
 ```
 
@@ -3414,11 +3459,11 @@ $ node $DEV/deliver-check.mjs cache-store --json   -> 1/8, next: implement (phas
 $ node $DEV/deliver-check.mjs cache-store --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs cache-store --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/cache-store-1.ts)
-    did: git commit: 3bba772
+    did: git commit: d5e5d1c
 $ node $DEV/deliver-check.mjs cache-store --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 3bba772; git commit: 74cd9d7
+    did: wrote evidence.md at d5e5d1c; git commit: 3ebadeb
 $ node $DEV/deliver-check.mjs cache-store --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 74cd9d7; git commit: 37817e3
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 3ebadeb; git commit: c093846
 $ node $DEV/deliver-check.mjs cache-store --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin cache-store; gh pr create -> https://github.invalid/o/devkit/pull/12
 $ node $DEV/deliver-check.mjs cache-store --json   -> 7/8, next: assign-release (branch is behind main; update it)
@@ -3437,12 +3482,13 @@ From $CASES/p10/origin
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "0bcc7563380dbe0ff87cde98254e17026443847f",
+  "oldHead": "98f412ed94b942e0719ec590c5d79ae33b6d01dc",
   "change": "cache-store",
   "conflicts": [],
   "error": "a second ADR with the slug cache-store: docs/adr/cache-store.md, docs/adr/0002-cache-store.md",
   "mode": "assign"
 }
+release-merge: a second ADR with the slug cache-store: docs/adr/cache-store.md, docs/adr/0002-cache-store.md
 [exit 2]
 ```
 
@@ -3510,7 +3556,7 @@ $ git commit -q -am 'docs(cache-store): a slug of its own for the record'
 ```text
 (in $CASES/p10/main/.claude/worktrees/cache-store)
 $ git show '--format=%h %s' HEAD
-010d14c docs(cache-store): a slug of its own for the record
+8d8ee61 docs(cache-store): a slug of its own for the record
 
 diff --git a/docs/adr/cache-store.md b/docs/adr/cache-store-layer.md
 similarity index 64%
@@ -3549,10 +3595,10 @@ index dad6470..af9c996 100644
 ```text
 (in $CASES/p10/main/.claude/worktrees/cache-store)
 $ node $DEV/deliver-check.mjs cache-store --json   -> 4/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 010d14c; git commit: 86df320
+    did: wrote evidence.md at 8d8ee61; git commit: 7a1c420
 $ node $DEV/deliver-check.mjs cache-store --json   -> 6/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 86df320; git commit: d8d9d29
-$ node $DEV/deliver-check.mjs cache-store --json   -> 7/8, next: push (local is ahead of PR head 0bcc756; push; branch is behind main; update it)
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 7a1c420; git commit: 768a731
+$ node $DEV/deliver-check.mjs cache-store --json   -> 7/8, next: push (local is ahead of PR head 98f412e; push; branch is behind main; update it)
     did: git push origin cache-store
 $ node $DEV/deliver-check.mjs cache-store --json   -> 7/8, next: assign-release (branch is behind main; update it)
 ```
@@ -3570,8 +3616,8 @@ From $CASES/p10/origin
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": true,
-  "oldHead": "d8d9d296a947c6afe07440c0343ac5e202913d86",
-  "newHead": "cebcdb2db5dc0ecb4e183b4aebad73ed39a63a28",
+  "oldHead": "768a7316d62b54e7a3575dbbc710875c444de898",
+  "newHead": "ca4381253322cdcdf6ffa18326a5672768f65f40",
   "versions": {
     "packs": {
       "devkit-openspec": "1.0.1"
@@ -3604,24 +3650,24 @@ $ node $DEV/release-merge.mjs --assign --base main --json
 (in $CASES/p10/main/.claude/worktrees/cache-store)
 $ git push origin cache-store
 To $CASES/p10/origin.git
-   d8d9d29..cebcdb2  cache-store -> cache-store
+   768a731..ca43812  cache-store -> cache-store
 [exit 0]
 ```
 
 ```text
 (in $CASES/p10/main/.claude/worktrees/cache-store)
 $ node $DEV/deliver-check.mjs cache-store
-deliver-check: cache-store (schema devkit, ship merge, host cli, head cebcdb2)
+deliver-check: cache-store (schema devkit, ship merge, host cli, head ca43812)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #12 open at cebcdb2
+  5 met      PR open at local head: PR #12 open at ca43812
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
 8/8 met: ready
-next: enable-auto-merge PR #12 with --squash at cebcdb2
+next: enable-auto-merge PR #12 with --squash at ca43812
 [exit 0]
 ```
 
@@ -3654,7 +3700,7 @@ $ node $DEV/deliver-check.mjs mal --json   -> 1/8, next: implement (phase 1 has 
 $ node $DEV/deliver-check.mjs mal --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs mal --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/mal-1.ts)
-    did: git commit: 8210537
+    did: git commit: dcc687b
 $ node $DEV/deliver-check.mjs mal --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
 ```
 
@@ -3670,7 +3716,7 @@ $ cat -A openspec/changes/mal/release.md
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head 169730c)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head 203dbff)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -3689,12 +3735,13 @@ next: blocked release.md: packs: missing (the note starts with "packs:" or "pack
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "169730c9d83138c5b1c23e15c1e75852d072f620",
+  "oldHead": "203dbff8a1168290ccc5aca4f9f3aa9b87d5a824",
   "change": "mal",
   "conflicts": [],
   "error": "release.md: packs: missing (the note starts with \"packs:\" or \"packs: []\")",
   "mode": "assign"
 }
+release-merge: release.md: packs: missing (the note starts with "packs:" or "packs: []")
 [exit 2]
 ```
 
@@ -3714,7 +3761,7 @@ $
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head 13c7852)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head c0fb57a)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -3733,12 +3780,13 @@ next: blocked release.md: packs: missing (the note starts with "packs:" or "pack
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "13c785264d767128ed3bc9beb235ce3043071022",
+  "oldHead": "c0fb57af38b6729f0a6322658ad20fa36ad26b9f",
   "change": "mal",
   "conflicts": [],
   "error": "release.md: packs: missing (the note starts with \"packs:\" or \"packs: []\")",
   "mode": "assign"
 }
+release-merge: release.md: packs: missing (the note starts with "packs:" or "packs: []")
 [exit 2]
 ```
 
@@ -3759,7 +3807,7 @@ $
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head 11cc39a)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head 09652c7)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -3778,12 +3826,13 @@ next: blocked release.md: packs: line 2: "- devkit-core patch" is not "- <pack>:
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "11cc39ae6481edfc19f07b86efdeaac5b63405fd",
+  "oldHead": "09652c7c55174de3f9d5fe5028de74cdbee636cf",
   "change": "mal",
   "conflicts": [],
   "error": "release.md: packs: line 2: \"- devkit-core patch\" is not \"- <pack>: patch|minor|major\"",
   "mode": "assign"
 }
+release-merge: release.md: packs: line 2: "- devkit-core patch" is not "- <pack>: patch|minor|major"
 [exit 2]
 ```
 
@@ -3804,7 +3853,7 @@ $
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head f53e529)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head 91e35c2)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -3823,12 +3872,13 @@ next: blocked release.md: packs: devkit-core: "big" is not patch, minor or major
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "f53e529cf55de4d658275db4d4fcb46d5b927c26",
+  "oldHead": "91e35c2762ff458d8f44e61f25a1198efdec9197",
   "change": "mal",
   "conflicts": [],
   "error": "release.md: packs: devkit-core: \"big\" is not patch, minor or major",
   "mode": "assign"
 }
+release-merge: release.md: packs: devkit-core: "big" is not patch, minor or major
 [exit 2]
 ```
 
@@ -3850,7 +3900,7 @@ $
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head 5c09567)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head 3eb2322)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -3869,12 +3919,13 @@ next: blocked release.md: packs: devkit-core is listed twice
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "5c0956744fc7d9f314b4c64e0fdc543ddb6fc90d",
+  "oldHead": "3eb232284d3fba012edf6817a547997c92047880",
   "change": "mal",
   "conflicts": [],
   "error": "release.md: packs: devkit-core is listed twice",
   "mode": "assign"
 }
+release-merge: release.md: packs: devkit-core is listed twice
 [exit 2]
 ```
 
@@ -3897,7 +3948,7 @@ $
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head 0cf4b45)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head b1d8203)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -3916,12 +3967,13 @@ next: blocked release.md: marketplace: out of order (the fields come as packs:, 
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "0cf4b45cbff975486f38f66bc65dc710add29442",
+  "oldHead": "b1d8203b6677e0b39cc6eb633d7a5a5128fd78bb",
   "change": "mal",
   "conflicts": [],
   "error": "release.md: marketplace: out of order (the fields come as packs:, marketplace:, release:)",
   "mode": "assign"
 }
+release-merge: release.md: marketplace: out of order (the fields come as packs:, marketplace:, release:)
 [exit 2]
 ```
 
@@ -3944,7 +3996,7 @@ $
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head 01246a0)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head 95b6dde)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -3963,12 +4015,13 @@ next: blocked release.md: marketplace: given twice
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "01246a038a678607dc484b4858233a3a9c7d8a1d",
+  "oldHead": "95b6dde1274232246f2f14c0877041f1ad4fc31a",
   "change": "mal",
   "conflicts": [],
   "error": "release.md: marketplace: given twice",
   "mode": "assign"
 }
+release-merge: release.md: marketplace: given twice
 [exit 2]
 ```
 
@@ -3990,7 +4043,7 @@ $
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head 3b9b430)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head 149653d)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -4009,12 +4062,13 @@ next: blocked release.md: marketplace: "huge" is not patch, minor or major
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "3b9b430efc7ed5fd2e6de25b525b814245a5caf8",
+  "oldHead": "149653d678c07660fec136398edbec18c4b133f6",
   "change": "mal",
   "conflicts": [],
   "error": "release.md: marketplace: \"huge\" is not patch, minor or major",
   "mode": "assign"
 }
+release-merge: release.md: marketplace: "huge" is not patch, minor or major
 [exit 2]
 ```
 
@@ -4036,7 +4090,7 @@ $
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head eda0cae)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head 3d0e61f)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -4055,12 +4109,13 @@ next: blocked release.md: line 3: "notes: none" is not a field of the note
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "eda0cae28576baa4a878bab3be44e06759f9a68a",
+  "oldHead": "3d0e61f01c13cc7c53f01b64b64283c513b5630b",
   "change": "mal",
   "conflicts": [],
   "error": "release.md: line 3: \"notes: none\" is not a field of the note",
   "mode": "assign"
 }
+release-merge: release.md: line 3: "notes: none" is not a field of the note
 [exit 2]
 ```
 
@@ -4077,7 +4132,7 @@ packs:$
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head 51d5612)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head 29c7ac2)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -4096,12 +4151,13 @@ next: blocked release.md: changelog title: missing (a "## <title>" line comes af
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "51d56124f97a27448131750e0a138ad111897349",
+  "oldHead": "29c7ac2a2e37e63bcd21ee4369a48b7c4683e8e6",
   "change": "mal",
   "conflicts": [],
   "error": "release.md: changelog title: missing (a \"## <title>\" line comes after the fields)",
   "mode": "assign"
 }
+release-merge: release.md: changelog title: missing (a "## <title>" line comes after the fields)
 [exit 2]
 ```
 
@@ -4120,7 +4176,7 @@ $
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head dc9d5ae)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head e562f9c)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -4139,12 +4195,13 @@ next: blocked release.md: changelog body: empty (write what the release changes 
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "dc9d5aefa0b5b184423e1641b2e2c6f5cfa3e65d",
+  "oldHead": "e562f9c64aa709b691cf8db15f24863d21d47851",
   "change": "mal",
   "conflicts": [],
   "error": "release.md: changelog body: empty (write what the release changes under the title)",
   "mode": "assign"
 }
+release-merge: release.md: changelog body: empty (write what the release changes under the title)
 [exit 2]
 ```
 
@@ -4168,7 +4225,7 @@ const x = 1;$
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head 30ebdfe)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head ef9c66f)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -4187,12 +4244,13 @@ next: blocked release.md: changelog body: a code fence opened at line 8 is never
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "30ebdfe1e3a31318d1b76e2ccde2a2986ed8c811",
+  "oldHead": "ef9c66ff1c2ab54d3453c187c6cf04fc3c1fd25b",
   "change": "mal",
   "conflicts": [],
   "error": "release.md: changelog body: a code fence opened at line 8 is never closed",
   "mode": "assign"
 }
+release-merge: release.md: changelog body: a code fence opened at line 8 is never closed
 [exit 2]
 ```
 
@@ -4213,7 +4271,7 @@ $
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head 02b7169)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head 3dfbb9f)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -4232,12 +4290,13 @@ next: blocked release.md: packs: devkit-x is not a pack of this project
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "02b7169b2aa91b6bd21f951aa17b1e640fc8eaeb",
+  "oldHead": "3dfbb9fc54b1bfccaabee0428fd0e81509779612",
   "change": "mal",
   "conflicts": [],
   "error": "release.md: packs: devkit-x is not a pack of this project",
   "mode": "assign"
 }
+release-merge: release.md: packs: devkit-x is not a pack of this project
 [exit 2]
 ```
 
@@ -4259,7 +4318,7 @@ $
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head 593fef9)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head 563578a)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -4278,12 +4337,13 @@ next: blocked release.md: release: plugins/openspec/.claude-plugin/plugin.json i
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "593fef955de93c7d241ae4d23e714f1b5db29e4f",
+  "oldHead": "563578a203a8e871db39a9dd9b86baf2b0e0f5ae",
   "change": "mal",
   "conflicts": [],
   "error": "release.md: release: plugins/openspec/.claude-plugin/plugin.json is the manifest of devkit-openspec; state its bump under packs:",
   "mode": "assign"
 }
+release-merge: release.md: release: plugins/openspec/.claude-plugin/plugin.json is the manifest of devkit-openspec; state its bump under packs:
 [exit 2]
 ```
 
@@ -4298,7 +4358,7 @@ $ node $DEV/deliver-check.mjs mal --json   -> 1/8, next: implement (phase 1 has 
 $ node $DEV/deliver-check.mjs mal --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
     did: ran `node -e 0` (exit 0); ticked 1.2
 $ node $DEV/deliver-check.mjs mal --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/mal-1.ts)
-    did: git commit: 10846ff
+    did: git commit: 7af7417
 $ node $DEV/deliver-check.mjs mal --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
 ```
 
@@ -4320,7 +4380,7 @@ $
 ```text
 (in $CASES/p11m/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head cc5eb88)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head 23a0850)
   1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
   2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
   3 met      findings disposed: 0 fixed, 0 refuted
@@ -4339,12 +4399,13 @@ next: blocked release.md: marketplace: the project has no .claude-plugin/marketp
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": false,
-  "oldHead": "cc5eb88ff840ca7c26c57c48d97cae58a871bd6b",
+  "oldHead": "23a085035567796b0f24a938e90211c80dc1324e",
   "change": "mal",
   "conflicts": [],
   "error": "release.md: marketplace: the project has no .claude-plugin/marketplace.json",
   "mode": "assign"
 }
+release-merge: release.md: marketplace: the project has no .claude-plugin/marketplace.json
 [exit 2]
 ```
 
@@ -4362,7 +4423,7 @@ $ git commit -q -am 'docs(mal): a note that reads'
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ git show '--format=%h %s' HEAD
-6402d3b docs(mal): a note that reads
+61d70d0 docs(mal): a note that reads
 
 diff --git a/openspec/changes/mal/release.md b/openspec/changes/mal/release.md
 index 23a895c..aac3f7d 100644
@@ -4384,9 +4445,9 @@ index 23a895c..aac3f7d 100644
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
-    did: wrote evidence.md at 6402d3b; git commit: e93d76a
+    did: wrote evidence.md at 61d70d0; git commit: 1e731b6
 $ node $DEV/deliver-check.mjs mal --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
-    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at e93d76a; git commit: bc44f8b
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 1e731b6; git commit: 732cda4
 $ node $DEV/deliver-check.mjs mal --json   -> 4/8, next: open-pr (no pull request yet)
     did: git push -u origin mal; gh pr create -> https://github.invalid/o/devkit/pull/11
 $ node $DEV/deliver-check.mjs mal --json   -> 8/8, next: assign-release (the release of mal is not assigned yet; assign it before the merge)
@@ -4405,8 +4466,8 @@ From $CASES/p11/origin
 $ node $DEV/release-merge.mjs --assign --base main --json
 {
   "resolved": true,
-  "oldHead": "e25fb9e696045164c11ed7326e71fe9b9fb4fcc2",
-  "newHead": "ce123e092965a0b1eb0205e0a5040c415588db36",
+  "oldHead": "1e420bd86dc4d0d9831774b4e5e932dd8007cf64",
+  "newHead": "66e3e1fc91d3f66209e97f4dcd0763532e1cc01f",
   "versions": {
     "packs": {
       "devkit-core": "1.0.1"
@@ -4431,24 +4492,24 @@ $ node $DEV/release-merge.mjs --assign --base main --json
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ git push origin mal
 To $CASES/p11/origin.git
-   e25fb9e..ce123e0  mal -> mal
+   1e420bd..66e3e1f  mal -> mal
 [exit 0]
 ```
 
 ```text
 (in $CASES/p11/main/.claude/worktrees/mal)
 $ node $DEV/deliver-check.mjs mal
-deliver-check: mal (schema devkit-lite, ship merge, host cli, head ce123e0)
+deliver-check: mal (schema devkit-lite, ship merge, host cli, head 66e3e1f)
   1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
   2 met      reviews at head: 2 reviews at head
   3 met      findings disposed: 0 fixed, 0 refuted
   4 met      acceptance criteria proven: 1 criteria proven
-  5 met      PR open at local head: PR #11 open at ce123e0
+  5 met      PR open at local head: PR #11 open at 66e3e1f
   6 met      required checks green: 2 required checks green
   7 met      conversation answered: every thread and request is answered
   8 met      PR body complete: PR body names the change, its criteria and the evidence
 8/8 met: ready
-next: enable-auto-merge PR #11 with --squash at ce123e0
+next: enable-auto-merge PR #11 with --squash at 66e3e1f
 [exit 0]
 ```
 
@@ -4464,7 +4525,7 @@ GitHub merges `feat` (auto-merge was enabled at its head):
 ```text
 (in $CASES/p1/main)
 $ gh __merge 11   # the stub: GitHub merges the pull request once its rules pass
-57b2c58b475c02ce2dc441ed28ff319baf0a8b56
+46773f059b8f0f66df5ddd5fbfc04a843e0dabb4
 [exit 0]
 ```
 
@@ -4472,14 +4533,14 @@ $ gh __merge 11   # the stub: GitHub merges the pull request once its rules pass
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ git fetch origin
 From $CASES/p1/origin
-   99d76e5..57b2c58  main       -> origin/main
+   894614b..46773f0  main       -> origin/main
 [exit 0]
 ```
 
 ```text
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ git show '--format=%H %P%n%s' --no-patch origin/main
-57b2c58b475c02ce2dc441ed28ff319baf0a8b56 99d76e55b4542d6cc9e600e7e1bac41ccafb0282
+46773f059b8f0f66df5ddd5fbfc04a843e0dabb4 894614b5cd95c2ca0a6e45ac4af5f9a28d945133
 Merge pull request #11 from feat
 [exit 0]
 ```
@@ -4509,7 +4570,7 @@ $ git show 'origin/main^1:plugins/openspec/.claude-plugin/plugin.json'
 ```text
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ node $DEV/deliver-check.mjs feat
-deliver-check: feat (schema devkit, ship merge, host cli, head a626463)
+deliver-check: feat (schema devkit, ship merge, host cli, head 53bf161)
   1 met      tasks and gates: checked before PR #11 merged
   2 met      reviews at head: checked before PR #11 merged
   3 met      findings disposed: checked before PR #11 merged
@@ -4519,7 +4580,7 @@ deliver-check: feat (schema devkit, ship merge, host cli, head a626463)
   7 met      conversation answered: checked before PR #11 merged
   8 met      PR body complete: checked before PR #11 merged
 8/8 met: merged: archive step tag-release
-next: tag-release v1.1.0 at 57b2c58 (PR #11)
+next: tag-release v1.1.0 at 46773f0 (PR #11)
 [exit 0]
 ```
 
@@ -4527,9 +4588,9 @@ next: tag-release v1.1.0 at 57b2c58 (PR #11)
 "next" of deliver-check <id> --json at this head:
 {
   "step": "tag-release",
-  "reason": "PR #11 merged version 1.1.0 of plugins/openspec/.claude-plugin/plugin.json at 57b2c58, and origin has no tag v1.1.0",
+  "reason": "PR #11 merged version 1.1.0 of plugins/openspec/.claude-plugin/plugin.json at 46773f0, and origin has no tag v1.1.0",
   "tag": "v1.1.0",
-  "sha": "57b2c58b475c02ce2dc441ed28ff319baf0a8b56",
+  "sha": "46773f059b8f0f66df5ddd5fbfc04a843e0dabb4",
   "number": 11,
   "merged": "change",
   "version": "1.1.0",
@@ -4557,7 +4618,7 @@ $ git rev-parse -q --verify refs/tags/v1.1.0   # no local tag yet
 
 ```text
 (in $CASES/p1/main/.claude/worktrees/feat)
-$ git tag v1.1.0 57b2c58b475c02ce2dc441ed28ff319baf0a8b56
+$ git tag v1.1.0 46773f059b8f0f66df5ddd5fbfc04a843e0dabb4
 (no output)
 [exit 0]
 ```
@@ -4573,13 +4634,13 @@ To $CASES/p1/origin.git
 ```text
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ gh api 'repos/{owner}/{repo}/git/ref/tags/v1.1.0'
-{"ref":"refs/tags/v1.1.0","object":{"sha":"57b2c58b475c02ce2dc441ed28ff319baf0a8b56","type":"commit"}}[exit 0]
+{"ref":"refs/tags/v1.1.0","object":{"sha":"46773f059b8f0f66df5ddd5fbfc04a843e0dabb4","type":"commit"}}[exit 0]
 ```
 
 ```text
 (in $CASES/p1/main/.claude/worktrees/feat)
 $ node $DEV/deliver-check.mjs feat
-deliver-check: feat (schema devkit, ship merge, host cli, head a626463)
+deliver-check: feat (schema devkit, ship merge, host cli, head 53bf161)
   1 met      tasks and gates: checked before PR #11 merged
   2 met      reviews at head: checked before PR #11 merged
   3 met      findings disposed: checked before PR #11 merged
@@ -4686,7 +4747,7 @@ $ node $DEV/train-loop.mjs next --lang en
   "detail": {
     "n": 1,
     "number": 13,
-    "head": "db69aabfaf98f39896e555334bbe46cd709c9897",
+    "head": "82a92ef10895f919ca0e4eae00c1b7c6cbccbad4",
     "command": [
       "gh",
       "pr",
@@ -4695,7 +4756,7 @@ $ node $DEV/train-loop.mjs next --lang en
       "--auto",
       "--merge",
       "--match-head-commit",
-      "db69aabfaf98f39896e555334bbe46cd709c9897"
+      "82a92ef10895f919ca0e4eae00c1b7c6cbccbad4"
     ]
   },
   "reply": null,
@@ -4706,7 +4767,7 @@ $ node $DEV/train-loop.mjs next --lang en
 
 ```text
 (in $CASES/p2/main)
-$ gh pr merge 13 --auto --merge --match-head-commit db69aabfaf98f39896e555334bbe46cd709c9897
+$ gh pr merge 13 --auto --merge --match-head-commit 82a92ef10895f919ca0e4eae00c1b7c6cbccbad4
 (no output)
 [exit 0]
 ```
@@ -4735,7 +4796,7 @@ $ node $DEV/train-loop.mjs next --lang en
 ```text
 (in $CASES/p2/main)
 $ gh __merge 13   # the stub: GitHub merges the train once its rules pass
-14f76407489dd1ccf1b945f3ea3c43004d25ca68 (also marked merged: #11, #12)
+8f3941cbb121a5a14b6d4c539d7ecb54c74bdb6a (also marked merged: #11, #12)
 [exit 0]
 ```
 
@@ -4743,14 +4804,14 @@ $ gh __merge 13   # the stub: GitHub merges the train once its rules pass
 (in $CASES/p2/main)
 $ git fetch origin
 From $CASES/p2/origin
-   ec65319..14f7640  main       -> origin/main
+   bb7b50a..8f3941c  main       -> origin/main
 [exit 0]
 ```
 
 ```text
 (in $CASES/p2/main)
 $ git show '--format=%H %P%n%s' --no-patch origin/main
-14f76407489dd1ccf1b945f3ea3c43004d25ca68 ec65319e975cad6f4725a5463e14743f01745320 db69aabfaf98f39896e555334bbe46cd709c9897
+8f3941cbb121a5a14b6d4c539d7ecb54c74bdb6a bb7b50a0f592882e27b1616408df532f7cafe91b 82a92ef10895f919ca0e4eae00c1b7c6cbccbad4
 Merge pull request #13 from train/1
 [exit 0]
 ```
@@ -4758,13 +4819,13 @@ Merge pull request #13 from train/1
 ```text
 (in $CASES/p2/main)
 $ gh pr list --state all --json number,headRefName,state,mergeCommit
-[{"number":13,"url":"https://github.invalid/o/devkit/pull/13","state":"MERGED","headRefOid":"db69aabfaf98f39896e555334bbe46cd709c9897","baseRefName":"main","headRefName":"train/1","mergeable":"UNKNOWN","body":"<!-- devkit-train n=1 base=main result=passed -->\n# Train 1\n\n- Base: `main` at `ec65319e975cad6f4725a5463e14743f01745320`\n- Suite: `true`\n- Ran at: `3be634f401f0d00a238c757d2246986c8e3d4f97`\n- Result: passed\n\n## Boarded\n\n| Order | Kind | Change | Pull request | Head | Boarded at |\n| --- | --- | --- | --- | --- | --- |\n| 1 | change | `alpha` | #11 | `c90b5edb64ad6775543475a9c13e60fa06a08bb7` | 2026-11-24T17:38:03Z |\n| 2 | change | `beta` | #12 | `f0f0a7b9d3e7f3268bca8c113786b232a911261b` | 2026-11-24T17:38:11Z |\n\n## Runs\n\n| Run | Changes | Head | Result |\n| --- | --- | --- | --- |\n| 1 | alpha, beta | `3be634f401f0d00a238c757d2246986c8e3d4f97` | passed |\n","title":"train 1: alpha, beta","mergedAt":"2026-11-24T17:41:23.668Z","mergeCommit":{"oid":"14f76407489dd1ccf1b945f3ea3c43004d25ca68"},"autoMergeRequest":null,"mergeStateStatus":"UNKNOWN"},{"number":12,"url":"https://github.invalid/o/devkit/pull/12","state":"MERGED","headRefOid":"f0f0a7b9d3e7f3268bca8c113786b232a911261b","baseRefName":"main","headRefName":"beta","mergeable":"UNKNOWN","body":"beta\n- AC-1\nopenspec/changes/beta/evidence.md\n","title":"beta","mergedAt":"2026-11-24T17:41:23.668Z","mergeCommit":{"oid":"14f76407489dd1ccf1b945f3ea3c43004d25ca68"},"autoMergeRequest":null,"mergeStateStatus":"UNKNOWN"},{"number":11,"url":"https://github.invalid/o/devkit/pull/11","state":"MERGED","headRefOid":"c90b5edb64ad6775543475a9c13e60fa06a08bb7","baseRefName":"main","headRefName":"alpha","mergeable":"UNKNOWN","body":"alpha\n- AC-1\nopenspec/changes/alpha/evidence.md\n","title":"alpha","mergedAt":"2026-11-24T17:41:23.668Z","mergeCommit":{"oid":"14f76407489dd1ccf1b945f3ea3c43004d25ca68"},"autoMergeRequest":null,"mergeStateStatus":"UNKNOWN"}][exit 0]
+[{"number":13,"url":"https://github.invalid/o/devkit/pull/13","state":"MERGED","headRefOid":"82a92ef10895f919ca0e4eae00c1b7c6cbccbad4","baseRefName":"main","headRefName":"train/1","mergeable":"UNKNOWN","body":"<!-- devkit-train n=1 base=main result=passed -->\n# Train 1\n\n- Base: `main` at `bb7b50a0f592882e27b1616408df532f7cafe91b`\n- Suite: `true`\n- Ran at: `ee43a786f23dc8ff0c3b35a6d2293468ac23392a`\n- Result: passed\n\n## Boarded\n\n| Order | Kind | Change | Pull request | Head | Boarded at |\n| --- | --- | --- | --- | --- | --- |\n| 1 | change | `alpha` | #11 | `42cd0e3104a5802d18de05b981a9a22f719305e8` | 2026-11-25T01:12:38Z |\n| 2 | change | `beta` | #12 | `e0fa7db64dc829915d88d5955b085b9aa4ffe4c4` | 2026-11-25T01:12:42Z |\n\n## Runs\n\n| Run | Changes | Head | Result |\n| --- | --- | --- | --- |\n| 1 | alpha, beta | `ee43a786f23dc8ff0c3b35a6d2293468ac23392a` | passed |\n","title":"train 1: alpha, beta","mergedAt":"2026-11-25T01:14:44.352Z","mergeCommit":{"oid":"8f3941cbb121a5a14b6d4c539d7ecb54c74bdb6a"},"autoMergeRequest":null,"mergeStateStatus":"UNKNOWN"},{"number":12,"url":"https://github.invalid/o/devkit/pull/12","state":"MERGED","headRefOid":"e0fa7db64dc829915d88d5955b085b9aa4ffe4c4","baseRefName":"main","headRefName":"beta","mergeable":"UNKNOWN","body":"beta\n- AC-1\nopenspec/changes/beta/evidence.md\n","title":"beta","mergedAt":"2026-11-25T01:14:44.352Z","mergeCommit":{"oid":"8f3941cbb121a5a14b6d4c539d7ecb54c74bdb6a"},"autoMergeRequest":null,"mergeStateStatus":"UNKNOWN"},{"number":11,"url":"https://github.invalid/o/devkit/pull/11","state":"MERGED","headRefOid":"42cd0e3104a5802d18de05b981a9a22f719305e8","baseRefName":"main","headRefName":"alpha","mergeable":"UNKNOWN","body":"alpha\n- AC-1\nopenspec/changes/alpha/evidence.md\n","title":"alpha","mergedAt":"2026-11-25T01:14:44.352Z","mergeCommit":{"oid":"8f3941cbb121a5a14b6d4c539d7ecb54c74bdb6a"},"autoMergeRequest":null,"mergeStateStatus":"UNKNOWN"}][exit 0]
 ```
 
 ```text
 (in $CASES/p2/main/.claude/worktrees/alpha)
 $ node $DEV/deliver-check.mjs alpha
-deliver-check: alpha (schema devkit, ship merge, host cli, head c90b5ed)
+deliver-check: alpha (schema devkit, ship merge, host cli, head 42cd0e3)
   1 met      tasks and gates: checked before PR #11 merged
   2 met      reviews at head: checked before PR #11 merged
   3 met      findings disposed: checked before PR #11 merged
@@ -4774,7 +4835,7 @@ deliver-check: alpha (schema devkit, ship merge, host cli, head c90b5ed)
   7 met      conversation answered: checked before PR #11 merged
   8 met      PR body complete: checked before PR #11 merged
 8/8 met: merged: archive step tag-release
-next: tag-release v1.2.0 at 14f7640 (PR #11)
+next: tag-release v1.2.0 at 8f3941c (PR #11)
 [exit 0]
 ```
 
@@ -4782,9 +4843,9 @@ next: tag-release v1.2.0 at 14f7640 (PR #11)
 "next" of deliver-check <id> --json at this head:
 {
   "step": "tag-release",
-  "reason": "PR #11 merged version 1.2.0 of plugins/openspec/.claude-plugin/plugin.json at 14f7640, and origin has no tag v1.2.0",
+  "reason": "PR #11 merged version 1.2.0 of plugins/openspec/.claude-plugin/plugin.json at 8f3941c, and origin has no tag v1.2.0",
   "tag": "v1.2.0",
-  "sha": "14f76407489dd1ccf1b945f3ea3c43004d25ca68",
+  "sha": "8f3941cbb121a5a14b6d4c539d7ecb54c74bdb6a",
   "number": 11,
   "merged": "change",
   "version": "1.2.0",
@@ -4812,7 +4873,7 @@ $ git rev-parse -q --verify refs/tags/v1.2.0   # no local tag yet
 
 ```text
 (in $CASES/p2/main/.claude/worktrees/alpha)
-$ git tag v1.2.0 14f76407489dd1ccf1b945f3ea3c43004d25ca68
+$ git tag v1.2.0 8f3941cbb121a5a14b6d4c539d7ecb54c74bdb6a
 (no output)
 [exit 0]
 ```
@@ -4830,7 +4891,7 @@ The same tag is the release of `beta`, carried by the same merge commit, so `bet
 ```text
 (in $CASES/p2/main/.claude/worktrees/alpha)
 $ node $DEV/deliver-check.mjs alpha
-deliver-check: alpha (schema devkit, ship merge, host cli, head c90b5ed)
+deliver-check: alpha (schema devkit, ship merge, host cli, head 42cd0e3)
   1 met      tasks and gates: checked before PR #11 merged
   2 met      reviews at head: checked before PR #11 merged
   3 met      findings disposed: checked before PR #11 merged
@@ -4857,7 +4918,7 @@ next: retro PR #11
 ```text
 (in $CASES/p2/main/.claude/worktrees/beta)
 $ node $DEV/deliver-check.mjs beta
-deliver-check: beta (schema devkit, ship merge, host cli, head f0f0a7b)
+deliver-check: beta (schema devkit, ship merge, host cli, head e0fa7db)
   1 met      tasks and gates: checked before PR #12 merged
   2 met      reviews at head: checked before PR #12 merged
   3 met      findings disposed: checked before PR #12 merged
@@ -4878,6 +4939,693 @@ next: retro PR #12
   "reason": "the change PR is merged; run the retro",
   "number": 12,
   "base": "main"
+}
+```
+
+## P-13 a merge by hand after a code conflict with a base that released the same pack and took the same ADR number
+
+AC-4, AC-5 (code-quality F1 of review round 1, D-20). Project `p13`: the seed with a source file `src/a.ts`. Change `feat` notes
+devkit-openspec `minor` and devkit-core `patch`, names its record `docs/adr/feat.md` (listed in `decisions.md`), cites it
+`ADR [feat]` and `adr/feat.md` in `docs/guide.md`, and edits `src/a.ts`. Its sibling `sib` notes devkit-openspec `minor`,
+names its record `docs/adr/sib.md` and edits `src/a.ts` too, in the same line. `feat` takes its release first (devkit-openspec 1.1.0,
+ADR 0002); then `sib` takes the same numbers on the same base and lands.
+
+### `feat` takes its release
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ node $DEV/deliver-check.mjs feat --json   -> 1/8, next: implement (phase 1 has unticked tasks: 1.1)
+    did: wrote src/feat-1.ts; ticked 1.1
+$ node $DEV/deliver-check.mjs feat --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
+    did: ran `node -e 0` (exit 0); ticked 1.2
+$ node $DEV/deliver-check.mjs feat --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/feat-1.ts)
+    did: git commit: ccb4a0e
+$ node $DEV/deliver-check.mjs feat --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
+    did: wrote evidence.md at ccb4a0e; git commit: be4fb00
+$ node $DEV/deliver-check.mjs feat --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at be4fb00; git commit: b2d52f3
+$ node $DEV/deliver-check.mjs feat --json   -> 4/8, next: open-pr (no pull request yet)
+    did: git push -u origin feat; gh pr create -> https://github.invalid/o/devkit/pull/11
+$ node $DEV/deliver-check.mjs feat --json   -> 8/8, next: assign-release (the release of feat is not assigned yet; assign it before the merge)
+```
+
+```text
+"next" of deliver-check <id> --json at this head:
+{
+  "step": "assign-release",
+  "reason": "the release of feat is not assigned yet; assign it before the merge",
+  "number": 11,
+  "base": "main",
+  "branch": "feat",
+  "command": [
+    "node",
+    "$DEV/release-merge.mjs",
+    "--assign",
+    "--base",
+    "main",
+    "--json"
+  ]
+}
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git fetch origin main
+From $CASES/p13/origin
+ * branch            main       -> FETCH_HEAD
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ node $DEV/release-merge.mjs --assign --base main --json
+{
+  "resolved": true,
+  "oldHead": "b226ca54e7f0cb446e509094cd7583478ce57b16",
+  "newHead": "149a6cef2ff9f9040c12fb69e89e7a2fe55f2b6b",
+  "versions": {
+    "packs": {
+      "devkit-openspec": "1.1.0",
+      "devkit-core": "1.0.1"
+    },
+    "metadata": "1.1.0"
+  },
+  "files": [
+    "plugins/core/.claude-plugin/plugin.json",
+    "plugins/openspec/.claude-plugin/plugin.json",
+    ".claude-plugin/marketplace.json",
+    "CHANGELOG.md",
+    "docs/openspec-flow.md",
+    "docs/catalog.md"
+  ],
+  "change": "feat",
+  "adrs": [
+    {
+      "from": "docs/adr/feat.md",
+      "to": "docs/adr/0002-feat.md"
+    }
+  ],
+  "citations": [
+    "CHANGELOG.md",
+    "docs/guide.md"
+  ],
+  "mode": "assign"
+}
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git push origin feat
+To $CASES/p13/origin.git
+   b226ca5..149a6ce  feat -> feat
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git log -1 --format=%B
+chore(release): assign the release of feat
+
+Release-change: feat
+Release-line: plugins/core/.claude-plugin/plugin.json
+Release-line: plugins/openspec/.claude-plugin/plugin.json
+Release-line: .claude-plugin/marketplace.json
+Release-line: CHANGELOG.md
+Release-line: docs/openspec-flow.md
+Release-adr: docs/adr/feat.md -> docs/adr/0002-feat.md
+Release-citation: CHANGELOG.md
+Release-citation: docs/guide.md
+
+[exit 0]
+```
+
+### The sibling lands with the same pack's next version and the same ADR number, and an edit of `src/a.ts`
+
+```text
+(in $CASES/p13/main/.claude/worktrees/sib)
+$ node $DEV/deliver-check.mjs sib --json   -> 1/8, next: implement (phase 1 has unticked tasks: 1.1)
+    did: wrote src/sib-1.ts; ticked 1.1
+$ node $DEV/deliver-check.mjs sib --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
+    did: ran `node -e 0` (exit 0); ticked 1.2
+$ node $DEV/deliver-check.mjs sib --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/sib-1.ts)
+    did: git commit: 749ed0e
+$ node $DEV/deliver-check.mjs sib --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
+    did: wrote evidence.md at 749ed0e; git commit: 0e2f3f0
+$ node $DEV/deliver-check.mjs sib --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 0e2f3f0; git commit: dabc898
+$ node $DEV/deliver-check.mjs sib --json   -> 4/8, next: open-pr (no pull request yet)
+    did: git push -u origin sib; gh pr create -> https://github.invalid/o/devkit/pull/12
+$ node $DEV/deliver-check.mjs sib --json   -> 8/8, next: assign-release (the release of sib is not assigned yet; assign it before the merge)
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/sib)
+$ git fetch origin main
+From $CASES/p13/origin
+ * branch            main       -> FETCH_HEAD
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/sib)
+$ node $DEV/release-merge.mjs --assign --base main --json
+{
+  "resolved": true,
+  "oldHead": "8618d0ef40beca9b5fe79afacee35435ba502156",
+  "newHead": "95fe3922f7e9a2f66501b98bcbf0b25da4ca9ff9",
+  "versions": {
+    "packs": {
+      "devkit-openspec": "1.1.0"
+    },
+    "metadata": "1.1.0"
+  },
+  "files": [
+    "plugins/openspec/.claude-plugin/plugin.json",
+    ".claude-plugin/marketplace.json",
+    "CHANGELOG.md",
+    "docs/openspec-flow.md",
+    "docs/catalog.md"
+  ],
+  "change": "sib",
+  "adrs": [
+    {
+      "from": "docs/adr/sib.md",
+      "to": "docs/adr/0002-sib.md"
+    }
+  ],
+  "citations": [
+    "docs/sib.md"
+  ],
+  "mode": "assign"
+}
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/sib)
+$ git push origin sib
+To $CASES/p13/origin.git
+   8618d0e..95fe392  sib -> sib
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/sib)
+$ gh pr merge 12 --auto --squash --match-head-commit 95fe3922f7e9a2f66501b98bcbf0b25da4ca9ff9
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main)
+$ gh __merge 12   # the stub: GitHub merges the pull request once its rules pass
+dfdd23f93aeac395f7c4c421557713f6785e338a
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main)
+$ git log --oneline --graph -4 origin/main
+* dfdd23f Merge pull request #12 from sib
+* f5a9bc9 seed: the project at its first release
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main)
+$ git show origin/main:src/a.ts origin/main:plugins/openspec/.claude-plugin/plugin.json
+export const a = 2; // sib
+{
+  "name": "devkit-openspec",
+  "version": "1.1.0",
+  "description": "the devkit-openspec pack"
+}
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main)
+$ git ls-tree --name-only origin/main docs/adr/
+docs/adr/0001-start.md
+docs/adr/0002-sib.md
+[exit 0]
+```
+
+### `feat` again: the step stops on the code conflict
+
+The base moved, so the checker asks for `assign-release` again; the step merges `origin/main`, meets a conflict outside the release lines (`src/a.ts`), exits 2 naming it and leaves the branch as it was:
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ node $DEV/deliver-check.mjs feat
+deliver-check: feat (schema devkit, ship merge, host cli, head 149a6ce)
+  1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
+  2 met      reviews at head: 2 reviews at head
+  3 met      findings disposed: 0 fixed, 0 refuted
+  4 met      acceptance criteria proven: 1 criteria proven
+  5 blocked  PR open at local head: PR #11 has merge conflicts with main
+  6 met      required checks green: 2 required checks green
+  7 met      conversation answered: every thread and request is answered
+  8 met      PR body complete: PR body names the change, its criteria and the evidence
+7/8 met: blocked: item 5
+next: assign-release: PR #11 has merge conflicts with main
+[exit 2]
+```
+
+```text
+"next" of deliver-check <id> --json at this head:
+{
+  "step": "assign-release",
+  "reason": "PR #11 has merge conflicts with main",
+  "number": 11,
+  "base": "main",
+  "branch": "feat",
+  "command": [
+    "node",
+    "$DEV/release-merge.mjs",
+    "--assign",
+    "--base",
+    "main",
+    "--json"
+  ]
+}
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git fetch origin main
+From $CASES/p13/origin
+ * branch            main       -> FETCH_HEAD
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ node $DEV/release-merge.mjs --assign --base main --json
+{
+  "resolved": false,
+  "oldHead": "149a6cef2ff9f9040c12fb69e89e7a2fe55f2b6b",
+  "change": "feat",
+  "conflicts": [
+    "CHANGELOG.md",
+    "docs/catalog.md",
+    "src/a.ts"
+  ],
+  "mode": "assign"
+}
+[exit 2]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git status --short --branch   # the branch as it was: no merge in progress
+## feat...origin/feat
+[exit 0]
+```
+
+### The merge by hand
+
+The session stops as `blocked: item 5 (src/a.ts)` and, as the `assign-release` row of `ship-change` says for a conflict outside the release lines, merges `origin/main` by hand: it resolves `src/a.ts`, takes the base's side of every release line, and commits.
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git merge --no-ff --no-commit origin/main
+Auto-merging .claude-plugin/marketplace.json
+Auto-merging CHANGELOG.md
+CONFLICT (content): Merge conflict in CHANGELOG.md
+Auto-merging docs/catalog.md
+CONFLICT (content): Merge conflict in docs/catalog.md
+Auto-merging src/a.ts
+CONFLICT (content): Merge conflict in src/a.ts
+Automatic merge failed; fix conflicts and then commit the result.
+[exit 1]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git diff --name-only --diff-filter=U   # the files in conflict
+CHANGELOG.md
+docs/catalog.md
+src/a.ts
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git checkout origin/main -- plugins/openspec/.claude-plugin/plugin.json plugins/core/.claude-plugin/plugin.json .claude-plugin/marketplace.json CHANGELOG.md docs/catalog.md docs/openspec-flow.md
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git add -A
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git commit -q --no-edit
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git log --oneline --graph -4
+*   bb00031 Merge remote-tracking branch 'origin/main' into feat
+|\  
+| * dfdd23f Merge pull request #12 from sib
+* | 149a6ce chore(release): assign the release of feat
+* | b226ca5 docs(feat): change files
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git show --stat '--format=%h %s%n%P' HEAD
+bb00031 Merge remote-tracking branch 'origin/main' into feat
+149a6cef2ff9f9040c12fb69e89e7a2fe55f2b6b dfdd23f93aeac395f7c4c421557713f6785e338a
+
+ .claude-plugin/marketplace.json                        |  2 +-
+ CHANGELOG.md                                           |  5 ++---
+ docs/adr/0002-sib.md                                   |  6 ++++++
+ docs/catalog.md                                        |  2 +-
+ docs/sib.md                                            |  3 +++
+ openspec/changes/sib/.openspec.yaml                    |  1 +
+ openspec/changes/sib/approval.md                       |  8 ++++++++
+ openspec/changes/sib/decisions.md                      |  3 +++
+ openspec/changes/sib/evidence.md                       | 13 +++++++++++++
+ openspec/changes/sib/proposal.md                       |  9 +++++++++
+ openspec/changes/sib/readiness.md                      |  3 +++
+ openspec/changes/sib/release.md                        |  6 ++++++
+ openspec/changes/sib/reviews/code-quality-reviewer.md  |  6 ++++++
+ openspec/changes/sib/reviews/test-coverage-reviewer.md |  6 ++++++
+ openspec/changes/sib/tasks.md                          |  6 ++++++
+ plugins/core/.claude-plugin/plugin.json                |  2 +-
+ src/a.ts                                               |  2 +-
+ src/sib-1.ts                                           |  1 +
+ 18 files changed, 77 insertions(+), 7 deletions(-)
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ cat src/a.ts plugins/openspec/.claude-plugin/plugin.json
+export const a = 3; // feat and sib
+{
+  "name": "devkit-openspec",
+  "version": "1.1.0",
+  "description": "the devkit-openspec pack"
+}
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ ls docs/adr   # both records numbered 0002: feat's number came with the branch, sib's with the base
+0001-start.md
+0002-feat.md
+0002-sib.md
+[exit 0]
+```
+
+### The loop answers `assign-release`, and the step numbers the branch again
+
+The merge by hand changed `src/a.ts`, a file of the change, so the session records the evidence and the reviews again (ADR 0025). The release lines are then the base's and the number the step wrote (ADR 0002 for `feat`) is in its own record, so the checker reads the release as unassigned and hands `assign-release` again (the pull request's head on origin is still the one before the merge by hand), not `blocked`:
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ node $DEV/deliver-check.mjs feat --json   -> 4/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
+    did: wrote evidence.md at bb00031; git commit: 75e18b9
+$ node $DEV/deliver-check.mjs feat --json   -> 6/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 75e18b9; git commit: fd49cac
+$ node $DEV/deliver-check.mjs feat --json   -> 7/8, next: assign-release (PR #11 has merge conflicts with main)
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ node $DEV/deliver-check.mjs feat
+deliver-check: feat (schema devkit, ship merge, host cli, head fd49cac)
+  1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
+  2 met      reviews at head: 2 reviews at head
+  3 met      findings disposed: 0 fixed, 0 refuted
+  4 met      acceptance criteria proven: 1 criteria proven
+  5 blocked  PR open at local head: PR #11 has merge conflicts with main
+  6 met      required checks green: 2 required checks green
+  7 met      conversation answered: every thread and request is answered
+  8 met      PR body complete: PR body names the change, its criteria and the evidence
+7/8 met: blocked: item 5
+next: assign-release: PR #11 has merge conflicts with main
+[exit 2]
+```
+
+```text
+"next" of deliver-check <id> --json at this head:
+{
+  "step": "assign-release",
+  "reason": "PR #11 has merge conflicts with main",
+  "number": 11,
+  "base": "main",
+  "branch": "feat",
+  "command": [
+    "node",
+    "$DEV/release-merge.mjs",
+    "--assign",
+    "--base",
+    "main",
+    "--json"
+  ]
+}
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git fetch origin main
+From $CASES/p13/origin
+ * branch            main       -> FETCH_HEAD
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ node $DEV/release-merge.mjs --assign --base main --json
+{
+  "resolved": true,
+  "oldHead": "fd49cac8687514646cf517ce085ec20329ca39b1",
+  "newHead": "05dd67735f6ceb6f1bbc6de57c425ec934677644",
+  "versions": {
+    "packs": {
+      "devkit-openspec": "1.2.0",
+      "devkit-core": "1.0.1"
+    },
+    "metadata": "1.2.0"
+  },
+  "files": [
+    "plugins/core/.claude-plugin/plugin.json",
+    "plugins/openspec/.claude-plugin/plugin.json",
+    ".claude-plugin/marketplace.json",
+    "CHANGELOG.md",
+    "docs/openspec-flow.md",
+    "docs/catalog.md"
+  ],
+  "change": "feat",
+  "adrs": [
+    {
+      "from": "docs/adr/feat.md",
+      "to": "docs/adr/0003-feat.md"
+    }
+  ],
+  "citations": [
+    "CHANGELOG.md",
+    "docs/guide.md"
+  ],
+  "mode": "assign"
+}
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git push origin feat
+To $CASES/p13/origin.git
+   149a6ce..05dd677  feat -> feat
+[exit 0]
+```
+
+One plain commit on that head: it gives back the number it wrote before (0002), numbers the record above the sibling's (0003), writes devkit-openspec 1.2.0 above the base's 1.1.0 and devkit-core 1.0.1, and its message ends with its new record:
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git log -1 --format=%B
+chore(release): assign the release of feat
+
+Release-change: feat
+Release-line: plugins/core/.claude-plugin/plugin.json
+Release-line: plugins/openspec/.claude-plugin/plugin.json
+Release-line: .claude-plugin/marketplace.json
+Release-line: CHANGELOG.md
+Release-line: docs/openspec-flow.md
+Release-adr: docs/adr/feat.md -> docs/adr/0003-feat.md
+Release-citation: CHANGELOG.md
+Release-citation: docs/guide.md
+
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git show --stat -M '--format=%h %s' HEAD
+05dd677 chore(release): assign the release of feat
+
+ .claude-plugin/marketplace.json             | 6 +++---
+ CHANGELOG.md                                | 5 +++++
+ docs/adr/{0002-feat.md => 0003-feat.md}     | 2 +-
+ docs/catalog.md                             | 4 ++--
+ docs/guide.md                               | 2 +-
+ docs/openspec-flow.md                       | 6 +++---
+ plugins/core/.claude-plugin/plugin.json     | 2 +-
+ plugins/openspec/.claude-plugin/plugin.json | 2 +-
+ 8 files changed, 17 insertions(+), 12 deletions(-)
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ git diff --name-only HEAD^ HEAD -- openspec/changes/   # empty
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ cat plugins/openspec/.claude-plugin/plugin.json plugins/core/.claude-plugin/plugin.json .claude-plugin/marketplace.json CHANGELOG.md docs/catalog.md src/a.ts
+{
+  "name": "devkit-openspec",
+  "version": "1.2.0",
+  "description": "the devkit-openspec pack"
+}
+{
+  "name": "devkit-core",
+  "version": "1.0.1",
+  "description": "the devkit-core pack"
+}
+{
+  "name": "devkit",
+  "metadata": {
+    "description": "two packs",
+    "version": "1.2.0"
+  },
+  "plugins": [
+    {
+      "name": "devkit-openspec",
+      "source": "./plugins/openspec",
+      "description": "the devkit-openspec pack",
+      "version": "1.2.0"
+    },
+    {
+      "name": "devkit-core",
+      "source": "./plugins/core",
+      "description": "the devkit-core pack",
+      "version": "1.0.1"
+    }
+  ]
+}
+# Changelog
+
+## 1.2.0 — the feature lands
+
+- **devkit-openspec** 1.2.0: the flow does the feature (ADR 0003)
+- **devkit-core** 1.0.1: the agents follow it
+
+## 1.1.0 — sib lands
+
+- **devkit-openspec** 1.1.0: sib does its part
+
+## 1.0.0 — first release
+
+- **devkit-openspec** 1.0.0: the flow
+- **devkit-core** 1.0.0: the agents
+# Catalog
+
+| Pack | Version |
+|---|---|
+| devkit-core | 1.0.1 |
+| devkit-openspec | 1.2.0 |
+export const a = 3; // feat and sib
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ grep -n 'ADR\|v1\.' docs/guide.md docs/sib.md docs/openspec-flow.md
+docs/guide.md:6:A line two. The rule is ADR 0003, recorded in adr/0003-feat.md.
+docs/sib.md:3:The fix is ADR 0002.
+docs/openspec-flow.md:15:          # pinned to the commit of v1.2.0 (a tag can move; a commit cannot)
+docs/openspec-flow.md:16:          base=https://raw.githubusercontent.com/o/devkit/<commit sha of v1.2.0>/plugins/openspec/hooks
+docs/openspec-flow.md:22:Pin the commit sha of the release tag (`v1.2.0` above), not the tag; by hand, run `gh api repos/o/devkit/git/ref/tags/v1.2.0`.
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ ls docs/adr
+0001-start.md
+0002-sib.md
+0003-feat.md
+[exit 0]
+```
+
+The state reads assigned and current, and `enable-auto-merge` is next:
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ node -e "import('$DEV/deliver-check.mjs').then((D) => console.log(D.releaseState(process.cwd(), 'feat', D.gitFacts(process.cwd(), { base: 'main' }))))"   # kind, current, paths, reassign, adrs
+{
+  "kind": "assigned",
+  "current": true,
+  "paths": [],
+  "reassign": [],
+  "adrs": [
+    {
+      "slug": "feat",
+      "folder": "docs/adr",
+      "from": "docs/adr/feat.md",
+      "to": "docs/adr/0003-feat.md",
+      "number": "0003"
+    }
+  ]
+}
+[exit 0]
+```
+
+```text
+(in $CASES/p13/main/.claude/worktrees/feat)
+$ node $DEV/deliver-check.mjs feat
+deliver-check: feat (schema devkit, ship merge, host cli, head 05dd677)
+  1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md
+  2 met      reviews at head: 2 reviews at head
+  3 met      findings disposed: 0 fixed, 0 refuted
+  4 met      acceptance criteria proven: 1 criteria proven
+  5 met      PR open at local head: PR #11 open at 05dd677
+  6 met      required checks green: 2 required checks green
+  7 met      conversation answered: every thread and request is answered
+  8 met      PR body complete: PR body names the change, its criteria and the evidence
+8/8 met: ready
+next: enable-auto-merge PR #11 with --squash at 05dd677
+[exit 0]
+```
+
+```text
+"next" of deliver-check <id> --json at this head:
+{
+  "step": "enable-auto-merge",
+  "reason": "all eight items are met",
+  "number": 11,
+  "method": "squash",
+  "head": "05dd67735f6ceb6f1bbc6de57c425ec934677644"
 }
 ```
 

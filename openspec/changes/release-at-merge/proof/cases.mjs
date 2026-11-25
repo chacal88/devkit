@@ -1,4 +1,4 @@
-// The cases of the release-at-merge real-run proof (design D-16, P-1 to P-12; tasks 6.1 to 6.6). Each case builds its projects with
+// The cases of the release-at-merge real-run proof (design D-16, P-1 to P-13; tasks 6.1 to 6.6 and 9.14). Each case builds its projects with
 // seed.mjs, runs this worktree's own CLIs (plugins/openspec/hooks/*.mjs) and the session's commands for each step, and records every
 // command with its output in real-run.md.
 //
@@ -10,7 +10,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  PROOF, CASES, WT, Record, sh, git, put, read, commitAll, seedProject, openChange, writeApproval, drive, human, report, node,
+  PROOF, CASES, WT, DEV, Record, sh, git, put, read, commitAll, seedProject, openChange, writeApproval, drive, human, report, node,
   marketFiles, TRAIN_CONFIG, RELEASE_FILE, GUIDE0, flowPage, hash12, manifest, marketplace, catalog, CHANGELOG0, consumerFiles,
 } from './seed.mjs';
 
@@ -43,6 +43,8 @@ function autoMerge(p, c, next) {
   return sh(p.main, ['gh', '__merge', String(next.number)], { env: p.env, rec, label: `gh __merge ${next.number}   # the stub: GitHub merges the pull request once its rules pass` }).out.trim().split(' ')[0];
 }
 const nextOf = (p, c, env) => report(p, c, env).json.next;
+// The message of the change's last commit, recorded: the step's commits end with its record (D-20).
+const recordOf = (c) => sh(c.wt, ['git', 'log', '-1', '--format=%B'], { rec }).out;
 // The `next` field of a `deliver-check <id> --json` run at the same head as the human report above it, in full (its command, path
 // and number fields are what the session acts on).
 const showNext = (n) => rec.block(`"next" of deliver-check <id> --json at this head:\n${JSON.stringify(n, null, 2)}`);
@@ -54,7 +56,7 @@ const assert = (ok, what) => { if (!ok) throw new Error(`check failed: ${what}`)
 // ---------------------------------------------------------------- the seed (6.1)
 
 function seed() {
-  rec.text(`# Real-run proof: release-at-merge (tasks 6.1 to 6.6)
+  rec.text(`# Real-run proof: release-at-merge (tasks 6.1 to 6.6, and 9.14 after review round 1)
 
 Every case below ran for real, on ${new Date().toISOString().slice(0, 10)}, against this worktree's own scripts (\`$DEV\` is
 \`plugins/openspec/hooks\` of the worktree \`$WT\`; never the installed plugin), in scratch repositories under a private \`TMPDIR\`
@@ -81,6 +83,16 @@ case below was run again:
   record renumbered from its former number is a release edit too (tests "release-note AC-4 staleness: the step run again after the base
   numbered another ADR ..." and its guard "release-note AC-5 staleness: a citation of the change's own record moved to another
   record's number ..." in \`deliver-check.test.mjs\`).
+
+After review round 1 the whole script ran again with P-13 (task 9.14), and its first run of P-13 found one defect in
+\`release-merge.mjs\`, fixed test-first before this run:
+
+- The note's body cites \`ADR [feat]\`, so the step's record lists \`CHANGELOG.md\` among the citations it rewrote. After the merge by
+  hand, which takes the base's changelog as the \`assign-release\` row says, the give-back of D-20 tried to put \`ADR [feat]\` back in an
+  entry the file no longer held and refused (\`cannot give back the numbers the step wrote in CHANGELOG.md\`, exit 2), though the flow
+  page already says a \`CHANGELOG.md\` entry the record wrote is not given back. The give-back now skips \`CHANGELOG.md\`, whose whole
+  text the step writes from the note on the base (test "release-note AC-4 assign: a merge by hand that takes the base's CHANGELOG.md,
+  where the step had cited the ADR by its number, is numbered again" in \`release-merge.test.mjs\`).
 
 ## How the seed is built
 
@@ -152,6 +164,8 @@ with its own record \`docs/adr/sib.md\` cited in \`docs/sib.md\` (no file of \`f
   assert(j1.mode === 'assign' && j1.adrs[0]?.to === 'docs/adr/0002-feat.md', 'feat numbered 0002');
   rec.text('The step\'s one commit holds only release lines, the record\'s number and the rewritten citations; no file under `openspec/changes/` changed:');
   sh(feat.wt, ['git', 'show', '--stat', '--format=%h %s', 'HEAD'], { rec });
+  rec.text('Its message ends with the step\'s record (D-20): the change, each release line it wrote, the record\'s rename and each citation it rewrote, as `Release-` trailers:');
+  assert(/\nRelease-change: feat\n/.test(recordOf(feat)), 'the step\'s record');
   sh(feat.wt, ['git', 'diff', '--name-only', 'HEAD~1', 'HEAD', '--', 'openspec/changes/'], { rec, label: 'git diff --name-only HEAD~1 HEAD -- openspec/changes/   # empty: the plan, the evidence and the reviews are untouched' });
   sh(feat.wt, ['git', 'diff', 'HEAD~1', 'HEAD', '--', 'docs/guide.md', 'docs/openspec-flow.md', 'CHANGELOG.md', 'docs/catalog.md'], { rec });
   rec.text('After the step the evidence and the approved reviews recorded before it are still current (items 1 to 4 met), and `enable-auto-merge` is next:');
@@ -182,6 +196,7 @@ with its own record \`docs/adr/sib.md\` cited in \`docs/sib.md\` (no file of \`f
   rec.text('No conflict was left: the merge commit holds the base, `feat`\'s numbers above it (devkit-openspec 1.1.0 over 1.0.1, devkit-core 1.0.1, ADR 0003), both changelog entries and both citations:');
   sh(feat.wt, ['git', 'log', '--oneline', '--graph', '-5'], { rec });
   sh(feat.wt, ['git', 'show', '--stat', '--format=%h %s', 'HEAD'], { rec });
+  assert(/\nRelease-change: feat\n/.test(recordOf(feat)), 'the merge commit\'s record');
   sh(feat.wt, ['git', 'diff', '--name-only', 'HEAD^1', 'HEAD', '--', 'openspec/changes/feat/'], { rec, label: 'git diff --name-only HEAD^1 HEAD -- openspec/changes/feat/   # empty' });
   sh(feat.wt, ['cat', RELEASE_FILE, 'plugins/core/.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'CHANGELOG.md', 'docs/catalog.md'], { rec });
   sh(feat.wt, ['grep', '-n', 'ADR\\|v1\\.', 'docs/guide.md', 'docs/sib.md', 'docs/openspec-flow.md'], { rec });
@@ -429,9 +444,9 @@ which nothing reads).`);
   const r2 = drive(p, noted, rec);
   expectStep(r2.next, 'enable-auto-merge', 'noted with no key');
   human(p, noted, rec);
-  rec.text('The step, run by hand, refuses to run in a project with no release setting and writes nothing (the checker never asks for it there):');
+  rec.text('The step, run by hand, refuses to run in a project with no release setting with a usage error (exit 3, D-24) and writes nothing (the checker never asks for it there):');
   const head0 = git(noted.wt, 'rev-parse', 'HEAD');
-  sh(noted.wt, node('release-merge.mjs', '--assign', '--base', 'main', '--json'), { env: p.env, rec, expect: [2] });
+  sh(noted.wt, node('release-merge.mjs', '--assign', '--base', 'main', '--json'), { env: p.env, rec, expect: [3] });
   assert(git(noted.wt, 'rev-parse', 'HEAD') === head0, 'no commit');
   treeOf(p, noted);
   sh(noted.wt, ['cat', 'package.json', 'CHANGELOG.md'], { rec });
@@ -728,9 +743,111 @@ parent through the stub (which serves the merge commits the cases made) and asks
   rec.flush();
 }
 
+// ---------------------------------------------------------------- P-13 (9.14): a merge by hand after a code conflict, then the step again
+
+// The release files of the seed's layout: the lines the step writes, whose base side the session takes in a merge by hand.
+const RELEASE_PATHS = [RELEASE_FILE, 'plugins/core/.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'CHANGELOG.md', 'docs/catalog.md', 'docs/openspec-flow.md'];
+// The state of the change's release lines at this head (D-3, D-20), as the checker derives it: releaseState of this worktree's
+// deliver-check.mjs with the facts gitFacts reads against origin/main, recorded.
+function showRelease(p, c) {
+  const code = `import('${join(DEV, 'deliver-check.mjs')}').then((D) => { const s = D.releaseState(process.cwd(), '${c.id}', D.gitFacts(process.cwd(), { base: 'main' })); `
+    + 'console.log(JSON.stringify({ kind: s.kind, current: s.current, paths: s.paths, reassign: s.reassign, adrs: s.adrs }, null, 2)); })';
+  const r = sh(c.wt, ['node', '-e', code], { env: p.env, rec, label: `node -e "import('$DEV/deliver-check.mjs').then((D) => console.log(D.releaseState(process.cwd(), '${c.id}', D.gitFacts(process.cwd(), { base: 'main' }))))"   # kind, current, paths, reassign, adrs` });
+  return JSON.parse(r.out);
+}
+
+function p13() {
+  rec.text(`## P-13 a merge by hand after a code conflict with a base that released the same pack and took the same ADR number
+
+AC-4, AC-5 (code-quality F1 of review round 1, D-20). Project \`p13\`: the seed with a source file \`src/a.ts\`. Change \`feat\` notes
+devkit-openspec \`minor\` and devkit-core \`patch\`, names its record \`docs/adr/feat.md\` (listed in \`decisions.md\`), cites it
+\`ADR [feat]\` and \`adr/feat.md\` in \`docs/guide.md\`, and edits \`src/a.ts\`. Its sibling \`sib\` notes devkit-openspec \`minor\`,
+names its record \`docs/adr/sib.md\` and edits \`src/a.ts\` too, in the same line. \`feat\` takes its release first (devkit-openspec 1.1.0,
+ADR 0002); then \`sib\` takes the same numbers on the same base and lands.`);
+  const p = seedProject('p13', { files: { ...marketFiles(), 'src/a.ts': 'export const a = 0;\n' } });
+  const feat = openChange(p, 'feat', {
+    note: FEAT_NOTE, adrs: ['feat'],
+    // The file-form citation is plain text, not a Markdown link: real-run.md is read by check.py, whose fence matching P-11's four-backtick
+    // block (a note with an unclosed fence) shifts, so a link in a later case would be read as prose and resolved.
+    files: { 'docs/guide.md': guideWith('A', 'The rule is ADR [feat], recorded in adr/feat.md.'), 'src/a.ts': 'export const a = 1; // feat\n' },
+  });
+  const sib = openChange(p, 'sib', { note: patchNote('sib', 'devkit-openspec', 'minor'), adrs: ['sib'], files: { 'docs/sib.md': '# The sibling\n\nThe fix is ADR [sib].\n', 'src/a.ts': 'export const a = 2; // sib\n' } });
+  rec.text('### `feat` takes its release');
+  const r1 = drive(p, feat, rec);
+  expectStep(r1.next, 'assign-release', 'feat before its release');
+  showNext(r1.next);
+  const a1 = JSON.parse(assignRelease(p, feat, r1.next).out);
+  assert(a1.adrs[0]?.to === 'docs/adr/0002-feat.md' && a1.versions.packs['devkit-openspec'] === '1.1.0', 'feat numbered 0002 and 1.1.0');
+  recordOf(feat);
+  expectStep(nextOf(p, feat), 'enable-auto-merge', 'feat after its release');
+
+  rec.text('### The sibling lands with the same pack\'s next version and the same ADR number, and an edit of `src/a.ts`');
+  const s1 = drive(p, sib, rec);
+  expectStep(s1.next, 'assign-release', 'sib before its release');
+  const sa = JSON.parse(assignRelease(p, sib, s1.next).out);
+  assert(sa.adrs[0]?.to === 'docs/adr/0002-sib.md' && sa.versions.packs['devkit-openspec'] === '1.1.0', 'sib numbered 0002 and 1.1.0');
+  autoMerge(p, sib, nextOf(p, sib));
+  sh(p.main, ['git', 'fetch', '-q', 'origin'], { env: p.env });
+  sh(p.main, ['git', 'log', '--oneline', '--graph', '-4', 'origin/main'], { rec });
+  sh(p.main, ['git', 'show', 'origin/main:src/a.ts', `origin/main:${RELEASE_FILE}`], { rec });
+  sh(p.main, ['git', 'ls-tree', '--name-only', 'origin/main', 'docs/adr/'], { rec });
+
+  rec.text('### `feat` again: the step stops on the code conflict\n\nThe base moved, so the checker asks for `assign-release` again; the step merges `origin/main`, meets a conflict outside the release lines (`src/a.ts`), exits 2 naming it and leaves the branch as it was:');
+  human(p, feat, rec);
+  const n2 = nextOf(p, feat);
+  expectStep(n2, 'assign-release', 'feat after the base moved');
+  showNext(n2);
+  const head0 = git(feat.wt, 'rev-parse', 'HEAD');
+  const refused = assignRelease(p, feat, n2, { expect: [2] });
+  const rj = JSON.parse(refused.out);
+  assert((rj.conflicts ?? []).includes('src/a.ts'), `the step names src/a.ts: ${refused.out}`);
+  assert(git(feat.wt, 'rev-parse', 'HEAD') === head0 && git(feat.wt, 'status', '--porcelain') === '', 'the branch is as it was');
+  sh(feat.wt, ['git', 'status', '--short', '--branch'], { rec, label: 'git status --short --branch   # the branch as it was: no merge in progress' });
+
+  rec.text('### The merge by hand\n\nThe session stops as `blocked: item 5 (src/a.ts)` and, as the `assign-release` row of `ship-change` says for a conflict outside the release lines, merges `origin/main` by hand: it resolves `src/a.ts`, takes the base\'s side of every release line, and commits.');
+  sh(feat.wt, ['git', 'merge', '--no-ff', '--no-commit', 'origin/main'], { env: p.env, rec, expect: [1] });
+  sh(feat.wt, ['git', 'diff', '--name-only', '--diff-filter=U'], { rec, label: 'git diff --name-only --diff-filter=U   # the files in conflict' });
+  sh(feat.wt, ['git', 'checkout', 'origin/main', '--', ...RELEASE_PATHS], { rec });
+  put(feat.wt, { 'src/a.ts': 'export const a = 3; // feat and sib\n' });
+  sh(feat.wt, ['git', 'add', '-A'], { rec });
+  sh(feat.wt, ['git', 'commit', '-q', '--no-edit'], { env: p.env, rec });
+  sh(feat.wt, ['git', 'log', '--oneline', '--graph', '-4'], { rec });
+  sh(feat.wt, ['git', 'show', '--stat', '--format=%h %s%n%P', 'HEAD'], { rec });
+  sh(feat.wt, ['cat', 'src/a.ts', RELEASE_FILE], { rec });
+  sh(feat.wt, ['ls', 'docs/adr'], { rec, label: 'ls docs/adr   # both records numbered 0002: feat\'s number came with the branch, sib\'s with the base' });
+
+  rec.text('### The loop answers `assign-release`, and the step numbers the branch again\n\nThe merge by hand changed `src/a.ts`, a file of the change, so the session records the evidence and the reviews again (ADR 0025). The release lines are then the base\'s and the number the step wrote (ADR 0002 for `feat`) is in its own record, so the checker reads the release as unassigned and hands `assign-release` again (the pull request\'s head on origin is still the one before the merge by hand), not `blocked`:');
+  const r3 = drive(p, feat, rec);
+  human(p, feat, rec);
+  expectStep(r3.next, 'assign-release', 'feat after the merge by hand');
+  showNext(r3.next);
+  const head1 = git(feat.wt, 'rev-parse', 'HEAD');
+  const a3 = JSON.parse(assignRelease(p, feat, r3.next).out);
+  assert(a3.adrs[0]?.from === 'docs/adr/feat.md' && a3.adrs[0]?.to === 'docs/adr/0003-feat.md', `feat renumbered above sib: ${JSON.stringify(a3.adrs)}`);
+  assert(a3.versions.packs['devkit-openspec'] === '1.2.0' && a3.versions.packs['devkit-core'] === '1.0.1', `feat's versions above the base's: ${JSON.stringify(a3.versions)}`);
+  assert(git(feat.wt, 'rev-parse', 'HEAD^') === head1, 'one commit on the merge by hand');
+  rec.text('One plain commit on that head: it gives back the number it wrote before (0002), numbers the record above the sibling\'s (0003), writes devkit-openspec 1.2.0 above the base\'s 1.1.0 and devkit-core 1.0.1, and its message ends with its new record:');
+  const body = recordOf(feat);
+  assert(/\nRelease-change: feat\n/.test(body) && body.includes('docs/adr/0003-feat.md'), 'the record names the new number');
+  sh(feat.wt, ['git', 'show', '--stat', '-M', '--format=%h %s', 'HEAD'], { rec });
+  sh(feat.wt, ['git', 'diff', '--name-only', 'HEAD^', 'HEAD', '--', 'openspec/changes/'], { rec, label: 'git diff --name-only HEAD^ HEAD -- openspec/changes/   # empty' });
+  sh(feat.wt, ['cat', RELEASE_FILE, 'plugins/core/.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'CHANGELOG.md', 'docs/catalog.md', 'src/a.ts'], { rec });
+  sh(feat.wt, ['grep', '-n', 'ADR\\|v1\\.', 'docs/guide.md', 'docs/sib.md', 'docs/openspec-flow.md'], { rec });
+  sh(feat.wt, ['ls', 'docs/adr'], { rec });
+  assert(!existsSync(join(feat.wt, 'docs/adr/0002-feat.md')) && existsSync(join(feat.wt, 'docs/adr/0002-sib.md')), 'the number is given back');
+  rec.text('The state reads assigned and current, and `enable-auto-merge` is next:');
+  const st = showRelease(p, feat);
+  assert(st.kind === 'assigned' && st.current === true, `the state: ${JSON.stringify(st)}`);
+  human(p, feat, rec);
+  const n4 = nextOf(p, feat);
+  expectStep(n4, 'enable-auto-merge', 'feat after the step on the merge by hand');
+  showNext(n4);
+  rec.flush();
+}
+
 // ---------------------------------------------------------------- the run
 
-const CASE_LIST = [['seed', seed], ['P-1', p1], ['P-2', p2], ['P-3', p3], ['P-4', p4], ['P-5', p5], ['P-6', p6], ['P-7', p7], ['P-8', p8], ['P-9', p9], ['P-10', p10], ['P-11', p11], ['P-12', p12]];
+const CASE_LIST = [['seed', seed], ['P-1', p1], ['P-2', p2], ['P-3', p3], ['P-4', p4], ['P-5', p5], ['P-6', p6], ['P-7', p7], ['P-8', p8], ['P-9', p9], ['P-10', p10], ['P-11', p11], ['P-12', p12], ['P-13', p13]];
 for (const [name, fn] of CASE_LIST) {
   if (!all && name !== 'seed' && !wanted.includes(name)) continue;
   try { fn(); } catch (e) {

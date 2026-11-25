@@ -1004,6 +1004,21 @@ test('release-note AC-4 assign: an assigned branch merged by hand after a code c
   assert.deepEqual([s.kind, s.current], ['assigned', true]);
 });
 
+test('release-note AC-4 assign: a merge by hand that takes the base\'s CHANGELOG.md, where the step had cited the ADR by its number, is numbered again', () => {
+  // The P-13 real run (task 9.14): the note's body cites ADR [feat], so the step's record lists CHANGELOG.md as a citation it rewrote; the
+  // person takes the base's side of every release line, as the assign-release row says, so the entry holding that number is gone.
+  const cited = `# Release note\n\npacks:\n- ${PIN_PACK_NAME}: minor\n\n## the change feat\n\n- **${PIN_PACK_NAME}**: the change feat (ADR [feat])\n`;
+  const root = mergedByHand({ change: { 'openspec/changes/feat/release.md': cited } });
+  const r = assign(root);
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.equal(read(root, 'CHANGELOG.md'), `# Changelog\n\n## 1.2.0 — the change feat\n\n- **${PIN_PACK_NAME}** 1.2.0: the change feat (ADR 0003)\n\n## 1.1.0 — other\n\n- other\n\n## 1.0.0 — first\n\n- start\n`);
+  assert.deepEqual(r.out.adrs, [{ from: 'docs/adr/feat.md', to: 'docs/adr/0003-feat.md' }]);
+  assert.equal(read(root, 'docs/feat.md'), 'See ADR 0003 in docs/adr/0003-feat.md.\n');
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  const s = stateNow(root);
+  assert.deepEqual([s.kind, s.current], ['assigned', true]);
+});
+
 test('release-note AC-4 assign: a number the step kept across a base merge is still its own after a later merge by hand', () => {
   // The step numbers ADR 0002; the base releases devkit-openspec 1.1.0 and takes no ADR; the step runs again in a merge commit and keeps
   // 0002 (its record names the ADR, but that commit did not rename it); the base then takes 0002 and edits src/a.ts in conflict.

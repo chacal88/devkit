@@ -3484,3 +3484,1194 @@ holds: it names the release line
 holds: git diff shows package.json unchanged
 holds: deliver-check feat --json shows no row N3 (next: implement phase 1 has unticked tasks: 1.1)
 ```
+
+## S-12 K: a revision that writes only release.md sends the plan back to the readiness review; N keeps it passed (task 9.15; AC-16, AC-1)
+
+Run after review round 1 (D-21; adr-reviewer F2, spec-reviewer F3, code-quality F3, test-coverage F5, architecture F1), on projects K and N built anew by `seed`. The failure path first, then the success path.
+
+### K: the real readiness review fails a plan with no release.md
+
+S-8's seed: the plan stages of `plan-d`, each passed, with no `release.md`.
+
+```text
+(in $CASES/K/main)
+$ node $DEV/change-loop.mjs open plan-d --script devkit --why capability --lang en <<< "Greet a user by name."
+devkit-run: plan-d
+{
+  "version": 1,
+  "change": "plan-d",
+  "script": "devkit",
+  "worktree": "$CASES/K/main/.claude/worktrees/plan-d",
+  "branch": "plan-d",
+  "base": "origin/main",
+  "reply": "I opened the change plan-d on the full script, because it adds something the project cannot do today. Next come a few questions about your request; to use the short script instead, say so before the plan is written."
+}
+[exit 0]
+```
+
+Seeded (the plan stages, each passed) in `$CASES/K/main/.claude/worktrees/plan-d`:
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/requirements.md
+<!-- devkit-stage requirements result=passed attempt=1 commit=7cee9c06a842c6e176c3dd5239597c7f81c0a401 -->
+# Requirements
+
+## Request
+
+> Greet a user by name.
+
+## Assumptions
+
+- The app is a Node.js service; its code lives in `src/`.
+
+## Acceptance criteria
+
+- AC-1: `greet('Ana')` returns `Hello, Ana!`.
+- AC-2: `greet('')` and `greet('  ')` return `Hello, friend!`.
+
+## Out of scope
+
+- Translations.
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/decisions.md
+<!-- devkit-stage decisions result=not-applicable attempt=1 commit=7cee9c06a842c6e176c3dd5239597c7f81c0a401 -->
+# Decisions and ADRs
+
+No record: a pure function with no boundary, contract or technology choice.
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/proposal.md
+<!-- devkit-stage proposal result=passed attempt=1 commit=7cee9c06a842c6e176c3dd5239597c7f81c0a401 -->
+# Proposal
+
+## Why
+
+The app answers no greeting today; the owner wants `greet(name)` for the welcome screen.
+
+## What Changes
+
+- New `src/greet.ts` exporting `greet(name: string): string`, returning `Hello, <name>!`.
+- An empty or blank name returns `Hello, friend!`.
+
+## Acceptance criteria
+
+- AC-1: `greet('Ana')` returns `Hello, Ana!`.
+- AC-2: `greet('')` and `greet('  ')` return `Hello, friend!`.
+
+## Capabilities
+
+### New Capabilities
+- `greeting`: the greeting the app gives a named user.
+
+### Modified Capabilities
+
+## Impact
+
+- `src/greet.ts` (new), `src/greet.test.ts` (new). No dependency is added.
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/specs/greeting/spec.md
+<!-- devkit-stage specs result=passed attempt=1 commit=7cee9c06a842c6e176c3dd5239597c7f81c0a401 -->
+## ADDED Requirements
+
+### Requirement: The app greets a user by name
+The app SHALL return `Hello, <name>!` from `greet(name)` for a non-blank name, and `Hello, friend!` for an empty or blank one.
+
+#### Scenario: a named user
+- **WHEN** `greet('Ana')` is called
+- **THEN** it returns `Hello, Ana!`
+
+#### Scenario: a blank name
+- **WHEN** `greet('  ')` is called
+- **THEN** it returns `Hello, friend!`
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/design.md
+<!-- devkit-stage design result=passed attempt=1 commit=7cee9c06a842c6e176c3dd5239597c7f81c0a401 -->
+# Design
+
+## Context
+
+`src/app.ts` exports one function per endpoint; there is no greeting.
+
+## Decisions
+
+- `src/greet.ts` exports `greet(name: string): string`: `name.trim()` empty gives `Hello, friend!`, else `Hello, ${name.trim()}!`.
+- Tests in `src/greet.test.ts` with `node --test` (no new dependency).
+
+## Risks
+
+- None beyond a wrong trim; the tests cover blank names.
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/tasks.md
+<!-- devkit-stage tasks result=passed attempt=1 commit=7cee9c06a842c6e176c3dd5239597c7f81c0a401 -->
+# Tasks
+
+## 1. Greeting
+
+- [ ] 1.1 Write `src/greet.test.ts` (AC-1, AC-2: a name, an empty name, a blank name), see it fail, then write `src/greet.ts`. Done when `node --test src/` passes.
+- [ ] 1.2 Gate: `node -e 0` green
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ node $DEV/change-loop.mjs next --change plan-d --lang en
+devkit-run: plan-d
+{
+  "version": 1,
+  "change": "plan-d",
+  "script": "devkit",
+  "root": "$CASES/K/main/.claude/worktrees/plan-d",
+  "branch": "plan-d",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "readiness",
+  "stageTitle": "Plan readiness",
+  "role": "plan-readiness-reviewer",
+  "skills": [
+    "plan-readiness-review"
+  ],
+  "model": "sonnet",
+  "agent": "devkit-core:plan-readiness-reviewer",
+  "brief": "Change plan-d (devkit script), stage readiness: review the plan. Work only in $CASES/K/main/.claude/worktrees/plan-d on branch plan-d; every file path is absolute under it; start every Bash command with cd $CASES/K/main/.claude/worktrees/plan-d && ; do not fetch. Write the change's files in English.",
+  "progressKey": "readiness/readiness@f1122103ba11",
+  "icon": "📝",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "readiness",
+    "stageTitle": "Plan readiness",
+    "phase": null,
+    "stageIcon": "📝",
+    "stateIcon": null,
+    "title": "📝 plan-d"
+  },
+  "sessionTitle": "📝 plan-d"
+}
+[exit 0]
+```
+
+The real agent, run in `$CASES/K/main/.claude/worktrees/plan-d` (the prompt on standard input; 0.5 min):
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ TMPDIR=$CASES/tmp DEVKIT_HOOK_LOG=$CASES/runs/S-12-review-1.hooks.jsonl claude -p --model sonnet --permission-mode bypassPermissions --plugin-dir $WT/plugins/core --plugin-dir $WT/plugins/openspec --output-format stream-json --verbose < prompt.txt
+[exit 0]
+```
+
+The prompt (`prompt.txt`), the brief being the `brief` field of the `next` above, verbatim:
+
+```text
+This session is the conducting session of the devkit change `plan-d` in a scratch project. It hands one stage to its agent, as the `devkit` skill's Loop does for an `agent` action; the loop's `next` gave this action: stage `readiness`, agent `devkit-core:plan-readiness-reviewer`, model `sonnet`.
+
+Make exactly one Agent call: subagent_type `devkit-core:plan-readiness-reviewer`, model `sonnet`, and as its prompt this brief, verbatim:
+
+Change plan-d (devkit script), stage readiness: review the plan. Work only in $CASES/K/main/.claude/worktrees/plan-d on branch plan-d; every file path is absolute under it; start every Bash command with cd $CASES/K/main/.claude/worktrees/plan-d && ; do not fetch. Write the change's files in English.
+
+Do nothing else: run no command, read or write no file yourself, and make no other Agent call. When the agent returns, reply with its final message, verbatim.
+```
+
+From the run's stream-json output (kept in the scratch folder while the proof ran):
+
+```text
+session: a293313c-3642-4e1b-836d-12484952849d; conducting model: claude-sonnet-5-5; permission mode: bypassPermissions
+plugin devkit-core 0.16.3 from $WT/plugins/core
+plugin devkit-openspec 0.47.2 from $WT/plugins/openspec
+Agent calls of the conducting session: 1
+Agent call: subagent_type=devkit-core:plan-readiness-reviewer model=sonnet prompt-is-the-brief=yes
+the agent's model: claude-sonnet-5-5
+the agent's task: completed (task notification)
+last result: success is_error=false turns=2 cost_usd=0.2569224
+```
+
+The tools the agent called, in order:
+
+```text
+Bash ls -R openspec/changes/plan-d && cat openspec/config.yaml && cat openspec/changes/plan-d/{proposal,design,tasks,decisions,requirements}.md && find openspec/changes/plan-d/specs -type f | xargs cat; git rev-parse HEA
+Bash ls; ls src; cat package.json; grep -n "export" src/*.ts | head; node -e 0; echo rc=$?; ls openspec/changes/plan-d/readiness.md 2>&1
+Bash node --version; ls -a | head -20
+Write $CASES/K/main/.claude/worktrees/plan-d/openspec/changes/plan-d/readiness.md
+```
+
+The agent's final message (its last text; the conducting session ran it as a background agent):
+
+```text
+Status: NEEDS-REVISION
+Blockers: 1
+Report: $CASES/K/main/.claude/worktrees/plan-d/openspec/changes/plan-d/readiness.md
+
+- **Blocker:** `openspec/config.yaml` sets `devkit.release_tag: package.json`, but the change has no `release.md`. Without it the delivery can't tell which pack or version to bump.
+- **Medium:** `design.md` says `src/app.ts` "exports one function per endpoint". The file contains only `export const app = 1;`. This doesn't change behavior and can be fixed during implementation.
+- **Low:** Task 1.2's gate `node -e 0` passes on the base but checks nothing.
+- **Validation:** `openspec validate plan-d --strict` passes.
+```
+
+The live hook decisions of the run (`DEVKIT_HOOK_LOG` of the worktree's `guard.mjs`; mode, agent, decision, why, count). The run's transcript holds no typed `/devkit change` command, so the stop and hand-off locks read no run (`no-run`); the planner's stop is judged by the `guard.mjs subagent-stop` calls of the case, with the run transcript they name:
+
+```text
+agent devkit-core:plan-readiness-reviewer allow (no-run) x1
+subagent-stop devkit-core:plan-readiness-reviewer allow (no-run) x1
+stop session allow (no-run) x1
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/readiness.md
+<!-- devkit-stage readiness result=failed attempt=1 commit=7cee9c06a842c6e176c3dd5239597c7f81c0a401 -->
+# Readiness review: plan-d
+
+## Decision
+
+- Status: NEEDS-REVISION
+
+Blockers: 1 (Mandatory before implementation). `openspec validate plan-d --strict` passes.
+
+## Scope
+
+Classification: correct. One pure function, `greet(name)`, with explicit out of scope (translations) in `requirements.md`. Proposal, design, spec and tasks agree.
+
+## Blockers
+
+1. High, Mandatory before implementation. `/openspec/changes/plan-d/release.md` does not exist. `openspec/config.yaml:5` names `devkit.release_tag: package.json`, so the change needs a release note. Without it the delivery does not know which pack or version to bump (package.json is at 1.4.0). Smallest correction: add `release.md` with the `packs:` line (one `- <pack>: patch|minor|major` line, or `packs: []` if nothing is released), and a `## <title>` line plus a body if it releases anything. Close every code fence.
+
+## Findings
+
+- Medium, Fix during implementation. `design.md` Context says "`src/app.ts` exports one function per endpoint". The code says otherwise: `src/app.ts:1` is `export const app = 1;`, with no function and no endpoint. The claim is wrong but does not change behavior, since `greet.ts` is a new standalone file. Smallest correction: reword the Context to "`src/app.ts` exports only a placeholder constant".
+- Low, Nice to have. Task 1.2 gate `node -e 0` is green on the base (exit 0), but it checks nothing. It is not a real gate for the work. Consider `node --test src/`, which 1.1 already runs.
+- Low, Nice to have. The plan puts `.ts` files under `node --test` with no TypeScript config or build step in the repo (no tsconfig, no devDependencies). Node v26.13.1 here strips types natively, so it runs. Importing `./greet.ts` with the extension is needed in the test. State the minimum Node version in the design if other environments differ.
+- Release rules: no task bumps a version, edits CHANGELOG or numbers an ADR. `decisions.md` lists no record and says why. OK.
+
+## Code claims checked
+
+- `src/app.ts` exports one function per endpoint: false (see above).
+- `src/greet.ts` and `src/greet.test.ts` are new: confirmed, `src/` holds only `app.ts`.
+- No dependency is added: confirmed, `package.json` has none.
+
+## Spec check
+
+The one requirement has two scenarios: a named user (AC-1) and a blank name `'  '` (AC-2). The empty string `''` is in AC-2 and in the requirement text but has no scenario of its own. Low, fix during implementation: the test in 1.1 covers it, so adding a scenario is optional.
+
+## Mandatory questions
+
+1. Problem defined: yes.
+2. Measurable: yes, AC-1 and AC-2 are exact strings.
+3. Error behavior: no error cases; a blank name is the only edge, and it is defined. Non-string input is out of the type contract.
+4. Edge cases: blank, empty and whitespace-padded names are covered. A name with surrounding spaces, such as `' Ana '`, trims to `Ana` per design but has no scenario.
+5. Dependencies: none.
+6. Contracts: defined (`greet(name: string): string`).
+7. Two readings: no.
+8. Implicit decisions: no.
+9. Tasks deliver the outcome: yes.
+10. Found too late: the missing release note, which would stop the delivery at the merge.
+
+## Top production risks
+
+1. The delivery has no release note, so no version is bumped or the merge stops.
+2. A runner other than Node 22.6 or later fails on `.ts` tests. Low likelihood here.
+
+## Next step
+
+The author adds `release.md`, and optionally fixes the design Context line. Re-run the review after that.
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ git status --short
+ M openspec/changes/plan-d/requirements.md
+?? openspec/changes/plan-d/decisions.md
+?? openspec/changes/plan-d/design.md
+?? openspec/changes/plan-d/proposal.md
+?? openspec/changes/plan-d/readiness.md
+?? openspec/changes/plan-d/specs/
+?? openspec/changes/plan-d/tasks.md
+[exit 0]
+```
+
+The loop hands the planner the revision:
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ node $DEV/change-loop.mjs next --change plan-d --lang en
+devkit-run: plan-d
+{
+  "version": 1,
+  "change": "plan-d",
+  "script": "devkit",
+  "root": "$CASES/K/main/.claude/worktrees/plan-d",
+  "branch": "plan-d",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "proposal",
+  "stageTitle": "Proposal",
+  "role": "change-planner",
+  "skills": [],
+  "model": "opus",
+  "agent": "devkit-core:change-planner",
+  "brief": "Change plan-d (devkit script), stage proposal: readiness failed at attempt 1 (failures in a row: 1 of 3): revise the plan from its findings. Work only in $CASES/K/main/.claude/worktrees/plan-d on branch plan-d; every file path is absolute under it; start every Bash command with cd $CASES/K/main/.claude/worktrees/plan-d && ; do not fetch. Write the change's files in English.",
+  "progressKey": "proposal/proposal@d861222fb790",
+  "icon": "📝",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "proposal",
+    "stageTitle": "Proposal",
+    "phase": null,
+    "stageIcon": "📝",
+    "stateIcon": null,
+    "title": "📝 plan-d"
+  },
+  "sessionTitle": "📝 plan-d"
+}
+[exit 0]
+```
+
+### A copy of that state: only release.md written
+
+Project `K` copied to `K-copy` (`cp -a`, every modification time kept), where the case writes only `release.md`, newer than `readiness.md`; no other file changes.
+
+```text
+(in $CASES)
+$ cp -a $CASES/K $CASES/K-copy
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/K-copy/main)
+$ git remote set-url origin $CASES/K-copy/origin.git
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/K-copy/main)
+$ git worktree repair $CASES/K-copy/main/.claude/worktrees/plan-d
+repair: gitdir incorrect: $CASES/K-copy/main/.git/worktrees/plan-d/gitdir
+[exit 0]
+```
+
+```text
+(in $CASES/K-copy/main)
+$ git worktree list
+$CASES/K-copy/main                          71e16be [main]
+$CASES/K-copy/main/.claude/worktrees/plan-d 7cee9c0 [plan-d]
+[exit 0]
+```
+
+```text
+(in $CASES/K-copy/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/release.md
+packs: []
+release: minor
+
+## Greetings
+
+- `greet(name)` returns a greeting for a name.
+[exit 0]
+```
+
+```text
+(in $CASES/K-copy/main/.claude/worktrees/plan-d)
+$ stat -c '%y %n' openspec/changes/plan-d/readiness.md openspec/changes/plan-d/release.md   # the note is newer than the review
+2026-11-24 22:08:19.681248022 -0300 openspec/changes/plan-d/readiness.md
+2026-11-24 22:08:27.447000026 -0300 openspec/changes/plan-d/release.md
+[exit 0]
+```
+
+```text
+(in $CASES/K-copy/main/.claude/worktrees/plan-d)
+$ git status --short   # the plan of the seed (uncommitted, as the plan stages leave it) and the review; release.md the only file the copy adds
+ M openspec/changes/plan-d/requirements.md
+?? openspec/changes/plan-d/decisions.md
+?? openspec/changes/plan-d/design.md
+?? openspec/changes/plan-d/proposal.md
+?? openspec/changes/plan-d/readiness.md
+?? openspec/changes/plan-d/release.md
+?? openspec/changes/plan-d/specs/
+?? openspec/changes/plan-d/tasks.md
+[exit 0]
+```
+
+```text
+(in $CASES/K-copy/main/.claude/worktrees/plan-d)
+$ node $DEV/flow-check.mjs plan-d --json   (its "next", "end" and readiness stage)
+{
+  "next": {
+    "n": 9,
+    "stage": "readiness",
+    "role": "plan-readiness-reviewer",
+    "skills": [
+      "plan-readiness-review"
+    ],
+    "reasonCode": "rerun-after-fix",
+    "params": {
+      "stage": "readiness"
+    },
+    "reason": "the plan readiness failed and the work changed since; it runs again",
+    "progressKey": "readiness@b079a0a6a687"
+  },
+  "end": null,
+  "readiness": {
+    "id": "readiness",
+    "state": "failed",
+    "reasonCode": "header-failed",
+    "params": {
+      "attempt": 1,
+      "failures": 1,
+      "ceiling": 3
+    },
+    "result": "failed",
+    "attempt": 1
+  }
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K-copy/main/.claude/worktrees/plan-d)
+$ node $DEV/change-loop.mjs next --change plan-d --lang en
+devkit-run: plan-d
+{
+  "version": 1,
+  "change": "plan-d",
+  "script": "devkit",
+  "root": "$CASES/K-copy/main/.claude/worktrees/plan-d",
+  "branch": "plan-d",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "readiness",
+  "stageTitle": "Plan readiness",
+  "role": "plan-readiness-reviewer",
+  "skills": [
+    "plan-readiness-review"
+  ],
+  "model": "sonnet",
+  "agent": "devkit-core:plan-readiness-reviewer",
+  "brief": "Change plan-d (devkit script), stage readiness: readiness is out of date: bring it up to date. Work only in $CASES/K-copy/main/.claude/worktrees/plan-d on branch plan-d; every file path is absolute under it; start every Bash command with cd $CASES/K-copy/main/.claude/worktrees/plan-d && ; do not fetch. Write the change's files in English.",
+  "progressKey": "readiness/readiness@b079a0a6a687",
+  "icon": "📝",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "readiness",
+    "stageTitle": "Plan readiness",
+    "phase": null,
+    "stageIcon": "📝",
+    "stateIcon": null,
+    "title": "📝 plan-d"
+  },
+  "sessionTitle": "📝 plan-d"
+}
+[exit 0]
+```
+
+### K: the real planner revises the plan, the real reviewer passes it
+
+The change folder before the planner (modification time, sha256 prefix, path):
+
+```text
+2026-11-25T01:07:54.807Z  sha256:626c979f12f9  openspec/changes/plan-d/.openspec.yaml
+2026-11-25T01:07:54.862Z  sha256:42cc5ea6b528  openspec/changes/plan-d/decisions.md
+2026-11-25T01:07:54.863Z  sha256:03710021c0e5  openspec/changes/plan-d/design.md
+2026-11-25T01:07:54.863Z  sha256:32cecd87fc1a  openspec/changes/plan-d/proposal.md
+2026-11-25T01:08:19.681Z  sha256:09f072058211  openspec/changes/plan-d/readiness.md
+2026-11-25T01:07:54.862Z  sha256:5ec5e5f0e739  openspec/changes/plan-d/requirements.md
+2026-11-25T01:07:54.863Z  sha256:f58a1f8ee7ac  openspec/changes/plan-d/specs/greeting/spec.md
+2026-11-25T01:07:54.863Z  sha256:cbc91f104a26  openspec/changes/plan-d/tasks.md
+```
+
+The real agent, run in `$CASES/K/main/.claude/worktrees/plan-d` (the prompt on standard input; 0.8 min):
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ TMPDIR=$CASES/tmp DEVKIT_HOOK_LOG=$CASES/runs/S-12-planner.hooks.jsonl claude -p --model sonnet --permission-mode bypassPermissions --plugin-dir $WT/plugins/core --plugin-dir $WT/plugins/openspec --output-format stream-json --verbose < prompt.txt
+[exit 0]
+```
+
+The prompt (`prompt.txt`), the brief being the `brief` field of the `next` above, verbatim:
+
+```text
+This session is the conducting session of the devkit change `plan-d` in a scratch project. It hands one stage to its agent, as the `devkit` skill's Loop does for an `agent` action; the loop's `next` gave this action: stage `proposal`, agent `devkit-core:change-planner`, model `opus`.
+
+Make exactly one Agent call: subagent_type `devkit-core:change-planner`, model `opus`, and as its prompt this brief, verbatim:
+
+Change plan-d (devkit script), stage proposal: readiness failed at attempt 1 (failures in a row: 1 of 3): revise the plan from its findings. Work only in $CASES/K/main/.claude/worktrees/plan-d on branch plan-d; every file path is absolute under it; start every Bash command with cd $CASES/K/main/.claude/worktrees/plan-d && ; do not fetch. Write the change's files in English.
+
+Do nothing else: run no command, read or write no file yourself, and make no other Agent call. When the agent returns, reply with its final message, verbatim.
+```
+
+From the run's stream-json output (kept in the scratch folder while the proof ran):
+
+```text
+session: bc14889f-c232-49e4-954e-83e9c0140029; conducting model: claude-sonnet-5-5; permission mode: bypassPermissions
+plugin devkit-core 0.16.3 from $WT/plugins/core
+plugin devkit-openspec 0.47.2 from $WT/plugins/openspec
+Agent calls of the conducting session: 1
+Agent call: subagent_type=devkit-core:change-planner model=opus prompt-is-the-brief=yes
+the agent's model: claude-opus-5-5
+the agent's task: completed (task notification)
+last result: success is_error=false turns=1 cost_usd=0.35642650000000003
+```
+
+The tools the agent called, in order:
+
+```text
+Bash ls -R openspec | head -50 && cat openspec/changes/plan-d/readiness.md && cat openspec/config.yaml && git diff
+Bash for f in proposal design tasks decisions; do echo "=== $f"; cat openspec/changes/plan-d/$f.md; done; cat openspec/changes/plan-d/specs/greeting/spec.md; cat package.json; ls; ls plugins 2>/dev/null; ls openspec/sche
+Bash cat CHANGELOG.md; ls -R docs; cat src/app.ts; grep -rn "release" openspec/schemas/devkit/schema.yaml | head -30
+Write $CASES/K/main/.claude/worktrees/plan-d/openspec/changes/plan-d/release.md
+Bash python3 - <<'EOF' import re d='openspec/changes/plan-d/' p=d+'design.md'; s=open(p).read() s=s.replace("`src/app.ts` exports one function per endpoint; there is no greeting.","`src/app.ts` exports only a placeholder
+Bash cat openspec/changes/plan-d/design.md openspec/changes/plan-d/tasks.md; tail -8 openspec/changes/plan-d/specs/greeting/spec.md
+```
+
+The agent's final message (its last text; the conducting session ran it as a background agent):
+
+```text
+I added the missing release note, which was the one blocker in the readiness review, and fixed the four smaller findings too. `openspec validate plan-d --strict` passes.
+
+1. Change directory: `$CASES/K/main/.claude/worktrees/plan-d/openspec/changes/plan-d`
+
+2. Files written:
+   - `openspec/changes/plan-d/release.md` (new): `packs: []` because the repo has no `plugins/*/.claude-plugin/plugin.json`. It also has a `release: minor` bump of `package.json`, which is the file `devkit.release_tag` names, plus a `## Greeting by name` changelog title and body.
+   - `openspec/changes/plan-d/design.md`: the Context now says `src/app.ts` only exports a placeholder constant. It states that the test imports `./greet.ts` with its extension, that Node 22.6 or later is needed because the repo has no TypeScript config or build step, and it adds that Node-version risk with a mitigation.
+   - `openspec/changes/plan-d/tasks.md`: the task 1.2 gate is now `node --test src/` exits 0, replacing `node -e 0`, which checked nothing. Task 1.1 now also tests a space-padded name.
+   - `openspec/changes/plan-d/specs/greeting/spec.md`: added two scenarios, for an empty name `''` and a space-padded name `' Ana '`. The second adds no new behavior; the design already trims the name.
+
+3. ADRs and specs read:
+   - `readiness.md` (attempt 1 findings).
+   - `decisions.md`: no record needed, and that still holds.
+   - `requirements.md`: AC-1 and AC-2, with translations out of scope.
+   - The change's `specs/greeting/spec.md`. There is no canonical `openspec/specs/greeting` yet.
+   - `openspec/config.yaml`, `package.json`, `CHANGELOG.md` and `src/app.ts`.
+   - `docs/adr/0001-start.md` exists but this change doesn't touch it.
+
+4. Escalations: none.
+
+5. Next step: Run the plan-readiness-review skill on `openspec/changes/plan-d` (or the adr-reviewer and spec-reviewer agents in parallel; in OpenSpec mode also `openspec validate plan-d`). Implementation starts only after an approved plan.
+
+Outcome: planned
+```
+
+The live hook decisions of the run (`DEVKIT_HOOK_LOG` of the worktree's `guard.mjs`; mode, agent, decision, why, count). The run's transcript holds no typed `/devkit change` command, so the stop and hand-off locks read no run (`no-run`); the planner's stop is judged by the `guard.mjs subagent-stop` calls of the case, with the run transcript they name:
+
+```text
+agent devkit-core:change-planner allow (no-run) x1
+stop session allow (no-run) x2
+subagent-stop devkit-core:change-planner allow (no-run) x1
+```
+
+The change folder after the planner:
+
+```text
+2026-11-25T01:07:54.807Z  sha256:626c979f12f9  openspec/changes/plan-d/.openspec.yaml
+2026-11-25T01:07:54.862Z  sha256:42cc5ea6b528  openspec/changes/plan-d/decisions.md
+2026-11-25T01:08:57.816Z  sha256:cd514f8e1f13  openspec/changes/plan-d/design.md
+2026-11-25T01:07:54.863Z  sha256:32cecd87fc1a  openspec/changes/plan-d/proposal.md
+2026-11-25T01:08:19.681Z  sha256:09f072058211  openspec/changes/plan-d/readiness.md
+2026-11-25T01:08:51.720Z  sha256:173d52afec5e  openspec/changes/plan-d/release.md
+2026-11-25T01:07:54.862Z  sha256:5ec5e5f0e739  openspec/changes/plan-d/requirements.md
+2026-11-25T01:08:57.816Z  sha256:01f184c45586  openspec/changes/plan-d/specs/greeting/spec.md
+2026-11-25T01:08:57.816Z  sha256:59548b1fe344  openspec/changes/plan-d/tasks.md
+```
+
+The plan files the planner changed or added: `openspec/changes/plan-d/design.md`, `openspec/changes/plan-d/release.md`, `openspec/changes/plan-d/specs/greeting/spec.md`, `openspec/changes/plan-d/tasks.md`.
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/release.md
+packs: []
+release: minor
+
+## Greeting by name
+
+- New `greet(name)` in `src/greet.ts`: returns `Hello, <name>!` for a named user, trimming surrounding spaces, and `Hello, friend!` for an empty or blank name.
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ node -e "import('$DEV/deliver-check.mjs').then((m) => console.log(JSON.stringify(m.parseReleaseNote(fs.readFileSync('openspec/changes/plan-d/release.md', 'utf8')), null, 2)))"
+{
+  "packs": [],
+  "marketplace": null,
+  "marketplaceGiven": false,
+  "release": "minor",
+  "title": "Greeting by name",
+  "body": "- New `greet(name)` in `src/greet.ts`: returns `Hello, <name>!` for a named user, trimming surrounding spaces, and `Hello, friend!` for an empty or blank name."
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ node $DEV/flow-check.mjs plan-d --json   (its "next", "end" and readiness stage)
+{
+  "next": {
+    "n": 9,
+    "stage": "readiness",
+    "role": "plan-readiness-reviewer",
+    "skills": [
+      "plan-readiness-review"
+    ],
+    "reasonCode": "rerun-after-fix",
+    "params": {
+      "stage": "readiness"
+    },
+    "reason": "the plan readiness failed and the work changed since; it runs again",
+    "progressKey": "readiness@89326a89b5de"
+  },
+  "end": null,
+  "readiness": {
+    "id": "readiness",
+    "state": "failed",
+    "reasonCode": "header-failed",
+    "params": {
+      "attempt": 1,
+      "failures": 1,
+      "ceiling": 3
+    },
+    "result": "failed",
+    "attempt": 1
+  }
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ node $DEV/change-loop.mjs next --change plan-d --lang en
+devkit-run: plan-d
+{
+  "version": 1,
+  "change": "plan-d",
+  "script": "devkit",
+  "root": "$CASES/K/main/.claude/worktrees/plan-d",
+  "branch": "plan-d",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "readiness",
+  "stageTitle": "Plan readiness",
+  "role": "plan-readiness-reviewer",
+  "skills": [
+    "plan-readiness-review"
+  ],
+  "model": "sonnet",
+  "agent": "devkit-core:plan-readiness-reviewer",
+  "brief": "Change plan-d (devkit script), stage readiness: readiness is out of date: bring it up to date. Work only in $CASES/K/main/.claude/worktrees/plan-d on branch plan-d; every file path is absolute under it; start every Bash command with cd $CASES/K/main/.claude/worktrees/plan-d && ; do not fetch. Write the change's files in English.",
+  "progressKey": "readiness/readiness@89326a89b5de",
+  "icon": "📝",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "readiness",
+    "stageTitle": "Plan readiness",
+    "phase": null,
+    "stageIcon": "📝",
+    "stateIcon": null,
+    "title": "📝 plan-d"
+  },
+  "sessionTitle": "📝 plan-d"
+}
+[exit 0]
+```
+
+The real agent, run in `$CASES/K/main/.claude/worktrees/plan-d` (the prompt on standard input; 0.5 min):
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ TMPDIR=$CASES/tmp DEVKIT_HOOK_LOG=$CASES/runs/S-12-review-2.hooks.jsonl claude -p --model sonnet --permission-mode bypassPermissions --plugin-dir $WT/plugins/core --plugin-dir $WT/plugins/openspec --output-format stream-json --verbose < prompt.txt
+[exit 0]
+```
+
+The prompt (`prompt.txt`), the brief being the `brief` field of the `next` above, verbatim:
+
+```text
+This session is the conducting session of the devkit change `plan-d` in a scratch project. It hands one stage to its agent, as the `devkit` skill's Loop does for an `agent` action; the loop's `next` gave this action: stage `readiness`, agent `devkit-core:plan-readiness-reviewer`, model `sonnet`.
+
+Make exactly one Agent call: subagent_type `devkit-core:plan-readiness-reviewer`, model `sonnet`, and as its prompt this brief, verbatim:
+
+Change plan-d (devkit script), stage readiness: readiness is out of date: bring it up to date. Work only in $CASES/K/main/.claude/worktrees/plan-d on branch plan-d; every file path is absolute under it; start every Bash command with cd $CASES/K/main/.claude/worktrees/plan-d && ; do not fetch. Write the change's files in English.
+
+Do nothing else: run no command, read or write no file yourself, and make no other Agent call. When the agent returns, reply with its final message, verbatim.
+```
+
+From the run's stream-json output (kept in the scratch folder while the proof ran):
+
+```text
+session: be1dd5c0-f552-4788-a94a-e08ad0f21a03; conducting model: claude-sonnet-5-5; permission mode: bypassPermissions
+plugin devkit-core 0.16.3 from $WT/plugins/core
+plugin devkit-openspec 0.47.2 from $WT/plugins/openspec
+Agent calls of the conducting session: 1
+Agent call: subagent_type=devkit-core:plan-readiness-reviewer model=sonnet prompt-is-the-brief=yes
+the agent's model: claude-sonnet-5-5
+the agent's task: completed (task notification)
+last result: success is_error=false turns=2 cost_usd=0.2932725
+```
+
+The tools the agent called, in order:
+
+```text
+Bash ls -la openspec/changes/plan-d openspec/changes/plan-d/specs; cat openspec/config.yaml; head -5 openspec/changes/plan-d/readiness.md; git rev-parse HEAD
+Skill 
+Bash cd openspec/changes/plan-d && for f in .openspec.yaml requirements.md proposal.md design.md decisions.md release.md tasks.md specs/greeting/*; do echo "=== $f"; cat -n $f; done; echo ====; cat readiness.md; ls $CASE
+Bash cat -n src/app.ts; ls src docs docs/adr 2>&1; cat package.json; node --version; node --test src/ 2>&1 | tail -8; echo "exit=$?"; openspec validate plan-d --strict 2>&1 | tail -5; git rev-parse HEAD; cat $WT/plugins/
+Bash node --test src/ >/dev/null 2>&1; echo exit=$?; git status --short | head
+Write $CASES/K/main/.claude/worktrees/plan-d/openspec/changes/plan-d/readiness.md
+```
+
+The agent's final message (its last text; the conducting session ran it as a background agent):
+
+```text
+Status: APPROVED
+Blockers: 0
+Report: $CASES/K/main/.claude/worktrees/plan-d/openspec/changes/plan-d/readiness.md
+
+This is attempt 2, written at commit 7cee9c0. The one blocker from round 1, the missing `release.md`, is fixed. The note is readable and no task bumps a version.
+
+I checked these myself:
+- **Validation:** `openspec validate plan-d --strict` passes.
+- **Design claim:** `src/app.ts:1` is `export const app = 1;`, which matches the corrected Context line.
+- **Gate:** `node --test src/` exits 0 on the base, so it isn't red there.
+- **Spec:** the empty-name and space-padded scenarios now exist.
+```
+
+The live hook decisions of the run (`DEVKIT_HOOK_LOG` of the worktree's `guard.mjs`; mode, agent, decision, why, count). The run's transcript holds no typed `/devkit change` command, so the stop and hand-off locks read no run (`no-run`); the planner's stop is judged by the `guard.mjs subagent-stop` calls of the case, with the run transcript they name:
+
+```text
+agent devkit-core:plan-readiness-reviewer allow (no-run) x1
+skill devkit-core:plan-readiness-reviewer allow (not-entry) x1
+subagent-stop devkit-core:plan-readiness-reviewer allow (no-run) x1
+stop session allow (no-run) x1
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/readiness.md
+<!-- devkit-stage readiness result=passed attempt=2 commit=7cee9c06a842c6e176c3dd5239597c7f81c0a401 -->
+# Readiness review: plan-d
+
+## 1. Decision
+- Status: APPROVED
+- Confidence: high
+- Ready to implement: yes
+
+`openspec validate plan-d --strict` passes (run at commit 7cee9c0). The one blocker of round 1 (missing `release.md`) is fixed.
+
+## 2. Scope validation
+Classification: correct. One pure function, `greet(name)`. Out of scope (translations) is in `requirements.md:17-19`. Proposal, design, spec and tasks agree.
+
+## 3. Proposal review
+Problem, goal and impact are clear (`proposal.md:6-27`). `greeting` is a new capability, and Modified Capabilities is empty, which is right: `openspec/specs/` has no `greeting`. AC-1 and AC-2 match `requirements.md:14-15`.
+
+## 4. Design review
+Claims checked against live code:
+- "`src/app.ts` exports only a placeholder constant": confirmed, `src/app.ts:1` is `export const app = 1;`. The wrong claim of round 1 is gone.
+- No TypeScript config or build step: confirmed, the repo holds `package.json`, `src/app.ts`, `docs/adr/0001-start.md` and nothing else of the kind.
+- Node 22.6 or later is stated; the environment runs v26.13.1.
+- No dependency is added: confirmed, `package.json` has none.
+
+No metadata, roadmap or current-state artifact is used by the project. Nothing to check.
+
+## 5. Specs review
+`specs/greeting/spec.md` has one ADDED requirement with SHALL and four scenarios: named, blank, empty and space-padded. Every AC and every design branch has a scenario. The empty-name gap of round 1 is closed.
+
+## 6. Tasks review
+- Task 1.1 is test first, with an exact done condition. Task 1.2 is the gate `node --test src/`.
+- The gate was run on the base: it exits 0 (no tests exist yet), so it is not red there.
+- Paths `src/greet.ts` and `src/greet.test.ts` fall under the real `src/` directory.
+- Release note: `release.md` exists and reads (`packs: []`, then `release: minor`, a `## Greeting by name` title and a body, no code fence). `devkit.release_tag` is set in `openspec/config.yaml`. No task bumps a version, edits a CHANGELOG line or numbers an ADR. `decisions.md` lists no record and gives the reason.
+
+## 7. Omission detection
+No finding. Validation: a blank name is the only edge and it is defined. Non-string input is outside the `string` contract. No data, auth, rollout, retry or migration concern applies to a pure function. Test strategy: `node --test`, in the design.
+
+## 8. Execution risks (top 5 failures)
+1. Cause: a runner older than Node 22.6 / Impact: `.ts` tests do not load / Prevention: the minimum version is stated in `design.md:12`.
+2. Cause: a wrong trim / Impact: a padded name is greeted with spaces / Prevention: the `' Ana '` scenario and test.
+
+No further likely failure for a change of this size.
+
+## 9. Mandatory fixes before implementation
+- [ ] none
+
+## 10. Optional improvements (within scope)
+- [ ] none
+
+## 11. Explicitly out of scope
+- [ ] Translations (`requirements.md:19`).
+
+## 12. Mandatory review questions
+1. Is the problem objectively defined? Yes.
+2. Is the result measurable? Yes, exact strings in AC-1 and AC-2.
+3. Are error behaviors defined? No error path exists; the blank name is defined.
+4. Are edge cases covered? Yes: empty, blank and space-padded.
+5. Are dependencies clear? None, apart from Node 22.6 or later.
+6. Are contracts defined? Yes, `greet(name: string): string`.
+7. Can two developers interpret this differently? No.
+8. Are any decisions implicit instead of written? No.
+9. Do the tasks fully deliver the intended outcome? Yes.
+10. What will be discovered too late? Nothing found.
+
+## 13. Final conclusion
+- Can we start? Yes.
+- What must be fixed? Nothing.
+- Main risk if ignored? A Node older than 22.6 on a runner, already stated in the design.
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ git status --short
+ M openspec/changes/plan-d/requirements.md
+?? openspec/changes/plan-d/decisions.md
+?? openspec/changes/plan-d/design.md
+?? openspec/changes/plan-d/proposal.md
+?? openspec/changes/plan-d/readiness.md
+?? openspec/changes/plan-d/release.md
+?? openspec/changes/plan-d/specs/
+?? openspec/changes/plan-d/tasks.md
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/plan-d)
+$ node $DEV/change-loop.mjs next --change plan-d --lang en
+devkit-run: plan-d
+devkit-end: plan-d waiting-for-owner
+{
+  "version": 1,
+  "change": "plan-d",
+  "script": "devkit",
+  "root": "$CASES/K/main/.claude/worktrees/plan-d",
+  "branch": "plan-d",
+  "filesLanguage": "en",
+  "kind": "end",
+  "stage": "approval",
+  "stageTitle": "Owner's approval",
+  "role": "owner",
+  "skills": [],
+  "model": "sonnet",
+  "end": {
+    "state": "waiting-for-owner",
+    "why": "waiting-approval"
+  },
+  "params": {
+    "id": "plan-d"
+  },
+  "detail": {
+    "readiness": "sha256:e4d227490d36",
+    "release": "sha256:173d52afec5e"
+  },
+  "reply": "The plan of plan-d is written and reviewed. Read it and tell me whether you approve it; I go on as soon as you answer.",
+  "icon": "📝",
+  "state": {
+    "state": "waiting-for-owner",
+    "reason": {
+      "code": "waiting-approval",
+      "text": "your approval of the plan"
+    },
+    "stage": "approval",
+    "stageTitle": "Owner's approval",
+    "phase": null,
+    "stageIcon": "📝",
+    "stateIcon": "🙋",
+    "title": "🙋 📝 plan-d"
+  },
+  "sessionTitle": "🙋 📝 plan-d"
+}
+[exit 1]
+```
+
+### N: release.md touched after readiness.md keeps the readiness passed
+
+The same seed in N (no `devkit.release_tag`), with its readiness review seeded passed, then `release.md` written after it.
+
+```text
+(in $CASES/N/main)
+$ node $DEV/change-loop.mjs open plan-d --script devkit --why capability --lang en <<< "Greet a user by name."
+devkit-run: plan-d
+{
+  "version": 1,
+  "change": "plan-d",
+  "script": "devkit",
+  "worktree": "$CASES/N/main/.claude/worktrees/plan-d",
+  "branch": "plan-d",
+  "base": "origin/main",
+  "reply": "I opened the change plan-d on the full script, because it adds something the project cannot do today. Next come a few questions about your request; to use the short script instead, say so before the plan is written."
+}
+[exit 0]
+```
+
+Seeded (the plan stages, each passed) in `$CASES/N/main/.claude/worktrees/plan-d`:
+
+```text
+(in $CASES/N/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/requirements.md
+<!-- devkit-stage requirements result=passed attempt=1 commit=f84794fdb858f0b011c772f321b71d239bd09785 -->
+# Requirements
+
+## Request
+
+> Greet a user by name.
+
+## Assumptions
+
+- The app is a Node.js service; its code lives in `src/`.
+
+## Acceptance criteria
+
+- AC-1: `greet('Ana')` returns `Hello, Ana!`.
+- AC-2: `greet('')` and `greet('  ')` return `Hello, friend!`.
+
+## Out of scope
+
+- Translations.
+[exit 0]
+```
+
+```text
+(in $CASES/N/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/decisions.md
+<!-- devkit-stage decisions result=not-applicable attempt=1 commit=f84794fdb858f0b011c772f321b71d239bd09785 -->
+# Decisions and ADRs
+
+No record: a pure function with no boundary, contract or technology choice.
+[exit 0]
+```
+
+```text
+(in $CASES/N/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/proposal.md
+<!-- devkit-stage proposal result=passed attempt=1 commit=f84794fdb858f0b011c772f321b71d239bd09785 -->
+# Proposal
+
+## Why
+
+The app answers no greeting today; the owner wants `greet(name)` for the welcome screen.
+
+## What Changes
+
+- New `src/greet.ts` exporting `greet(name: string): string`, returning `Hello, <name>!`.
+- An empty or blank name returns `Hello, friend!`.
+
+## Acceptance criteria
+
+- AC-1: `greet('Ana')` returns `Hello, Ana!`.
+- AC-2: `greet('')` and `greet('  ')` return `Hello, friend!`.
+
+## Capabilities
+
+### New Capabilities
+- `greeting`: the greeting the app gives a named user.
+
+### Modified Capabilities
+
+## Impact
+
+- `src/greet.ts` (new), `src/greet.test.ts` (new). No dependency is added.
+[exit 0]
+```
+
+```text
+(in $CASES/N/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/specs/greeting/spec.md
+<!-- devkit-stage specs result=passed attempt=1 commit=f84794fdb858f0b011c772f321b71d239bd09785 -->
+## ADDED Requirements
+
+### Requirement: The app greets a user by name
+The app SHALL return `Hello, <name>!` from `greet(name)` for a non-blank name, and `Hello, friend!` for an empty or blank one.
+
+#### Scenario: a named user
+- **WHEN** `greet('Ana')` is called
+- **THEN** it returns `Hello, Ana!`
+
+#### Scenario: a blank name
+- **WHEN** `greet('  ')` is called
+- **THEN** it returns `Hello, friend!`
+[exit 0]
+```
+
+```text
+(in $CASES/N/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/design.md
+<!-- devkit-stage design result=passed attempt=1 commit=f84794fdb858f0b011c772f321b71d239bd09785 -->
+# Design
+
+## Context
+
+`src/app.ts` exports one function per endpoint; there is no greeting.
+
+## Decisions
+
+- `src/greet.ts` exports `greet(name: string): string`: `name.trim()` empty gives `Hello, friend!`, else `Hello, ${name.trim()}!`.
+- Tests in `src/greet.test.ts` with `node --test` (no new dependency).
+
+## Risks
+
+- None beyond a wrong trim; the tests cover blank names.
+[exit 0]
+```
+
+```text
+(in $CASES/N/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/tasks.md
+<!-- devkit-stage tasks result=passed attempt=1 commit=f84794fdb858f0b011c772f321b71d239bd09785 -->
+# Tasks
+
+## 1. Greeting
+
+- [ ] 1.1 Write `src/greet.test.ts` (AC-1, AC-2: a name, an empty name, a blank name), see it fail, then write `src/greet.ts`. Done when `node --test src/` passes.
+- [ ] 1.2 Gate: `node -e 0` green
+[exit 0]
+```
+
+Seeded (the readiness review, passed) in `$CASES/N/main/.claude/worktrees/plan-d`:
+
+```text
+(in $CASES/N/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/readiness.md
+<!-- devkit-stage readiness result=passed attempt=1 commit=f84794fdb858f0b011c772f321b71d239bd09785 -->
+# Readiness review: plan-d
+
+## 1. Decision
+- Status: APPROVED
+- Confidence: high
+- Ready to implement: yes
+[exit 0]
+```
+
+```text
+(in $CASES/N/main/.claude/worktrees/plan-d)
+$ cat openspec/changes/plan-d/release.md
+packs: []
+release: minor
+
+## Greetings
+
+- `greet(name)` returns a greeting for a name.
+[exit 0]
+```
+
+```text
+(in $CASES/N/main/.claude/worktrees/plan-d)
+$ stat -c '%y %n' openspec/changes/plan-d/readiness.md openspec/changes/plan-d/release.md   # the note is newer than the review
+2026-11-24 22:09:58.772142999 -0300 openspec/changes/plan-d/readiness.md
+2026-11-24 22:10:03.772143125 -0300 openspec/changes/plan-d/release.md
+[exit 0]
+```
+
+```text
+(in $CASES/N/main/.claude/worktrees/plan-d)
+$ node $DEV/flow-check.mjs plan-d --json   (its "next", "end" and readiness stage)
+{
+  "next": null,
+  "end": {
+    "state": "waiting-for-owner",
+    "stage": "approval",
+    "reasonCode": "owner-pending",
+    "params": {
+      "stage": "approval",
+      "role": "owner"
+    },
+    "reason": "the owner's approval waits for the owner"
+  },
+  "readiness": {
+    "id": "readiness",
+    "state": "passed",
+    "reasonCode": "passed",
+    "params": {
+      "attempt": 1
+    },
+    "result": "passed",
+    "attempt": 1
+  }
+}
+[exit 1]
+```
+
+```text
+(in $CASES/N/main/.claude/worktrees/plan-d)
+$ node $DEV/change-loop.mjs next --change plan-d --lang en
+devkit-run: plan-d
+devkit-end: plan-d waiting-for-owner
+{
+  "version": 1,
+  "change": "plan-d",
+  "script": "devkit",
+  "root": "$CASES/N/main/.claude/worktrees/plan-d",
+  "branch": "plan-d",
+  "filesLanguage": "en",
+  "kind": "end",
+  "stage": "approval",
+  "stageTitle": "Owner's approval",
+  "role": "owner",
+  "skills": [],
+  "model": "sonnet",
+  "end": {
+    "state": "waiting-for-owner",
+    "why": "waiting-approval"
+  },
+  "params": {
+    "id": "plan-d"
+  },
+  "detail": {
+    "readiness": "sha256:f1b3efa05236"
+  },
+  "reply": "The plan of plan-d is written and reviewed. Read it and tell me whether you approve it; I go on as soon as you answer.",
+  "icon": "📝",
+  "state": {
+    "state": "waiting-for-owner",
+    "reason": {
+      "code": "waiting-approval",
+      "text": "your approval of the plan"
+    },
+    "stage": "approval",
+    "stageTitle": "Owner's approval",
+    "phase": null,
+    "stageIcon": "📝",
+    "stateIcon": "🙋",
+    "title": "🙋 📝 plan-d"
+  },
+  "sessionTitle": "🙋 📝 plan-d"
+}
+[exit 1]
+```
+
+Done-condition of S-12 (task 9.15):
+
+```text
+holds: the first review: the claude -p run exited 0 with one Agent call
+holds: the first review: readiness.md has result=failed
+holds: the first review: a finding names release.md
+holds: the loop hands the planner the revision (devkit-core:change-planner: Change plan-d (devkit script), stage proposal: readiness failed at attempt 1 (failures in a row: 1 of 3): revise the plan from its findings)
+holds: on the copy flow-check hands the readiness review again (next: readiness rerun-after-fix)
+holds: on the copy change-loop next hands the readiness review, not the same revision (devkit-core:plan-readiness-reviewer)
+holds: the planner: the claude -p run exited 0 with one Agent call
+holds: the planner wrote release.md
+holds: parseReleaseNote reads it
+holds: after the planner flow-check hands the readiness review (next: readiness rerun-after-fix)
+holds: the second review: the claude -p run exited 0 with one Agent call
+holds: the second review: readiness.md has result=passed
+holds: the loop then leaves the plan stages (end The plan of plan-d is written and reviewed. Read it and tell me whether you approve it; I go on as soon as you answer.)
+holds: in N the readiness stage stays passed (passed passed)
+holds: in N change-loop next hands no plan stage (end The plan of plan-d is written and reviewed. Read it and tell me whether you approve it; I go on as soon as you answer.)
+```

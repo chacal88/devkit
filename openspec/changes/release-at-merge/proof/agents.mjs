@@ -1,4 +1,4 @@
-// The conducting session's part of the release-at-merge proof (design D-16, S-1 to S-11; tasks 7.1 to 7.7): this worktree's real agents,
+// The conducting session's part of the release-at-merge proof (design D-16, S-1 to S-12; tasks 7.1 to 7.7 and 9.15): this worktree's real agents,
 // each run with `claude --plugin-dir <worktree>/plugins/core --plugin-dir <worktree>/plugins/openspec -p` on the brief this worktree's
 // `change-loop.mjs next` gives, in the scratch projects K, K0 and N, each change opened with this worktree's `change-loop.mjs open`.
 // Each case writes its commands, the files it seeded and the real outputs to one fragment; `assemble` joins them into agents-run.md.
@@ -6,11 +6,12 @@
 //   TMPDIR=/var/tmp/devkit-release-at-merge node openspec/changes/release-at-merge/proof/agents.mjs seed       # K, K0 and N
 //   TMPDIR=/var/tmp/devkit-release-at-merge node openspec/changes/release-at-merge/proof/agents.mjs S-1 S-2    # cases, in that order
 //   TMPDIR=/var/tmp/devkit-release-at-merge node openspec/changes/release-at-merge/proof/agents.mjs assemble   # proof/agents-run.md
+//   TMPDIR=/var/tmp/devkit-release-at-merge node openspec/changes/release-at-merge/proof/agents.mjs append=S-12 # one case added to its end
 //
 // A case whose done-condition does not hold records it and exits 1. Remove $TMPDIR/devkit-proof-release-at-merge after the run.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   PROOF, CASES, WT, DEV, Record, sh, git, put, read, commitAll, seedProject, consumerFiles, hash12, node, short, BLANK,
@@ -143,7 +144,7 @@ function describeRun(label, action) {
   const notice = events.filter((e) => e.type === 'system' && e.subtype === 'task_notification').pop();
   const final = texts.pop() ?? notice?.summary ?? '';
   const inner = own.flatMap((e) => e.message?.content ?? []).filter((b) => b.type === 'tool_use')
-    .map((b) => `${b.name} ${b.input?.file_path ?? b.input?.command ?? b.input?.pattern ?? b.input?.path ?? ''}`.replace(/\s+/g, ' ').slice(0, 220));
+    .map((b) => short(`${b.name} ${b.input?.file_path ?? b.input?.command ?? b.input?.pattern ?? b.input?.path ?? ''}`).replace(/\s+/g, ' ').slice(0, 220));
   const models = [...new Set(own.map((e) => e.message?.model).filter(Boolean))];
   const stats = [
     `session: ${init.session_id ?? '?'}; conducting model: ${init.model ?? '?'}; permission mode: ${init.permissionMode ?? '?'}`,
@@ -675,6 +676,113 @@ function s11() {
   k.done('S-11 (task 7.7)');
 }
 
+// ---------------------------------------------------------------- a note-only revision (S-12, task 9.15; D-21)
+
+// The flow checker's `next` and its readiness stage for the change, recorded (`flow-check.mjs <id> --json`, the report the loop reads).
+function flowOf(p, c, rec) {
+  const r = sh(c.wt, node('flow-check.mjs', c.id, '--json'), { env: p.env, expect: null });
+  const j = JSON.parse(r.out);
+  const readiness = (j.stages ?? []).find((s) => s.id === 'readiness') ?? null;
+  const pick = (s) => s && Object.fromEntries(['id', 'state', 'reasonCode', 'params', 'result', 'attempt'].filter((k) => k in s).map((k) => [k, s[k]]));
+  rec.block(`(in ${c.wt})\n$ node $DEV/flow-check.mjs ${c.id} --json   (its "next", "end" and readiness stage)\n${JSON.stringify({ next: j.next ?? null, end: j.end ?? null, readiness: pick(readiness) }, null, 2)}\n[exit ${r.code}]`);
+  return { next: j.next ?? null, end: j.end ?? null, readiness };
+}
+
+// Each file of the change folder with its modification time and the first 12 hex of its sha256, recorded.
+function planFiles(c, rec, what) {
+  const root = join(c.wt, dirOf(c));
+  const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
+  const rows = walk(root).sort().map((f) => ({ path: f.slice(c.wt.length + 1), mtime: statSync(f).mtime.toISOString(), hash: hash12(f) }));
+  rec.text(what);
+  rec.block(rows.map((r) => `${r.mtime}  ${r.hash}  ${r.path}`).join('\n'));
+  return new Map(rows.map((r) => [r.path, r]));
+}
+
+// release.md written with a modification time at least 5 s after readiness.md's (the flow's tolerance for "newer" is 2 s), recorded.
+function noteAfterReadiness(c, rec, note = NOTE) {
+  const file = join(c.wt, dirOf(c), 'release.md');
+  put(c.wt, { [`${dirOf(c)}/release.md`]: note });
+  const at = Math.max(Date.now(), statSync(join(c.wt, dirOf(c), 'readiness.md')).mtimeMs + 5000) / 1000;
+  utimesSync(file, at, at);
+  sh(c.wt, ['cat', `${dirOf(c)}/release.md`], { rec });
+  sh(c.wt, ['stat', '-c', '%y %n', `${dirOf(c)}/readiness.md`, `${dirOf(c)}/release.md`], { rec, label: `stat -c '%y %n' ${dirOf(c)}/readiness.md ${dirOf(c)}/release.md   # the note is newer than the review` });
+}
+
+// A copy of project `p` as `name` (cp -a keeps every modification time), its origin, worktrees and gh stub pointed at the copy.
+function copyProject(p, name, rec) {
+  const dir = join(CASES, name);
+  sh(CASES, ['cp', '-a', p.dir, dir], { rec });
+  const q = attach(name);
+  sh(q.main, ['git', 'remote', 'set-url', 'origin', q.origin], { env: q.env, rec });
+  const wts = readdirSync(join(q.main, '.claude', 'worktrees')).map((w) => join(q.main, '.claude', 'worktrees', w));
+  sh(q.main, ['git', 'worktree', 'repair', ...wts], { env: q.env, rec });
+  const stateFile = join(dir, 'gh', 'state.json');
+  writeFileSync(stateFile, JSON.stringify({ ...JSON.parse(readFileSync(stateFile, 'utf8')), origin: q.origin }, null, 2) + '\n');
+  sh(q.main, ['git', 'worktree', 'list'], { env: q.env, rec });
+  return q;
+}
+
+const PASSED_READINESS = (h, id) => `${head('readiness', h)}# Readiness review: ${id}\n\n## 1. Decision\n- Status: APPROVED\n- Confidence: high\n- Ready to implement: yes\n`;
+
+function s12() {
+  const rec = begin('S-12', '## S-12 K: a revision that writes only release.md sends the plan back to the readiness review; N keeps it passed (task 9.15; AC-16, AC-1)');
+  rec.text('Run after review round 1 (D-21; adr-reviewer F2, spec-reviewer F3, code-quality F3, test-coverage F5, architecture F1), on projects K and N built anew by `seed`. The failure path first, then the success path.');
+  const p = attach('K');
+  const k = new Checks(rec);
+  rec.text('### K: the real readiness review fails a plan with no release.md\n\nS-8\'s seed: the plan stages of `plan-d`, each passed, with no `release.md`.');
+  const c = seededPlan(p, 'plan-d', rec, { note: null });
+  const first = reviewer(p, c, rec, 'S-12-review-1');
+  k.that(first.run.code === 0 && first.run.calls === 1, 'the first review: the claude -p run exited 0 with one Agent call');
+  k.that(/^<!-- devkit-stage readiness result=failed /.test(first.text), 'the first review: readiness.md has result=failed');
+  k.that(/release\.md/.test(findingsOf(first.text)), 'the first review: a finding names release.md');
+  rec.text('The loop hands the planner the revision:');
+  const { action: revision } = next(p, c, rec);
+  k.that(revision.kind === 'agent' && revision.agent === 'devkit-core:change-planner' && /readiness failed at attempt 1/.test(revision.brief ?? ''), `the loop hands the planner the revision (${revision.agent ?? revision.kind}: ${short(revision.brief ?? '').split('. Work only')[0]})`);
+
+  rec.text('### A copy of that state: only release.md written\n\nProject `K` copied to `K-copy` (`cp -a`, every modification time kept), where the case writes only `release.md`, newer than `readiness.md`; no other file changes.');
+  const q = copyProject(p, 'K-copy', rec);
+  const cq = attachChange(q, c.id);
+  noteAfterReadiness(cq, rec);
+  sh(cq.wt, ['git', 'status', '--short'], { rec, label: 'git status --short   # the plan of the seed (uncommitted, as the plan stages leave it) and the review; release.md the only file the copy adds' });
+  const flowCopy = flowOf(q, cq, rec);
+  const { action: copyNext } = next(q, cq, rec);
+  k.that(flowCopy.readiness?.reasonCode === 'header-failed' && flowCopy.next?.stage === 'readiness' && flowCopy.next?.reasonCode === 'rerun-after-fix', `on the copy flow-check hands the readiness review again (next: ${flowCopy.next?.stage} ${flowCopy.next?.reasonCode})`);
+  k.that(copyNext.kind === 'agent' && copyNext.agent === 'devkit-core:plan-readiness-reviewer', `on the copy change-loop next hands the readiness review, not the same revision (${copyNext.agent ?? copyNext.kind})`);
+
+  rec.text('### K: the real planner revises the plan, the real reviewer passes it');
+  const before = planFiles(c, rec, 'The change folder before the planner (modification time, sha256 prefix, path):');
+  const plan = runAgent(c, revision, rec, 'S-12-planner');
+  const after = planFiles(c, rec, 'The change folder after the planner:');
+  const changed = [...after.keys()].filter((f) => before.get(f)?.hash !== after.get(f).hash);
+  const removed = [...before.keys()].filter((f) => !after.has(f));
+  rec.text(`The plan files the planner changed or added: ${changed.map((f) => `\`${f}\``).join(', ') || 'none'}${removed.length ? `; removed: ${removed.map((f) => `\`${f}\``).join(', ')}` : ''}.`);
+  k.that(plan.code === 0 && plan.calls === 1, 'the planner: the claude -p run exited 0 with one Agent call');
+  k.that(after.has(`${dirOf(c)}/release.md`), 'the planner wrote release.md');
+  if (after.has(`${dirOf(c)}/release.md`)) {
+    sh(c.wt, ['cat', `${dirOf(c)}/release.md`], { rec });
+    const parsed = parseNote(c, rec);
+    k.that(!parsed.error && Array.isArray(parsed.packs), 'parseReleaseNote reads it');
+  }
+  const flowK = flowOf(p, c, rec);
+  k.that(flowK.next?.stage === 'readiness' && flowK.next?.reasonCode === 'rerun-after-fix', `after the planner flow-check hands the readiness review (next: ${flowK.next?.stage} ${flowK.next?.reasonCode})`);
+  const second = reviewer(p, c, rec, 'S-12-review-2');
+  k.that(second.run.code === 0 && second.run.calls === 1, 'the second review: the claude -p run exited 0 with one Agent call');
+  k.that(/^<!-- devkit-stage readiness result=passed /.test(second.text), 'the second review: readiness.md has result=passed');
+  const { action: done } = next(p, c, rec);
+  k.that(done.kind !== 'agent' || !['devkit-core:change-planner', 'devkit-core:plan-readiness-reviewer'].includes(done.agent), `the loop then leaves the plan stages (${done.kind} ${done.agent ?? done.reply ?? done.reason ?? ''})`.replace(/\s+\)/, ')'));
+
+  rec.text('### N: release.md touched after readiness.md keeps the readiness passed\n\nThe same seed in N (no `devkit.release_tag`), with its readiness review seeded passed, then `release.md` written after it.');
+  const n = attach('N');
+  const cn = seededPlan(n, 'plan-d', rec, { note: null });
+  seedFiles(cn, { [`${dirOf(cn)}/readiness.md`]: PASSED_READINESS(git(cn.wt, 'rev-parse', 'HEAD'), cn.id) }, rec, 'Seeded (the readiness review, passed)');
+  noteAfterReadiness(cn, rec);
+  const flowN = flowOf(n, cn, rec);
+  const { action: nNext } = next(n, cn, rec);
+  k.that(flowN.readiness?.state === 'passed', `in N the readiness stage stays passed (${flowN.readiness?.state} ${flowN.readiness?.reasonCode})`);
+  k.that(!(nNext.kind === 'agent' && ['devkit-core:change-planner', 'devkit-core:plan-readiness-reviewer'].includes(nNext.agent)), `in N change-loop next hands no plan stage (${nNext.kind} ${nNext.agent ?? nNext.reply ?? ''})`.replace(/\s+\)/, ')'));
+  k.done('S-12 (task 9.15)');
+}
+
 // ---------------------------------------------------------------- assemble
 
 const HEADER = `# Real-run proof: the conducting session's part, the real agents on every variant (tasks 7.1 to 7.7)
@@ -716,17 +824,23 @@ transcripts hold no typed command and the live hook let every stop through as \`
 `;
 
 function assemble() {
-  const order = ['0-seed', ...Array.from({ length: 11 }, (_, i) => `S-${i + 1}`)];
+  const order = ['0-seed', ...Array.from({ length: 12 }, (_, i) => `S-${i + 1}`)];
   const parts = order.map((n) => join(RECORDS, `${n}.md`)).filter((f) => existsSync(f)).map((f) => readFileSync(f, 'utf8').replace(/\n+$/, '\n'));
   writeFileSync(OUT, `${HEADER}\n${parts.join('\n')}`);
 }
 
 // ---------------------------------------------------------------- main
 
-const CASE_FNS = { 'S-1': s1, 'S-2': s2, 'S-3': s3, 'S-4': s4, 'S-5': s5, 'S-6': s6, 'S-7': s7, 'S-8': s8, 'S-9': s9, 'S-10': s10, 'S-11': s11 };
+const CASE_FNS = { 'S-1': s1, 'S-2': s2, 'S-3': s3, 'S-4': s4, 'S-5': s5, 'S-6': s6, 'S-7': s7, 'S-8': s8, 'S-9': s9, 'S-10': s10, 'S-11': s11, 'S-12': s12 };
 for (const arg of process.argv.slice(2)) {
   if (arg === 'seed') seed();
   else if (arg === 'assemble') assemble();
+  else if (arg.startsWith('append=')) {
+    // One case's fragment added to the end of agents-run.md (a case run after the others were assembled and their scratch folder removed).
+    const f = join(RECORDS, `${arg.slice('append='.length)}.md`);
+    if (!existsSync(f)) throw new Error(`no fragment ${f}: run the case first`);
+    appendFileSync(OUT, `\n${readFileSync(f, 'utf8').replace(/\n+$/, '\n')}`);
+  }
   else if (arg.startsWith('refix=')) refix(arg.slice('refix='.length));
   else if (arg.startsWith('state=')) {
     // The release state of a change's plan as releaseStateOf measures it, printed (a check of the measurement; nothing recorded).

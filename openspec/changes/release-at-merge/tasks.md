@@ -440,14 +440,14 @@ ls-files` check needs (readiness attempt 5, O4).
   `devkit.release_tag`; in `docs/openspec-flow.md` the `--assign` paragraph's exit 3 (D-13). Done
   when the 9.11 tests pass and every `release-note AC-1` and `AC-9` test stays green.
 - [x] 9.13 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/merge-setup.test.mjs plugins/openspec/hooks/change-loop.test.mjs && python3 scripts/check.py` green; covers AC-1, AC-3, AC-4, AC-8, AC-9 and AC-12 on the paths round 1 found untested, and the base fetch for a noted change.
-- [ ] 9.14 (code-quality F1 in a real run; D-24 and D-18 in the cases they change) Add P-13 to `openspec/changes/release-at-merge/proof/cases.mjs` (D-16) and run the whole
+- [x] 9.14 (code-quality F1 in a real run; D-24 and D-18 in the cases they change) Add P-13 to `openspec/changes/release-at-merge/proof/cases.mjs` (D-16) and run the whole
   script again under a private `TMPDIR` (`$TMPDIR/devkit-proof-release-at-merge`, never `/tmp`),
   `node openspec/changes/release-at-merge/proof/cases.mjs` with no case named, so it writes
   `proof/real-run.md` anew. Done when it exits 0 and prints `P-1 done` to `P-13 done`, P-5 records
   `--assign` exit 3, P-1 and P-13 show the step's record in `git log -1 --format=%B`, and P-13 reads
   `assign-release` after the merge by hand, then exit 0, the ADR numbered above the sibling's, the
   state assigned and current and `enable-auto-merge` next (AC-4, AC-5, AC-9, AC-15).
-- [ ] 9.15 (adr-reviewer F2, spec-reviewer F3, code-quality F3, test-coverage F5, architecture F1 with
+- [x] 9.15 (adr-reviewer F2, spec-reviewer F3, code-quality F3, test-coverage F5, architecture F1 with
   the real agents) Add S-12 to `openspec/changes/release-at-merge/proof/agents.mjs` (D-16) and run it with
   the worktree's agents (`claude --plugin-dir <worktree>/plugins/core --plugin-dir
   <worktree>/plugins/openspec -p`), appending to `proof/agents-run.md` under `## S-12 ` with a
@@ -456,7 +456,7 @@ ls-files` check needs (readiness attempt 5, O4).
   readiness review (`rerun-after-fix`), the real planner's revision is followed by the readiness
   review and the real reviewer passes it, and in N the touched note keeps the readiness passed
   (AC-16, AC-15).
-- [ ] 9.16 Gate: `python3 scripts/check.py && openspec validate release-at-merge --strict && grep -q "^## P-13 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## S-12 " openspec/changes/release-at-merge/proof/agents-run.md` green, the scratch folders removed; covers AC-15 and AC-16 in real runs.
+- [x] 9.16 Gate: `python3 scripts/check.py && openspec validate release-at-merge --strict && grep -q "^## P-13 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## S-12 " openspec/changes/release-at-merge/proof/agents-run.md` green, the scratch folders removed; covers AC-15 and AC-16 in real runs.
 - [ ] 9.17 (adr-reviewer nit F5; code-quality F1 on this branch) After the last merge of `origin/main` before review (when the base moved since 9.1, run
   the step itself, which merges it), run this worktree's `node plugins/openspec/hooks/release-merge.mjs
   --assign --base main --json` (D-17, D-27) and append the command, its JSON and `git log -1

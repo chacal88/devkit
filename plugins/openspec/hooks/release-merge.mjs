@@ -421,7 +421,8 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
     // whose key is in `reassign`, and the record's citation paths that hold its number, each through `git merge-file` of the path's text at
     // the recorded commit that wrote it, the working text and that commit's text with the record's numbers masked. Only the tokens the step
     // wrote go back, so a citation the base brought with the same number stays; a line edited where the step wrote a number conflicts and is
-    // refused. A release line in `reassign` is left to step 3, which writes every release line.
+    // refused. A release line in `reassign` is left to step 3, which writes every release line; so is a citation in CHANGELOG.md, whose
+    // whole text step 3 writes from the note on the target (a merge by hand that took the base's changelog holds no entry to give back).
     if (!needsMerge && state.reassign.length) {
       const record = stepRecord(root, { head: oldHead, tip: target, id });
       const back = (record?.adrs ?? []).filter((a) => state.reassign.includes(a.from));
@@ -441,7 +442,7 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
         writeStaged(root, touched, a.from, text);
       }
       for (const { path, commit } of back.length ? record.citations : []) {
-        if (!existsSync(join(root, path))) continue;
+        if (path === CHANGELOG || !existsSync(join(root, path))) continue;
         const working = readFileSync(join(root, path), 'utf8');
         const text = givenBack(commit, path, working);
         if (text === null) return cannot(path);
