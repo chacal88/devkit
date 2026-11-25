@@ -1,0 +1,46 @@
+devkit-run: feat
+devkit-end: feat waiting-for-owner
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit",
+  "root": "<scratch>/proj",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "end",
+  "stage": "implementation",
+  "stageTitle": "Implementation",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "model": "sonnet",
+  "end": {
+    "state": "waiting-for-owner",
+    "why": "waiting-approval-again"
+  },
+  "params": {
+    "id": "feat"
+  },
+  "detail": {
+    "readiness": "sha256:1c0dd55f1ede",
+    "plan": "sha256:e566c562f49b"
+  },
+  "reply": "The plan of feat changed after your approval, so it needs your approval again.",
+  "icon": "🛠️",
+  "state": {
+    "state": "waiting-for-owner",
+    "reason": {
+      "code": "waiting-approval-again",
+      "text": "your approval of the plan"
+    },
+    "stage": "implementation",
+    "stageTitle": "Implementation",
+    "phase": null,
+    "stageIcon": "🛠️",
+    "stateIcon": "🙋",
+    "title": "🙋 🛠️ feat"
+  },
+  "sessionTitle": "🙋 🛠️ feat"
+}
