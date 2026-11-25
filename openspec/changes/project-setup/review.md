@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=4 commit=816d17933190f34f883f55651ac90c99d3bfd5d5 -->
+<!-- devkit-stage review result=failed attempt=5 commit=2079b0f84d05c024a14338da7f9117b44b14c137 -->
 # Review: project-setup, round 1
 
 Path: agents · range `3ca2e47e35e95cf53cf745a23838909c88dcd5ce..02e67807136fa670f73202efc2601e0f3b1936c0` · structural: PASS
@@ -112,3 +112,29 @@ None.
 
 ## Next
 Ready to ship.
+
+# Review: project-setup, staleness re-review (round 1)
+
+Path: agents · range `fc287351f9aee0c2cf1f38eb0a4c28d23f172205..2079b0f84d05c024a14338da7f9117b44b14c137` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 2079b0f |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 2079b0f |
+| security-reviewer | approved | 0 | 0 | 0 | 0 | 2079b0f |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 2079b0f |
+| test-coverage-reviewer | rejected | 0 | 1 | 1 | 0 | 2079b0f |
+
+Consensus: FAIL (round 1/2)
+
+## Open findings
+- test-coverage-reviewer — [important] plugins/openspec/hooks/change-loop.mjs:2119 — [5] The 'inside' branch that ac5958e made explicit (findRoot's folder strictly below the git top level, as design D-1 states) has no test: if `root: inside ? start : top` became `root: top`, every setup test stays green (the existing cases have start == top, a null start, or an outer start), and in a repository holding app/openspec/changes, setup typed in app/ would write its config at the repository top. Write in: change-loop.test.mjs next to N-20, as a 'setup AC-1 start:' test: plainGitRepo() plus mkdir app/openspec/changes, startRun(join(root, 'app'), 'setup') and startRun(join(root, 'app', 'src'), 'setup') both answer [mode, root] = ['setup', join(root, 'app')].
+
+## Refuted by verification
+None.
+
+## Notes
+- A staleness re-review (round 1 by the skill rule: Commit lines went stale after ac5958e), for the five reviewers approved at 76e88ad; code-quality-reviewer is approved at 816d179 (owner-authorized round 4).
+
+## Next
+Fix the open findings, then run review-change again (round 2).

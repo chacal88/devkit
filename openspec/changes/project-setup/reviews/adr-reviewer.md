@@ -1,5 +1,5 @@
 Verdict: approved
-Commit: 76e88ad3fdab3ffd0ced32b6418bc4c38cef11da
+Commit: 2079b0f84d05c024a14338da7f9117b44b14c137
 
 ## ADR review — project-setup
 
@@ -9,28 +9,29 @@ Commit: 76e88ad3fdab3ffd0ced32b6418bc4c38cef11da
 - [praise] plugins/openspec/skills/devkit/scripts/kit-installer.mjs; plugins/compozy/kit/ — The kit, its templates and its installer stay in devkit-compozy; devkit-openspec ships only a finder, as ADR 0031 decision 4 says, keeping ADR 0009's opt-in pack untouched.
 - [nit] docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md:50 (Decision 1); openspec/changes/project-setup/design.md D-14 note — ADR 0031 decision 1 says the setup runs only from the owner's typed command, but after the owner's choice A the plan protects only the skill and leaves the scripts runnable by hand (evidence F-1); the ADR does not record that gap or the retro hook, so add one dated line to ADR 0031 saying so.
 
-ADRs reviewed: ADR 0002 (`docs/adr/0002-merge-without-the-owner-opt-in.md`), ADR 0026 (`docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`), ADR 0031 (`docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md`). These were re-read in round 2 to check the fixes and the lines changed since 02e6780. Round 1 covered ADR 0003, 0004, 0009, 0010, 0018, 0019, 0022, 0024 and 0030 (`docs/adr/`); none of the lines changed since then touch them. Open-decisions log: `docs/coordination-design.md`, Open points.
+ADRs reviewed: ADR 0031 (`docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md`) and ADR 0026 (`docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`), re-read for the range 76e88ad..2079b0f. Earlier rounds also reviewed ADR 0002, 0003, 0004, 0009, 0010, 0018, 0019, 0022, 0024 and 0030 (`docs/adr/`). Nothing in this range touches them, and no file under `docs/adr/` changed. Open-decisions log: `docs/coordination-design.md`, Open points. No open decision is touched.
 
-### Changes since round 1
+### Changes since round 2 (76e88ad..2079b0f)
 
-- **387bf15 (code):** these fixes come from other reviewers' findings. None of them conflicts with an ADR:
-  - `guard.mjs` `parseDevkitBlock` and `flow-check.mjs` `readTestSettings` now read CRLF files.
-  - `setup-block.mjs` refuses an inline map or list in the devkit block.
-  - `setup-block.mjs` `ciPinOf` now reads the pin through `deliver-check` `pinsIn`. This keeps one pin reader, in line with ADR 0030.
-  - `change-loop.mjs` answers `setup-no-repo` outside a git repository even where `openspec/changes` exists.
-- **387bf15 (F2 fix):** step 7 of `plugins/openspec/skills/devkit/SKILL.md` now tells the owner to change a written `ship: merge` (or `trunk-auto`) by hand when the ruleset is blocked. So `merge` mode stays blocked, not silently downgraded, and changing it is left to the owner, as ADR 0002 requires.
-- **45cbd1c (plan wording, owner's choice A):** the typed-only requirement now covers only the `devkit` skill not being invocable by the model, as for `/devkit change`. That fits the scope ADR 0031 decision 1 gives in its parenthesis. The ADR's wording, which is still stronger, is nit F4.
-- **22d0706 (merge of train 18):** 0031 is still the next free ADR number. The version bumps still take the next minor of base fc28735: marketplace 0.52.2 to 0.53.0, devkit-openspec 0.47.2 to 0.48.0, devkit-compozy 0.4.0 to 0.5.0.
-- **76e88ad:** evidence only.
+- **ac5958e (code, code-quality F6):** this commit changes the `setup` branch of `startMode` in `plugins/openspec/hooks/change-loop.mjs`.
+  - A folder outside any git repository still answers `setup-no-repo`, as before.
+  - The setup root is `findRoot`'s folder only when that folder, compared through its real path, is the git top level or a folder inside it. In every other case the root is the top level.
+  - So the setup no longer writes outside the repository where the owner typed the command.
+  - ADR 0031 decision 1 (one verb, from the owner's typed command) and decision 3 (only the configuration, pin and schemas under the project's `openspec/`) stay intact. The change narrows where the step writes. It adds no setting, no pack and no checker code, and does not affect ADR 0010 decision 1's list of what lives under `openspec/`.
+  - The new test (N-20) states its invariant, the layer that owns it and its suite, as the project's working rule requires.
+  - The commit message is conventional (`fix(setup): ...`), as `docs/conventions.md` requires.
+- **78001de:** design D-1 now states the setup root the way the code computes it. The plan text follows the code and does not conflict with any ADR.
+- **b8253f7, d51b033, 816d179, 2079b0f:** these commits change only evidence and review files, so there is nothing to check against an ADR.
+- **Previous findings:** F1 and F2 stay fixed in 387bf15; the Note and Amended-by line in ADR 0026 are still present. Nit F4 is still open: ADR 0031 has no dated line yet.
 
 ### Test run
 
-No other suite was running. I ran `TMPDIR=/var/tmp/devkit-project-setup node scripts/test-suite.mjs --concurrency=3` on `plugins/openspec/skills/devkit/scripts/setup-block.test.mjs`, `plugins/openspec/hooks/guard.test.mjs` and `plugins/openspec/hooks/flow-check.test.mjs`. Result: 3 files, 321 tests, 321 passed, 0 failed.
+Before the run, `pgrep -f 'scripts/test-suite.mjs$'` showed no other suite run. I ran `TMPDIR=/var/tmp/devkit-project-setup node scripts/test-suite.mjs --concurrency=3 '--test-name-pattern=setup AC-1 start' plugins/openspec/hooks/change-loop.test.mjs`. Result: 1 file, 6 tests, 6 passed, 0 failed. The new nested-repository test was among them.
 
 ### Scope
 
-This is a re-review: I checked the previous findings and the lines changed in 02e6780..76e88ad (387bf15, 45cbd1c, the merge 22d0706 for numbering and versions, and 76e88ad). I did not run a new full hunt.
+This is a staleness re-review: I checked the previous findings and the lines changed in 76e88ad..2079b0f, and did not run a new full hunt.
 
 ### Summary
 
-- 3 findings (0 blocking, 2 important, both fixed in 387bf15, 1 nit), plus 1 praise.
+- 3 findings (0 blocking, 2 important, both fixed in 387bf15, 1 nit still open), plus 1 praise.
