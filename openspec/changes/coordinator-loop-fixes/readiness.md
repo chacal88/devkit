@@ -1,223 +1,235 @@
-<!-- devkit-stage readiness result=passed attempt=12 commit=8c624687336f2832441babad63cca97a41c527e2 -->
+<!-- devkit-stage readiness result=failed attempt=13 commit=0b71037ae0184af4bffa050a6cb279087de825a0 -->
 # Readiness review: coordinator-loop-fixes
 
-Reviewed at HEAD 8c62468. The only commit after the plan revision 8504644 is 8c62468, and it adds files under
-`proof/` only. `git diff --quiet 8504644 HEAD` on `proposal.md`, `design.md`, `tasks.md` and `specs/` reports no
-difference, so the plan under review is the plan of 8504644. The uncommitted files under `proof/` belong to the
-implementer's D-14 runs. They were read where needed and not edited.
-
-Since attempt 11 (header commit 9edb304), phases 3 to 5 and tasks 6.1 to 6.3 were implemented and their gates ran
-green. In 6.4, R16 passed. R17 failed as D-14 worded it, and 8504644 revised the plan in four separate items:
-- (a) R17's expected results (`design.md:882`, with D-21's new sentence `:1410-1414`, and `tasks.md:477-484`).
-- (b) Task 6.4a (`tasks.md:489-501`): D-20's `findByCommits` bullet (`design.md:1344-1351`) and T142
-  (`design.md:1163`).
-- (c) Task 6.4b (`tasks.md:502-512`): two `## Troubleshooting` rows of D-22 (`design.md:1489-1497`), plus a D-15
-  row (`design.md:989`).
-- (d) Task 6.4c (`tasks.md:513-524`): D-4's further-round words (`design.md:466-475`).
-
-This report judges the plan with (b) included, as the caller asked. Section 13 answers whether dropping (b) alone
-leaves the plan consistent.
-
-Checks run at HEAD (`TMPDIR=/var/tmp/devkit-coordinator-loop-fixes`, `--concurrency=2`, no other suite running):
-- `openspec validate coordinator-loop-fixes --type change --strict --no-interactive` prints "Change
-  'coordinator-loop-fixes' is valid".
-- `python3 scripts/check.py` prints "all checks passed".
-- 6.4b's test command, before any edit: 3 files, 33 tests, 33 pass. A separate run shows that T139 and
-  `change-budget AC-10` both run by name.
-- 6.4c's two commands, before any edit: `review-round.test.mjs` 103 tests pass. The five named patterns over the
-  four files give 7 tests, 7 pass.
-- 6.4a's kept tests, before the edit (`^forced-merge-path 1: L`, `^coordinator-loop-fixes AC-17 T1`,
-  `^field-fixes 4` on `deliver-check-archive.test.mjs`): 39 tests, 39 pass.
-- The whole suite was not run. The caller's notes forbid it, and gate 6.6 belongs to the conducting session.
-- `openspec/config.yaml`: `origin/main` (3ca2e47) is an ancestor of HEAD. The only differences between them are this
-  change's own edits (the `x-devkit:` comments and the `Live roadmap:` rule), so no new rule applies to the revision.
-
-## 1. Decision
-- Status: APPROVED
-- Confidence: high
-- Ready to implement: yes
+Reviewed at HEAD 0b71037. The last readiness report (attempt 12, header commit 8c62468) approved the plan of 8504644,
+and the owner approved that plan at 84da214 (approval header commit d8f81ed). Since 84da214 the plan files changed in
+the review round 1 fixes only. `git diff 84da214 HEAD` on `proposal.md`, `design.md`, `tasks.md`, `specs/` and
+`docs/adr/` shows:
+- `specs/change-coordination/spec.md:318-330`: the requirement "The owner authorizes one more review round after the
+  limit" now names `declare <id> review-round --stdin words`, and adds the scenario "The owner's words are recorded as
+  typed".
+- `specs/file-writers/spec.md:49`: the scenario "A subagent runs the declare command" now covers node option words
+  before the script.
+- `design.md:265` and `:271-272` (D-1, `DECLARE_CALL` skips node option words), `:444-447` and `:483-487` (D-4,
+  `--stdin words` and the quoted heredoc in both skills), `:1071` (T44), `:1126` (T99), and the new rows T143 to T148
+  (`:1170-1175`).
+- `tasks.md`: checkbox ticks of 6.4 to 6.6 only. No task text changed.
+- `docs/adr/0032-...md:78-88` (a dated Note in `## Decision`) and `docs/adr/0023-...md:5` (an `- Amended by ADR 0033`
+  header line), plus `docs/compozy-kit.md:127-128`.
 
 The caller gave facts and no verdict. Nothing in its message was taken as a verdict.
 
+Checks run at HEAD (`TMPDIR=/var/tmp/devkit-coordinator-loop-fixes`; before the test run, `pgrep -f
+'scripts/test-suite.mjs$'` found no other run):
+- `openspec validate coordinator-loop-fixes --type change --strict --no-interactive`: "Change 'coordinator-loop-fixes'
+  is valid".
+- `python3 scripts/check.py`: exit 1, `openspec/changes/coordinator-loop-fixes/evidence.md:91: non-English text`. That
+  line is in the evidence, not the plan. See section 7.
+- `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3
+  --test-name-pattern="^coordinator-loop-fixes AC-(1|7|9|19) T(44|9[6-9]|10[0-2]|14[3-8]) "` over
+  `change-loop-declared.test.mjs`, `guard.test.mjs` and `conduct-check.test.mjs`: 3 files, 14 tests, 14 pass, 33.9 s.
+- `openspec/config.yaml` is unchanged since 84da214, so no new rule applies. `origin/main` (fc28735) is an ancestor of
+  HEAD.
+- The whole suite was not run. The caller's notes forbid it.
+
+## 1. Decision
+- Status: NEEDS-REVISION
+- Confidence: high
+- Ready to implement: no
+
+The revised design and spec deltas are sound, and the code matches them (section 4). Two narrow gaps remain:
+- `tasks.md` was not revised with them.
+- D-12 does not give the words of the three document edits the revision made.
+
+Both fit in one change-planner edit, and neither changes scope.
+
 ## 2. Scope validation
 Classification: correct.
-- (a) changes only what R17 expects, and leaves the behaviour alone.
-- (b) closes the one lookup that D-20's rule had not reached yet. `findByCommits` arrived with the 6.1 merge of
-  `forced-merge-path`, and the requirement "A change's own pull request" of the `change-delivery` delta already
-  states the rule for any lookup.
-- (c) and (d) fix two texts the earlier edits missed: one D-22 text and the D-4 text that the 6.1 merge brought.
+- `--stdin words` closes the round 1 code-quality finding: owner words that pass through the shell can run a command
+  substitution. It reuses `reply`'s existing `--stdin` contract (jira-entry-followups D-5).
+- The option-word skip widens an existing guard rule.
+- T146 adds a test only.
+- The ADR 0032 Note records limits that the approved plan already held:
+  - AC-10 at `proposal.md:64` ("the CompozyOS driver keeps asking the owner at a red gate").
+  - The `stop-archive` for an archive that left a train, at `design.md:112` and `:165`.
+  - An approval without `- Plan:` never goes stale, at `design.md:634` and `:688`.
+- The ADR 0023 header line records the amendment that ADR 0033 already makes.
 
-No item adds a capability. The CHANGELOG section 0.53.0 already covers all three edits:
-- devkit-openspec: "a change whose id starts with `archive-` finds its own pull request" (`CHANGELOG.md:12`).
-- devkit-core: "the review-change skill ... take the round `limit`".
-- Docs: "`docs/openspec-flow.md` (... the `x-devkit:` block ...)".
-
-So no version or release file changes, as 6.4a says.
+No capability was added. `CHANGELOG.md:3-24` (0.53.0) already covers the `declare` command and both ADRs, so no
+release line changes.
 
 ## 3. Proposal review
-No findings. The proposal is unchanged. AC-17 (`proposal.md:71`, "finds that pull request as its own") and AC-18
-(`proposal.md:72`) are the criteria that (a) and (b) serve.
+No findings. The proposal is unchanged. AC-7 (`proposal.md:61`) does not name the CLI form of the owner's words, so
+the switch from `--param words` to `--stdin words` stays within it.
 
 ## 4. Design review
-Claims re-derived against live code:
-- (b) `findByCommits` (`plugins/openspec/hooks/deliver-check.mjs:837-865`) skips with
-  `isArchiveHead(p.head?.ref)` at `:855`. That is the only occurrence of the text, so the 6.4a check "prints 0, then
-  1" is sound.
-- `foreignArchiveHead(id, name)` is exported at `:719`, and `id` is in scope inside `findByCommits`.
-- `findChangePr` reaches `findByCommits` only when the merged list is full (`:831`).
-- `isOwnPr` (`:745-750`) already refuses a foreign archive head. With the new skip, the pull requests of
-  `chore/archive-archive-x` and `archive-archive-x` are still skipped before their files are read, as T142 asserts.
-  The pull request of head `archive-x` reaches `isOwnPr` and is accepted.
-- With today's code, T142's first assertion gets `{ none: true }`, the failure 6.4a expects.
-- The kept `forced-merge-path 1: L` tests (`deliver-check-archive.test.mjs:2851-2993`) all test id `auto-merge`.
-  Their only archive head of the commit arm is `chore/archive-auto-merge` (L2, `:2879`), and the full list uses
-  `chore/archive-n<i>`. Each differs from the id under test, so the tests keep their results (D-20,
-  `design.md:1350-1351`).
-- The fixtures that T142 is to reuse exist at `:2840-2849` (`cap`, `COMMITS_KEY`, `PULLS_KEY`, `restPr`), beside
-  `archiveIdRepo` and T123 (`:3348`).
-- (a) R17's expectations. D-21's new sentence (`design.md:1410-1414`) says the walk answers item 5 first:
-  - `collectState` sets `postMerge = ship !== 'plan' && (delivery.delivered || forced)`
-    (`deliver-check.mjs:2356`).
-  - On the change's own branch, item 5 is `prItem(..., { merge: true })` whatever the ship mode (`:2397-2399`).
-  - `origin/main`'s `prItem` is met only at `pr.headRefOid === facts.head`. Otherwise it is blocked with
-    "PR #<n> merged at <sha>; local head <sha> differs" (`git show origin/main:plugins/openspec/hooks/deliver-check.mjs`,
-    `:1294-1296`). The `reason` key comes from `item` (`:409`), as R17's `-dc.json` check reads it.
-  - This branch adds `advanced` (`headInBase` plus `merge-base --is-ancestor`) at `:1309-1315`.
-  - `change-loop.mjs` maps the checker's `blocked` step to `pr-problem` (`BLOCKED_STEP`, `:1132`, used at `:1449`).
-    The end is on `currentId`, the stage walk's current stage.
-  - The "on the stage `evidence`" part is inferred, not run by this review: `origin/main`'s walk on the own branch
-    judges staleness, and `src/a.ts` makes the evidence stale first. R17 itself proves it. If R17 shows another
-    stage, 6.4's rule stops the run for a revision (`tasks.md:475-476`).
-  - The own-commit expectation follows from the same code: the head is not in the base, so `advanced` is false.
-- (c) The two rows are at `docs/openspec-flow.md:868` and `:870`, with the "before" words D-22 quotes.
-  `budgetOf` (`change-loop.mjs:158-164`) always gives the change's own `.openspec.yaml` as `file`, and the
-  `waiting-budget` reply names it (`:290`). This holds up D-22's "the reply always names the change's own file".
-- (d) The sentence is `plugins/core/skills/review-change/SKILL.md:128`, with exactly the words D-4 quotes.
-  `review-round.workflow.js:64-78` accepts `round` from 1 to `limit`, and 2 when no `limit` is given. The loop's
-  `review` and `review-resolution` steps carry `limit` only when it is raised (`deliver-check.mjs:2209`, `:2271`).
-  Both facts agree with the new words. The repository holds no other live copy of the sentence: a grep finds it
-  only in this change's plan, historical CHANGELOG 0.52.1 text and archived changes.
+Each revised claim was re-derived against the code:
+- D-4, `--stdin words`:
+  - `runDeclare` is at `plugins/openspec/hooks/change-loop.mjs:3305-3313`. It parses `--stdin` and refuses any other
+    well-formed name with "declare --stdin reads only words" (`:3310`).
+  - It shares `withStdinParam` with `runReply` (`:3294-3301`, `:3338`). That helper applies the name rule, refuses
+    the same parameter named twice, removes one final `\r\n` or `\n` (`withoutFinalBreak`, `:3289`), and refuses an
+    empty input with "needs the text on standard input".
+  - The entry point reads standard input for `declare` only when `--stdin` is given (`:3582`).
+  - `USAGE` names `[--stdin words]` (`:3172`). No test file asserts the usage text: a grep for
+    `gate-red|review-round` finds no hit, so the `Existing tests:` rule adds no row.
+  - All of this matches `design.md:444-447` and T143 to T145.
+- D-4, the skills:
+  - The ship-change `stop-review-deadlock` row (`plugins/openspec/skills/ship-change/SKILL.md:60`) holds `--stdin words`,
+    the quoted heredoc and "its terminator rule (the `devkit` skill's)".
+  - The devkit skill's Owner gates (`plugins/openspec/skills/devkit/SKILL.md:151`) holds the full heredoc call.
+  - The terminator rule exists at `devkit/SKILL.md:34`.
+  - Neither skill holds `--param words`, which T44 asserts.
+  - All of this matches `design.md:483-487`.
+- D-1, the guard:
+  - `DECLARE_CALL` (`plugins/openspec/hooks/guard.mjs:746`) is the regex at `design.md:265`, byte for byte.
+  - A probe of `declareViolation` for `devkit-core:tdd-implementer` refuses the skill's heredoc form and `node
+    --no-warnings <path> declare ...`. It allows `node -r ./x.cjs <path> declare ...` and `node --stack-size 2000
+    <path> declare ...` (round 2 code-quality nit F9). See section 10.
+- T146: `conduct-check.test.mjs:1641` exists and passes.
+- T147 and T148: they read the ADR files by pattern (`change-loop-declared.test.mjs:1269`, `:1293`), not by literal
+  number, so `renumber-adr` keeps them valid. Both pass.
+- The ADR 0032 Note's three limits each have a source in the approved plan (section 2), and decisions 1 to 8 are
+  unchanged (T147 holds them). This is the change's own ADR (`decisions.md`), and the Note changes no decision's
+  text. So the design rule "a decision that changes an ADR is a proposal for a new ADR" is not triggered.
 
 Findings:
-- Low, Nice to have: `design.md:1321-1325` (D-20, "What is wrong") still says "two readers drop such a head"
-  (`isOwnPr` and the merged-list filter). With (b), the Decision lists a third reader (`:1344`), so the diagnosis
-  undercounts. No implementer choice depends on it. Smallest correction: "three readers ... and `findByCommits`
-  (the commit lookup, from `forced-merge-path`)". If (b) is dropped instead, see section 13.
+- Medium, Mandatory before implementation: `design.md:758-803` (D-12 Documents) gives the words of ADR 0011's Note
+  (`:760-765`) and of every other document edit, but it has no entry for the three edits of the revision:
+  - The ADR 0032 Note (`docs/adr/0032-...md:78-88`) is described only by the fragments T147 asserts
+    (`design.md:1174`).
+  - The ADR 0023 header line is described only by T148 (`:1175`).
+  - The D-12 `docs/compozy-kit.md` entry (`:800-803`) still says "one sentence", while the file now adds a second
+    sentence that points at the Note (`docs/compozy-kit.md:127-128`).
+
+  `tasks.md:6` promises that "every text, name, test and command is in `design.md`". The Note narrows the reach of
+  four decisions of an accepted ADR, and the owner approves the plan, so its words belong in the plan.
+
+  Smallest correction: add D-12 bullets that quote, as committed in 3ec3322 and 5dc0830, the ADR 0032 Note (its
+  place, after decision 8 and before `## Consequences`), the ADR 0023 header line (with "the number the settings ADR
+  has at the last merge"), and the compozy-kit pointer sentence.
 
 ## 5. Specs review
-No findings. No spec delta changed in the revision, and strict validation passes. The `change-delivery`
-requirement "A change's own pull request" (`specs/change-delivery/spec.md:60-67`) has no lookup qualifier in
-"SHALL be the change's own branch whatever its prefix". With (b), every lookup meets it.
+Strict validation passes. The new scenario (`specs/change-coordination/spec.md:328-330`) and the widened scenario
+(`specs/file-writers/spec.md:48-50`) each have tests: T143 to T145, T144 through a real `bash`, and T99.
+
+Findings:
+- Low, Nice to have: `specs/change-coordination/spec.md:330` says `declared.json` "holds the words byte for byte".
+  D-4 cuts the words to 200 characters (`design.md:450`; `change-loop.mjs:3250`, `words.slice(0, 200)`), so the
+  scenario is false for longer words. Smallest correction: "byte for byte (up to the 200 characters D-4 keeps)".
+- Low, Nice to have (carried from the round 2 spec-reviewer nit F1, not part of this revision):
+  `specs/change-stages/spec.md:8` says "every file under `specs/`". `specFiles` takes only `.md` files
+  (`deliver-check.mjs:2018-2025`), as D-7 does.
 
 ## 6. Tasks review
-Every new task path exists, and every grep in the tasks was checked against the tree:
-- 6.4a: `isArchiveHead(p.head?.ref)` occurs once. The test name pattern follows T119 to T123's
-  `coordinator-loop-fixes AC-17 T1nn ` form.
-- 6.4b: each "prints 0" pattern now matches the row to be edited. After the edit, neither matches the new text: the
-  `.` before `devkit:` cannot match the "x" of `x-devkit:`. Each "prints 1" pattern matches the new row text byte
-  for byte.
-- 6.4b's pre-edit grep finds one asserting test, `stage-models AC-10 ... four model rows`
-  (`stage-models.test.mjs:1414-1420`). It reads `/setting-unknown/` and `/models/` and is in D-15
-  (`design.md:989`). `change-budget AC-10` reads the token-budget paragraph, not the row
-  (`change-loop-remote-state.test.mjs:823-839`).
-- 6.4c: "accepts only rounds 1 and 2" occurs once now. "it is the owner's further round, quoting the owner's
-  words" occurs once now and stays once. No test reads either sentence (the grep exits 1).
-- 6.4c's name patterns cover every test that reads the review skill's text in the four files named. In
-  `deliver-check-cli.test.mjs` those are `:555` and `:666`. The mention at `:1225` is a fixture path, and the rest
-  only name the skill. `review-round.test.mjs` runs whole.
-- `format: review-change` asserts `/starts at round 1/` (`:562`). That text is at `SKILL.md:125`, which 6.4c does
-  not touch.
-- 6.4's added sentence (`tasks.md:481-484`) gives the order between the open runs and 6.4a to 6.4c, with a reason.
-  R16's PR 107 came through the merged list (`proof/checks.txt`, the `r16` line). It does not come through
-  `findByCommits`.
-- 6.5's widened Check (`tasks.md:534-535`) adds the D-15 patterns of the three tasks. Each matches tests that
-  exist.
-- Gate 6.6 is unchanged and stays the train's command (the `Gates:` rule).
+Finding:
+- Medium, Mandatory before implementation: `tasks.md` carries none of the revision.
+  - `tasks.md:10` still says "D-16 the new tests (T1 to T142, ...)", but D-16 now ends at T148 (`design.md:1170-1175`).
+  - No task writes T143 to T148. No task names the units they test:
+    - `runDeclare`'s `--stdin words` and `withStdinParam`.
+    - `DECLARE_CALL`'s option words.
+    - The two skill rows' heredoc wording.
+    - `conduct-check`'s `conductor-task`.
+    - The ADR 0032 Note, the ADR 0023 header line and the compozy-kit sentence.
+  - The tasks that own these areas list their tests by number, and none of them covers the new rows: 2.1 and 2.3
+    ("T32 to T44, T95 to T97, ..."), 1.2 (T98 to T104), 3.x (T62 to T68) and 5.1 (T135 to T140).
+  - The trace table rows AC-7 (`tasks.md:66`), AC-9 (`:68`) and AC-19 (`:79`) name no task for T143 to T148. AC-1
+    (`:60`) and T99's widened row (task 1.2) are in the same position.
+  - The new scenario is still verified: 6.5's `^coordinator-loop-fixes` pattern runs the three files whole by prefix,
+    and gate 6.6 runs the whole suite. But no task delivers it.
+  - Every earlier plan revision got its own task with a red-first Check (6.4a to 6.4c, `tasks.md:489-524`). This
+    one breaks that pattern, so an implementer working from `tasks.md` would not build the revised behaviour.
 
-No findings.
+  Smallest correction:
+  - Add one task after 6.4c (for example "6.4d, review round 1 fixes") that names the units above and writes T143
+    to T148, with T99 and T44 brought to their D-16 rows. Its Check is the command this review ran (14 tests, 14
+    pass).
+  - Set `tasks.md:10` to "T1 to T148".
+  - Add the task to the AC-1, AC-7, AC-9 and AC-19 rows.
+
+  Whether the task is written ticked (the code exists) is the planner's call. Ticking is not a plan edit for D-7.
+
+Gate 6.6 is unchanged, and it is still the train's command (the `Gates:` rule).
 
 ## 7. Omission detection
-No findings.
-- Error handling: unchanged by (b). `findByCommits`' failure arm (`arm: 'commit'`) is not touched.
-- Idempotency, rollback and migration: not affected. Each edit is a one-line code change or a text change.
-- Test strategy: (b) is red first, then green (T142 before the code). (c) and (d) are greps plus every test that
-  reads the texts. (a) is a real run with saved files and `checks.txt` lines.
+- Error handling of `--stdin words`: defined, with exit 3 and nothing recorded (`design.md:445-447`, T145).
+- Unterminated input (the `Parsers:` rule):
+  - An empty input, or one line break, is a usage error.
+  - A heredoc line equal to the terminator falls under the devkit skill's terminator rule (`devkit/SKILL.md:34`).
+- Idempotency, rollback and migration: unchanged.
+- Outside the plan, High, Fix during implementation: `python3 scripts/check.py` fails at HEAD on
+  `openspec/changes/coordinator-loop-fixes/evidence.md:91`. The line quotes the nested session's Portuguese reply
+  from ver-r7s. Gate 6.6 (`tasks.md:536`) and the train's command both include `check.py`, so the train would go red.
+  Owner: `devkit-core:pr-verifier`, which writes `evidence.md`. It should state that reply in English, or point at
+  the proof file. This does not count as a plan blocker.
 
 ## 8. Execution risks (top 5 failures)
-1. Cause: R17's "before" end is on a stage other than `evidence` (inferred above, not run). Impact: the R17 check
-   fails again. Prevention: 6.4 already says to stop and report, and the row says which file shows the stage.
-2. Cause: T142 is built on `archiveIdRepo`, which sets `pr-list-state-merged` to the given list and files under
-   `archive-x` for every pull request, but not on `findRepo(cap())`. Impact: the full list holds pull requests whose
-   files make one of them own through the list, and the commit arm is never reached. Prevention: 6.4a says "a full
-   merged list of 100 that holds none of its own (archive heads of other changes)". `cap()` gives exactly that, and
-   the first `--test-name-pattern` run proves the red.
-3. Cause: 6.4b edits a row and changes more than the quoted words, for example the trailing `|` cell. Impact:
-   `stage-models AC-10` still passes, but the row differs from D-22. Prevention: 6.4b's byte-for-byte rule and the
-   two "prints 1" greps that hold the whole new phrase.
-4. Cause: 6.4c's new sentence gets a straight apostrophe where the file has another quote style. Impact: the "prints
-   1" grep fails. Prevention: the file uses ASCII `'` (`SKILL.md:128`), and so does the grep.
-5. Cause: R17's `deliver-check.mjs feat --json` probe is run from a checkout of this repository, not from the
-   scratch run's folder. Impact: the wrong hooks are recorded. Prevention: 6.4 says "never a checkout of this
-   repository" (`tasks.md:476-477`).
+1. Cause: the plan is approved as it is, and a later verifier or reviewer reads `tasks.md` as the record of what was
+   built. Impact: T143 to T148 and the `--stdin` contract look like scope creep, and the next review round reopens
+   them. Prevention: the task of section 6.
+2. Cause: the train runs `python3 scripts/check.py` with evidence.md:91 as it is. Impact: the train goes red after
+   the review. Prevention: the evidence fix in section 7.
+3. Cause: a subagent runs `node -r <m> <path>/change-loop.mjs declare ...`. Impact: the guard allows it, and a
+   subagent records a declared step. Prevention: the parser decision in section 10. The cost is low today because
+   no prompt of the kit writes that form.
+4. Cause: `renumber-adr` renumbers ADR 0033 at a later merge. Impact: the ADR 0023 header line names the old number.
+   Prevention: `renumber-adr` carries references (`design.md:790-793`), and T148 reads the number by file pattern,
+   so it fails if the line is not carried.
+5. Cause: the owner's words exceed 200 characters. Impact: `declared.json` holds a truncated text, against the
+   scenario's literal wording. Prevention: the wording fix in section 5.
 
 ## 9. Mandatory fixes before implementation
-None.
+- [ ] Medium — `tasks.md:10`, `:60`, `:66`, `:68`, `:79`, and a new task after 6.4c (`:513-524`). The revision
+  (T143 to T148, `--stdin words`, `DECLARE_CALL` option words, the skill rows, T146, the ADR 0032 Note, the ADR 0023
+  header, the compozy-kit sentence) has no task, and the D-16 range is stale. Smallest correction: one task naming
+  the units and tests, with the Check of section 6, "T1 to T148", and the AC rows updated.
+- [ ] Medium — `design.md:758-803` (D-12). The words of the ADR 0032 Note, the ADR 0023 header line and the
+  compozy-kit pointer sentence are not in the design. Smallest correction: three D-12 bullets that quote them as
+  committed (3ec3322, 5dc0830), with the D-12 compozy-kit entry's "one sentence" brought to match.
 
 ## 10. Optional improvements (within scope)
-- [ ] Low: `design.md:1322`. D-20's "two readers" becomes three with `findByCommits`, as section 4 gives it.
+- [ ] Medium, Fix during implementation: `design.md:271-280` (D-1 parser decisions). The parser decisions do not say
+  what happens to a node option whose value is a separate word (`-r <module>`, `--stack-size <n>`). `DECLARE_CALL`
+  does not match that form (probed above), while the requirement at `specs/file-writers/spec.md:31-34` refuses "a
+  subagent's Bash command that runs `change-loop.mjs declare`". Smallest correction: one parser-decision sentence.
+  Either the form is not matched, as for any command built from variables, because the rule judges text. Or widen
+  the regex and add one case to T99.
+- [ ] Low: `specs/change-coordination/spec.md:330`, "byte for byte" qualified by D-4's 200-character cut.
+- [ ] Low: `specs/change-stages/spec.md:8`, "every file under `specs/`" becomes "every `.md` file under `specs/`".
+- [ ] Low (carried from attempt 12): `design.md:1334`. D-20's "two readers" is three, now that `findByCommits` skips
+  archive heads.
 
 ## 11. Explicitly out of scope
-- [ ] Making `isArchiveHead`, `archiveHeads` or `offOwnBranch` id-aware. D-20 keeps them as they are
-  (`design.md:1352-1355`).
+- [ ] The round 2 code-quality nit F3 (`planDigest`'s checkbox regex and `- [text]` links). It is a code nit on an
+  approved D-7 rule, not part of this revision.
+- [ ] Whether the owner lets this revision ride the earlier approval. The owner decides; this report changes the
+  readiness hash, so `approval.md` must be recorded again in any case.
 
 ## 12. Mandatory review questions
-1. Is the problem objectively defined? Yes. R17's defect is shown by the code at the lines cited in section 4. The
-   commit lookup's skip is `:855`. The two rows and the sentence are quoted with their current text.
-2. Is the result measurable? Yes. Each task ends in greps with exact counts and named test runs, and R17 ends in
-   saved files with expected fields.
-3. Are error behaviors defined? Yes. 6.4a leaves the commit arm's errors alone. 6.4b and 6.4c stop for a revision
-   when a grep finds an unnamed asserting test. 6.4 stops when R17's check fails.
-4. Are edge cases covered? Yes. T142 covers both archive heads of an `archive-` id. The L tests keep the ordinary-id
-   archive head.
-5. Are dependencies clear? Yes. 6.4's sentence orders the runs against 6.4a to 6.4c, and 6.5's Check runs the tests
-   of all three.
-6. Are contracts defined? Yes. The `findByCommits` result shape is unchanged, and the new texts are given byte for
-   byte.
-7. Can two developers interpret this differently? Only T142's fixture choice can vary (risk 2), and its red run
-   fixes the outcome.
-8. Are any decisions implicit instead of written? No.
-9. Do the tasks fully deliver the intended outcome? Yes, for AC-7, AC-17, AC-18 and AC-19 as traced
-   (`tasks.md:63-77`).
-10. What will be discovered too late if implementation starts now? At most the stage name of R17's "before" end
-    (risk 1). 6.4's stop rule catches it before the gate.
+1. Is the problem objectively defined? Yes. The round 1 findings name the shell path of the owner's words, the
+   option-word gap and the missing `conductor-task` test, each with a file and line.
+2. Is the result measurable? Yes. T143 to T148 and T99 are concrete. They pass at HEAD (14 of 14 by name).
+3. Are error behaviors defined? Yes. `--stdin` of another name, the words named twice and an empty input each exit 3
+   and record nothing (`design.md:445-447`).
+4. Are edge cases covered? Mostly. Hostile characters, the final line break and the heredoc terminator are covered.
+   Two gaps stay: an option with a separate value is not decided (section 10), and the 200-character cut is not in
+   the scenario (section 5).
+5. Are dependencies clear? Yes. `withStdinParam` is shared with `reply`, and the terminator rule lives in the devkit
+   skill.
+6. Are contracts defined? Yes, for the CLI. The ADR texts are not given in D-12 (section 9).
+7. Can two developers interpret this differently? Yes, for the ADR 0032 Note's wording. Only T147's fragments bind
+   it.
+8. Are any decisions implicit instead of written? Yes, two: the Note's text, and what happens to option values in
+   the guard.
+9. Do the tasks fully deliver the intended outcome? No. No task delivers the revised scenario or T143 to T148.
+10. What will be discovered too late if implementation starts now? That `check.py` is red on `evidence.md:91` (at
+    the train), and that `tasks.md` does not record the revised work (at the next review).
 
 ## 13. Final conclusion
-- Can we start? Yes. The revision is executable as written. The owner's approval of the revised plan is still its
-  own gate.
-- What must be fixed? Nothing mandatory. The Low note on D-20's "two readers" is optional.
-- Main risk if ignored? None that blocks.
-
-**Dropping (b) alone.** Dropping (b) means dropping 6.4a, its D-20 bullet and T142. The plan stays consistent if
-the owner also edits the rows that name them. None of these rows is read by another task's check:
-- `tasks.md:10`: "T1 to T142" becomes "T1 to T141".
-- `tasks.md:77`: the AC-17 row loses "6.4a (the commit lookup, T142)".
-- `tasks.md:481-483`: 6.4's order sentence names only 6.4b and 6.4c, and loses the clause "which 6.4a does not
-  touch".
-- `tasks.md:535`: the parenthetical names 6.4b and 6.4c only. The `^forced-merge-path 1: L` pattern of 6.5 may stay,
-  since those tests pass on the base, or it may go with 6.4a.
-- `design.md:1661`: the per-surface line loses "(with `findByCommits`'s skip, task 6.4a)".
-- `design.md:1681` and `:1706`: the estimate row of item (b) goes, and the totals fall by 0.5 h (likely 51 h,
-  "adds 1 h").
-
-After that edit, no test, check or trace row refers to the dropped unit, and the kept L tests are green as they
-are.
-
-The edit leaves two gaps that the owner should accept knowingly:
-- (i) The `change-delivery` requirement "A change's own pull request" (`specs/change-delivery/spec.md:60-67`)
-  states the rule for any lookup, and `findByCommits` would still skip an `archive-` id's own pull request. The
-  smallest correction for that case is a sentence in D-20's "What stays as today" naming the commit lookup as not
-  changed, or a follow-up line in the roadmap.
-- (ii) AC-17 then holds for `archive-release-pin` only while pull request 107 is among the newest 100 merged pull
-  requests. That list is full on this repository, which is how `findByCommits` is reached.
-
-D-20's "two readers" sentence is then exact, and the Low note of section 10 goes away.
+- Can we start? No, not as the plan stands. The code is already built and its tests pass, so what is left is a
+  plan edit: change-planner adds the task and the D-12 bullets of section 9, the readiness review runs again, and
+  the owner approves the revised plan.
+- What must be fixed? Two items, both Medium and Mandatory (section 9). Separately, the verifier must fix
+  `evidence.md:91` before the train.
+- Main risk if ignored? Approving a plan whose tasks do not describe the delivered work. The next review round then
+  meets the same "revised without its gates" objection, and the train fails `check.py`.
