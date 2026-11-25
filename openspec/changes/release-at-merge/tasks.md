@@ -301,7 +301,7 @@ code span, with no other word changed, before 9.1; every gate below needs `check
 plan-and-approval commit includes `docs/adr/release-at-merge-step-record.md`, which 9.1's `git
 ls-files` check needs (readiness attempt 5, O4).
 
-- [ ] 9.1 Merge the base with the numbers given back (D-27; adr-reviewer nit F5). On the local
+- [x] 9.1 Merge the base with the numbers given back (D-27; adr-reviewer nit F5). On the local
   `origin/main` as the coordinating session last fetched it (`a815222`, train 15, or later):
   `git revert --no-commit 2bd35c5`, whose one expected conflict is one sentence of `CONTRIBUTING.md`
   step 5 (the number `2bd35c5` wrote in `(ADR <NNNN>)` against `(ADR [release-at-merge])`), resolved by undoing only what `git show
