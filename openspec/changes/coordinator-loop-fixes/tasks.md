@@ -413,7 +413,7 @@ every task with `git status --short`.
 - [x] 5.7 D-23's rule: the `Live roadmap:` line of `openspec/config.yaml`'s `context:`, right after `Test history:`, as
   D-23 words it. Check: T140 passes, "stage-models AC-2 the settings comment names the optional models table and the ADRs
   line names 0023" (`stage-models.test.mjs`) still passes, and `python3 scripts/check.py` passes.
-- [ ] 5.8 D-23's tests. First search the suite for a test that reads the live roadmap and asserts a tick or a done
+- [x] 5.8 D-23's tests. First search the suite for a test that reads the live roadmap and asserts a tick or a done
   state (`grep -n "readRepo('openspec', 'roadmap.md')\|readRoadmap(REPO_ROOT)" plugins/*/hooks/*.test.mjs plugins/*/skills/*/scripts/*.test.mjs`,
   each hit read for `- [ ]`, `- \[ \]` or `done`); a test found besides the two below and `post-merge-validate 3: the
   roadmap line names the merge check ...` (`change-loop.test.mjs`, already fixed on main since train 10 and not edited
