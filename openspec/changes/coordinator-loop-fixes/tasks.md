@@ -388,7 +388,7 @@ every task with `git status --short`.
   `grep -c "split('Attribution below')" plugins/openspec/hooks/deliver-check-archive.test.mjs` prints 0.
 - [x] 5.4 D-13: export `createdAfter` in `plugins/openspec/hooks/change-loop.mjs`, unchanged otherwise. Check: T85
   to T92 pass.
-- [ ] 5.5 D-22 in code: `parseDevkitBlock(text, key = 'devkit')` and the exported `changeDevkitBlock(text)` in
+- [x] 5.5 D-22 in code: `parseDevkitBlock(text, key = 'devkit')` and the exported `changeDevkitBlock(text)` in
   `plugins/openspec/hooks/guard.mjs`; `budgetOf` and `modelsOf` reading the change's `.openspec.yaml` through
   `changeDevkitBlock`, and the `waiting-budget` message in both languages, in `plugins/openspec/hooks/change-loop.mjs`;
   `capOf` in `plugins/openspec/hooks/flow-check.mjs`. Check: T135, T137, T138 and the loop half of T136 pass;

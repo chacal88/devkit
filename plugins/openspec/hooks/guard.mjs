@@ -115,15 +115,18 @@ const DELIVERY_KEYS = ['model', 'base', 'test_branch', 'train'];
 // not set, or empty, is undefined; a key nested under `delivery:` or `models:` never sets `driver`, `language`, `budget` or
 // `release_tag`; an entry nested deeper than the table is ignored; other keys of the block are ignored. `trainUnclosed` is set
 // (delivery-train D-1) when the raw value of `train` opens a quote it never closes, which `plainValue` would read as the rest of the line.
-export function parseDevkitBlock(text) {
+// `key` names the line that opens the block (coordinator-loop-fixes D-22): `devkit` by default, which every reader of openspec/config.yaml
+// uses; `x-devkit` for a change's own block (`changeDevkitBlock`).
+export function parseDevkitBlock(text, key = 'devkit') {
   const block = { driver: undefined, language: undefined, budget: undefined, release_tag: undefined, delivery: { model: undefined, base: undefined, test_branch: undefined }, models: new Map() };
+  const opening = new RegExp(`^${key}:\\s*(#.*)?\\r?$`);
   let inBlock = false;
   let indent = null;
   let inDelivery = false;
   let inModels = false;
   let modelsIndent = null;
   for (const line of String(text).split('\n')) {
-    if (/^devkit:\s*(#.*)?\r?$/.test(line)) { inBlock = true; continue; }
+    if (opening.test(line)) { inBlock = true; continue; }
     if (!inBlock) continue;
     if (line.trim() === '' || /^\s*#/.test(line)) continue;
     if (!/^\s/.test(line)) { inBlock = false; continue; }
@@ -149,6 +152,13 @@ export function parseDevkitBlock(text) {
     if (m[2] === 'driver' || m[2] === 'language' || m[2] === 'budget' || m[2] === 'release_tag') block[m[2]] = value;
   }
   return block;
+}
+
+// The settings of a change's own `.openspec.yaml` (coordinator-loop-fixes D-22): its `x-devkit:` block when the file has a top-level
+// `x-devkit:` line, else its `devkit:` block, which a change written before keeps (the strict validation of OpenSpec refuses that key,
+// and accepts one that starts with `x-`). A file is read from one block only; the flat `x-devkit-*` keys open none.
+export function changeDevkitBlock(text) {
+  return /^x-devkit:\s*(#.*)?\r?$/m.test(String(text)) ? parseDevkitBlock(text, 'x-devkit') : parseDevkitBlock(text);
 }
 
 // A path from the repository root to a JSON file (release-tags D-1): every segment is made of letters, digits, `.`, `_` and `-`

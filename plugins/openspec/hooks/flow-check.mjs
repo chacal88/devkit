@@ -7,7 +7,7 @@ import { dirname, join, relative, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader, FlowUsageError, readFlow, readFlowFile, FLOW_LANGS, changeFlow, changeSchemaAt, parseDevkitBlock, budgetValue, spendOf, spendSources, spendLines } from './guard.mjs';
+import { findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader, FlowUsageError, readFlow, readFlowFile, FLOW_LANGS, changeFlow, changeSchemaAt, parseDevkitBlock, changeDevkitBlock, budgetValue, spendOf, spendSources, spendLines } from './guard.mjs';
 import { gitFacts, staleness, ownFiles, stalenessBase, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads, trainFacts, isDevkitScript, authorizedRounds, approvalState, planRevision, headInBase } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
@@ -775,12 +775,13 @@ export function renderText(report, flow, lang = 'pt-BR') {
 
 // ---------------------------------------------------------------- the spend block (stage-models D-7)
 
-// The token cap of change `id`: its own `budget:`, else the project's; null when none is set or the value is no cap (a file that cannot
-// be read and an invalid value show no cap here: the loop's own `next` is what refuses them).
+// The token cap of change `id`: its own `budget:` (its `x-devkit:` block, else its `devkit:` block: `changeDevkitBlock`,
+// coordinator-loop-fixes D-22), else the project's; null when none is set or the value is no cap (a file that cannot be read and an
+// invalid value show no cap here: the loop's own `next` is what refuses them).
 function capOf(root, id) {
-  const budgetIn = (file) => { try { return budgetValue(parseDevkitBlock(readFileSync(file, 'utf8')).budget); } catch { return null; } };
+  const budgetIn = (file, parse) => { try { return budgetValue(parse(readFileSync(file, 'utf8')).budget); } catch { return null; } };
   const dir = locateChange(root, id)?.dir ?? join(root, 'openspec', 'changes', id);
-  const picked = budgetIn(join(dir, '.openspec.yaml')) ?? budgetIn(join(root, 'openspec', 'config.yaml'));
+  const picked = budgetIn(join(dir, '.openspec.yaml'), changeDevkitBlock) ?? budgetIn(join(root, 'openspec', 'config.yaml'), parseDevkitBlock);
   return picked?.cap ?? null;
 }
 

@@ -40,7 +40,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { hostname, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, handOffKey, handOffsOf, typedSince, isChangeId, readRoadmap, readValue, isDecisionRecord, parseStageHeader, parseDevkitBlock, deliverySettings, budgetValue, releaseTagSetting, trainSetting, SPEND_MESSAGES } from './guard.mjs';
+import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, handOffKey, handOffsOf, typedSince, isChangeId, readRoadmap, readValue, isDecisionRecord, parseStageHeader, parseDevkitBlock, changeDevkitBlock, deliverySettings, budgetValue, releaseTagSetting, trainSetting, SPEND_MESSAGES } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, readTestSettings, appliedStages } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, planDigest, planRevision, makeGh, readDeclared, authorizedRounds, REVIEW_ROUNDS } from './deliver-check.mjs';
 import { OFFLINE_GH } from './merge-setup.mjs';
@@ -151,11 +151,12 @@ export function readDevkitSettings(root) {
 const DELIVERY_ACCEPTED = { 'delivery-model': 'two-prs, trunk, trunk-auto', 'delivery-test-branch': 'a branch other than the base', 'delivery-train': 'a command whose quotes are closed' };
 
 // The token cap of the change in `dir`: { cap, from: 'change' | 'project', file } (the file is always the change's own
-// `.openspec.yaml`, where the owner raises it), or null. The change's value wins over the project's, which is the one in
-// `root`'s openspec/config.yaml. An invalid value in either file is a LoopRefusal with the settings reply.
+// `.openspec.yaml`, where the owner raises it), or null. The change's value (its `x-devkit:` block, else its `devkit:` block:
+// `changeDevkitBlock`, coordinator-loop-fixes D-22) wins over the project's, which is the one in `root`'s openspec/config.yaml. An
+// invalid value in either file is a LoopRefusal with the settings reply.
 export function budgetOf(root, dir, lang) {
   const file = join(dir, '.openspec.yaml');
-  const mine = budgetValue(parseDevkitBlock(settingsText(file, '.openspec.yaml')).budget);
+  const mine = budgetValue(changeDevkitBlock(settingsText(file, '.openspec.yaml')).budget);
   const project = budgetValue(parseDevkitBlock(settingsText(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml')).budget);
   const bad = mine?.invalid !== undefined ? mine : project?.invalid !== undefined ? project : null;
   if (bad) throw new LoopRefusal('setting-unknown', render(lang, 'setting-unknown', { setting: 'budget', value: bad.invalid, accepted: BUDGET_ACCEPTED }));
@@ -176,12 +177,12 @@ export function modelProblems(map) {
 }
 
 // The model of every stage of the change in `dir`, a plain object over MODEL_STAGES (stage-models D-2): the change's non-empty
-// value, else the project's, else the default. With `strict` (the change's own loop) the first problem of the change's table, else
+// value (its `x-devkit:` block, else its `devkit:` block: `changeDevkitBlock`, coordinator-loop-fixes D-22), else the project's, else
+// the default. With `strict` (the change's own loop) the first problem of the change's table, else
 // of the project's, is a LoopRefusal with the settings reply; without it a table with a problem is ignored whole, so a typing error
 // in one change stops no lock and no other change.
 export function modelsOf(root, dir, { strict = false, lang = 'en' } = {}) {
-  const read = (file, label) => parseDevkitBlock(settingsText(file, label)).models;
-  const tables = [read(join(dir, '.openspec.yaml'), '.openspec.yaml'), read(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml')].map((map) => ({ map, problems: modelProblems(map) }));
+  const tables = [changeDevkitBlock(settingsText(join(dir, '.openspec.yaml'), '.openspec.yaml')).models, parseDevkitBlock(settingsText(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml')).models].map((map) => ({ map, problems: modelProblems(map) }));
   if (strict) {
     const bad = tables.find((t) => t.problems.length)?.problems[0];
     if (bad) throw new LoopRefusal('setting-unknown', render(lang, 'setting-unknown', bad));
@@ -286,7 +287,7 @@ export const MESSAGES = {
     'declare-no-words': 'One more review round of {id} needs your own words, so nothing was recorded.',
     'declare-unreadable': 'The record of the steps declared for {id} cannot be read ({error}), so nothing was recorded.',
     'waiting-place': '{id} waits for a free place on {machine} ({taken} of {places} taken): it goes on when one frees, and the roadmap session tells it.',
-    'waiting-budget': 'The change {id} reached its token budget: {spent} tokens spent, and the cap is {cap}. To go on, raise budget in the devkit block of {file}, then type /devkit change again.',
+    'waiting-budget': 'The change {id} reached its token budget: {spent} tokens spent, and the cap is {cap}. To go on, raise budget in the x-devkit block of {file}, then type /devkit change again.',
     'waiting-github': '{id} is waiting on GitHub ({what}). I keep waiting with no time limit and go on by myself when GitHub answers; calling /devkit change again is safe.',
     'base-unfetched': 'The branch {base} could not be fetched from the remote, so this step was decided from this machine\'s copy of it.',
     archived: 'The change {id} is archived: merged, with its retro. Nothing is left to do.',
@@ -589,7 +590,7 @@ export const MESSAGES = {
     'declare-no-words': 'Mais uma rodada de revisão de {id} precisa das suas próprias palavras, então nada foi registrado.',
     'declare-unreadable': 'O registro dos passos declarados de {id} não pode ser lido ({error}), então nada foi registrado.',
     'waiting-place': '{id} espera um lugar livre em {machine} ({taken} de {places} ocupados): segue quando um liberar, e a sessão do roadmap avisa.',
-    'waiting-budget': 'A change {id} atingiu o orçamento de tokens: {spent} tokens gastos, e o limite é {cap}. Para seguir, aumente budget no bloco devkit de {file} e digite /devkit change de novo.',
+    'waiting-budget': 'A change {id} atingiu o orçamento de tokens: {spent} tokens gastos, e o limite é {cap}. Para seguir, aumente budget no bloco x-devkit de {file} e digite /devkit change de novo.',
     'waiting-github': '{id} está esperando o GitHub ({what}). Eu continuo esperando, sem limite de tempo, e sigo sozinho quando o GitHub responder; chamar /devkit change de novo é seguro.',
     'base-unfetched': 'Não foi possível buscar o branch {base} no remoto, então este passo foi decidido pela cópia desta máquina.',
     archived: 'A change {id} está arquivada: mesclada, com a retro. Não resta nada a fazer.',
