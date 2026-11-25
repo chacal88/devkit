@@ -73,6 +73,14 @@ call takes no suffix. So the Consequences' mitigation "one retry a model up" rea
 agent that cannot finish; a stage agent that obeys the hook and records `result=failed` takes the
 fix path, bounded by the stage's ceiling. No decision's text changes.
 
+Note (coordinator-loop-fixes, 2026-11-24): decision 1's override in a change's `.openspec.yaml`
+is written in an `x-devkit:` block, not a `devkit:` block, as
+[ADR 0033](0033-a-changes-own-settings-live-in-an-x-devkit-block.md) decides, because
+`openspec validate <id> --type change --strict` refuses any top-level key it does not know and
+accepts one that starts with `x-`; the `budget` key of the same file moves with it, and a
+`devkit:` block written there before is still read when the file has no `x-devkit:` block.
+Decision 1 is otherwise unchanged.
+
 ## Consequences
 
 - Positive: most of a run's tokens move from Opus to Sonnet and Haiku; the table is tuned in one

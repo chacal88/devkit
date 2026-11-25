@@ -16,8 +16,8 @@ ship:
 merge_method: squash
 
 # The settings of /devkit change: the language of the project's files, and who runs a change (claude | compozy | script).
-# An optional token budget (budget: a whole number) stops a run between hand-offs; a change's own .openspec.yaml can override it. None is set here.
-# An optional models: table (a stage id, then opus, sonnet, haiku, or opus[1m] and sonnet[1m]) picks the model of single stages over the built-in default; a change's own .openspec.yaml can override a stage. None is set here.
+# An optional token budget (budget: a whole number) stops a run between hand-offs; a change's own .openspec.yaml can override it in its x-devkit: block. None is set here.
+# An optional models: table (a stage id, then opus, sonnet, haiku, or opus[1m] and sonnet[1m]) picks the model of single stages over the built-in default; a change's own .openspec.yaml can override a stage in its x-devkit: block. None is set here.
 devkit:
   language: en
   driver: claude

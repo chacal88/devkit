@@ -423,10 +423,10 @@ devkit:
 `devkit.tests.e2e`. Decided by `delivery-models` (round 17): `devkit.delivery.model` (`two-prs`, `trunk` or
 `trunk-auto`), `devkit.delivery.base` and `devkit.delivery.test_branch`. The other fields stay proposed,
 for round 20. `devkit.budget` (a whole number of tokens, the
-cap of a `/devkit change` run), and its override in a change's own `.openspec.yaml`, are final too, decided by
+cap of a `/devkit change` run), and its override in a change's own `.openspec.yaml` (its `x-devkit:` block), are final too, decided by
 `change-budget` on 2026-11-22.
 `devkit.models` (a table from a stage id to a model, built-in default per stage), and its override in a change's own
-`.openspec.yaml`, is final, decided by `stage-models` on 2026-11-23.
+`.openspec.yaml` (its `x-devkit:` block), is final, decided by `stage-models` on 2026-11-23.
 Decided by `jira-entry` on 2026-11-22: the task source needs no field; the key or link typed names it.
 
 

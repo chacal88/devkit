@@ -397,7 +397,7 @@ every task with `git status --short`.
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^change-budget" --test-name-pattern="^jira-entry AC-6 next carries the task but no writeBack on a budget end" --test-name-pattern="^upfront budget" --test-name-pattern="^version-pin AC-1 writePin" --test-name-pattern="^delivery-train config" --test-name-pattern="^release-tags 1" --test-name-pattern="^delivery-models config" --test-name-pattern="^change-loop settings: shipConfig" plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/change-loop-remote.test.mjs plugins/openspec/hooks/roadmap-loop-followups.test.mjs plugins/openspec/hooks/version-pin.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/release-tags.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/change-loop.test.mjs`
   passes (with "change-loop settings: shipConfig of deliver-check gives the same with and without the block",
   `change-loop.test.mjs`, D-15).
-- [ ] 5.6 D-22's texts: in `docs/openspec-flow.md` the two sentences of "The token budget." and "The model of each stage."
+- [x] 5.6 D-22's texts: in `docs/openspec-flow.md` the two sentences of "The token budget." and "The model of each stage."
   and the new paragraph `**A change's own settings.**` with its example, byte for byte as D-22 gives it; the two
   settings comment lines of `openspec/config.yaml`; the two settings sentences of `docs/coordination-design.md`; the
   Note appended to the `## Decision` section of `docs/adr/0023-the-model-is-chosen-by-stage.md`, right after its
