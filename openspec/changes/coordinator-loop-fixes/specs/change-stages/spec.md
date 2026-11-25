@@ -1,11 +1,11 @@
-<!-- devkit-stage specs result=passed attempt=4 commit=fd29ac6c22ab2b8c385200a8f357d6d7796fd281 -->
+<!-- devkit-stage specs result=passed attempt=5 commit=f29093d9bb2a0c013b32c0cb223795f16b20d544 -->
 # Spec Delta
 
 ## ADDED Requirements
 
 ### Requirement: A plan revised after the work started goes back to its gates
 The owner's approval SHALL record a digest of the plan files (`proposal.md`, `design.md`, `tasks.md`
-with every checkbox read as empty, and every file under `specs/`). Once a task is ticked, a digest
+with every checkbox read as empty, and every `.md` file under `specs/`). Once a task is ticked, a digest
 that differs from the recorded one SHALL make the plan readiness stale until it runs again, and then
 the approval, so the owner approves the revised plan. An approval that records no digest SHALL be read
 as before.

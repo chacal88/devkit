@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=11 commit=ffb52bdc1e6bd5f89e6e6fa0585e5512e5befa74 -->
+<!-- devkit-stage tasks result=passed attempt=12 commit=f29093d9bb2a0c013b32c0cb223795f16b20d544 -->
 # Tasks
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88)
@@ -7,7 +7,7 @@ Work only in this change's worktree, on its branch. Every text, name, test and c
 declared steps, D-2 the end marker, D-3 the red gate, D-4 the extra review round, D-5 the conflict outside the
 release files, D-6 the conducting session's tasks, D-7 the revised plan, D-8 the verifier's `proof/`, D-9 the agent
 map, D-10 the host monitor, D-11 the language, D-12 the documents, D-13 the nits, D-14 the real runs, D-15 the
-existing tests, D-16 the new tests (T1 to T142, T24 dropped with AC-3), D-17 the siblings and the merge that opens each phase, D-18
+existing tests, D-16 the new tests (T1 to T148, T24 dropped with AC-3), D-17 the siblings and the merge that opens each phase, D-18
 the release, D-19 the CompozyOS driver and its kit, D-20 the `archive-` id's own pull request, D-21 the delivered change on a branch advanced into the base,
 D-22 a change's own settings in an `x-devkit:` block (the change's settings ADR), D-23 the tests of the live roadmap. The implementer copies them and makes no design choice.
 The plan names every function, export, constant, table, test and file, never a line: the implementer finds
@@ -57,15 +57,15 @@ every task with `git status --short`.
 
 | Id | Slug | Tasks |
 |---|---|---|
-| AC-1 | `declared-step-outside-gates` | 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 6.4 |
+| AC-1 | `declared-step-outside-gates` | 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 6.4, 6.4d |
 | AC-2 | `end-marker-id-checked` | 1.1, 1.3, 1.6, 6.4 |
 | AC-3 | `skill-names-declared-end` | dropped: covered by main (merge 8f14bd1, `stage-models`; `requirements.md`) |
 | AC-4 | `agent-map-from-pack-table` | 4.2, 4.4, 4.7 |
 | AC-5 | `adr-0011-note` | 4.2, 4.6, 4.7 |
 | AC-6 | `language-never-set` | 4.1, 4.2, 4.6, 4.7 |
-| AC-7 | `review-round-after-limit` | 2.1, 2.2, 2.3, 2.5, 6.3 (R7, R7b), 6.4 (R7s), 6.4c |
+| AC-7 | `review-round-after-limit` | 2.1, 2.2, 2.3, 2.5, 6.3 (R7, R7b), 6.4 (R7s), 6.4c, 6.4d |
 | AC-8 | `plan-revised-after-start` (a merge-defect fix included, D-7) | 3.1, 3.4, 3.5, 3.6, 3.6a, 3.9, 6.4 (R11, R11b, R15) |
-| AC-9 | `task-for-the-conductor` | 3.1, 3.2, 3.3 (and the kit), 3.9, 6.4 |
+| AC-9 | `task-for-the-conductor` | 3.1, 3.2, 3.3 (and the kit), 3.9, 6.4, 6.4d |
 | AC-10 | `fix-after-red-gate` | 2.1, 2.2, 2.5, 6.3 (R6), 6.4 (R5) |
 | AC-11 | `host-monitor-wait` (proven half) | 4.2, 4.5, 4.7, 6.4 (R13a, R13b) |
 | AC-11 | `host-monitor-wait` (deferred half, D-10) | 6.5 |
@@ -76,7 +76,7 @@ every task with `git status --short`.
 | AC-16 | `no-behaviour-change-elsewhere` | 1.0, 1.6, 2.0, 2.3, 2.5, 3.0, 3.9, 4.0, 4.7, 5.0, 5.5, 5.9, 6.6 |
 | AC-17 | `archive-prefixed-id-own-pr` | 3.1, 3.7, 3.9, 6.4 (R16), 6.4a (the commit lookup, T142) |
 | AC-18 | `delivered-advanced-branch-no-rereview` | 3.1, 3.8, 3.9, 6.4 (R17) |
-| AC-19 | `stage-models-override-validates` (a change's `budget` too, D-22) | 5.1, 5.5, 5.6, 5.9, 6.4b |
+| AC-19 | `stage-models-override-validates` (a change's `budget` too, D-22) | 5.1, 5.5, 5.6, 5.9, 6.4b, 6.4d |
 | AC-20 | `no-test-pins-live-roadmap-state` | 5.1, 5.7, 5.8, 5.9 |
 
 ## 1. The declared steps and the end marker (AC-1, AC-2)
@@ -522,6 +522,43 @@ every task with `git status --short`.
   passes, and the tests that read the skill's text pass by name:
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^coordinator-loop-fixes AC-7 T44 " --test-name-pattern="^format: review-change" --test-name-pattern="^delivery-models AC-7" --test-name-pattern="^jira-entry-followups docs" --test-name-pattern="^own-files AC-9 docs" plugins/openspec/hooks/change-loop-declared.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs`
   passes.
+- [x] 6.4d The review round 1 fixes (plan revision after the code review's round 1):
+  done in commits 59b8350, f1acdfd, 66f3553, 3ec3322 and 5dc0830 before this task was written, so it is written
+  ticked. Its units and tests, each as `design.md` gives it:
+  - D-4, the owner's words on standard input: `runDeclare` of `plugins/openspec/hooks/change-loop.mjs` takes
+    `--stdin words` through `withStdinParam`, the helper `runReply` uses, the entry point reads standard input for
+    `declare` only when `--stdin` is given, and `USAGE` names `[--stdin words]`. T143 (the words holding a backtick,
+    `$(...)`, an apostrophe and a double quote are recorded byte for byte without the final line break, and
+    `--param words` records them the same way), T144 (a spawned `bash` passing them through the quoted heredoc
+    `<<'DEVKIT_ARGS'` records them and runs none of their commands) and T145 (`--stdin` of another name, the words
+    named twice and an input of one line break each exit 3 with nothing recorded), all three in
+    `plugins/openspec/hooks/change-loop-declared.test.mjs`.
+  - D-4, the skills: the `stop-review-deadlock` row of `plugins/openspec/skills/ship-change/SKILL.md` and the Owner
+    gates of `plugins/openspec/skills/devkit/SKILL.md` pass the words with `--stdin words` through the quoted
+    heredoc and the devkit skill's terminator rule, never `--param words`. T44 is brought to its D-16 row in
+    `change-loop-declared.test.mjs`, the one test file that asserted the old `--param words` text of the two
+    skills. R7s of 6.4 ran the old text; the session's part with the new text is the verifier's run `ver-r7s`,
+    recorded from its files under `proof/`.
+  - D-1, the guard: `DECLARE_CALL` of `plugins/openspec/hooks/guard.mjs` skips the option words of `node` that start
+    with `-` before the script path, and leaves unmatched the two forms D-1 decides (an option whose value is a
+    separate word, a script path held wholly in a variable). T99 is brought to its D-16 row in
+    `plugins/openspec/hooks/guard.test.mjs` (node option words before the script, quoted path or not, refused for a
+    subagent and allowed for the main session).
+  - D-16, a test only: T146 in `plugins/openspec/hooks/conduct-check.test.mjs` (`actorOf('conductor-task')` is the
+    main session, and `deliveryStep` gives a runnable `conductor-task` row with deliver-check's reason and the tasks
+    passed through).
+  - D-12, the three document edits, word for word as D-12 quotes them: the dated Note of the change's ADR in its
+    `## Decision` section after decision 8, the header line of the stage-models ADR
+    (`docs/adr/*-the-model-is-chosen-by-stage.md`) naming the change's settings ADR by the number and file it has
+    at the last merge, and the two sentences of `docs/compozy-kit.md` that point at that Note. No test file
+    asserted the replaced sentence of `docs/compozy-kit.md` (`grep -rn "but it does carry the plan digest"
+    plugins/*/hooks/*.test.mjs plugins/*/skills/*/scripts/*.test.mjs` finds nothing). T147 (the change's ADR keeps
+    decisions 1 to 8 and records the Note; the compozy-kit page keeps its sentence on the short-loop ADR's limits
+    and points at the Note) and T148 (the stage-models ADR's header line, read by file pattern, before `- Date:`),
+    both in `change-loop-declared.test.mjs`.
+  Check: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^coordinator-loop-fixes AC-(1|7|9|19) T(44|9[6-9]|10[0-2]|14[3-8]) " plugins/openspec/hooks/change-loop-declared.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/conduct-check.test.mjs`
+  passes, 14 tests and 14 pass (T44, T96 to T102, T143 to T148), and
+  `grep -c "^ver-r7s .*: pass$" openspec/changes/coordinator-loop-fixes/proof/checks.txt` prints 1.
 - [x] 6.5 D-10, AC-11's deferred half: add the line `- [ ] host-monitor-wake (after: coordinator-loop-fixes) — ...` to
   `## Round 16b: the coordinator loop fixes` of `openspec/roadmap.md`, right after the `coordinator-loop-fixes` line,
   saying in one sentence what R13a and R13b proved (no wait and the session says so with the host's monitor; the

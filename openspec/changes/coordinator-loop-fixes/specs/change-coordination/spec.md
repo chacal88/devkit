@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=4 commit=fd29ac6c22ab2b8c385200a8f357d6d7796fd281 -->
+<!-- devkit-stage specs result=passed attempt=5 commit=f29093d9bb2a0c013b32c0cb223795f16b20d544 -->
 # Spec Delta
 
 ## MODIFIED Requirements
@@ -327,7 +327,7 @@ code review's deadlock is the blocked end of its stage's ceiling, or `stop-revie
 
 #### Scenario: The owner's words are recorded as typed
 - **WHEN** the owner's words hold a backtick, `$(...)`, an apostrophe or a double quote and the session passes them on standard input through the quoted heredoc `<<'DEVKIT_ARGS'`
-- **THEN** `declared.json` holds the words byte for byte, without the heredoc's final line break, and no command in them runs
+- **THEN** `declared.json` holds the first 200 characters of the words, byte for byte, without the heredoc's final line break, and no command in them runs
 
 #### Scenario: No authorization
 - **WHEN** the code review failed its round 2 and nothing was recorded

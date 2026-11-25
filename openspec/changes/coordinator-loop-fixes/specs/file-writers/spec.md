@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=4 commit=fd29ac6c22ab2b8c385200a8f357d6d7796fd281 -->
+<!-- devkit-stage specs result=passed attempt=5 commit=f29093d9bb2a0c013b32c0cb223795f16b20d544 -->
 # Spec Delta
 
 ## ADDED Requirements
@@ -31,7 +31,8 @@ write, and SHALL be refused every other path. Every other writer's rules SHALL s
 ### Requirement: The record of declared steps is the main session's
 The file `openspec/changes/<id>/declared.json` of any change SHALL be written only by the main
 session, through the loop's `declare` command. A subagent's write of it, by an edit tool or a shell
-write, SHALL be refused, and so SHALL a subagent's Bash command that runs `change-loop.mjs declare`.
+write, SHALL be refused, and so SHALL a subagent's Bash command whose text runs `change-loop.mjs
+declare`: the script's path written after `node` and any option words that start with `-`.
 
 #### Scenario: A subagent writes the record
 - **WHEN** `tdd-implementer` writes `openspec/changes/feat/declared.json`

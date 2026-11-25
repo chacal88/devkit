@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=11 commit=ffb52bdc1e6bd5f89e6e6fa0585e5512e5befa74 -->
+<!-- devkit-stage design result=passed attempt=12 commit=f29093d9bb2a0c013b32c0cb223795f16b20d544 -->
 # Design
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a ·
@@ -277,7 +277,16 @@ item 5 is not edited.
   .../change-loop.mjs declare` line is matched (a subagent has no reason to write one; the refusal costs
   a rephrase). The rule judges the command's text, not the folder it works in: a `cd <scratch project>
   &&` before the call exempts nothing (T99), so a subagent cannot run `declare` in a scratch project
-  either (D-14 assigns every real run that calls it).
+  either (D-14 assigns every real run that calls it). Two forms are not matched, by decision: a node
+  option that takes its value as a separate word (`node -r <module> <path>/change-loop.mjs declare`,
+  `node --stack-size 2000 <path>/change-loop.mjs declare`), because the option-word skip takes only
+  words that start with `-`; and a script path held wholly in a variable (`node "$S" declare`), as for
+  any command built from variables, because the rule judges the command's text. What such a call can
+  forge is bounded: a `declared.json` record can only add review rounds or record a red gate (the two
+  keys `declare` takes); it never approves a review or opens a gate, since the readiness, the owner's
+  approval and the reviews stay their own files under their own writers. Widening the pattern to these
+  forms is a follow-up, not part of this change; the requirement of the `file-writers` delta names the
+  matched form the same way.
 - In a CompozyOS session (`COMPOZY_SESSION_ID` set) `writeViolation`'s first branch for an owner-`''`
   gate refuses `declared.json` with the message that names `approval.md` and the kit's record step. A
   CompozyOS session never calls `declare` (the driver has none, Non-Goals), so the wording is accepted
@@ -798,9 +807,51 @@ and its output files, and writes no sentence when that line is missing or does n
 - `docs/openspec-flow.md`, `openspec/config.yaml`'s settings comments, `docs/coordination-design.md` and ADR
   0023's Note for a change's own settings block: D-22; `openspec/config.yaml`'s rule on the live roadmap: D-23.
 - `docs/compozy-kit.md`, the paragraph "The CompozyOS driver does not carry every feature of the Claude
-  driver": one sentence naming what this change does not carry there (the declared pause and decision,
-  the fix after a red gate and the owner-authorized review round: a CompozyOS run asks the owner at a red
-  gate and stops its review at two rounds) and what it does (the plan digest in the approval, D-7).
+  driver": two sentences after the one ending "lists each limit.", the first naming what this change does not
+  carry there (the declared pause and decision, the fix after a red gate and the owner-authorized review
+  round: a CompozyOS run asks the owner at a red gate and stops its review at two rounds) and pointing at
+  the dated Note of the change's ADR that records this limit (review round 1, adr-reviewer F1), the second
+  naming what it does carry (the plan digest in the approval, D-7). As committed in 3ec3322, word for word
+  (the ADR number and file are the ones the change's ADR has at the last merge; T147 reads them by file
+  pattern):
+
+  ```text
+  It does not carry the steps the Claude driver declares outside the stage gates either (the declared pause and
+  decision, the one fix after a red gate and the review round the owner authorizes: a CompozyOS run asks the owner
+  at a red gate and stops its review at two rounds); the dated Note of
+  [ADR 0032](adr/0032-the-loop-declares-the-decisions-outside-the-stage-gates.md) records this limit. It does
+  carry the plan digest in the approval: its `record-approval` writes the `- Plan:` line, so a plan revised after
+  the start goes back to its gates there too.
+  ```
+- The change's ADR (`docs/adr/<its number>-the-loop-declares-the-decisions-outside-the-stage-gates.md`), a
+  dated Note in `## Decision`, after decision 8 and before `## Consequences`, separated from both by one blank
+  line (review round 1, adr-reviewer F1). It records the three places where the approved plan already narrows
+  decisions 3, 4, 5 and 7 (proposal AC-7 and AC-10; Goals / Non-Goals; D-5; D-7), and changes no decision's
+  text, so the design rule on a decision that changes an ADR does not apply. As committed in 3ec3322, word for
+  word (the date is the day of the edit; T147 holds decisions 1 to 8 and asserts the Note):
+
+  ```text
+  Note (coordinator-loop-fixes, 2026-11-25): the approved plan of the change narrows decisions 3, 4,
+  5 and 7 in three places, so their review triggers do not fire there. First, the CompozyOS driver has
+  no `declare` step (`declare` is the main session's command, and a CompozyOS run has no main session):
+  it asks the owner at a red gate, in place of decision 4's one fix, and stops its review at two rounds,
+  with no round the owner authorizes under decision 3 (proposal AC-7 and AC-10; design.md, Goals /
+  Non-Goals). Second, an archive that left a delivery train and conflicts with the base outside the
+  release files and the roadmap ticks keeps its blocked `stop-archive`, in place of decision 5's resolve
+  step, because that conflict is a person's to resolve on the archive's branch
+  ([ADR 0022](0022-reviewed-changes-leave-on-a-delivery-train.md), decision 8; design.md, Goals /
+  Non-Goals and D-5). Third, under decision 7 an approval written without a `- Plan:` line never goes
+  stale: it records no plan to compare (design.md, D-7). No decision's text changes.
+  ```
+- `docs/adr/0023-the-model-is-chosen-by-stage.md` (the stage-models ADR), one header line after its two
+  `- Status:` lines and before `- Date:`, in the form every other amended record uses (review round 1,
+  adr-reviewer F3); its `## Decision` section is untouched (T139's text). The number and file it names are
+  the ones the change's settings ADR has at the last merge (the loop's `renumber-adr` step carries them; T148
+  reads them by file pattern). As committed in 5dc0830, word for word:
+
+  ```text
+  - Amended by ADR 0033 (0033-a-changes-own-settings-live-in-an-x-devkit-block.md)
+  ```
 
 ## D-13 The nits (AC-14)
 
@@ -1331,8 +1382,9 @@ agent files. What this change does for each, decided here:
 ## D-20 An id that starts with `archive-` keeps its own pull request (AC-17; field finding 25)
 
 **What is wrong.** `isArchiveHead(name)` (`deliver-check.mjs`) is true for every head that matches
-`/^(chore\/)?archive-/`, and two readers drop such a head before they look at its files: `isOwnPr` (its first
-line) and the merged-list search of `findChangePr` (the `rest` filter). For a change named `archive-release-pin`
+`/^(chore\/)?archive-/`, and three readers drop such a head before they look at its files: `isOwnPr` (its first
+line), the merged-list search of `findChangePr` (the `rest` filter) and `findByCommits` (its skip of a pull
+request, below). For a change named `archive-release-pin`
 whose branch is its id, the pull request from head `archive-release-pin` is therefore never its own: on its
 own branch `mergedOnBranch` calls `isOwnPr` and returns `{ none: true }`, and off it the list drops the pull
 request before its files are read. `next` then says the change has no pull request and never reaches the retro.
@@ -1684,13 +1736,15 @@ change's `proof/`. Modify: the files above, their test files (`change-loop.test.
 `project-loop.test.mjs`, `review-round.test.mjs`, `github-setup.test.mjs`, `change-loop-remote-state.test.mjs`,
 `stage-models.test.mjs`), a fixtures module only where
 D-16 moves a helper into it, `docs/openspec-flow.md`,
-`docs/coordination-design.md`, `docs/compozy-kit.md`, `docs/adr/0011-...md`, `docs/adr/0023-...md`, `openspec/config.yaml`,
+`docs/coordination-design.md`, `docs/compozy-kit.md`, `docs/adr/0011-...md`, `docs/adr/0023-...md`, the change's ADR
+(its dated Note, D-12), `openspec/config.yaml`,
 `openspec/roadmap.md` (the `host-monitor-wake` line, D-10), `CHANGELOG.md`, the manifests of the three
 packs and the marketplace. Generated by the commands of D-19, never by hand: the two `AGENT.md` templates
 of `tdd-implementer` and `pr-verifier` under `plugins/compozy/skills/compozy-setup/templates/agents/`,
 their two copies under `.compozy/agents/` and `.compozy/kit-manifest.json`. Delete: none.
 
-**Estimate.** Optimistic 39 h, likely 51.5 h, pessimistic 68 h (the plan revision of task 6.4 adds 1.5 h).
+**Estimate.** Optimistic 41 h, likely 53.5 h, pessimistic 70 h (the plan revision of task 6.4 adds 1.5 h, the
+review round 1 fixes of task 6.4d 2 h).
 
 | Component | Hours | Type | Risk |
 |---|---|---|---|
@@ -1718,6 +1772,7 @@ their two copies under `.compozy/agents/` and `.compozy/kit-manifest.json`. Dele
 | Plan revision of task 6.4, item (b): D-20's `findByCommits` skip, T142 (task 6.4a; dropped as a unit) | 0.5 | Core | LOW |
 | Plan revision of task 6.4, item (c): the two Troubleshooting rows of D-22 (task 6.4b) | 0.25 | Documentation | LOW |
 | Plan revision of task 6.4, item (d): the further-round sentence of `review-change` (task 6.4c) | 0.25 | Documentation | LOW |
+| Review round 1 fixes: `declare --stdin words` and the two skill rows (D-4), the guard's option words (D-1), T146, the three document edits of D-12, T143 to T148 with T44 and T99 brought to their rows (task 6.4d) | 2 | Core | LOW |
 
 **Assumptions** (where the plan breaks if reality differs): `nextAction` can be called from `declare`
 in the same process as `next` (it is exported and pure but for its reads; `change-loop.mjs`);
