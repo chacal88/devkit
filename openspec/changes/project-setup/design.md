@@ -1,8 +1,8 @@
 <!-- devkit-stage design result=passed attempt=1 commit=df0beb015918e8ea5344202a3eeb41ebbfdda78c -->
 # Design
 
-Change: `project-setup` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
-(motivation: `proposal.md`; requirements: `requirements.md`; decision record:
+Change: `project-setup` · Date: 2026-11-23, revised 2026-11-25 (D-14 note) · Owner: Kaue (chacal88)
+· PRD / tech spec: n/a (motivation: `proposal.md`; requirements: `requirements.md`; decision record:
 `docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md`, called "the record" below). Base:
 the branch `project-setup` after its last merge of `origin/main` (at this revision the merge
 `f1dcefa`, which brought `c09860c`: the delivery train on in this repository; trains 1 to 4 with
@@ -154,7 +154,8 @@ by its name (`grep -rn`), and the tests are the contract.
 
 **Goals:**
 
-- One verb, `/devkit setup`, typed only by the owner, the same for a first install and a re-run.
+- One verb, `/devkit setup`, accepted only from the owner's typed command (the `devkit` skill is
+  not model-invocable, as for `/devkit change`), the same for a first install and a re-run.
 - Every decision the step makes about the `devkit:` block is a script, tested, never prose. The
   session asks the questions and says the facts.
 - The old skills' scripts keep their behaviour and their tests in their new place.
@@ -196,7 +197,11 @@ Typed only: the `devkit` skill keeps `disable-model-invocation: true` (the host 
 of the skill), as for `/devkit change`. `guard.mjs` already ends a `/devkit change` run on any other
 typed command (`runOf`), and a `/devkit roadmap` run on any other typed command but `/devkit status`
 and `/devkit train` (`roadmapRunOf`), so a typed `/devkit setup` ends their hold with
-no code change. Two tests (N-6, N-7) pin that.
+no code change. Two tests (N-6, N-7) pin that. "Typed only" covers the skill and nothing more: a
+request in plain words makes no Skill call, so the skill's `## Start` never sends it to the Setup
+section. Nothing in this change refuses a session that reads the Setup section's scripts on disk
+and runs them by hand (R-6, evidence finding F-1); the owner chose to keep it that way in this change
+and to propose the refusal at the retro (D-14, the owner's decision of 2026-11-25).
 
 Rejected: a separate script `setup-loop.mjs` for the start. The verb list and its reply live in
 `change-loop.mjs`, as for `roadmap` and `project`, which also hand off to their own script after the
@@ -493,8 +498,13 @@ installer into devkit-openspec (the record, alternative 4, rejected).
 
 `templates/config.yaml` also gains two commented examples under its existing `# devkit:` example, a
 `#   budget: 200000` line and a `# design:` example with its two keys. Those are the only places
-`budget` and `design:` appear (AC-3). The heading line, and the rule that every line of the block is
-a comment, stay (T-5).
+`budget` and `design:` appear (AC-3). They reach a project's file only when step 5 starts from the
+template, that is when no `openspec/config.yaml` exists at step 5. When the project had no
+`openspec/` folder, step 3's `openspec init` writes the file first, and step 5 then adds only the
+block, the `ship:` map, `merge_method` and the parts `fill` names, so the file holds neither key at
+all (evidence O-4; the spec's "The setup asks each key of the devkit block" and "The setup asks for
+the project's test commands" state both paths, with no change of behaviour). The heading line, and
+the rule that every line of the block is a comment, stay (T-5).
 
 ### D-9 What "named nowhere" covers (AC-2)
 
@@ -866,10 +876,27 @@ added after it).
 | R-3 | `merge` mode | a scratch clone of a GitHub repository the owner administers | the ship answer `merge`, the GitHub plan, one question per item, each answered no, and the plan run again unchanged: nothing applied |
 | R-4 | kit yes | a new git repository | `.compozy/` and its manifest, `devkit-compozy@devkit` enabled, the installer's per-file lines |
 | R-5 | driver `compozy` | a new git repository | `compozy` and `claude` offered, `script` not; `compozy` chosen; the kit installed with no kit question; then `/devkit setup` typed again in that project (driver `compozy`) runs the Setup section, starts no CompozyOS run, asks no block question and no kit question, and leaves `openspec/config.yaml`'s `shasum -a 256` unchanged (D-7, `## Start` on every driver) |
-| R-6 | the conducting session's own part | R-1's project | a `-p` session asked in plain words to set the project up runs no setup (no file changes, `git status --short` empty); the typed `/devkit setup` of R-1 is the one that ran |
+| R-6 | the conducting session's own part | R-1's project | a `-p` session asked in plain words to set the project up makes no Skill call: the `devkit` skill does not run and its `## Start` does not reach the Setup section through it; in R-1's project `git status --short` stays empty, and the typed `/devkit setup` of R-1 is the one that ran the skill. The files a session writes by running the setup's scripts by hand (the extra cases the file also records, in a repository not set up) are recorded as evidence finding F-1, which this change does not prevent |
 
 A run that cannot happen (no GitHub repository for R-3, the host refusing) is recorded in its file
 with the reason, and the owner decides at the evidence whether it counts.
+
+Note (2026-11-25), the owner's decision on R-6. Review round 1 found that the spec's typed-only
+requirement promised more than the change enforces (spec-reviewer F1, code-quality-reviewer F1):
+R-6 shows no Skill call for a plain-words request in every case, but its extra cases show a session
+running the setup's scripts by hand and writing `.claude/settings.json`, `openspec/` and
+`.agents/skills` in a repository not set up (evidence F-1). The owner chose, typing in the
+conducting session on 2026-11-25: "Ajustar o texto (A)". The spec's requirement "The setup skill is
+invoked only from the owner's typed command", task 7.6 and the R-6 row above now claim only what the
+change enforces, as AC-1 already words it ("accepted only from the owner's typed command, as
+`/devkit change` is"): the `devkit` skill is not model-invocable. No code changes for it, and the
+change does not grow.
+
+Retro proposal (not part of this change): a hook that refuses the setup's scripts (the Setup
+section's `change-loop.mjs start` with `setup`, `project-settings.mjs`, `install-schemas.sh`,
+`setup-block.mjs apply` and the kit installer) when the session's last typed command is not
+`/devkit setup`, with a real run of R-6's extra case as its proof. Until it exists, an owner types
+`/devkit setup` and does not ask for the setup in plain words.
 
 ### D-15 Release
 
@@ -914,6 +941,11 @@ version, which the next install corrects.
 - [A typed `/devkit setup` in a roadmap session ends the run's hold] → that is the existing rule for
   any typed command but `/devkit status` and `/devkit train`, pinned by N-7; `/devkit roadmap` resumes.
 - [Owners who learned `/openspec-setup`] → every message names `/devkit setup`; the record accepts it.
+- [A session asked in plain words runs the setup's scripts by hand and writes a setup's files in a
+  project not set up (R-6, evidence F-1)] → accepted for this change by the owner's choice A of
+  2026-11-25 ("Ajustar o texto (A)", D-14 note): the spec claims only that the skill is not
+  model-invocable. Retro proposal: the hook that refuses the setup's scripts without a typed
+  `/devkit setup` (D-14 note).
 
 ## Migration Plan
 

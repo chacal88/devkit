@@ -21,9 +21,11 @@ SHALL opt the project in, install the `devkit`, `devkit-lite` and `devkit-projec
 - **WHEN** the owner types `/devkit setup` again in a project whose `devkit:` block holds `driver: compozy`
 - **THEN** the session runs the setup step as on every other driver, starts no CompozyOS run, and asks only what is missing
 
-### Requirement: The setup runs only from the owner's typed command
-The setup SHALL run only when the owner types `/devkit setup`. The `devkit` skill SHALL stay
-not invocable by the model, so no agent, stage or other session can start the setup.
+### Requirement: The setup skill is invoked only from the owner's typed command
+`/devkit setup` SHALL be accepted only from the owner's typed command, as `/devkit change` is: the
+`devkit` skill SHALL stay not invocable by the model, so no agent, stage or session can invoke it.
+This covers the skill only: this change does not prevent a session from running the setup's
+scripts by hand, which can write a setup's files in a project that is not set up.
 
 #### Scenario: The skill cannot be invoked by the model
 - **WHEN** the `devkit` skill's frontmatter is read
@@ -31,7 +33,7 @@ not invocable by the model, so no agent, stage or other session can start the se
 
 #### Scenario: A request that is not the typed command
 - **WHEN** a session is asked in plain words, with no typed `/devkit setup`, to set the project up
-- **THEN** the `devkit` skill does not run and no file of the setup is written
+- **THEN** the session makes no Skill call: the `devkit` skill does not run, and its `## Start` does not send the request to the Setup section, as for a request in plain words to run a change
 
 #### Scenario: A typed setup ends a change run's hold
 - **WHEN** the owner types `/devkit setup` in a session that was running `/devkit change` or `/devkit roadmap`
@@ -42,11 +44,11 @@ The setup SHALL ask one short question each for `devkit.language`, `devkit.drive
 model (`model`, `base`, `test_branch`), each with its default; propose `devkit.tests.*` from the
 repository for the owner to confirm; ask the ship mode with `merge` suggested; and write `release_tag`
 only when a release file exists. It SHALL write only answered values and SHALL NOT write `budget` or
-`design:`.
+`design:`; their commented examples appear only in a file the setup writes from its template.
 
 #### Scenario: A first setup with answers given
 - **WHEN** the owner answers `en`, `claude`, no delivery model, `npm test` for the unit tests, no coverage, no E2E and `merge` with `squash`
-- **THEN** the block holds `language: en`, `driver: claude` and `tests.unit: "npm test"`, the file holds `ship:` with `merge` for `devkit`, `devkit-lite` and `devkit-project` and `merge_method: squash`, and `budget` and `design:` appear only on commented lines
+- **THEN** the block holds `language: en`, `driver: claude` and `tests.unit: "npm test"`, the file holds `ship:` with `merge` for `devkit`, `devkit-lite` and `devkit-project` and `merge_method: squash`, and no uncommented line holds a `budget` key or a top-level `design:` key: when `openspec init` wrote the file earlier in the same setup, the setup adds only the block, the `ship:` map, `merge_method` and the parts its plan names to fill, so neither key appears at all; when the setup wrote the file from its template, both appear only on its commented lines
 
 #### Scenario: No release file
 - **WHEN** the project's root has no `package.json` with a top-level `version`
@@ -282,8 +284,9 @@ the `devkit` key (`plan` when that is absent) and show the change.
 When `/devkit setup` installs or upgrades the flow, it SHALL propose, from the repository, the
 values of `devkit.tests.unit`, `devkit.tests.coverage.command` and `devkit.tests.e2e`, ask the owner
 for `devkit.tests.coverage.target`, write only the values the owner confirmed into the `devkit:`
-block of `openspec/config.yaml`, and keep any value the block already holds. The starting
-`openspec/config.yaml` SHALL show the four keys as a commented example.
+block of `openspec/config.yaml`, and keep any value the block already holds. A starting
+`openspec/config.yaml` the setup writes from its template SHALL show the four keys as a commented
+example; one that `openspec init` wrote earlier in the same setup gets none.
 
 #### Scenario: A project with a unit suite and no E2E
 - **WHEN** the setup runs in a project whose `package.json` has a `test` script and no E2E tool, and the owner confirms `npm test` and gives no target
@@ -294,7 +297,7 @@ block of `openspec/config.yaml`, and keep any value the block already holds. The
 - **THEN** both values are kept as they are and no question is asked about them
 
 #### Scenario: The starting configuration
-- **WHEN** a project has no `openspec/config.yaml` and the setup writes it from its template
+- **WHEN** no `openspec/config.yaml` exists when the setup writes the block (no `openspec/config.yaml` was in the project and no `openspec init` of the same setup wrote one), and the setup writes the file from its template
 - **THEN** the file shows `unit`, `coverage.command`, `coverage.target` and `e2e` under `devkit.tests` as commented lines, with one line saying that a stage whose command is absent does not run
 
 ### Requirement: The setup names a gh too old for the delivery

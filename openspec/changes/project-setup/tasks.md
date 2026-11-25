@@ -1,10 +1,10 @@
 <!-- devkit-stage tasks result=passed attempt=1 commit=df0beb015918e8ea5344202a3eeb41ebbfdda78c -->
 # Tasks
 
-Change: `project-setup` · Date: 2026-11-23, revised 2026-11-24 · Owner: Kaue (chacal88) · Base:
-the branch after its last merge of `origin/main` (at this revision the merge `f1dcefa`, which brought
-`c09860c`: trains 1 to 9, the delivery train on in this repository, the train records
-`openspec/trains/<n>.md`, and the archives of `compozy-driver`, `delivery-train`, `stage-models`,
+Change: `project-setup` · Date: 2026-11-23, revised 2026-11-24 and 2026-11-25 (task 7.6) · Owner:
+Kaue (chacal88) · Base: the branch after its last merge of `origin/main` (at this revision the merge
+`f1dcefa`, which brought `c09860c`: trains 1 to 9, the delivery train on in this repository, the
+train records `openspec/trains/<n>.md`, and the archives of `compozy-driver`, `delivery-train`, `stage-models`,
 `suite-speed` and `loop-place-and-evidence`; `suite-speed`'s record is
 `docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`)
 
@@ -393,8 +393,12 @@ so `evidence.md` cites them before the first review round (`CLAUDE.md`; D-14).
   installed with no kit question, and the re-run on the `compozy` driver running the Setup section
   with no CompozyOS start, no block or kit question and two equal `shasum -a 256 openspec/config.yaml`
   lines.
-- [x] 7.6 R-6, the typed-only part. Check: `proof/r6-typed-only.txt` shows a plain-words request
-  that ran no setup and an empty `git status --short`.
+- [x] 7.6 R-6, the typed-only part as the spec words it after the owner's choice A of 2026-11-25
+  (design D-14 note): a request in plain words invokes no `devkit` skill and does not reach its
+  Setup section. Check: `proof/r6-typed-only.txt` shows no Skill call in every case, and an empty
+  `git status --short` in R-1's project (the case D-14 declares); the files its extra cases show a
+  session writing by running the setup's scripts by hand are recorded as evidence finding F-1, which
+  this change does not prevent.
 - [x] 7.7 A run that could not happen is recorded in its file with the reason (D-14). Commit the six
   files before the evidence stage. Check: each of the six files exists and is not empty, and
   `git status --short openspec/changes/project-setup/proof` prints nothing.
