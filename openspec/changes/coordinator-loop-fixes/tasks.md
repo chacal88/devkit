@@ -486,7 +486,7 @@ every task with `git status --short`.
   Check: `proof/checks.txt` has one line for each of `r1` to `r5`, `r7s`, `r8`, `r9`, `r11`,
   `r11b`, `r13a`, `r13b`, `r14`, `r15`, `r16` and `r17` (and the `r10` line of 4.1 and the `r6`, `r7` and `r7b` lines of 6.3), each ending in
   `: pass`.
-- [ ] 6.4a D-20's `findByCommits` bullet (plan revision of task 6.4, item (b)). This task, that bullet of D-20 and
+- [x] 6.4a D-20's `findByCommits` bullet (plan revision of task 6.4, item (b)). This task, that bullet of D-20 and
   T142 of D-16 are one unit: when the owner drops it, the three go together, and no other task or check reads them.
   First write T142 in `plugins/openspec/hooks/deliver-check-archive.test.mjs`, beside T123, with that file's
   commit-lookup fixtures of the `forced-merge-path 1: L` tests (the full merged list, the commits route of a

@@ -852,7 +852,7 @@ function findByCommits(gh, id, base) {
     if (pulls.error) return fail(pulls.error);
     if (!Array.isArray(pulls.json)) return fail(`commits/${c.sha.slice(0, 7)}/pulls returned no list`);
     for (const p of pulls.json) {
-      if (!p?.merged_at || p.base?.ref !== branch || isArchiveHead(p.head?.ref) || seen.has(p.number)) continue;
+      if (!p?.merged_at || p.base?.ref !== branch || foreignArchiveHead(id, p.head?.ref) || seen.has(p.number)) continue;
       seen.add(p.number);
       const f = prFiles(gh, p.number);
       if (f.error) return fail(f.error);

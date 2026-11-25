@@ -3356,3 +3356,27 @@ test('coordinator-loop-fixes AC-17 T123 findChangePr (merge): the merged pull re
   assert.equal(own.none, undefined);
   assert.deepEqual(archiveIdRepo([ARCHIVE_OF_X]).find('main'), { none: true }, 'only the archive of archive-x');
 });
+
+// Invariant: the commit lookup (the arm reached when the merged list is full) keeps the own pull request of a change whose id starts with
+// `archive-`, and still skips that change's archive heads unread. Layer: findChangePr's commit arm, findByCommits (deliver-check). Suite:
+// deliver-check-archive.
+test('coordinator-loop-fixes AC-17 T142 findChangePr (merge): the commit lookup answers the pull request of head archive-x for the change archive-x, and skips its archive heads unread', () => {
+  const ownCommitPr = restPr({ number: 41, html_url: 'https://github.com/o/r/pull/41', head: { ref: 'archive-x', sha: 'c'.repeat(40) } });
+  const own = archiveIdRepo(cap());
+  own.gh.set(COMMITS_KEY('archive-x'), { stdout: [{ sha: SHA1 }] });
+  own.gh.set(PULLS_KEY(SHA1), { stdout: [ownCommitPr] });
+  own.gh.prFiles(41, ['openspec/changes/archive-x/tasks.md', 'src/a.ts']);
+  const found = own.find('main');
+  assert.equal(found.pr?.number, 41, JSON.stringify(found));
+  assert.equal(found.via, 'commit');
+  assert.equal(found.pr.headRefName, 'archive-x');
+  const archives = archiveIdRepo(cap());
+  archives.gh.set(COMMITS_KEY('archive-x'), { stdout: [{ sha: SHA1 }] });
+  archives.gh.set(PULLS_KEY(SHA1), { stdout: [
+    restPr({ number: 42, head: { ref: 'chore/archive-archive-x', sha: 'a'.repeat(40) } }),
+    restPr({ number: 43, head: { ref: 'archive-archive-x', sha: 'a'.repeat(40) } }),
+  ] });
+  for (const n of [42, 43]) archives.gh.prFiles(n, ['openspec/changes/archive-x/tasks.md']);
+  assert.deepEqual(archives.find('main'), { none: true });
+  assert.equal(archives.gh.calls().some((c) => /pulls\/(42|43)\/files/.test(c[1] ?? '')), false, 'an archive head of archive-x is not read');
+});
