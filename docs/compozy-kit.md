@@ -124,8 +124,10 @@ entry and write-back, the `state` command's view of a run, and the machines of a
 reached from a CompozyOS run. [ADR 0024](adr/0024-compozy-runs-the-short-loop.md) lists each limit.
 It does not carry the steps the Claude driver declares outside the stage gates either (the declared pause and
 decision, the one fix after a red gate and the review round the owner authorizes: a CompozyOS run asks the owner
-at a red gate and stops its review at two rounds), but it does carry the plan digest in the approval: its
-`record-approval` writes the `- Plan:` line, so a plan revised after the start goes back to its gates there too.
+at a red gate and stops its review at two rounds); the dated Note of
+[ADR 0032](adr/0032-the-loop-declares-the-decisions-outside-the-stage-gates.md) records this limit. It does
+carry the plan digest in the approval: its `record-approval` writes the `- Plan:` line, so a plan revised after
+the start goes back to its gates there too.
 
 ### Not carried yet
 

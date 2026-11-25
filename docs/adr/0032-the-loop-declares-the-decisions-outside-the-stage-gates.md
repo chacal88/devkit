@@ -75,6 +75,18 @@ plan its own change revised, so it does not settle the second fact.
 8. ADR 0010's and ADR 0011's decisions are otherwise unchanged; ADR 0011 gains a dated Note on the
    stop lock after a recorded end, its Decision section untouched.
 
+Note (coordinator-loop-fixes, 2026-11-25): the approved plan of the change narrows decisions 3, 4,
+5 and 7 in three places, so their review triggers do not fire there. First, the CompozyOS driver has
+no `declare` step (`declare` is the main session's command, and a CompozyOS run has no main session):
+it asks the owner at a red gate, in place of decision 4's one fix, and stops its review at two rounds,
+with no round the owner authorizes under decision 3 (proposal AC-7 and AC-10; design.md, Goals /
+Non-Goals). Second, an archive that left a delivery train and conflicts with the base outside the
+release files and the roadmap ticks keeps its blocked `stop-archive`, in place of decision 5's resolve
+step, because that conflict is a person's to resolve on the archive's branch
+([ADR 0022](0022-reviewed-changes-leave-on-a-delivery-train.md), decision 8; design.md, Goals /
+Non-Goals and D-5). Third, under decision 7 an approval written without a `- Plan:` line never goes
+stale: it records no plan to compare (design.md, D-7). No decision's text changes.
+
 ## Consequences
 
 - Positive: an owner's pause, a decision outside the gates, an extra review round, a small fix after

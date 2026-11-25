@@ -1224,6 +1224,69 @@ test('coordinator-loop-fixes AC-19 T139 the flow page, the config comments, the 
   assert.ok(note.endsWith('Decision 1 is otherwise unchanged.'), note);
 });
 
+// ---------------------------------------------------------------- review round 1: the plan's limits on record (adr-reviewer F1, F3)
+// Invariant: ADR 0032's `## Decision` section is decisions 1 to 8 as accepted (held here), followed by one dated Note that records
+// the three limits of the approved plan with their sources; docs/compozy-kit.md points at that Note for the declared steps and
+// still names ADR 0024 for the limits it lists. Layer: the documents. Suite:
+// change-loop-declared.
+
+const ADR_0032_DECISION = [
+  '## Decision',
+  '',
+  '1. Every decision the loop meets outside the script\'s stage gates is a declared key of',
+  '   `change-loop.mjs reply` or a declared step of `next`; the session never stops on an undeclared',
+  '   end, and no stage header is edited by hand to move a change on. A pause the owner asks for and a',
+  '   decision outside the gates each have their own declared end, both in the state "waiting for the',
+  '   owner" of ADR 0010 decision 3: no fifth end state is added, and their state and title are derived',
+  '   where ADR 0017 derives every other.',
+  '2. The stop lock lets the session end its turn on a declared end only when the end\'s `devkit-end:`',
+  '   marker names the run\'s change; a marker with another change\'s id releases nothing. A turn that',
+  '   ends without a declared end while a stage is ready is still refused. The hook still vetoes and',
+  '   does not drive (ADR 0010 decision 5).',
+  '3. After the second review round, the review\'s deadlock (`stop-review-deadlock`, or for the code',
+  '   review the stage walk\'s attempt ceiling of the `review` stage, which the loop meets first) stays',
+  '   until the owner authorizes one more round in their own typed message, recorded from the owner\'s',
+  '   session in the same way as the plan approval; a message from another session or agent is no',
+  '   authorization. Each authorization hands exactly one round of the review it answers: it raises',
+  '   that review\'s round limit, and for the code review its stage ceiling, by one; the round script',
+  '   accepts the round, and the loop leaves the deadlock for it by its own step.',
+  '4. A first red gate hands one declared fix step to `devkit-core:tdd-implementer`, then the gate runs',
+  '   again; a second red gate ends the run `blocked` with `why=tests-red`. The bound lives in the loop',
+  '   and may be widened by a later decision, never removed.',
+  '5. A pull request that conflicts with the base outside the release files gets a declared resolve',
+  '   step, in the same way as `resolve-release-conflict`; its role\'s `Outcome: failure` ends the run',
+  '   `blocked` with `why=role-failed`. A conflict in the release files keeps `resolve-release-conflict`.',
+  '6. A task line of `tasks.md` carrying the marker the plan names is the conducting session\'s: the loop',
+  '   never hands it to the implementer and counts it done only when ticked. The marker lifts no lock:',
+  '   the session does such a task under ADR 0011 decision 2, so a task that needs a product edit is',
+  '   never marked for it.',
+  '7. A plan file (`proposal.md`, `design.md`, `tasks.md`, a spec delta) edited after the implementation',
+  '   started makes the readiness review and the owner\'s approval stale, and `next` hands the plan back',
+  '   to its own gates, the owner\'s approval included. A `tasks.md` tick and an evidence file do not.',
+  '8. ADR 0010\'s and ADR 0011\'s decisions are otherwise unchanged; ADR 0011 gains a dated Note on the',
+  '   stop lock after a recorded end, its Decision section untouched.',
+].join('\n');
+const LOOP_ADR = () => readdirSync(ADR_DIR).find((f) => /^\d{4}-the-loop-declares-the-decisions-outside-the-stage-gates\.md$/.test(f));
+
+test('coordinator-loop-fixes AC-7 T147 ADR 0032 keeps its decisions and records the plan\'s three limits in a dated Note, which the CompozyOS page names', () => {
+  const file = LOOP_ADR();
+  const decision = section(readFileSync(join(ADR_DIR, file), 'utf8'), '## Decision', '## Consequences');
+  assert.ok(decision.startsWith(`${ADR_0032_DECISION}\n\n`), 'decisions 1 to 8 are unchanged');
+  const note = decision.slice(ADR_0032_DECISION.length).trim().replace(/\s+/g, ' ');
+  assert.match(note, /^Note \(coordinator-loop-fixes, 2026-11-25\): /);
+  for (const words of [
+    'the CompozyOS driver has no `declare` step', 'asks the owner at a red gate', 'stops its review at two rounds',
+    'an archive that left a delivery train', 'keeps its blocked `stop-archive`', 'outside the release files',
+    '[ADR 0022](0022-reviewed-changes-leave-on-a-delivery-train.md), decision 8',
+    'an approval written without a `- Plan:` line never goes stale',
+    'proposal AC-7 and AC-10', 'design.md',
+  ]) assert.ok(note.includes(words), `${words}: ${note}`);
+  assert.ok(note.endsWith('No decision\'s text changes.'), note);
+  const kit = readFileSync(join(REPO_ROOT, 'docs', 'compozy-kit.md'), 'utf8').replace(/\s+/g, ' ');
+  assert.ok(kit.includes('[ADR 0024](adr/0024-compozy-runs-the-short-loop.md) lists each limit'), 'the ADR 0024 sentence stays');
+  assert.ok(kit.includes(`the dated Note of [ADR ${file.slice(0, 4)}](adr/${file}) records this limit`), 'the page points at the Note');
+});
+
 // ---------------------------------------------------------------- AC-20: no test pins the state of a live roadmap line (D-23)
 // Invariant: the `context:` of openspec/config.yaml holds the `Live roadmap:` rule right after `Test history:`. Layer: the
 // project's config, read as text. Suite: change-loop-declared.
