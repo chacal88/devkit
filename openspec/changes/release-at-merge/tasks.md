@@ -457,7 +457,7 @@ ls-files` check needs (readiness attempt 5, O4).
   review and the real reviewer passes it, and in N the touched note keeps the readiness passed
   (AC-16, AC-15).
 - [x] 9.16 Gate: `python3 scripts/check.py && openspec validate release-at-merge --strict && grep -q "^## P-13 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## S-12 " openspec/changes/release-at-merge/proof/agents-run.md` green, the scratch folders removed; covers AC-15 and AC-16 in real runs.
-- [ ] 9.17 (adr-reviewer nit F5; code-quality F1 on this branch) After the last merge of `origin/main` before review (when the base moved since 9.1, run
+- [x] 9.17 (adr-reviewer nit F5; code-quality F1 on this branch) After the last merge of `origin/main` before review (when the base moved since 9.1, run
   the step itself, which merges it), run this worktree's `node plugins/openspec/hooks/release-merge.mjs
   --assign --base main --json` (D-17, D-27) and append the command, its JSON and `git log -1
   --format=%B` to `proof/dogfood.md`. The step numbers both records `decisions.md` lists, in that
