@@ -4,7 +4,7 @@
 // `node scripts/test-suite.mjs plugins/openspec/hooks/release-note.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
@@ -422,6 +422,17 @@ test('release-note AC-5 mask: adrNumberRe matches ADR <number> as a whole token,
   assert.equal(D.adrNumberRe('0034').test('ADR 0034a'), true, 'only a digit after the number ends the match');
   assert.equal(D.adrNumberRe('00.4').test('ADR 0034'), false, 'the number is read as text, not as a pattern');
   assert.equal(D.adrNumberRe('00.4').test('ADR 00.4'), true);
+});
+
+// Retro of release-at-merge: adrNumberRe stays the one builder; an inline copy in another hook would pass every other test.
+test('release-note AC-5 mask: no hook builds the ADR number pattern except adrNumberRe', () => {
+  const lookbehind = '(?<![A-Za-z0-9])ADR ';
+  const found = [];
+  for (const name of readdirSync(here).filter((f) => f.endsWith('.mjs') && !/\.test\.mjs$/.test(f)).sort()) {
+    const count = readFileSync(join(here, name), 'utf8').split(lookbehind).length - 1;
+    for (let i = 0; i < count; i += 1) found.push(name);
+  }
+  assert.deepEqual(found, ['deliver-check.mjs']);
 });
 
 test('release-note AC-5 rewrite: the step numbers the ADR, its title and both citation forms, and writes what the release lines of stepCommit hold', () => {

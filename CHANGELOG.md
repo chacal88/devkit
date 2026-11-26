@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.55.1 — release-at-merge retro
+
+- **devkit-openspec** 0.50.1: a test of `release-note.test.mjs` reads the hook files and refuses an `ADR <number>`
+  pattern built anywhere but `adrNumberRe` of `deliver-check.mjs`. Test only. The CI snippet now pins `v0.50.1`, the
+  release's tag.
+- Roadmap: `release-at-merge-nits` keeps the nits the five reviewers left open.
+
 ## 0.55.0 — a change states its release in a note and the delivery numbers it
 
 - **devkit-openspec** 0.50.0: in a project that names `devkit.release_tag`, a change carries
