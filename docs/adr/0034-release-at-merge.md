@@ -1,4 +1,4 @@
-# ADR [release-at-merge]: A change carries a release note and an unnumbered ADR, and the delivery numbers both once, at the merge
+# ADR 0034: A change carries a release note and an unnumbered ADR, and the delivery numbers both once, at the merge
 
 - Status: accepted
 - Accepted by: the owner, on 2026-11-24, in the approval of the plan of change release-at-merge (openspec/changes/release-at-merge/approval.md)
@@ -6,7 +6,7 @@
 - Change: release-at-merge
 - Amends: ADR 0022 (0022-reviewed-changes-leave-on-a-delivery-train.md), decision 3's sentence "Each change branch keeps its own number, so its reviews stay current" (a change with a release note carries no number at all; its rejected alternative "Renumber releases on each change branch" stays rejected); ADR 0025 (0025-a-base-merge-stales-only-on-the-changes-own-files.md), decision 1's list of files that are never own files, which grows by the numbering of an ADR (the renamed ADR file and the citations rewritten outside `openspec/changes/`), and decision 3's sentence "A plain commit on the branch is judged as before" (for a change with a release note, a plain commit's release edits are judged as release-class edits, decision 5)
 - Builds on: ADR 0027 (0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md) and ADR 0030 (0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md), whose pin definition, `pinMismatches` test and archive-check rule for the CI pin lines of `docs/openspec-flow.md` stay as written (decision 7); ADR 0003 (0003-auto-merge-the-archive-pr.md), whose exemption list, as ADR 0027 and ADR 0030 amended it, is unchanged; ADR 0019 (0019-the-delivery-loop-tags-the-release-it-merged.md), whose tag rule is unchanged; ADR 0002 (0002-merge-without-the-owner-opt-in.md) and ADR 0004 (0004-devkit-per-project.md); amends none of them
-- Amended by ADR [release-at-merge-step-record] (release-at-merge-step-record.md)
+- Amended by ADR 0035 (0035-release-at-merge-step-record.md)
 
 This record was written without a number; the delivery of its change gives it one, together with
 the change's release. The change's own folder cites it by the change's id, before and after.
