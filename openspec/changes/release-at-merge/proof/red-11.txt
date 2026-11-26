@@ -292,3 +292,253 @@ FAIL 0.7s plugins/openspec/hooks/release-merge.test.mjs
 FAIL 0.2s plugins/openspec/hooks/release-note.test.mjs
 suite: 6 files, 10 tests, 1 pass, 9 fail, 5.6s, concurrency 3
 exit 1
+
+Task 11.5: the D-35 tests of D-32, run on the code as phase 11 finds it (81d180a plus the tests): the new flow-check test fails on its first part (the readiness passed, not stale with plan-revised); the changed A1 test passes (guard)
+$ TMPDIR=/var/tmp/devkit-release-at-merge node scripts/test-suite.mjs --concurrency=3 '--test-name-pattern=(plan files and release.md both changed after the approval|row A1: a note changed after the approval asks the owner again)' plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/flow-check.test.mjs
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✔ release-note AC-12 row A1: a note changed after the approval asks the owner again, with no task ticked and with tasks ticked (787.833546ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 918.030645
+=== plugins/openspec/hooks/deliver-check.test.mjs: pass 1.0s
+=== plugins/openspec/hooks/flow-check.test.mjs
+✖ release-note AC-12 stages: a started noted change whose plan files and release.md both changed after the approval is stale with plan-revised, and the note alone is not (168.777747ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11014.298655
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2594:1
+✖ release-note AC-12 stages: a started noted change whose plan files and release.md both changed after the approval is stale with plan-revised, and the note alone is not (168.777747ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'passed',
+  +   'passed'
+  -   'stale',
+  -   'plan-revised'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/flow-check.test.mjs:2602:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'passed', 'passed' ],
+    expected: [ 'stale', 'plan-revised' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/flow-check.test.mjs: FAIL 11.1s
+pass 1.0s plugins/openspec/hooks/deliver-check.test.mjs
+FAIL 11.1s plugins/openspec/hooks/flow-check.test.mjs
+suite: 2 files, 2 tests, 1 pass, 1 fail, 11.1s, concurrency 3
+exit 1
+
+Task 11.5, second run: the same test with its two parts swapped for this run only (the file restored after it), so its second part runs first: the note alone leaves the readiness passed and the approval not ok (guard, passes), and the test then fails at the first part's assertion, line 2607
+$ TMPDIR=/var/tmp/devkit-release-at-merge node scripts/test-suite.mjs --concurrency=3 '--test-name-pattern=plan files and release.md both changed after the approval' plugins/openspec/hooks/flow-check.test.mjs   # the two parts swapped for this run only, the note-alone part first
+start plugins/openspec/hooks/flow-check.test.mjs
+=== plugins/openspec/hooks/flow-check.test.mjs
+✖ release-note AC-12 stages: a started noted change whose plan files and release.md both changed after the approval is stale with plan-revised, and the note alone is not (286.469579ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10951.735793
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/flow-check.test.mjs:2594:1
+✖ release-note AC-12 stages: a started noted change whose plan files and release.md both changed after the approval is stale with plan-revised, and the note alone is not (286.469579ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'passed',
+  +   'passed'
+  -   'stale',
+  -   'plan-revised'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/flow-check.test.mjs:2607:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'passed', 'passed' ],
+    expected: [ 'stale', 'plan-revised' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/flow-check.test.mjs: FAIL 11.0s
+FAIL 11.0s plugins/openspec/hooks/flow-check.test.mjs
+suite: 1 files, 1 tests, 0 pass, 1 fail, 11.0s, concurrency 3
+exit 1
+
+Task 11.3, a defect fix inside its scope (found after the batch of 11.1 to 11.4): assignConflict passes state.release?.file to assignBlockingAt, but releaseDelivery's noted return sets no file, so a consumer project whose devkit.release_tag is package.json sees a version conflict in it as outside the release lines; the new test "release-note AC-4 conduct: a noted consumer change in conflict only in its release file and the changelog keeps assign-release", run on the code before the fix: red (resolve-base-conflict naming package.json)
+$ TMPDIR=/var/tmp/devkit-release-at-merge node scripts/test-suite.mjs --concurrency=3 '--test-name-pattern=noted consumer change in conflict only in its release file' plugins/openspec/hooks/conduct-check.test.mjs
+start plugins/openspec/hooks/conduct-check.test.mjs
+=== plugins/openspec/hooks/conduct-check.test.mjs
+✖ release-note AC-4 conduct: a noted consumer change in conflict only in its release file and the changelog keeps assign-release (889.481067ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1002.750218
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:1758:1
+✖ release-note AC-4 conduct: a noted consumer change in conflict only in its release file and the changelog keeps assign-release (889.481067ms)
+  AssertionError [ERR_ASSERTION]: the PR conflicts with main outside the release lines the release step writes: package.json
+  + actual - expected
+  
+    [
+  +   'resolve-base-conflict',
+  +   'subagent'
+  -   'assign-release',
+  -   'main'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/conduct-check.test.mjs:1773:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'resolve-base-conflict', 'subagent' ],
+    expected: [ 'assign-release', 'main' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/conduct-check.test.mjs: FAIL 1.0s
+FAIL 1.0s plugins/openspec/hooks/conduct-check.test.mjs
+suite: 1 files, 1 tests, 0 pass, 1 fail, 1.0s, concurrency 3
+exit 1
+
+Task 11.7: the D-34 tests of D-35, run on the code as phase 11 finds it (81d180a plus the tests): the three red ones fail with exit 2 (the two one-line list tests naming docs/context.yaml, the words-added test naming docs/x.md); the two guards pass (the dropped entry and the changed citation, each exit 2 with the tree as it was)
+$ TMPDIR=/var/tmp/devkit-release-at-merge node scripts/test-suite.mjs --concurrency=3 '--test-name-pattern=(one-line list the base extended is given back|wrote in the step.s form with the step.s old number, on the same one-line list|the merge by hand dropped, where the base cites|words a person added beside a citation|changed by a person after the record, is not given back)' plugins/openspec/hooks/release-merge.test.mjs
+start plugins/openspec/hooks/release-merge.test.mjs
+=== plugins/openspec/hooks/release-merge.test.mjs
+✖ release-note AC-4 assign: a citation the step wrote on a one-line list the base extended is given back at the token level after a merge by hand, and the step numbers the branch above the base (990.317306ms)
+✖ release-note AC-4 assign: a citation the base wrote in the step's form with the step's old number, on the same one-line list, keeps its number when the step gives its own back (992.016887ms)
+✔ release-note AC-4 assign: a citation the step wrote that the merge by hand dropped, where the base cites its own record with the same number, cannot be given back: exit 2 naming the path, the head and the tree as they were (1056.965465ms)
+✖ release-note AC-4 assign: words a person added beside a citation the step wrote are kept when the step gives the citation back (1064.796943ms)
+✔ release-note AC-4 assign: a citation the step wrote, changed by a person after the record, is not given back: exit 2 naming the path, the head and the tree as they were (1064.863132ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 2
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5282.700891
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-merge.test.mjs:1165:1
+✖ release-note AC-4 assign: a citation the step wrote on a one-line list the base extended is given back at the token level after a merge by hand, and the step numbers the branch above the base (990.317306ms)
+  AssertionError [ERR_ASSERTION]: release-merge: cannot give back the numbers the step wrote in docs/context.yaml
+  {
+    "resolved": false,
+    "oldHead": "95fe37e6c02efa6e88633716021b3b3d73317f7f",
+    "change": "feat",
+    "conflicts": [],
+    "error": "cannot give back the numbers the step wrote in docs/context.yaml",
+    "mode": "assign"
+  }
+  
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:1169:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:1182:1
+✖ release-note AC-4 assign: a citation the base wrote in the step's form with the step's old number, on the same one-line list, keeps its number when the step gives its own back (992.016887ms)
+  AssertionError [ERR_ASSERTION]: release-merge: cannot give back the numbers the step wrote in docs/context.yaml
+  {
+    "resolved": false,
+    "oldHead": "325ad0539524032e5425eaba7578dc7cf58d0c27",
+    "change": "feat",
+    "conflicts": [],
+    "error": "cannot give back the numbers the step wrote in docs/context.yaml",
+    "mode": "assign"
+  }
+  
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:1185:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:1201:1
+✖ release-note AC-4 assign: words a person added beside a citation the step wrote are kept when the step gives the citation back (1064.796943ms)
+  AssertionError [ERR_ASSERTION]: release-merge: cannot give back the numbers the step wrote in docs/x.md
+  {
+    "resolved": false,
+    "oldHead": "ee09b5885a539573842bbde8fd73cfa3a0839479",
+    "change": "feat",
+    "conflicts": [],
+    "error": "cannot give back the numbers the step wrote in docs/x.md",
+    "mode": "assign"
+  }
+  
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:1207:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-merge.test.mjs: FAIL 5.3s
+FAIL 5.3s plugins/openspec/hooks/release-merge.test.mjs
+suite: 1 files, 5 tests, 2 pass, 3 fail, 5.3s, concurrency 3
+exit 1

@@ -2414,13 +2414,14 @@ export function releaseStateAt(root, { head: headRev, tip, base, note, file, adr
   return { kind, paths, current, base, citations, adrs: computed.adrs, reassign };
 }
 
-// What `collectState` records of the release rule for nextStep (D-8): { applies: false }, or `noted` and, for a noted change, its `state`; for
-// a change with no note the pack folders it changes with no bump of its own and the unnumbered record it lists, as `noRelease`.
+// What `collectState` records of the release rule for nextStep (D-8): { applies: false }, or `noted` and, for a noted change, its `state` and
+// the release `file` the project names (the conductor's classification reads it, D-31); for a change with no note the pack folders it
+// changes with no bump of its own and the unnumbered record it lists, as `noRelease`.
 function releaseDelivery(root, id, facts) {
   const rf = releaseFacts(root, id, facts);
   if (!rf.applies) return { applies: false };
   const base = facts.base ?? 'main';
-  if (rf.noted) return { applies: true, noted: true, base, state: releaseState(root, id, facts) };
+  if (rf.noted) return { applies: true, noted: true, base, file: rf.file, state: releaseState(root, id, facts) };
   const things = [...unbumpedPacks(root, facts), ...changeAdrs(root, null, id).slice(0, 1)];
   return { applies: true, noted: false, base, noRelease: things.length ? `no release: ${things.join(', ')}: the change has no release note and no version bump of its own; write openspec/changes/${id}/release.md` : null };
 }

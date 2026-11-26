@@ -2882,6 +2882,7 @@ test('release-note AC-12 row A1: a note changed after the approval asks the owne
     assert.equal(n.step, 'stop-plan-approval', tasks);
     assert.equal(n.reason, 'release note changed after approval');
     assert.equal(n.release, DC.releaseNoteHash(join(t.root, 'openspec', 'changes', 'feat')));
+    assert.equal(n.plan, DC.planDigest(join(t.root, 'openspec', 'changes', 'feat')), tasks);
     assert.equal(n.readiness, readinessHash(t.root));
     assert.equal(n.file, 'openspec/changes/feat/approval.md');
   }

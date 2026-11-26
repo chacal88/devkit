@@ -1753,6 +1753,26 @@ test('release-note AC-4 conduct: a noted change in conflict in the release files
   assert.deepEqual(planStep(c), ['assign-release', 'main'], c.next.reason);
 });
 
+// The release file the project names reaches the classification (assignConflict's `file`), so a project whose devkit.release_tag is not a
+// manifest of the marketplace layout keeps assign-release for a version conflict in that file.
+test('release-note AC-4 conduct: a noted consumer change in conflict only in its release file and the changelog keeps assign-release', () => {
+  const pkg = (v) => `${JSON.stringify({ name: 'app', version: v }, null, 2)}\n`;
+  const t = roundRepo({
+    roadmap: roadmapOf(['Round 1: x', '- [ ] b']), config: `${CONFIG}devkit:\n  release_tag: package.json\n`,
+    files: { 'package.json': pkg('1.4.0'), 'CHANGELOG.md': '# Changelog\n\n## 1.4.0 — old\n\n- x\n' },
+  });
+  const b = t.addWt('b');
+  readyChange(b, 'b', { files: { 'openspec/changes/b/release.md': '# Release note\n\npacks: []\nrelease: minor\n\n## the change b\n\nbody\n' } });
+  const r = runStep(b);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(readFileSync(join(b, 'package.json'), 'utf8'), pkg('1.5.0'));
+  t.commitOrigin({ 'package.json': pkg('1.4.1'), 'CHANGELOG.md': '# Changelog\n\n## 1.4.1 — a patch\n\n- y\n\n## 1.4.0 — old\n\n- x\n' }, 'a patch released');
+  openPr(t, b, 'b', { mergeable: 'CONFLICTING' });
+  assert.deepEqual(mergeTreePaths(b), ['CHANGELOG.md', 'package.json']);
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['assign-release', 'main'], c.next.reason);
+});
+
 test('release-note AC-4 conduct: a noted change whose base extended the one-line list holding its own citation gets resolve-base-conflict naming that file, and after the merge keeping both entries and its push, assign-release numbers the branch above the base', () => {
   const { t, b } = notedConflict({ record: true });
   const c = byId(t.state(), 'b');

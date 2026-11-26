@@ -388,6 +388,59 @@ export function assignBlockingAt(root, { target, conflicts, id, file }) {
   return [...new Set(assignBlocking(root, { side: 'HEAD', target, mergeBase, conflicts, own, file }).blocking)].sort();
 }
 
+// The give-back span by span (D-34), for a path whose whole-text give-back conflicts. The spans are the matches in `recorded` (the path's
+// text at the recorded commit) of the two written forms of each { number, slug } of `numbers`, with maskCitations' boundaries: `ADR <number>`
+// and, where adrFileRe matches it, `<number>-<slug>.md`. Each is found in `working` by a window of `recorded` on its line, grown to the left
+// first and then to the right, at the first window that occurs once in `working` and never in `base` (the path's text at the merge base),
+// the span still matching its form there; it is replaced by its unnumbered form and every other character of `working` stays. Returns that
+// text, or null when a span is found by no window or two spans are found at overlapping places.
+export function givenBackBySpan({ recorded, working, base, path, numbers }) {
+  const forms = numbers.flatMap(({ number, slug }) => [
+    { re: new RegExp(`(?<![A-Za-z0-9])ADR ${number}(?![0-9])`, 'g'), back: () => `ADR [${slug}]` },
+    { re: adrFileRe(`${number}-${slug}`, path), back: (m) => `${m[1] ?? ''}${slug}.md` },
+  ]);
+  const matchAt = (re, text, at) => {
+    const sticky = new RegExp(re.source, 'y');
+    sticky.lastIndex = at;
+    return sticky.exec(text);
+  };
+  const located = [];
+  for (const form of forms) {
+    for (const m of recorded.matchAll(form.re)) {
+      const a = m.index;
+      const b = a + m[0].length;
+      const ls = recorded.lastIndexOf('\n', a - 1) + 1;
+      const le = recorded.indexOf('\n', b) === -1 ? recorded.length : recorded.indexOf('\n', b);
+      // Where the span stands in `text` for each occurrence of the window recorded[x, y) whose span still matches its form, up to `max`.
+      const places = (text, x, y, max) => {
+        const window = recorded.slice(x, y);
+        const found = [];
+        for (let q = text.indexOf(window); q !== -1 && found.length < max; q = text.indexOf(window, q + 1)) {
+          const at = q + (a - x);
+          if (matchAt(form.re, text, at)?.[0].length === b - a) found.push(at);
+        }
+        return found;
+      };
+      // The span's place for the window recorded[x, y): a number, null to grow the window, or false to stop growing it this way.
+      const placeOf = (x, y) => {
+        const inWorking = places(working, x, y, 2);
+        if (!inWorking.length) return false;
+        return inWorking.length === 1 && !places(base, x, y, 1).length ? inWorking[0] : null;
+      };
+      let at = null;
+      for (let x = a; x >= ls && at === null; x--) at = placeOf(x, b);
+      if (typeof at !== 'number') at = null;
+      for (let y = b + 1; y <= le && at === null; y++) at = placeOf(a, y);
+      if (typeof at !== 'number') return null;
+      const span = matchAt(form.re, working, at);
+      located.push({ at, end: at + span[0].length, text: form.back(span) });
+    }
+  }
+  located.sort((p, q) => p.at - q.at);
+  if (located.some((p, i) => i > 0 && p.at < located[i - 1].end)) return null;
+  return located.reduceRight((text, p) => text.slice(0, p.at) + p.text + text.slice(p.end), working);
+}
+
 // The numbering core of the step and the join (D-6, D-7). With `merging` (the join) HEAD is `target`, the train's tip, and `side` the head
 // joined into it; otherwise HEAD is `side` and `target` is origin/<base>, merged when the branch is behind it. `id` is the noted change,
 // `file` the release file the project names, `label` how a message names the target. The release lines keep no number the side wrote: the
@@ -452,7 +505,9 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
     // whose key is in `reassign`, and the record's citation paths that hold its number, each through `git merge-file` of the path's text at
     // the recorded commit that wrote it, the working text and that commit's text with the record's numbers masked. Only the tokens the step
     // wrote go back, so a citation the base brought with the same number stays; a line edited where the step wrote a number conflicts and is
-    // refused. A release line in `reassign` is left to step 3, which writes every release line; so is a citation in CHANGELOG.md, whose
+    // refused. When that merge conflicts, `givenBackBySpan` gives each number back on its own, found by the text around it at the recorded
+    // commit, and refuses only a number it cannot find once in the working text and nowhere in the merge base's text (D-34).
+    // A release line in `reassign` is left to step 3, which writes every release line; so is a citation in CHANGELOG.md, whose
     // whole text step 3 writes from the note on the target (a merge by hand that took the base's changelog holds no entry to give back).
     if (!needsMerge && state.reassign.length) {
       const record = stepRecord(root, { head: oldHead, tip: target, id });
@@ -462,7 +517,7 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
       const givenBack = (commit, path, working) => {
         const recorded = show(root, commit, path) ?? '';
         const theirs = maskCitations(recorded, path, numbers);
-        return theirs === recorded ? working : mergeTexts(recorded, working, theirs, 'devkit-release-');
+        return theirs === recorded ? working : (mergeTexts(recorded, working, theirs, 'devkit-release-') ?? givenBackBySpan({ recorded, working, base: show(root, mergeBase, path) ?? '', path, numbers }));
       };
       const cannot = (path) => refuse({ error: `cannot give back the numbers the step wrote in ${path}` });
       for (const a of back) {

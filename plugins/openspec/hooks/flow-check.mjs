@@ -317,8 +317,10 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   Object.assign(facts, { files, noteFiles: noteFilesOf(root, located.dir), opened: existsSync(join(located.dir, '.openspec.yaml')), skipped: [], tasks: null, dirty: [], head: null,
     flags: classificationFlags(located.dir), authorizedReviewRounds: authorizedRounds(located.dir, 'review'), settings: readTestSettings(root).paths,
     flowVersion: { version: followed.version, installed: followed.installed, pinned: followed.pinned } });
-  // The owner's approval and the plan it records, for a flow that declares the approval (D-7).
-  if (flow.stages.some((s) => s.id === 'approval')) Object.assign(facts, { approvalOk: approvalState(located.dir).ok, planRevision: planRevision(located.dir) });
+  // The owner's approval and the plan it records, for a flow that declares the approval (D-7). The approval is read without the note
+  // (D-32 of release-at-merge: whether the owner approved this readiness review; a note changed with the plan is asked at the approval
+  // after the readiness runs again).
+  if (flow.stages.some((s) => s.id === 'approval')) Object.assign(facts, { approvalOk: approvalState(located.dir, { release: false }).ok, planRevision: planRevision(located.dir) });
   if (isPreviousScript(files, flow)) return { facts, flow };
   let config;
   try { config = deliveryConfig(root, schema); } catch (e) {

@@ -997,8 +997,9 @@ function mergeByHand(root, { files = {}, ours = [] } = {}) {
 }
 // The reviewer's sequence (code-quality F1): `feat` is assigned (devkit-openspec 1.1.0, docs/adr/0002-feat.md); the base then releases
 // 1.1.0, takes 0002 for docs/adr/0002-other.md and edits src/a.ts, which `feat` edits too; `--assign` exits 2 on src/a.ts; a person merges
-// origin/main by hand, resolves src/a.ts and takes the base's side of every release file. `amend` drops the trailers of the step's commit.
-function mergedByHand({ main = {}, change = {}, base = {}, amend = false } = {}) {
+// origin/main by hand, resolves src/a.ts and takes the base's side of every release file. `amend` drops the trailers of the step's commit;
+// `resolved` are the other files the person writes in that merge, after src/a.ts.
+function mergedByHand({ main = {}, change = {}, base = {}, amend = false, resolved = {} } = {}) {
   const { root } = notedRepo({ main, files: { 'src/a.ts': 'mine\n', ...change } });
   const first = assign(root);
   assert.equal(first.code, 0, first.stderr + first.stdout);
@@ -1007,7 +1008,7 @@ function mergedByHand({ main = {}, change = {}, base = {}, amend = false } = {})
   const refused = assign(root);
   assert.equal(refused.code, 2, refused.stderr + refused.stdout);
   assert.ok(refused.out.conflicts.includes('src/a.ts'), JSON.stringify(refused.out));
-  mergeByHand(root, { files: { 'src/a.ts': 'both\n' } });
+  mergeByHand(root, { files: { 'src/a.ts': 'both\n', ...resolved } });
   return root;
 }
 const stateNow = (root) => D.releaseState(root, 'feat', D.gitFacts(root, { base: 'main' }));
@@ -1151,11 +1152,68 @@ test('release-note AC-4 assign: a citation the base brought with the step\'s old
   assert.equal(git(root, 'status', '--porcelain'), '');
 });
 
-test('release-note AC-4 assign: a line the step wrote, edited by a person after the record, is not given back: exit 2 naming the path, the head and the tree as they were', () => {
+// Review round 3 (D-34): when the whole-text merge of the give-back conflicts, each number the step wrote is given back on its own, found
+// by the text around it at the recorded commit, once in the working text and nowhere in the base's text.
+const ADRS_LINE = (entries) => `  ADRs: docs/adr/ (0001 first${entries})\n`;
+const oneLineList = (base, merged) => mergedByHand({
+  main: { 'docs/context.yaml': ADRS_LINE('') },
+  change: { 'docs/context.yaml': ADRS_LINE('; ADR [feat] the rule') },
+  base: { 'docs/context.yaml': ADRS_LINE(base) },
+  resolved: { 'docs/context.yaml': ADRS_LINE(merged) },
+});
+
+test('release-note AC-4 assign: a citation the step wrote on a one-line list the base extended is given back at the token level after a merge by hand, and the step numbers the branch above the base', () => {
+  const root = oneLineList('; 0002 other', '; ADR 0002 the rule; 0002 other');
+  const oldHead = sha(root);
+  const r = assign(root);
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.deepEqual(parentsOf(root), [oldHead], 'one plain commit on the merge');
+  assert.ok(existsSync(join(root, 'docs/adr/0003-feat.md')));
+  assert.ok(!existsSync(join(root, 'docs/adr/0002-feat.md')) && !existsSync(join(root, 'docs/adr/feat.md')));
+  assert.equal(read(root, 'docs/adr/0002-other.md'), '# ADR 0002: other\n');
+  assert.equal(read(root, 'docs/context.yaml'), ADRS_LINE('; ADR 0003 the rule; 0002 other'));
+  assert.equal(read(root, 'docs/feat.md'), 'See ADR 0003 in docs/adr/0003-feat.md.\n');
+  assert.match(git(root, 'log', '-1', '--format=%B'), /^Release-citation: docs\/context\.yaml$/m);
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  const s = stateNow(root);
+  assert.deepEqual([s.kind, s.current], ['assigned', true]);
+});
+
+test('release-note AC-4 assign: a citation the base wrote in the step\'s form with the step\'s old number, on the same one-line list, keeps its number when the step gives its own back', () => {
+  const root = oneLineList('; ADR 0002 other', '; ADR 0002 the rule; ADR 0002 other');
+  const r = assign(root);
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.equal(read(root, 'docs/context.yaml'), ADRS_LINE('; ADR 0003 the rule; ADR 0002 other'));
+  assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+test('release-note AC-4 assign: a citation the step wrote that the merge by hand dropped, where the base cites its own record with the same number, cannot be given back: exit 2 naming the path, the head and the tree as they were', () => {
+  const root = oneLineList('; ADR 0002 other', '; ADR 0002 other');
+  const oldHead = sha(root);
+  const r = assign(root);
+  assert.equal(r.code, 2, r.stderr + r.stdout);
+  assert.equal(r.out.error, 'cannot give back the numbers the step wrote in docs/context.yaml');
+  assert.match(r.stderr, /cannot give back the numbers the step wrote in docs\/context\.yaml/);
+  asItWas(root, oldHead);
+  assert.ok(existsSync(join(root, 'docs/adr/0002-feat.md')) && !existsSync(join(root, 'docs/adr/feat.md')), 'nothing renamed');
+});
+
+test('release-note AC-4 assign: words a person added beside a citation the step wrote are kept when the step gives the citation back', () => {
   const root = mergedByHand({ change: { 'docs/x.md': 'see ADR [feat]\n' } });
   assert.equal(read(root, 'docs/x.md'), 'see ADR 0002\n');
   write(root, { 'docs/x.md': 'see ADR 0002 and its notes\n' });
   commit(root, 'a person edits the line the step wrote');
+  const r = assign(root);
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.equal(read(root, 'docs/x.md'), 'see ADR 0003 and its notes\n');
+  assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+test('release-note AC-4 assign: a citation the step wrote, changed by a person after the record, is not given back: exit 2 naming the path, the head and the tree as they were', () => {
+  const root = mergedByHand({ change: { 'docs/x.md': 'see ADR [feat]\n' } });
+  assert.equal(read(root, 'docs/x.md'), 'see ADR 0002\n');
+  write(root, { 'docs/x.md': 'see the record 0002\n' });
+  commit(root, 'a person changes the citation the step wrote');
   const oldHead = sha(root);
   const r = assign(root);
   assert.equal(r.code, 2, r.stderr + r.stdout);

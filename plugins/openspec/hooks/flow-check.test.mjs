@@ -2560,12 +2560,15 @@ test('coordinator-loop-fixes AC-7 T132 computeFlow: the failures in a row since 
 // edit); a tick or a later stage file changes nothing, and a flow with no approval stage never reads it. Layer: the stage checker
 // (collectFlow and computeFlow) on a real repository. Suite: flow-check.
 
-// liveChange() with one task ticked and one open, its approval.md recording the readiness hash and the plan's digest.
-function revisedChange() {
-  const root = liveChange({ tasks: '# Tasks\n\n- [x] 1.1 a\n- [ ] 1.2 b\n' });
+// liveChange() with one task ticked and one open, its approval.md recording the readiness hash and the plan's digest. `noted`: the
+// project names devkit.release_tag, the change carries the note release.md (NOTE_TEXT), and the approval records its hash too.
+function revisedChange({ noted = false } = {}) {
+  const root = liveChange({ tasks: '# Tasks\n\n- [x] 1.1 a\n- [ ] 1.2 b\n', ...(noted ? { config: `schema: devkit\n${REL_CONFIG}` } : {}) });
   const dir = join(root, 'openspec', 'changes', 'feat');
+  if (noted) put(root, { 'openspec/changes/feat/release.md': NOTE_TEXT });
   const c0 = /commit=([0-9a-f]+)/.exec(readFileSync(join(dir, 'approval.md'), 'utf8'))[1];
-  const record = `<!-- devkit-stage approval result=passed attempt=1 commit=${c0} -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${approvalState(dir).readiness}\n- Plan: ${DC.planDigest?.(dir)}\n- Date: 2026-11-24\n`;
+  const note = noted ? `- Release note: ${DC.releaseNoteHash(dir)}\n` : '';
+  const record = `<!-- devkit-stage approval result=passed attempt=1 commit=${c0} -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${approvalState(dir).readiness}\n- Plan: ${DC.planDigest?.(dir)}\n${note}- Date: 2026-11-24\n`;
   put(root, { 'openspec/changes/feat/approval.md': record });
   commitAll(root, 'the owner approves the plan, with its digest');
   return { root, dir, c0 };
@@ -2584,6 +2587,25 @@ test('coordinator-loop-fixes AC-8 T57 flow-check: started, approval ok, plan cha
   for (const lang of ['en', 'pt-BR']) assert.equal(typeof TEXT[lang]['plan-revised'], 'function', lang);
   assert.equal(reasonText('en', 'plan-revised', {}, {}), 'the plan changed after the owner approved it');
   assert.equal(reasonText('pt-BR', 'plan-revised', {}, {}), 'o plano mudou depois que o dono o aprovou');
+});
+
+// release-at-merge D-32: the plan-revised rule asks whether the owner approved the current readiness, so it reads the approval
+// without the note; a note changed with the plan is asked at the approval after the readiness runs again.
+test('release-note AC-12 stages: a started noted change whose plan files and release.md both changed after the approval is stale with plan-revised, and the note alone is not', () => {
+  const major = NOTE_TEXT.replace('devkit-openspec: minor', 'devkit-openspec: major');
+  const both = revisedChange({ noted: true });
+  assert.equal(approvalState(both.dir).ok, true);
+  revisedEdit(both.root, 'design.md', both.c0);
+  put(both.root, { 'openspec/changes/feat/release.md': major });
+  commitAll(both.root, 'a plan revision with its note');
+  const r = liveReport(both.root);
+  assert.deepEqual([stageOf(r, 'readiness').state, stageOf(r, 'readiness').reasonCode], ['stale', 'plan-revised']);
+  assert.deepEqual([r.next?.stage, r.next?.reasonCode], ['readiness', 'plan-revised']);
+  const only = revisedChange({ noted: true });
+  put(only.root, { 'openspec/changes/feat/release.md': major });
+  commitAll(only.root, 'a revision of the note alone');
+  assert.equal(stageOf(liveReport(only.root), 'readiness').state, 'passed');
+  assert.equal(approvalState(only.dir).ok, false);
 });
 
 test('coordinator-loop-fixes AC-8 T58 flow-check: started, approval ok, only a tick since: the readiness passed', () => {

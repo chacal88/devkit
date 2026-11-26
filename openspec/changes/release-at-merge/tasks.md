@@ -675,7 +675,7 @@ as a background command of the tool, judged by its exit code. End every task wit
   (`change-loop-compozy.test.mjs`), T-16 and T-36 (`guard.test.mjs`), T-39 (`release-tags.test.mjs`),
   T-34 (`change-loop-remote-state.test.mjs`) and "release-note AC-14 texts: the agents, the documents
   and the records follow the release note and the unnumbered ADR" (`release-note.test.mjs`).
-- [ ] 11.5 (adr-reviewer F12, spec-reviewer F13, test-coverage F23 and nit F26; D-32) Write the D-35
+- [x] 11.5 (adr-reviewer F12, spec-reviewer F13, test-coverage F23 and nit F26; D-32) Write the D-35
   tests of D-32: in `plugins/openspec/hooks/flow-check.test.mjs`, beside T57, "release-note AC-12
   stages: a started noted change whose plan files and release.md both changed after the approval is
   stale with plan-revised, and the note alone is not", with `revisedChange`'s option `{ noted = false
@@ -685,14 +685,14 @@ as a background command of the tool, judged by its exit code. End every task wit
   to `proof/red-11.txt`. Done when the new test exists by its D-35 name and fails on its first part,
   its second part and the changed A1 test pass (guards), and the commit message names the A1 test's
   invariant, layer and suite.
-- [ ] 11.6 (adr-reviewer F12, spec-reviewer F13, test-coverage F23; D-32) In
+- [x] 11.6 (adr-reviewer F12, spec-reviewer F13, test-coverage F23; D-32) In
   `plugins/openspec/hooks/flow-check.mjs` `collectFlow`, set `approvalOk` from
   `approvalState(located.dir, { release: false }).ok` and add D-32's words to the comment above it.
   Done when the 11.5 tests pass, and coordinator-loop-fixes T57, T58, T59, T93 and T133 and the four
   `release-note AC-16 stages` tests (`flow-check.test.mjs`), the `release-note AC-12` tests of
   `deliver-check.test.mjs`, `conduct-check.test.mjs` and `change-loop.test.mjs`, and coordinator-loop-
   fixes' AC-8 tests of `change-loop-declared.test.mjs` stay green.
-- [ ] 11.7 (adr-reviewer F13, test-coverage F24; readiness attempt 8, B-1 and B-2; D-34, D-35) In
+- [x] 11.7 (adr-reviewer F13, test-coverage F24; readiness attempt 8, B-1 and B-2; D-34, D-35) In
   `plugins/openspec/hooks/release-merge.test.mjs`, beside "release-note AC-4 assign: a line the step
   wrote, edited by a person after the record, ...", write the four new D-34 tests of D-35 ("... a
   citation the step wrote on a one-line list the base extended is given back at the token level after
@@ -711,7 +711,7 @@ as a background command of the tool, judged by its exit code. End every task wit
   naming `docs/x.md`) and the two guards pass (the dropped entry and the changed citation, each exit 2
   with the tree as it was). When a red test passes, or a guard fails, on today's code, stop the phase
   for a plan revision (D-34's reading is wrong); write no code of 11.8 before that.
-- [ ] 11.8 (adr-reviewer F13, spec-reviewer nit F14, test-coverage F24; readiness attempt 8, B-1; D-34,
+- [x] 11.8 (adr-reviewer F13, spec-reviewer nit F14, test-coverage F24; readiness attempt 8, B-1; D-34,
   "Where they are found now" and "The texts") In `plugins/openspec/hooks/release-merge.mjs`, add the
   export `givenBackBySpan({ recorded, working, base, path, numbers })` as D-34's five steps say, make
   `numberRelease`'s `givenBack` fall back to it when `mergeTexts` returns null (with `base` the path's
