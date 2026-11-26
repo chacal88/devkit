@@ -4,8 +4,8 @@
 Change: `archive-release-pin` · Date: 2026-11-23, amended 2026-11-24 · Owner: Kaue (chacal88) ·
 Base: `d2010ca` (amendment at `34e3500`) · PRD / tech spec: n/a · Requirements:
 [requirements.md](requirements.md) · Decisions: [decisions.md](decisions.md),
-[ADR 0027](../../../docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md),
-[ADR 0030](../../../docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md)
+[ADR 0027](../../../../docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md),
+[ADR 0030](../../../../docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md)
 
 ## Why
 
