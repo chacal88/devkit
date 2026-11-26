@@ -2394,7 +2394,8 @@ test('release-note AC-12 approval: approvalText writes the release note line onl
   const r = main(['record-approval', '--change', 'feat', '--words', 'go ahead', '--lang', 'en'], { cwd: root, env: cleanEnv });
   assert.equal(r.code, 0, r.stdout + r.stderr);
   const text = readFileSync(join(root, 'openspec', 'changes', 'feat', 'approval.md'), 'utf8');
-  assert.match(text, new RegExp(`\\n- Readiness: sha256:[0-9a-f]{12}\\n- Release note: ${noteHash(root)}\\n- Date: `));
+  // The plan digest of coordinator-loop-fixes D-7 sits between the readiness and the note (the order of approvalText).
+  assert.match(text, new RegExp(`\\n- Readiness: sha256:[0-9a-f]{12}\\n- Plan: sha256:[0-9a-f]{12}\\n- Release note: ${noteHash(root)}\\n- Date: `));
   const plain = notedPlan({ have: [...PLAN_UP_TO_TASKS, 'readiness'], setting: false });
   assert.equal(main(['record-approval', '--change', 'feat', '--words', 'go', '--lang', 'en'], { cwd: plain, env: cleanEnv }).code, 0);
   assert.doesNotMatch(readFileSync(join(plain, 'openspec', 'changes', 'feat', 'approval.md'), 'utf8'), /Release note/);

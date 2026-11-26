@@ -908,7 +908,7 @@ test('release-note AC-14 texts: the agents, the documents and the records follow
     assert.ok(nextFree.length > 0 && nextFree.every((l) => l.includes('old rule')), 'the next-free-number sentence is scoped to old-rule changes');
 
     for (const agent of ['change-planner', 'adr-author', 'adr-reviewer', 'tdd-implementer']) {
-      const copy = repoText('plugins', 'compozy', 'skills', 'compozy-setup', 'templates', 'agents', agent, 'AGENT.md');
+      const copy = repoText('plugins', 'compozy', 'kit', 'templates', 'agents', agent, 'AGENT.md');
       assert.ok(copy.includes('`release.md`') || copy.includes('`ADR [<slug>]`'), `the CompozyOS copy of ${agent} is regenerated`);
     }
   });
