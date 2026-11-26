@@ -1070,7 +1070,7 @@ test('release list: RELEASE_FILE is unchanged and unnamedFiles still reports doc
 // ================================================================ archive-release-pin: the CI pin lines pass the archive check unnamed (ADR 0027)
 
 const FLOW_PATH = 'docs/openspec-flow.md';
-// The file that holds the pin block (`// Invariant: the CI snippet pins the current release`): suite-speed split change-loop.test.mjs and the block moved here.
+// The CI pin test (suite-speed moved it here from change-loop.test.mjs). Since ADR 0030 it reads the manifest and no release edits it, so it is never pin-only.
 const LOOP_PATH = 'plugins/openspec/hooks/change-loop-compozy.test.mjs';
 const textOf = (...p) => readFileSync(join(repoRoot, ...p), 'utf8');
 const fixtureText = (name) => readFileSync(join(here, 'fixtures', 'c561553', name), 'utf8');
@@ -1130,33 +1130,6 @@ test('archive-release-pin 3: pinLinesOnly names a test file whose only changed l
   // ADR 0030: the pin test reads the manifest and no release edits it, so the one pin file is the flow page.
   assert.deepEqual(DC.PIN_LINE_FILES, [FLOW_PATH], 'the flow page is the only file read by its content');
   assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, PIN_LOOP_AFTER), false, 'the pin block moved to the next release');
-  const without = (lines, i) => lines.filter((_, k) => k !== i).join('\n');
-  const lines = loopLines('0.33.0', '0.32.0');
-  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, without(lines, 5)), false, 'a removed assert.doesNotMatch line');
-  const withEscaped = [...lines.slice(0, 6), "  assert.doesNotMatch(flow, /v0\\.31\\.0/, 'no pin left on main\\'s release before it (z)');", ...lines.slice(6)].join('\n');
-  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, withEscaped), false, 'an added line whose message holds an escaped quote');
-  const comment = lines.map((l) => (l.startsWith('  // Invariant:') ? l.replace('x moves it to 0.33.0', 'z moves it to 0.35.0') : l)).join('\n');
-  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, comment), false, 'a changed Invariant comment');
-  const indented = lines.map((l) => (l.startsWith('  assert.match(flow,') ? `    ${l.trimStart()}` : l)).join('\n');
-  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, indented), false, 'a form line at another indentation');
-});
-
-test('archive-release-pin 4: pinLinesOnly names a test file with any other changed line', () => {
-  assert.equal(typeof DC.pinLinesOnly, 'function', 'deliver-check.mjs exports pinLinesOnly');
-  const lines = loopLines('0.34.0', '0.33.0');
-  const added = (line) => [...lines.slice(0, 6), line, ...lines.slice(6)].join('\n');
-  const swapped = lines.slice();
-  [swapped[1], swapped[2]] = [swapped[2], swapped[1]];
-  const cases = {
-    'an added assert.ok on flow': added("  assert.ok(flow.includes('x'), 'x');"),
-    'an added assert.match on another subject': added("  assert.match(other, /v0\\.34\\.0/, 'm');"),
-    'an added assert.match with a regular expression that is not a plain version': added("  assert.match(flow, /v0\\.34\\.\\d/, 'm');"),
-    'a changed line of another test': PIN_LOOP_AFTER.replace('/0011/', '/0012/'),
-    'an added comment': added('  // note'),
-    'an added blank line': added(''),
-    'two non-form lines swapped': swapped.join('\n'),
-  };
-  for (const [label, text] of Object.entries(cases)) assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, text), false, label);
 });
 
 test('archive-release-pin 5: a flow page missing or unreadable on either side, another path, a CRLF pin line or a changed final newline is never pin-only, and an empty base is a text', () => {

@@ -5,9 +5,9 @@ Change: `archive-release-pin` · Date: 2026-11-23, amended 2026-11-24 · Owner: 
 Base: `d2010ca` (amendment at `34e3500`) ·
 PRD / tech spec: n/a · Proposal: [proposal.md](proposal.md) · Spec delta:
 [specs/reviews-check/spec.md](specs/reviews-check/spec.md) · Decision:
-[ADR 0027](../../../docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)
+[ADR 0027](../../../../docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)
 (amends ADR 0003; builds on ADR 0002, 0012, 0018, 0019), amended by
-[ADR 0030](../../../docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md) (builds on ADR 0022)
+[ADR 0030](../../../../docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md) (builds on ADR 0022)
 
 ## Amendment of 2026-11-24 (ADR 0030, grill answer A3)
 

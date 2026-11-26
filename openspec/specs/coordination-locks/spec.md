@@ -15,7 +15,8 @@ the run SHALL be the newest such id. The task another session started this sessi
 host's form of a started session, SHALL count as a command typed in it, whatever lines follow its
 first line and whatever notes of the host come before that form. The run's last recorded action SHALL
 be an end while the newest `devkit-run:` or
-`devkit-end:` line after that command is an end line. Nothing else SHALL be remembered.
+`devkit-end:` line after that command is an end line that names the run's change; an end line that
+names another change SHALL be read as if it were absent. Nothing else SHALL be remembered.
 
 #### Scenario: No run
 - **WHEN** the session's record holds no typed `/devkit change`, or holds one with no `devkit-run:` line after it
@@ -64,6 +65,26 @@ be an end while the newest `devkit-run:` or
 #### Scenario: The periodic check's prompt
 - **WHEN** the periodic check of a roadmap run fires in the coordinating session with its prompt
 - **THEN** the prompt is no typed command, and the roadmap run goes on
+
+#### Scenario: An end naming another change
+- **WHEN** the run's change is `feat`, the newest line after the newest `/devkit change` is `devkit-end: other blocked` after the newest `devkit-run: feat`, and a stage of `feat` is ready
+- **THEN** the run's last recorded action is not an end, and the stop is refused once, naming that stage
+
+#### Scenario: An end naming the run's change
+- **WHEN** the run's change is `feat`, its record ends with `devkit-end: feat waiting-for-owner` after the newest `devkit-run: feat`, and a stage of `feat` is ready
+- **THEN** the run's last recorded action is an end, and the stop is allowed at the first attempt
+
+#### Scenario: The owner's pause declared
+- **WHEN** the session ended its turn after `change-loop.mjs reply waiting-pause --param id=feat` printed `devkit-end: feat waiting-for-owner`, while a stage of `feat` is ready
+- **THEN** the stop is allowed at the first attempt
+
+#### Scenario: A decision outside the gates declared
+- **WHEN** the session ended its turn after `change-loop.mjs reply waiting-owner-decision --param id=feat --param decision="the dependency upgrade"` printed `devkit-end: feat waiting-for-owner`, while a stage of `feat` is ready
+- **THEN** the stop is allowed at the first attempt
+
+#### Scenario: The same turn without the declared end
+- **WHEN** the session tries to stop with neither declared end in its record and a stage of `feat` ready
+- **THEN** the stop is refused once, naming that stage
 
 ### Requirement: The coordinator does not end its turn while a stage is ready
 When the session in a run tries to end its turn while the loop's next action hands a stage to an

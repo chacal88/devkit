@@ -8,12 +8,13 @@ and what the kit tells an unattended run about the grill.
 ## Requirements
 
 ### Requirement: The kit records what it installed
-Every run of `compozy-setup` SHALL record, for each kit file it writes under `.compozy/`, a digest
-of the bytes written and the inputs it filled them with, so that a later run can tell a file the
-project edited from one it did not.
+Every run of the kit installer devkit-compozy ships (`install-kit.mjs`, run by `/devkit setup`)
+SHALL record, for each kit file it writes under `.compozy/`, a digest of the bytes written and the
+inputs it filled them with, so that a later run can tell a file the project edited from one it did
+not.
 
 #### Scenario: A first install
-- **WHEN** `compozy-setup` runs in a project with no `.compozy/`
+- **WHEN** the kit installer runs in a project with no `.compozy/`
 - **THEN** it writes `config.toml`, `README.md`, one `agents/<role>/AGENT.md` for every role the kit ships an agent for, `loops/devkit-change/loop.yaml`, `loops/devkit-review/loop.yaml`, `loops/devkit-roadmap/loop.yaml` and `bin/devkit-kit`, and records a digest for each with the inputs used
 
 ### Requirement: A re-run updates the files the project did not edit
@@ -27,7 +28,7 @@ digest recorded.
 - **THEN** the re-run writes the new `README.md` and records its new digest
 
 #### Scenario: A file already equal to its rendering
-- **WHEN** the project's `.compozy/config.toml` already equals the current template filled with the recorded inputs and `compozy-setup` runs again
+- **WHEN** the project's `.compozy/config.toml` already equals the current template filled with the recorded inputs and the kit installer runs again
 - **THEN** the re-run reports it `same`, does not write it, and records its digest in the manifest
 
 ### Requirement: A re-run never replaces an edited file without the owner's yes
@@ -36,7 +37,7 @@ current template SHALL be left in place; the run SHALL show its difference from 
 template and write it only when the owner accepts that file.
 
 #### Scenario: An edited loop
-- **WHEN** the project edited `.compozy/loops/devkit-change/loop.yaml` after the install and `compozy-setup` runs again
+- **WHEN** the project edited `.compozy/loops/devkit-change/loop.yaml` after the install and the kit installer runs again
 - **THEN** the file is left as the project edited it, its difference from the current template is shown, and the other unedited files are updated
 
 #### Scenario: The owner accepts the difference
@@ -54,7 +55,7 @@ match its recorded digest SHALL be deleted, with its folder when the folder is l
 reported as removed.
 
 #### Scenario: The old kit untouched
-- **WHEN** `compozy-setup` runs over a project that has the old kit as it installed it
+- **WHEN** the kit installer runs over a project that has the old kit as it installed it
 - **THEN** the four old agents and the old loop are deleted and reported, and the new agents and loops are written
 
 ### Requirement: A retired file the project edited stays and is named
@@ -63,7 +64,7 @@ place and named in the run's output for the owner to decide; it SHALL be deleted
 accepts that file.
 
 #### Scenario: A hand-edited old agent
-- **WHEN** the project edited `.compozy/agents/qa/AGENT.md` and `compozy-setup` runs again
+- **WHEN** the project edited `.compozy/agents/qa/AGENT.md` and the kit installer runs again
 - **THEN** that file stays, the output names it as edited and kept, and the other retired files are deleted
 
 #### Scenario: The owner accepts the removal
@@ -76,7 +77,7 @@ the output, and SHALL NOT fail because of it; an input given on the command line
 not have SHALL still be a usage error.
 
 #### Scenario: The old planner input
-- **WHEN** the record holds `__PLANNER__` from the old kit and `compozy-setup` runs again
+- **WHEN** the record holds `__PLANNER__` from the old kit and the kit installer runs again
 - **THEN** the run completes, the output names the input as dropped, and the new record does not hold it
 
 ### Requirement: The kit's agents are generated from the Claude agents
@@ -91,3 +92,20 @@ differs from what its source generates, or an agent is missing or extra.
 #### Scenario: One agent per role with an agent file
 - **WHEN** the kit's agents are listed
 - **THEN** there is exactly one per devkit role that has a Claude agent file, named as the role, and none named `tech-lead`, `dev`, `qa` or `design`
+
+### Requirement: The kit installer ships in devkit-compozy with no setup skill
+devkit-compozy SHALL ship the kit installer, the generator of the kit's agents and the templates
+outside any skill folder, and SHALL ship no skill that installs the kit. `/devkit setup` SHALL be the
+only entry that runs the installer, and SHALL find it in the devkit-compozy installed on the machine.
+
+#### Scenario: The pack's skills
+- **WHEN** the skills of devkit-compozy are listed
+- **THEN** they are `screen-design` and `screen-demo`, and none installs the kit
+
+#### Scenario: The installer found
+- **WHEN** `/devkit setup` installs the kit and two versions of devkit-compozy with the kit installer are installed
+- **THEN** the installer of the higher version runs, as the kit's resolver picks its own checkers
+
+#### Scenario: An old devkit-compozy only
+- **WHEN** the only installed devkit-compozy keeps its installer inside the removed setup skill
+- **THEN** the installer is not found, the reply names `devkit-compozy` and the locations tried, and nothing is written
