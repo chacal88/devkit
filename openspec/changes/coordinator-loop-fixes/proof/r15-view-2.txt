@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "kind": "approval",
+  "change": "feat",
+  "root": "<scratch>/proj",
+  "stage": "implementation",
+  "stage_title": "Implementation",
+  "agent": "",
+  "step": "",
+  "brief": "",
+  "progress_key": "end/waiting-for-owner/waiting-approval-again/implementation",
+  "question": "The plan of feat changed after your approval, so it needs your approval again.\n<scratch>/proj/openspec/changes/feat/",
+  "reply": "The plan of feat changed after your approval, so it needs your approval again."
+}

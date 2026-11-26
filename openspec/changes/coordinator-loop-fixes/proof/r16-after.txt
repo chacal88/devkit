@@ -1,0 +1,46 @@
+devkit-run: archive-release-pin
+{
+  "version": 1,
+  "change": "archive-release-pin",
+  "script": "devkit",
+  "root": "<home>/repos/devkit/.claude/worktrees/archive-release-pin",
+  "branch": "archive-release-pin",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "delivery",
+  "stageTitle": "Delivery",
+  "role": "commit-and-pr",
+  "skills": [
+    "commit-message-guidelines"
+  ],
+  "model": "haiku",
+  "step": "tag-release",
+  "detail": {
+    "step": "tag-release",
+    "reason": "PR #107 merged version 0.40.0 of plugins/openspec/.claude-plugin/plugin.json at c663f21, and origin has no tag v0.40.0",
+    "tag": "v0.40.0",
+    "sha": "c663f214c25fafce2e0ed747d0f1d40ef1769629",
+    "number": 107,
+    "merged": "change",
+    "version": "0.40.0",
+    "file": "plugins/openspec/.claude-plugin/plugin.json",
+    "base": "main"
+  },
+  "progressKey": "delivery/tag-release@d53de3e9b138",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🚀",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "delivery",
+    "stageTitle": "Delivery",
+    "phase": null,
+    "stageIcon": "🚀",
+    "stateIcon": null,
+    "title": "🚀 archive-release-pin"
+  },
+  "sessionTitle": "🚀 archive-release-pin"
+}

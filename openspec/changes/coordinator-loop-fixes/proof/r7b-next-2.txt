@@ -1,0 +1,50 @@
+devkit-run: feat
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit-lite",
+  "root": "<scratch>/proj/.claude/worktrees/feat",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "implementation",
+  "stageTitle": "Implementation",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "model": "sonnet",
+  "agent": "devkit-core:tdd-implementer",
+  "step": "fix-resolution",
+  "detail": {
+    "step": "fix-resolution",
+    "reason": "code-quality-reviewer rejected the resolution at its newest commit",
+    "root": "<scratch>/proj/.claude/worktrees/feat-develop",
+    "branch": "feat-develop",
+    "findings": [
+      {
+        "reviewer": "code-quality-reviewer",
+        "excerpt": "[blocking] F1 src/a.ts:1 a line of the task branch was lost"
+      }
+    ]
+  },
+  "brief": "Change feat (devkit-lite script), stage implementation: step fix-resolution {\"step\":\"fix-resolution\",\"reason\":\"code-quality-reviewer rejected the resolution at its newest commit\",\"root\":\"<scratch>/proj/.claude/worktrees/feat-develop\",\"branch\":\"feat-develop\",\"findings\":[{\"reviewer\":\"code-quality-reviewer\",\"excerpt\":\"[blocking] F1 src/a.ts:1 a line of the task branch was lost\"}]}. Work only in <scratch>/proj/.claude/worktrees/feat-develop on branch feat-develop; every file path is absolute under it; start every Bash command with cd <scratch>/proj/.claude/worktrees/feat-develop && ; do not fetch. Write the change's files in English.",
+  "progressKey": "implementation/fix-resolution@3858d4ea3e8c",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🛠️",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "implementation",
+    "stageTitle": "Implementation",
+    "phase": null,
+    "stageIcon": "🛠️",
+    "stateIcon": null,
+    "title": "🛠️ feat"
+  },
+  "sessionTitle": "🛠️ feat"
+}

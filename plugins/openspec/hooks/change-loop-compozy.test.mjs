@@ -13,6 +13,7 @@ import {
   transcriptOf,
 } from './test-fixtures.mjs';
 import { approvalState } from './deliver-check.mjs';
+import * as DC from './deliver-check.mjs';
 import { pinsIn } from './release-merge.mjs';
 import * as guardModule from './guard.mjs';
 import * as changeLoopModule from './change-loop.mjs';
@@ -173,7 +174,13 @@ test('change-loop skill: an end the session declares goes through reply, and the
   const loop = section(md, '## Loop', '## Owner gates');
   assert.match(loop, /a second line `devkit-end: <id> <state>` follows/);
   assert.match(loop, /never show one to the owner/);
-  assert.match(loop, /An end the session declares itself \(a red gate, a pull-request decision left to the owner\) goes through `reply`/);
+  const declared = loop.split('\n').find((l) => l.startsWith('An end the session declares itself'));
+  assert.ok(declared, 'the paragraph on the ends the session declares');
+  assert.match(declared, /^An end the session declares itself \([^)]*\) goes through `reply`/);
+  for (const key of ['blocked', 'waiting-pr-decision', 'waiting-pause', 'waiting-owner-decision']) assert.ok(declared.includes(`\`${key}\``), `the reply key ${key}`);
+  assert.match(declared, /goes through `change-loop\.mjs declare`/);
+  assert.match(declared, /prints the action that follows/);
+  assert.match(declared, /the main session only/);
   assert.match(loop, /only the lines after it are shown to the owner/);
   for (const key of ['reply blocked --param id=<id> --param why=tests-red', 'reply waiting-pr-decision --param id=<id>']) assert.ok(loop.includes(key), key);
   assert.ok(!loop.includes('why=role-failed'), 'a failed agent is the loop\'s end, not the session\'s');
@@ -1122,10 +1129,22 @@ test('stage-roles docs: ADR 0010 and ADR 0011 name ADR 0016 in a header line and
 // literal, not a `git show`, because CI checks out with depth 1 and the history is not there.
 const STAGE_ROLES_LINE_AT_2300F84 = "- [ ] stage-roles (after: change-coordinator) — the ADR author, the unit-test suite, the E2E tester, the screen designer and the demonstration recorded as text in the change (D-4 stages 3, 4, 9, 10, 11) Carried from the change-coordinator retro for its grill, as the first real use of /devkit change: a declared end for a pause the owner asks for and for a decision outside the script's gates; the end marker's id compared with the run's change; the skill's resolve-release-conflict item naming the declared end; the loop's fallback agent map tied to the pack table; a dated Note on ADR 0011 for the stop lock after a recorded end; the person's language checked with the installed plugin when it was never set; the unlimited wait on GitHub proved in real use; whether a change that creates the project's first spec may run on the short script; and whether the short script gains the owner's plan approval. Carried from the coordinator-field-fixes retro: a declared step for a review round the owner authorizes after the limit (the round script accepts a third round and the loop leaves `blocked` without a header set by hand); a plan file revised after the implementation started makes the readiness review and the approval stale; and the review's open nits of that change (the archive sources worded as a fallback chain in the change-coordination spec while the code takes their union, exit 1 of `github-setup` for a blocked state stated in a scenario, a test for an unreadable `.openspec.yaml`). Carried from the roadmap-coordinator retro, the first whole change run with /devkit change: a declared step for a small fix after a red gate, in place of a run that ends blocked; a way for a task to say that the conducting session does it, so the loop does not hand it to the implementer; how the wait on GitHub lives with a host that has its own pull-request monitor and forbids polling, so that the session still goes on alone when the checks pass; and the verifier allowed to write its runs' output under the change's `proof/` folder.";
 
+// Invariant: the stage-roles line keeps its text without the carried items, which the coordinator-loop-fixes line holds. Layer: the
+// roadmap document, read by `parseRoadmap`. Suite: change-loop-compozy. The assertions run on the live roadmap and on a copy with the
+// `stage-roles` and `coordinator-loop-fixes` lines ticked, so the archive that ticks either leaves the test green
+// (coordinator-loop-fixes D-23).
+const tickLines = (text, ids) => text.split('\n').map((l) => (ids.some((id) => new RegExp(`^- \\[[ xX]\\] ${id}( |$)`).test(l)) ? l.replace(/^- \[[ xX]\]/, '- [x]') : l)).join('\n');
 test('stage-roles docs: the roadmap line of stage-roles keeps its text, and every carried item moved to coordinator-loop-fixes', () => {
+  const live = readRepo('openspec', 'roadmap.md');
+  const ticked = tickLines(live, ['stage-roles', 'coordinator-loop-fixes']);
+  for (const id of ['stage-roles', 'coordinator-loop-fixes']) assert.ok(ticked.split('\n').some((l) => l.startsWith(`- [x] ${id} `)), `the copy ticks ${id}`);
+  for (const text of [live, ticked]) stageRolesLines(text);
+});
+
+function stageRolesLines(text) {
   const itemOf = (rounds, id) => rounds.flatMap((r) => r.items).find((i) => i.id === id);
   const before = itemOf(guardModule.parseRoadmap(`## Round 16: the new stage roles\n${STAGE_ROLES_LINE_AT_2300F84}\n`), 'stage-roles');
-  const rounds = guardModule.parseRoadmap(readRepo('openspec', 'roadmap.md'));
+  const rounds = guardModule.parseRoadmap(text);
   const stage = itemOf(rounds, 'stage-roles');
   const fixes = itemOf(rounds, 'coordinator-loop-fixes');
   assert.ok(before && stage && fixes, 'both lines exist');
@@ -1143,7 +1162,7 @@ test('stage-roles docs: the roadmap line of stage-roles keeps its text, and ever
   const round = rounds.find((r) => r.items.includes(fixes));
   assert.equal(round.title, 'Round 16b: the coordinator loop fixes');
   assert.equal(rounds[rounds.indexOf(round) - 1].items.includes(stage), true, 'round 16b follows the round of stage-roles');
-});
+}
 
 // ================================================================ roadmap-coordinator-followups: phase 1 (the lock of open, the single read)
 
@@ -1616,8 +1635,9 @@ test('change-loop compozy view: every hand-off step of the delivery rows carries
   const kindOfStep = (step) => { try { return build(rowOf(step, { phase: 2 })).kind; } catch (e) { if (e instanceof LoopUsageError) return 'end'; throw e; } };
   const handOffs = ROW_STEPS.filter((step) => kindOfStep(step) === 'agent');
   const expected = ['implement', 'fix-review', 'fix-defect', 'fix-checks', 'apply-proposals', 'resolve-release-conflict', 'commit', 'open-pr', 'push', 'open-archive-pr', 'verify',
-    'open-prs', 'open-test-pr', 'push-support', 'move-test-pr', 'open-test-archive-pr', 'resolve-support-conflict', 'fix-resolution', 'renumber-adr', 'rejoin-train'];
-  assert.deepEqual([...handOffs].sort(), [...expected].sort(), 'the table\'s hand-offs are the old ones, the seven new delivery steps, renumber-adr and rejoin-train');
+    'open-prs', 'open-test-pr', 'push-support', 'move-test-pr', 'open-test-archive-pr', 'resolve-support-conflict', 'fix-resolution', 'renumber-adr', 'rejoin-train',
+    'resolve-base-conflict'];
+  assert.deepEqual([...handOffs].sort(), [...expected].sort(), 'the table\'s hand-offs are the old ones, the seven new delivery steps, renumber-adr, rejoin-train and resolve-base-conflict');
   for (const step of handOffs) {
     const v = cview(build(rowOf(step, { phase: 2 })));
     const bullet = `add the dispatch sentence of the \`devkit\` skill's Loop bullet \`${step}\``;
@@ -1913,7 +1933,8 @@ test('change-loop compozy record-approval: it writes approval.md in the form of 
   const text = readFileSync(changeFile(root, 'approval.md'), 'utf8');
   const sha = git(root, 'rev-parse', 'HEAD').trim();
   const readiness = approvalState(join(root, 'openspec', 'changes', 'feat')).readiness;
-  assert.equal(text, `<!-- devkit-stage approval result=passed attempt=1 commit=${sha} -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${readiness}\n- Date: ${today()}\n- Owner's words: "\`Looks good, go ahead\`"\n`);
+  const plan = DC.planDigest?.(join(root, 'openspec', 'changes', 'feat'));
+  assert.equal(text, `<!-- devkit-stage approval result=passed attempt=1 commit=${sha} -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${readiness}\n- Plan: ${plan}\n- Date: ${today()}\n- Owner's words: "\`Looks good, go ahead\`"\n`);
   assert.equal(approvalState(join(root, 'openspec', 'changes', 'feat')).ok, true);
   assert.deepEqual(['view', 'approval'].length, 2);
 });

@@ -1,0 +1,1 @@
+Host instructions: this session runs in a desktop app that has its own pull-request monitor. When a pull request this session opened or watches changes (its checks finish, a review or a comment arrives), the app wakes this session with an event. Do not poll the pull request's checks, and do not start any wait on them yourself: the monitor holds that wait.

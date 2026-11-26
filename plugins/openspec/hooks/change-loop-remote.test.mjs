@@ -717,7 +717,9 @@ test('jira-entry AC-6 next carries the task but no writeBack on a budget end hel
 });
 
 test('jira-entry-followups AC-10 next carries no writeBack on a blocked end held at the pull request', () => {
-  const { t, env } = deliveredChange({ conflicts: ['CHANGELOG.md', 'README.md'], mergeable: 'CONFLICTING', checks: [check('build', 'pass')], requirements: TASK_REQUIREMENTS });
+  // GitHub reports a conflict that git merge-tree merges cleanly (pr mode): releaseConflict gives no step and item 5 stays
+  // the blocked end (a conflict in README.md is the resolve-base-conflict hand-off since coordinator-loop-fixes D-5).
+  const { t, env } = deliveredChange({ mergeable: 'CONFLICTING', checks: [check('build', 'pass')], requirements: TASK_REQUIREMENTS });
   const r = next(t.main, [], env);
   assert.equal(r.code, 2, r.stdout + r.stderr);
   const action = parsed(r).action;

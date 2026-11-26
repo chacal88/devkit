@@ -78,7 +78,7 @@ const SAMPLE = {
   version: 1, state: 'github', machine: 'avel', taken: 1, entry: 'avel', field: 'folder', fix: 'compozy daemon start', run: 'looprun-1',
   branch: 'develop', base: 'master', default: 'main', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
   spent: 2100000, cap: 2000000, tag: 'v1.3.0', at: 'd4e5f60', sha: 'a1b2c3d', models: 'opus 3210, sonnet 1105', tokens: 4315, from: 'haiku', to: 'sonnet',
-  file: '/work/repo/.claude/worktrees/add-csv-export/openspec/changes/add-csv-export/.openspec.yaml',
+  file: '/work/repo/.claude/worktrees/add-csv-export/openspec/changes/add-csv-export/.openspec.yaml', decision: 'the dependency upgrade',
   total: 15, all: 6, running: 3, waiting: 2, blocked: 1, blockedWord: 'blocked',
 };
 // The one reply that names a file: the budget stop names the change's settings file, where the owner raises the cap.
@@ -843,11 +843,14 @@ test('change-loop next: a pull request conflicting only in release files hands r
   assert.ok(action.brief.includes('resolve-release-conflict'));
 });
 
-test('change-loop next: a pull request conflicting in another file ends blocked as a pull request problem', () => {
+test('change-loop next: a pull request conflicting in another file hands resolve-base-conflict to the implementer', () => {
   const { t, env } = deliveredChange({ conflicts: ['CHANGELOG.md', 'README.md'], mergeable: 'CONFLICTING', checks: [check('build', 'pass')] });
   const r = next(t.main, [], env);
-  assert.equal(r.code, 2, r.stdout + r.stderr);
-  assert.deepEqual([parsed(r).action.end.state, parsed(r).action.end.why], ['blocked', 'pr-problem']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const { first, action } = parsed(r);
+  assert.equal(first, 'devkit-run: feat');
+  assert.deepEqual([action.kind, action.agent, action.step, action.stage], ['agent', TDD, 'resolve-base-conflict', 'implementation']);
+  assert.deepEqual([action.detail.paths, action.detail.others, action.detail.base], [['CHANGELOG.md', 'README.md'], ['README.md'], 'main']);
 });
 
 test('change-loop next: the change is found in its worktree whatever the working directory, and the brief points at it', () => {

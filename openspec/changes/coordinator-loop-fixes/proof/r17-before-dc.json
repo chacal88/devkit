@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "change": "feat",
+  "schema": "devkit-lite",
+  "ship": "pr",
+  "host": "cli",
+  "head": "9aacf8568eae52ecc2ea19d684a8347464c9dde3",
+  "pr": {
+    "number": 31,
+    "url": "https://github.com/o/r/pull/31"
+  },
+  "phases": [],
+  "items": [
+    {
+      "id": 1,
+      "name": "tasks",
+      "status": "met",
+      "reason": "checked before PR #31 merged",
+      "details": {
+        "unticked": [],
+        "missingGates": [],
+        "evidence": "current"
+      }
+    },
+    {
+      "id": 2,
+      "name": "reviews",
+      "status": "met",
+      "reason": "checked before PR #31 merged",
+      "details": {
+        "stale": [],
+        "rejected": [],
+        "missing": []
+      }
+    },
+    {
+      "id": 3,
+      "name": "findings",
+      "status": "met",
+      "reason": "checked before PR #31 merged",
+      "details": {
+        "fixed": 0,
+        "refuted": 0,
+        "undisposed": []
+      }
+    },
+    {
+      "id": 4,
+      "name": "acceptance",
+      "status": "met",
+      "reason": "checked before PR #31 merged",
+      "details": {
+        "ids": [],
+        "proven": [],
+        "missing": [],
+        "defects": [],
+        "noProof": [],
+        "evidence": "current"
+      }
+    },
+    {
+      "id": 5,
+      "name": "pr",
+      "status": "blocked",
+      "reason": "PR #31 merged at 4f5e55a; local head 9aacf85 differs",
+      "details": {
+        "pr": {
+          "number": 31,
+          "url": "https://github.com/o/r/pull/31"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "name": "checks",
+      "status": "met",
+      "reason": "checked before PR #31 merged",
+      "details": {
+        "required": false,
+        "failing": [],
+        "pending": []
+      }
+    },
+    {
+      "id": 7,
+      "name": "conversation",
+      "status": "met",
+      "reason": "checked before PR #31 merged",
+      "details": {
+        "threads": [],
+        "comments": [],
+        "changesRequested": [],
+        "waiting": []
+      }
+    },
+    {
+      "id": 8,
+      "name": "body",
+      "status": "met",
+      "reason": "checked before PR #31 merged",
+      "details": {
+        "missing": []
+      }
+    }
+  ],
+  "met": 7,
+  "summary": "blocked: item 5",
+  "next": {
+    "step": "blocked",
+    "reason": "PR #31 merged at 4f5e55a; local head 9aacf85 differs",
+    "item": 5
+  },
+  "archive": {
+    "base": "main",
+    "branch": "chore/archive-feat",
+    "changePr": {
+      "number": 31,
+      "url": "https://github.com/o/r/pull/31"
+    },
+    "onDefault": "active",
+    "folder": null,
+    "local": "active",
+    "retro": {
+      "exists": false,
+      "readable": false,
+      "proposals": []
+    },
+    "roadmap": {
+      "listed": true,
+      "ticked": false
+    },
+    "pr": null,
+    "waitingFor": null
+  }
+}

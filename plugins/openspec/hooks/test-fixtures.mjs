@@ -560,6 +560,42 @@ export function scenario({ config = `schema: devkit-lite\n${TWO_PRS}` } = {}) {
   return s;
 }
 
+// The support branch and its resolution round under two-prs (moved from delivery-models.test.mjs, coordinator-loop-fixes D-16):
+// the steps the session, the implementer and the reviewers take, shared with change-loop-declared.test.mjs.
+export const REQUIRED = ['code-quality-reviewer', 'test-coverage-reviewer'];
+export const SUPPORT_BRANCH = 'feat-develop';
+
+// A commit on origin's test branch that conflicts with the task branch (both add src/a.ts) and brings a file of its own.
+export function conflictOnTest(s) {
+  const o = s.addWt('other', { from: 'origin/develop' });
+  put(o, { 'src/a.ts': 'develop\n', 'dev.txt': 'dev\n' });
+  const sha = commitAll(o, 'develop edits a.ts');
+  git(o, 'push', '-q', 'origin', 'HEAD:refs/heads/develop');
+  git(s.main, 'fetch', '-q', 'origin');
+  return sha;
+}
+
+// What the session does for merge-into-support (D-8) and the implementer for resolve-support-conflict.
+export function mergeIntoSupport(s, n) {
+  if (n.create) git(s.main, 'worktree', 'add', '-q', '-b', n.branch, n.root, 'feat');
+  try { git(n.root, 'merge', '--no-ff', '--no-edit', n.from); } catch { /* a conflict is left in the worktree */ }
+}
+export function resolveSupport(n, text = 'merged\n') {
+  put(n.root, Object.fromEntries(n.paths.map((f) => [f, text])));
+  for (const f of n.paths) git(n.root, 'add', f);
+  git(n.root, 'commit', '-q', '--no-edit');
+  return git(n.root, 'rev-parse', 'HEAD');
+}
+// What the two reviewers and the consolidation leave in the task worktree, committed and pushed as the push row does.
+export function reviewResolution(s, commit, { verdict = {}, findings = {}, consensus = 'PASS (round 1/2)' } = {}) {
+  const files = { 'openspec/changes/feat/resolution.md': `# Resolution review\n\nConsensus: ${consensus}\n` };
+  for (const r of REQUIRED) {
+    files[`openspec/changes/feat/reviews/resolution/${r}.md`] = `Verdict: ${verdict[r] ?? 'approved'}\nCommit: ${commit}\n\n## ${r} - feat\n\n### Findings\n${findings[r] ?? '- [nit] F1 src/a.ts:1 reads fine\n'}`;
+  }
+  put(s.wt, files);
+  commitAll(s.wt, 'resolution review');
+  git(s.wt, 'push', '-q', 'origin', 'feat');
+}
 export const ARCHIVED_FEAT = 'openspec/changes/archive/2026-11-09-feat';
 const RETRO = '# Retro: feat\n\n## Proposed updates\n\nNone.\n';
 export const TEST_ARCHIVE = 'chore/archive-feat-develop';

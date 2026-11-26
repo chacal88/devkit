@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "pack": "0.5.0",
+  "pack": "0.6.0",
   "inputs": {
     "__TIMEZONE__": "America/Sao_Paulo",
     "__SCREEN_MAP__": "",
@@ -21,12 +21,12 @@
     "agents/openspec-validator/AGENT.md": "sha256:3c1d6db7be1a48ad3d9ad1f669e4f542ce50ca0d2e95429cc4d9372bdd8d7267",
     "agents/plan-readiness-reviewer/AGENT.md": "sha256:c271cc9cec2e2b47a0ed797a2f20d31b7a839e64771375d68047e7035992e34e",
     "agents/plan-reality-auditor/AGENT.md": "sha256:134ea7d0738c585cb9389510ded933d3ed32818f0afdb7530ee95d5286e8ed01",
-    "agents/pr-verifier/AGENT.md": "sha256:9ec93adbe9d5da2a773f0924acf4ee13b187f7290aad1a6f7bb9495e01712b14",
+    "agents/pr-verifier/AGENT.md": "sha256:1584731c85f53e0586c4c85803eba835c556ef78932dbb12fe500976cd6c696e",
     "agents/requirements-triage/AGENT.md": "sha256:7485d02386f90ea11878e0fc4c514428ad5683140390442888991a09fb3faab9",
     "agents/screen-designer/AGENT.md": "sha256:2863af2719ed844a0aeb388c48cf31006d8b61a2323ffbd00e12cbbe00da0230",
     "agents/security-reviewer/AGENT.md": "sha256:97fe10f00344478fa59eb91b00e30f583d7a48efdab0f18066ef6f4d6ac72c42",
     "agents/spec-reviewer/AGENT.md": "sha256:82e3f5c2666f9ce5afc560c11ef0d3babd7556454f3221facec8f9da4680a503",
-    "agents/tdd-implementer/AGENT.md": "sha256:dda070af310983bae39f7a63cf33ee314ecc597a85c54acde53fdf46c14ce7b6",
+    "agents/tdd-implementer/AGENT.md": "sha256:256fd2a5731065d86b34bf714bfd6f50d58b6a021f2ca23af398a25d3655da1e",
     "agents/test-coverage-reviewer/AGENT.md": "sha256:05231de00666c7a548fb002ee5714c98dc66d4884c7a499ee7e09540008d73a3",
     "agents/test-runner/AGENT.md": "sha256:cc67ac107a978016e78e5120ce53ef51212a87300a6f204b400182f326a9d563",
     "bin/devkit-kit": "sha256:ddeaaccab9b989f408ed2a9004b9d6b637c14ee43a0fe1ef6c359805f8a945de",

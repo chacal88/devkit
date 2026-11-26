@@ -1,0 +1,39 @@
+devkit-run: feat
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit",
+  "root": "<scratch>/tick",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "implementation",
+  "stageTitle": "Implementation",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "model": "sonnet",
+  "agent": "devkit-core:tdd-implementer",
+  "step": "implement",
+  "detail": {
+    "step": "implement",
+    "reason": "phase 1 has unticked tasks: 1.3",
+    "phase": 1
+  },
+  "brief": "Change feat (devkit script), stage implementation: step implement {\"step\":\"implement\",\"reason\":\"phase 1 has unticked tasks: 1.3\",\"phase\":1}. Work only in <scratch>/tick on branch feat; every file path is absolute under it; start every Bash command with cd <scratch>/tick && ; do not fetch. Write the change's files in English.",
+  "progressKey": "implementation/implement@efac76714171",
+  "icon": "🛠️",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "implementation",
+    "stageTitle": "Implementation",
+    "phase": 1,
+    "stageIcon": "🛠️",
+    "stateIcon": null,
+    "title": "🛠️ feat"
+  },
+  "sessionTitle": "🛠️ feat"
+}

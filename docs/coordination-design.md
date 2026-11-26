@@ -185,7 +185,7 @@ exists since round 15), the roadmap coordinator in round 18; the second pull req
 | 9 | Unit tests | `test-runner` (built, round 16); `test-and-coverage`, `systematic-debugging` | the whole suite and its coverage | suite green, coverage within the project's target |
 | 10 | E2E tests, only where the project has E2E configured | `e2e-tester` (built, round 16), skill `e2e-testing` (built, round 16) | E2E tests written from the acceptance criteria, apart from the implementer, and their result | green; it is a delivery condition |
 | 11 | Demonstration | `pr-verifier` (built, round 16) | `evidence.md`, as text, inside the change: per acceptance criterion, what the agent did, what it observed and whether it passed | every criterion demonstrated and recorded |
-| 12 | Code review | the six reviewers, `finding-verifier` x3; `review-change` | `reviews/*.md`, `review.md` | consensus; two rounds at most |
+| 12 | Code review | the six reviewers, `finding-verifier` x3; `review-change` | `reviews/*.md`, `review.md` | consensus; two rounds, one more for each the owner authorizes ([ADR 0032](adr/0032-the-loop-declares-the-decisions-outside-the-stage-gates.md)) |
 | 13 | Delivery | `commit-and-pr`; `commit-message-guidelines` | commit, push, the pull request to the base of the delivery model (in the two-PR model, both pull requests open together) | GitHub checks green and the merge the model defines |
 | 14 | Second pull request, two-PR model only (built, round 17) | `commit-and-pr` | the pull request from the same branch to `master`, opened together with the one to `develop` | the owner merges the one to `develop` first; the check on the one to `master` then turns green; the owner merges it |
 | 15 | Retro and archive | change coordinator with the owner; `retro` | `retro.md`, `openspec archive`, the roadmap line ticked | the owner answered each proposal |
@@ -423,10 +423,10 @@ devkit:
 `devkit.tests.e2e`. Decided by `delivery-models` (round 17): `devkit.delivery.model` (`two-prs`, `trunk` or
 `trunk-auto`), `devkit.delivery.base` and `devkit.delivery.test_branch`. The other fields stay proposed,
 for round 20. `devkit.budget` (a whole number of tokens, the
-cap of a `/devkit change` run), and its override in a change's own `.openspec.yaml`, are final too, decided by
+cap of a `/devkit change` run), and its override in a change's own `.openspec.yaml` (its `x-devkit:` block), are final too, decided by
 `change-budget` on 2026-11-22.
 `devkit.models` (a table from a stage id to a model, built-in default per stage), and its override in a change's own
-`.openspec.yaml`, is final, decided by `stage-models` on 2026-11-23.
+`.openspec.yaml` (its `x-devkit:` block), is final, decided by `stage-models` on 2026-11-23.
 Decided by `jira-entry` on 2026-11-22: the task source needs no field; the key or link typed names it.
 
 

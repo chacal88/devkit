@@ -1,0 +1,58 @@
+devkit-run: feat
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit-lite",
+  "root": "<scratch>/proj/.claude/worktrees/feat",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "review",
+  "stageTitle": "Code review",
+  "role": "review-bench",
+  "skills": [
+    "review-change"
+  ],
+  "model": "sonnet",
+  "step": "review-resolution",
+  "detail": {
+    "step": "review-resolution",
+    "reason": "the resolution on feat-develop needs a review from code-quality-reviewer, test-coverage-reviewer",
+    "root": "<scratch>/proj/.claude/worktrees/feat",
+    "support": "feat-develop",
+    "commits": [
+      {
+        "sha": "0557d8580447255a5b1e5f027bec602dae434eb6",
+        "subject": "keep the task line"
+      },
+      {
+        "sha": "5cd14e94929069113b3dc29324a27773b692d816",
+        "subject": "Merge remote-tracking branch 'origin/develop' into feat-develop"
+      }
+    ],
+    "diffs": [
+      "git diff 0557d8580447255a5b1e5f027bec602dae434eb6^ 0557d8580447255a5b1e5f027bec602dae434eb6",
+      "git diff 614365f3e16cf693377e866bf4529fa1a30ed93c 5cd14e94929069113b3dc29324a27773b692d816"
+    ],
+    "commit": "0557d8580447255a5b1e5f027bec602dae434eb6",
+    "round": 3,
+    "limit": 3
+  },
+  "progressKey": "review/review-resolution@3858d4ea3e8c",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🔍",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "review",
+    "stageTitle": "Code review",
+    "phase": null,
+    "stageIcon": "🔍",
+    "stateIcon": null,
+    "title": "🔍 feat"
+  },
+  "sessionTitle": "🔍 feat"
+}

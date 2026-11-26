@@ -1,0 +1,5 @@
+proof/ver-r12.txt exists in the scratch change: yes
+proof/ver-r12.txt holds the line: 1
+proposal.md unchanged: yes
+src/a.txt unchanged: yes
+declared.json exists after the run: no

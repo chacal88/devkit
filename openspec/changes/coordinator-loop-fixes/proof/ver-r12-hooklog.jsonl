@@ -1,0 +1,3 @@
+{"at":"2026-11-25T15:38:24.084Z","mode":"agent","session":"f68b40fe-0d29-4fc6-b830-e8a26dbf5f2c","agentType":"devkit-core:pr-verifier","change":null,"decision":"allow","why":"no-run"}
+{"at":"2026-11-25T15:38:30.553Z","mode":"subagent-stop","session":"f68b40fe-0d29-4fc6-b830-e8a26dbf5f2c","agentType":"devkit-core:pr-verifier","change":null,"decision":"allow","why":"no-run"}
+{"at":"2026-11-25T15:38:33.111Z","mode":"stop","session":"f68b40fe-0d29-4fc6-b830-e8a26dbf5f2c","agentType":null,"change":null,"decision":"allow","why":"no-run"}
