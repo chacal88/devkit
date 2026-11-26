@@ -1,0 +1,1566 @@
+Task 9.2: the D-26 tests of D-18 and D-19, run on the code as phase 9 finds it (the red ones fail; the guard passes)
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 --test-name-pattern='^release-note (AC-5 rewrite: (ADR \[|a change named|a source comment)|AC-5 mask: a link|AC-7 citation: a citation in a changed source|AC-5 citation scope|AC-4 staleness: a test literal|AC-7 join: a source file|AC-5 assign: the first record)' plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/release-merge.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/delivery-train.test.mjs
+start plugins/openspec/hooks/release-note.test.mjs
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✖ release-note AC-4 staleness: a test literal renumbered by hand stales the evidence (856.004824ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1036.094064
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2894:1
+✖ release-note AC-4 staleness: a test literal renumbered by hand stales the evidence (856.004824ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'current' !== 'stale'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2901:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'current',
+    expected: 'stale',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/deliver-check.test.mjs: FAIL 1.1s
+start plugins/openspec/hooks/release-merge.test.mjs
+=== plugins/openspec/hooks/delivery-train.test.mjs
+✖ release-note AC-7 join: a source file's citation of a head numbered before the train is given back and renumbered (842.341302ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1047.331028
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:515:1
+✖ release-note AC-7 join: a source file's citation of a head numbered before the train is given back and renumbered (842.341302ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '// the rule of ADR 0001 (docs/adr/0001-beta.md)\n'
+  - '// the rule of ADR 0002 (docs/adr/0002-beta.md)\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/delivery-train.test.mjs:532:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '// the rule of ADR 0001 (docs/adr/0001-beta.md)\n',
+    expected: '// the rule of ADR 0002 (docs/adr/0002-beta.md)\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/delivery-train.test.mjs: FAIL 1.1s
+=== plugins/openspec/hooks/release-merge.test.mjs
+✔ release-note AC-5 assign: the first record's Amended by header line naming the second record of the same change takes the second's number in both tokens (496.155721ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 657.985611
+=== plugins/openspec/hooks/release-merge.test.mjs: pass 0.7s
+=== plugins/openspec/hooks/release-note.test.mjs
+✖ release-note AC-5 rewrite: ADR [<slug>] becomes ADR <NNNN> and <slug>.md becomes <NNNN>-<slug>.md, each only as a whole token (6.906022ms)
+✖ release-note AC-5 rewrite: a change named like another document leaves its links alone (568.718496ms)
+✖ release-note AC-5 mask: a link to another document renamed by hand is not masked (1.125453ms)
+✖ release-note AC-7 citation: a citation in a changed source file is refused while unlanded and rewritten once landed (472.207124ms)
+✖ release-note AC-5 rewrite: a source comment and a Python file are numbered with the record (489.248316ms)
+✖ release-note AC-5 citation scope: a test file, a fixture and the files of a test folder are never cited, rewritten or counted as still cited (2024.079158ms)
+✖ release-note AC-5 citation scope: holdsCitations and CITATION_PATHSPEC name the same files (31.947999ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 0
+ℹ fail 7
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3770.525417
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-note.test.mjs:367:1
+✖ release-note AC-5 rewrite: ADR [<slug>] becomes ADR <NNNN> and <slug>.md becomes <NNNN>-<slug>.md, each only as a whole token (6.906022ms)
+  AssertionError [ERR_ASSERTION]: elsewhere only a form whose folder part is an ADR folder
+  + actual - expected
+  
+  + 'ADR 0002 and docs/adr/0002-feat.md, (0002-feat.md), adr/0002-feat.md.\n' +
+  - 'ADR 0002 and docs/adr/0002-feat.md, (feat.md), adr/0002-feat.md.\n' +
+      'Not ADR [feat-store], feat-store.md, myfeat.md, pre-feat.md, x_feat.md, feat.mdx or 0002-feat.md.\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:371:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'ADR 0002 and docs/adr/0002-feat.md, (0002-feat.md), adr/0002-feat.md.\nNot ADR [feat-store], feat-store.md, myfeat.md, pre-feat.md, x_feat.md, feat.mdx or 0002-feat.md.\n',
+    expected: 'ADR 0002 and docs/adr/0002-feat.md, (feat.md), adr/0002-feat.md.\nNot ADR [feat-store], feat-store.md, myfeat.md, pre-feat.md, x_feat.md, feat.mdx or 0002-feat.md.\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:376:1
+✖ release-note AC-5 rewrite: a change named like another document leaves its links alone (568.718496ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'See [the roles](docs/0002-roles.md), [the rule](adr/0002-roles.md) and ADR 0002.\n'
+  - 'See [the roles](docs/roles.md), [the rule](adr/0002-roles.md) and ADR 0002.\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:389:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'See [the roles](docs/0002-roles.md), [the rule](adr/0002-roles.md) and ADR 0002.\n',
+    expected: 'See [the roles](docs/roles.md), [the rule](adr/0002-roles.md) and ADR 0002.\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:394:1
+✖ release-note AC-5 mask: a link to another document renamed by hand is not masked (1.125453ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'See [the roles](docs/roles.md).\n'
+  - 'See [the roles](docs/0002-roles.md).\n'
+                          ^
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:396:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'See [the roles](docs/roles.md).\n',
+    expected: 'See [the roles](docs/0002-roles.md).\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:514:1
+✖ release-note AC-7 citation: a citation in a changed source file is refused while unlanded and rewritten once landed (472.207124ms)
+  AssertionError [ERR_ASSERTION]: {
+    "resolved": true,
+    "oldHead": "079cc45cdb364280b2ed8531aa872c4cc85cce81",
+    "newHead": "8ab44e8d3ddfe99da55dfbab66341dd1edd1f660",
+    "versions": {
+      "packs": {
+        "devkit-openspec": "1.1.0",
+        "devkit-core": "1.0.1"
+      },
+      "metadata": "1.1.0"
+    },
+    "files": [
+      "plugins/core/.claude-plugin/plugin.json",
+      "plugins/openspec/.claude-plugin/plugin.json",
+      ".claude-plugin/marketplace.json",
+      "CHANGELOG.md",
+      "docs/openspec-flow.md"
+    ],
+    "change": "feat",
+    "adrs": [
+      {
+        "from": "docs/adr/feat.md",
+        "to": "docs/adr/0002-feat.md"
+      }
+    ],
+    "citations": [
+      "docs/x.md"
+    ],
+    "mode": "assign"
+  }
+  
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:518:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:529:1
+✖ release-note AC-5 rewrite: a source comment and a Python file are numbered with the record (489.248316ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '// the rule: ADR [feat] (docs/adr/feat.md)\n'
+  - '// the rule: ADR 0002 (docs/adr/0002-feat.md)\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:534:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '// the rule: ADR [feat] (docs/adr/feat.md)\n',
+    expected: '// the rule: ADR 0002 (docs/adr/0002-feat.md)\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:540:1
+✖ release-note AC-5 citation scope: a test file, a fixture and the files of a test folder are never cited, rewritten or counted as still cited (2024.079158ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   'test/a.md',
+  +   'tests/b.yaml'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:549:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'test/a.md', 'tests/b.yaml' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:552:1
+✖ release-note AC-5 citation scope: holdsCitations and CITATION_PATHSPEC name the same files (31.947999ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'docs/x.md',
+      'openspec/config.yaml',
+  +   'plugins/a/test/c.md',
+  +   'test/a.md',
+  +   'tests/b.yaml'
+  -   'plugins/a/hooks/x.mjs',
+  -   'scripts/x.py'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:564:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'docs/x.md', 'openspec/config.yaml', 'plugins/a/test/c.md', 'test/a.md', 'tests/b.yaml' ],
+    expected: [ 'docs/x.md', 'openspec/config.yaml', 'plugins/a/hooks/x.mjs', 'scripts/x.py' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-note.test.mjs: FAIL 3.8s
+FAIL 1.1s plugins/openspec/hooks/deliver-check.test.mjs
+FAIL 1.1s plugins/openspec/hooks/delivery-train.test.mjs
+pass 0.7s plugins/openspec/hooks/release-merge.test.mjs
+FAIL 3.8s plugins/openspec/hooks/release-note.test.mjs
+suite: 4 files, 10 tests, 1 pass, 9 fail, 3.8s, concurrency 3
+exit: 1
+
+Task 9.2, reading of the run: nine red tests fail for the missing behaviour (each failure above names it), and the guard "release-note AC-5 assign: the first record's Amended by header line ..." passes. "release-note AC-5 citation scope: a test file, a fixture and the files of a test folder are never cited, rewritten or counted as still cited", which D-26 lists as a guard, passes on its test-file and fixture parts (plugins/a/hooks/x.test.mjs, plugins/a/hooks/x-fixtures.mjs are not offenders) and fails on its test-folder part only (test/a.md, tests/b.yaml): the code as phase 9 finds it reads every Markdown and YAML file, and the folder exclusion is new with D-18 (F-9). It is red on that part, and turns green with 9.3.
+
+Task 9.3: the same tests after D-18 and D-19 are applied (deliver-check.mjs, release-merge.mjs, the flow page's --assign bullet, the comments of the defect-4 tests)
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 --test-name-pattern='^release-note (AC-5 rewrite: (ADR \[|a change named|a source comment)|AC-5 mask: a link|AC-7 citation: a citation in a changed source|AC-5 citation scope|AC-4 staleness: a test literal|AC-7 join: a source file|AC-5 assign: the first record)' plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/release-merge.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/delivery-train.test.mjs
+start plugins/openspec/hooks/release-note.test.mjs
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✔ release-note AC-4 staleness: a test literal renumbered by hand stales the evidence (1190.728412ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1496.517507
+=== plugins/openspec/hooks/deliver-check.test.mjs: pass 1.6s
+start plugins/openspec/hooks/release-merge.test.mjs
+=== plugins/openspec/hooks/delivery-train.test.mjs
+✔ release-note AC-7 join: a source file's citation of a head numbered before the train is given back and renumbered (1326.01844ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1584.447558
+=== plugins/openspec/hooks/delivery-train.test.mjs: pass 1.7s
+=== plugins/openspec/hooks/release-merge.test.mjs
+✔ release-note AC-5 assign: the first record's Amended by header line naming the second record of the same change takes the second's number in both tokens (685.81946ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 909.965887
+=== plugins/openspec/hooks/release-merge.test.mjs: pass 1.0s
+=== plugins/openspec/hooks/release-note.test.mjs
+✔ release-note AC-5 rewrite: ADR [<slug>] becomes ADR <NNNN> and <slug>.md becomes <NNNN>-<slug>.md, each only as a whole token (6.045561ms)
+✔ release-note AC-5 rewrite: a change named like another document leaves its links alone (849.0853ms)
+✔ release-note AC-5 mask: a link to another document renamed by hand is not masked (4.979903ms)
+✔ release-note AC-7 citation: a citation in a changed source file is refused while unlanded and rewritten once landed (1229.141205ms)
+✔ release-note AC-5 rewrite: a source comment and a Python file are numbered with the record (1133.667746ms)
+✔ release-note AC-5 citation scope: a test file, a fixture and the files of a test folder are never cited, rewritten or counted as still cited (3260.434766ms)
+✔ release-note AC-5 citation scope: holdsCitations and CITATION_PATHSPEC name the same files (44.294584ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6780.66115
+=== plugins/openspec/hooks/release-note.test.mjs: pass 6.9s
+pass 1.6s plugins/openspec/hooks/deliver-check.test.mjs
+pass 1.7s plugins/openspec/hooks/delivery-train.test.mjs
+pass 1.0s plugins/openspec/hooks/release-merge.test.mjs
+pass 6.9s plugins/openspec/hooks/release-note.test.mjs
+suite: 4 files, 10 tests, 10 pass, 0 fail, 6.9s, concurrency 3
+exit: 0
+
+
+Task 9.5: the D-26 tests of D-20 (the reviewer's reproduction first), run on the code as phase 9 finds it after 9.4 (the red ones fail; the guards pass)
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 --test-name-pattern='^release-note (AC-4 assign: (an assigned branch merged by hand|the step.s commit ends|the same branch with its record|a version no recorded|a citation the base brought|a line the step wrote)|AC-5 assign: two unnumbered|AC-4 record: |AC-4 row N6: a branch merged by hand|AC-4 format: ship-change)' plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/deliver-check-cli.test.mjs
+start plugins/openspec/hooks/release-merge.test.mjs
+=== plugins/openspec/hooks/deliver-check-cli.test.mjs
+✖ release-note AC-4 format: ship-change's assign-release row fetches, runs next.command, pushes plain and never by force, stops blocked on exit 2 and names the merge by hand (5.590554ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 225.15014
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check-cli.test.mjs:707:1
+✖ release-note AC-4 format: ship-change's assign-release row fetches, runs next.command, pushes plain and never by force, stops blocked on exit 2 and names the merge by hand (5.590554ms)
+  AssertionError [ERR_ASSERTION]: the row names merge `origin/<next.base>` by hand
+      at at (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check-cli.test.mjs:710:62)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check-cli.test.mjs:716:20)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/deliver-check-cli.test.mjs: FAIL 0.3s
+start plugins/openspec/hooks/release-note.test.mjs
+=== plugins/openspec/hooks/release-note.test.mjs
+✖ release-note AC-4 record: stepRecord reads the newest recorded commit, ignores a trailer whose commit wrote nothing, and is null without one (189.292469ms)
+✖ release-note AC-4 record: a line equal to both the merge base's value and the record's is unassigned and outside reassign, and a version kept from the record is left to step 3 (1418.035646ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1836.969542
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-note.test.mjs:767:1
+✖ release-note AC-4 record: stepRecord reads the newest recorded commit, ignores a trailer whose commit wrote nothing, and is null without one (189.292469ms)
+  TypeError [Error]: D.stepRecord is not a function
+      at recordOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:769:60)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:770:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at plugins/openspec/hooks/release-note.test.mjs:803:1
+✖ release-note AC-4 record: a line equal to both the merge base's value and the record's is unassigned and outside reassign, and a version kept from the record is left to step 3 (1418.035646ms)
+  AssertionError [ERR_ASSERTION]: docs/adr/feat.md
+  + actual - expected
+  
+  + 'hand'
+  - 'unassigned'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:812:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'hand',
+    expected: 'unassigned',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-note.test.mjs: FAIL 1.9s
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✖ release-note AC-4 row N6: a branch merged by hand after the step is handed assign-release, not refused (8664.280349ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8940.817888
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2775:1
+✖ release-note AC-4 row N6: a branch merged by hand after the step is handed assign-release, not refused (8664.280349ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'hand',
+  +   [
+  +     'docs/adr/feat.md'
+  +   ]
+  -   'unassigned',
+  -   []
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2788:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'hand', [ 'docs/adr/feat.md' ] ],
+    expected: [ 'unassigned', [] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/deliver-check.test.mjs: FAIL 9.0s
+=== plugins/openspec/hooks/release-merge.test.mjs
+✖ release-note AC-4 assign: an assigned branch merged by hand after a code conflict with a base that released the same pack and ADR number is numbered again (1452.591182ms)
+✖ release-note AC-4 assign: the step's commit ends with its record (628.731247ms)
+✔ release-note AC-4 assign: the same branch with its record removed by an amend reads hand naming the record (1656.027024ms)
+✔ release-note AC-4 assign: a version no recorded commit wrote is still refused (1390.033383ms)
+✖ release-note AC-4 assign: a citation the base brought with the step's old number keeps its number when the step gives its own back (1517.16706ms)
+✖ release-note AC-4 assign: a line the step wrote, edited by a person after the record, is not given back: exit 2 naming the path, the head and the tree as they were (1808.823761ms)
+✖ release-note AC-5 assign: two unnumbered records of one change take the next two numbers in the order decisions.md lists them, the second's citations of the first follow, and the record names both renames in that order (592.000706ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 2
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9292.997388
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-merge.test.mjs:986:1
+✖ release-note AC-4 assign: an assigned branch merged by hand after a code conflict with a base that released the same pack and ADR number is numbered again (1452.591182ms)
+  AssertionError [ERR_ASSERTION]: {
+    "resolved": false,
+    "oldHead": "e5ad841503f561ca263b7a271a8144beb2872ab5",
+    "change": "feat",
+    "conflicts": [],
+    "error": "release lines edited by hand: docs/adr/feat.md",
+    "mode": "assign"
+  }
+  
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:990:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:1007:1
+✖ release-note AC-4 assign: the step's commit ends with its record (628.731247ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'chore(release): assign the release of feat'
+  - 'chore(release): assign the release of feat\n' +
+  -   '\n' +
+  -   'Release-change: feat\n' +
+  -   'Release-line: plugins/openspec/.claude-plugin/plugin.json\n' +
+  -   'Release-line: .claude-plugin/marketplace.json\n' +
+  -   'Release-line: CHANGELOG.md\n' +
+  -   'Release-line: docs/openspec-flow.md\n' +
+  -   'Release-adr: docs/adr/feat.md -> docs/adr/0002-feat.md\n' +
+  -   'Release-citation: docs/feat.md'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:1019:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'chore(release): assign the release of feat',
+    expected: 'chore(release): assign the release of feat\n\nRelease-change: feat\nRelease-line: plugins/openspec/.claude-plugin/plugin.json\nRelease-line: .claude-plugin/marketplace.json\nRelease-line: CHANGELOG.md\nRelease-line: docs/openspec-flow.md\nRelease-adr: docs/adr/feat.md -> docs/adr/0002-feat.md\nRelease-citation: docs/feat.md',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:1054:1
+✖ release-note AC-4 assign: a citation the base brought with the step's old number keeps its number when the step gives its own back (1517.16706ms)
+  AssertionError [ERR_ASSERTION]: {
+    "resolved": false,
+    "oldHead": "9d3c5265171a56f3419ef223ba6197451b64ce53",
+    "change": "feat",
+    "conflicts": [],
+    "error": "release lines edited by hand: docs/adr/feat.md",
+    "mode": "assign"
+  }
+  
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:1062:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:1067:1
+✖ release-note AC-4 assign: a line the step wrote, edited by a person after the record, is not given back: exit 2 naming the path, the head and the tree as they were (1808.823761ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'release lines edited by hand: docs/adr/feat.md'
+  - 'cannot give back the numbers the step wrote in docs/x.md'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:1075:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'release lines edited by hand: docs/adr/feat.md',
+    expected: 'cannot give back the numbers the step wrote in docs/x.md',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:1081:1
+✖ release-note AC-5 assign: two unnumbered records of one change take the next two numbers in the order decisions.md lists them, the second's citations of the first follow, and the record names both renames in that order (592.000706ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + ''
+  - 'docs/adr/feat.md -> docs/adr/0027-feat.md\n' +
+  -   'docs/adr/feat-store.md -> docs/adr/0028-feat-store.md'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:1098:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: 'docs/adr/feat.md -> docs/adr/0027-feat.md\ndocs/adr/feat-store.md -> docs/adr/0028-feat-store.md',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-merge.test.mjs: FAIL 9.4s
+FAIL 0.3s plugins/openspec/hooks/deliver-check-cli.test.mjs
+FAIL 9.0s plugins/openspec/hooks/deliver-check.test.mjs
+FAIL 9.4s plugins/openspec/hooks/release-merge.test.mjs
+FAIL 1.9s plugins/openspec/hooks/release-note.test.mjs
+suite: 4 files, 11 tests, 2 pass, 9 fail, 9.4s, concurrency 3
+exit: 1
+
+Task 9.5, reading of the run: the reproduction "release-note AC-4 assign: an assigned branch merged by hand after a code conflict ..." fails with the reviewer's own refusal, exit 2 and "release lines edited by hand: docs/adr/feat.md", and so do "a citation the base brought with the step's old number ..." and, through the same refusal in place of the give-back's message, "a line the step wrote, edited by a person after the record ...". "the step's commit ends with its record" fails on a message that is its subject alone; "two unnumbered records of one change ..." passes its numbering assertions and fails on its record part (no Release-adr trailer), as D-26 says. "stepRecord reads the newest recorded commit ..." fails on the missing export; "a line equal to both the merge base's value and the record's ..." reads hand; the row N6 test reads hand naming docs/adr/feat.md, so the checker would answer blocked; the ship-change row names no merge by hand. The two guards, "the same branch with its record removed by an amend reads hand naming the record" and "a version no recorded commit wrote is still refused", pass on this code.
+
+Task 9.6, the changed "documents" subtest before openspec/config.yaml gains the second record (its ADRs: assertion now ends with the first record's entry, amended by the second, then the second's entry)
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 --test-name-pattern='^release-note AC-14 texts: the agents, the documents' plugins/openspec/hooks/release-note.test.mjs
+start plugins/openspec/hooks/release-note.test.mjs
+=== plugins/openspec/hooks/release-note.test.mjs
+▶ release-note AC-14 texts: the agents, the documents and the records follow the release note and the unnumbered ADR
+  ✔ agents: the planner, the ADR author and reviewer, the implementer and the readiness review (1.8987ms)
+  ✖ documents: CONTRIBUTING step 5, the config and the flow page (1.967244ms)
+  ✔ records: ADR 0022 and ADR 0025 are amended, ADR 0003, 0027 and 0030 are not (2.281796ms)
+✖ release-note AC-14 texts: the agents, the documents and the records follow the release note and the unnumbered ADR (9.563196ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 135.356261
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-note.test.mjs:885:11
+✖ documents: CONTRIBUTING step 5, the config and the flow page (1.967244ms)
+  AssertionError [ERR_ASSERTION]: the ADRs line ends with this change's two records, the first naming the second as its amender
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:905:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:885:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: "  ADRs: docs/adr/ (0001 coordination without a harness, superseded by 0010; 0002 merge without the owner by opt-in; 0003 auto-merge the archive PR; 0004 devkit per project; 0005 parallel steps and a session wake-up, superseded by 0006; 0006 phases as child sessions, amended by 0007; 0007 one change on request, superseded by 0010; 0008 reviews as a workflow; 0009 the CompozyOS loop as a second driver; 0010 OpenSpec as the harness with a roadmap coordinator and a change coordinator, supersedes 0001 and 0007; 0011 the change coordinator is the owner's session, held by hooks, amends 0010; 0012 the devkit-reviews check follows the change's script, amends 0002, 0003 and 0004; 0013 the roadmap coordinator is the owner's session, its stages in the background, amends 0010 and 0011; 0014 in the desktop app each change of a roadmap run runs in a session of its own, amends 0011 and 0013; 0015 a project slice is a change on devkit-project delivered in one pull request, amends 0012; 0016 stage roles write their own files, amends 0010 and 0011; 0017 a change's state is derived in one place and a stopped change's title shows it, amends 0014; 0018 the delivery model chosen per project and the test-branch lock, amends 0002, 0003, 0010 and 0012; 0019 the delivery loop tags the release it merged, when the project names its release file; 0020 a change can run on another machine, claimed on GitHub when it opens, amends 0013, 0014 and 0017; 0021 a roadmap run opens every change at its start, runs change sessions on the run's ticket and keeps one periodic check, amends 0004, 0006, 0010, 0011, 0013, 0014, 0017 and 0020; 0022 reviewed changes leave on a delivery train, amends 0002, 0003, 0012 and 0018; 0023 the model chosen by stage, sessions only step down and never below the stages they still run, a failed stage retried once a model up, amends 0014; 0024 CompozyOS runs the short loop, amends 0008, 0009 and 0016; 0025 a merge of the base stales the evidence and reviews only when it brings the change's own files, amends 0002; 0026 the devkit test suite runs by file in parallel, each file in its own temporary folder; 0027 the archive check lets the release pin lines pass unnamed, amends 0003, amended by 0030; 0029 a project slice is claimed on GitHub when it opens, as a change is, amends 0015 and 0020; 0030 the pin test reads the manifest, so only the flow page pins pass unnamed, amends 0003 and 0027; ADR [release-at-merge] a change carries a release note and an unnumbered ADR, and the delivery numbers both once, at the merge, amends 0022 and 0025)",
+    expected: /; ADR (?:\[release-at-merge\]|\d{4}) [^;]+, amends 0022 and 0025, amended by ADR (?:\[release-at-merge-step-record\]|\d{4}); ADR (?:\[release-at-merge-step-record\]|\d{4}) [^;]+, amends ADR (?:\[release-at-merge\]|\d{4})\)$/,
+    operator: 'match',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-note.test.mjs: FAIL 0.2s
+FAIL 0.2s plugins/openspec/hooks/release-note.test.mjs
+suite: 1 files, 4 tests, 2 pass, 2 fail, 0.2s, concurrency 3
+exit: 1
+
+Task 9.6, reading of that run: the "documents" subtest fails on the ADRs: line, which still ends with the first record alone; the other two subtests pass.
+
+Task 9.6: the 9.5 tests and the changed "documents" subtest after D-20 is applied (deliver-check.mjs stepRecord and releaseStateAt's reassign, release-merge.mjs's trailers and give-back, the ship-change assign-release row, the three places of docs/openspec-flow.md, the ADRs: line), with every release-note AC-2, AC-4 and AC-14 test and T-2, T-16, T-32, T-33, T-35 and T-36
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 --test-name-pattern='^(release-note (AC-2|AC-4|AC-5 assign: two unnumbered|AC-14)|format: ship-change|ship-change SKILL\.md pins the stop-plan-approval row|commit-attribution AC-1 T3|delivery-models docs: the documents follow|stage-roles gates: )' plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/delivery-models.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/deliver-check-archive.test.mjs
+start plugins/openspec/hooks/delivery-models.test.mjs
+=== plugins/openspec/hooks/deliver-check-archive.test.mjs
+✔ format: ship-change archive rows name the commands and the owner-answer rule (3.1, AC-2, AC-3, AC-4) (10.865699ms)
+✔ format: ship-change reused merge rows say next.number is the archive PR after the merge, and the enable command stays verbatim (3.1, AC-5) (1.095777ms)
+✔ format: ship-change Start takes the id from a chore/archive-<id> branch, Stops, Never and Hosts cover the archive (3.1, AC-6, AC-7) (1.276643ms)
+✔ commit-attribution AC-1 T33 the ship-change commit row ends the prompt with the attribution block (1.734319ms)
+✔ commit-attribution AC-1 T34 the ship-change open-pr row ends the prompt with the attribution block (0.556071ms)
+✔ commit-attribution AC-1 T35 the ship-change open-archive-pr row ends the prompt with the attribution block (0.576722ms)
+✔ commit-attribution AC-1 T36 the ship-change Attribution section holds the block and names no model (0.82638ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 280.309112
+=== plugins/openspec/hooks/deliver-check-archive.test.mjs: pass 0.4s
+start plugins/openspec/hooks/guard.test.mjs
+=== plugins/openspec/hooks/guard.test.mjs
+✔ ship-change SKILL.md pins the stop-plan-approval row: only the owner's own message writes approval.md (6.761732ms)
+✔ stage-roles gates: the stop-mockup-approval row comes after stop-plan-approval and is written only from the owner's own message (1.800541ms)
+✔ stage-roles gates: the mock-up row shows each file mockup.md lists, an .html one by its path (1.169481ms)
+✔ stage-roles gates: an approved mock-up sets result=passed with the same attempt and the current commit, and records the owner's words (1.13947ms)
+✔ stage-roles gates: changes asked for set result=failed with the same attempt and append the owner's notes (2.832431ms)
+✔ stage-roles gates: an approved mock-up adds what it revealed to the requirements (0.544482ms)
+✔ stage-roles gates: the stop-plan-approval row names the records the approval accepts and the loop's accept-decisions step, keeping what it pinned (0.664149ms)
+✔ stage-roles gates: the verify row allows no pull-request comment (0.595549ms)
+✔ stage-roles gates: the devkit skill names the mock-up among the owner's gates and the accept-decisions step (1.301706ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 318.311914
+=== plugins/openspec/hooks/guard.test.mjs: pass 0.4s
+start plugins/openspec/hooks/deliver-check-cli.test.mjs
+=== plugins/openspec/hooks/delivery-models.test.mjs
+✔ delivery-models docs: the documents follow (17.429979ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 754.400321
+=== plugins/openspec/hooks/delivery-models.test.mjs: pass 0.8s
+start plugins/openspec/hooks/release-merge.test.mjs
+=== plugins/openspec/hooks/deliver-check-cli.test.mjs
+✔ format: ship-change skill exists, says "Use when", and its deliver-check path resolves (5.534139ms)
+✔ format: ship-change names every next.step the checker can return (9.184576ms)
+✔ release-note AC-4 format: ship-change's assign-release row fetches, runs next.command, pushes plain and never by force, stops blocked on exit 2 and names the merge by hand (1.445879ms)
+✔ format: ship-change enables auto-merge with one exact command, only at enable-auto-merge, and disables it at disable-auto-merge (AC-2, AC-3, AC-8) (1.850531ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 284.231941
+=== plugins/openspec/hooks/deliver-check-cli.test.mjs: pass 0.4s
+start plugins/openspec/hooks/release-note.test.mjs
+=== plugins/openspec/hooks/release-note.test.mjs
+✔ release-note AC-2 computed: computeRelease gives the versions, the changelog entry, the pin and the ADR number the step writes (288.818737ms)
+✔ release-note AC-2 computed: two ADRs of one change take the next numbers in the order listed (273.85703ms)
+✔ release-note AC-2 computed: a note that releases nothing writes nothing (248.761236ms)
+✔ release-note AC-2 computed: changelogEntry inserts above the first ## line and rewrites only the listed packs bullets (1.522451ms)
+✔ release-note AC-2 computed: changelogEntry appends the entry when the base has no ## line (0.731373ms)
+✔ release-note AC-2 state: a branch that holds the base lines and an unnumbered ADR is unassigned (401.124929ms)
+✔ release-note AC-2 state: a branch that holds what the step writes is assigned, and current while the base is in it (492.817197ms)
+✔ release-note AC-2 state: an assigned branch stays assigned and is not current once the base has moved (647.337117ms)
+✔ release-note AC-2 state: a version edited by hand is hand and names the manifest (625.736774ms)
+✔ release-note AC-2 state: a version that is neither the base's nor the computed one is hand even when the computed ones are in (721.748228ms)
+✔ release-note AC-2 state: an edited changelog is hand and names CHANGELOG.md (658.27263ms)
+✔ release-note AC-2 state: an edited CI pin is hand and names the flow page (615.471078ms)
+✔ release-note AC-2 state: a release file that is not a manifest, edited by hand, is hand (1026.684277ms)
+✔ release-note AC-2 state: the versions written with the ADR still unnumbered are hand and name the ADR (720.006656ms)
+✔ release-note AC-2 state: the ADR numbered with the versions not written is hand and names the versions (438.374183ms)
+✔ release-note AC-2 state: an ADR numbered with another number than the next free one is hand (746.059909ms)
+✔ release-note AC-2 state: a missing origin/<base> is an error naming the fetch, never a pass (274.517373ms)
+✔ release-note AC-2 state: a note that cannot be read leaves the state out and the facts carry its message (210.457012ms)
+✔ release-note AC-2 state: a changelog body that cites the change's own ADR is assigned after the step, and the step runs again after the base moved (2885.789031ms)
+✔ release-note AC-2 state: a changelog body that cites another change's landed ADR is assigned after the step (1663.233739ms)
+✔ release-note AC-4 record: stepRecord reads the newest recorded commit, ignores a trailer whose commit wrote nothing, and is null without one (608.404701ms)
+✔ release-note AC-4 record: a line equal to both the merge base's value and the record's is unassigned and outside reassign, and a version kept from the record is left to step 3 (4938.582383ms)
+▶ release-note AC-14 texts: the agents, the documents and the records follow the release note and the unnumbered ADR
+  ✔ agents: the planner, the ADR author and reviewer, the implementer and the readiness review (1.939621ms)
+  ✔ documents: CONTRIBUTING step 5, the config and the flow page (3.155437ms)
+  ✔ records: ADR 0022 and ADR 0025 are amended, ADR 0003, 0027 and 0030 are not (1.378679ms)
+✔ release-note AC-14 texts: the agents, the documents and the records follow the release note and the unnumbered ADR (8.169877ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18798.841251
+=== plugins/openspec/hooks/release-note.test.mjs: pass 18.9s
+=== plugins/openspec/hooks/release-merge.test.mjs
+✔ release-note AC-4 assign: a branch up to date with the base gets one plain commit holding only the release lines and the numbered ADR (1100.216863ms)
+✔ release-note AC-4 assign: a branch behind the base gets one merge commit of origin/<base> and the release above it (775.256668ms)
+✔ release-note AC-4 assign: run again after the base released the same pack, the release and the ADR are renumbered above it with no conflict (1858.271363ms)
+✔ release-note AC-4 assign: two changes in a row bumping the same pack never conflict, the second takes the version after the first (1416.009627ms)
+✔ release-note AC-4 assign: a release already current, or a note with nothing to write, exits 0 with no commit (1663.551711ms)
+✔ release-note AC-4 assign: a conflict in src/a.ts exits 2 naming it and the branch is at its old head (738.575708ms)
+✔ release-note AC-4 assign: a version edited by hand exits 2 naming the release line (577.692593ms)
+✔ release-note AC-4 assign: a slug the base already has exits 2 naming the slug and both paths, and nothing is renamed (722.367044ms)
+✔ release-note AC-4 assign: a citation of an ADR the base has not numbered exits 2 naming the slug (550.51533ms)
+✔ release-note AC-4 assign: a malformed note exits 2 with the reader's message (382.247415ms)
+✔ release-note AC-4 assign: the preflights of --base are setup errors (exit 3) and touch nothing (753.127001ms)
+✔ release-note AC-4 assign: an assigned branch merged by hand after a code conflict with a base that released the same pack and ADR number is numbered again (2652.375024ms)
+✔ release-note AC-4 assign: the step's commit ends with its record (1547.507033ms)
+✔ release-note AC-4 assign: the same branch with its record removed by an amend reads hand naming the record (2613.842312ms)
+✔ release-note AC-4 assign: a version no recorded commit wrote is still refused (1990.064303ms)
+✔ release-note AC-4 assign: a citation the base brought with the step's old number keeps its number when the step gives its own back (2274.804329ms)
+✔ release-note AC-4 assign: a line the step wrote, edited by a person after the record, is not given back: exit 2 naming the path, the head and the tree as they were (2076.339915ms)
+✔ release-note AC-5 assign: two unnumbered records of one change take the next two numbers in the order decisions.md lists them, the second's citations of the first follow, and the record names both renames in that order (668.592893ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 24625.563962
+=== plugins/openspec/hooks/release-merge.test.mjs: pass 24.7s
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✔ release-note AC-2 row N3: a version edited by hand blocks the delivery naming the manifest (984.806479ms)
+✔ release-note AC-2 row N3: a train project is refused for a hand edit too, the train rows follow otherwise (938.750743ms)
+✔ release-note AC-4 row N6: assign-release comes last, before enable-auto-merge, and after the step's commit enable-auto-merge follows (18924.392557ms)
+✔ release-note AC-4 row N6: with auto-merge on, a base that released another change gives assign-release, not wait-merge (17536.395837ms)
+✔ release-note AC-4 row N6: in ship mode pr the step comes before ready (6268.067008ms)
+✔ release-note AC-4 row N6: a train project is never answered assign-release (7684.712326ms)
+✔ release-note AC-4 row N6: a branch merged by hand after the step is handed assign-release, not refused (10031.817349ms)
+✔ release-note AC-4 row N5: a branch behind the base is given assign-release in place of update-branch (14081.661765ms)
+✔ release-note AC-4 row N5: a pull request in conflict with the base is given assign-release in place of the conflict stop (14397.37138ms)
+✔ release-note AC-2 row N7: without origin/<base> the release is never judged and the reason names the fetch (681.078958ms)
+✔ release-note AC-4 staleness: the step's commit leaves the evidence and the approved reviews current (1107.337918ms)
+✔ release-note AC-4 staleness: a test literal renumbered by hand stales the evidence (936.838676ms)
+✔ release-note AC-4 staleness: a rejected review stays stale across the step's commit, an approved one does not (436.637087ms)
+✔ release-note AC-4 staleness: an approved review with an undisposed [important] finding is stale across the step's commit (542.928217ms)
+✔ release-note AC-4 staleness: an approved review with a refuted finding is current across the step's commit (597.823655ms)
+✔ release-note AC-4 staleness: a change with no note is judged as before, the same commit stales its records (555.741638ms)
+✔ release-note AC-4 staleness: the step run again after the base numbered another ADR renumbers the change's record and leaves the records current (4107.711456ms)
+✔ release-note AC-4 staleness: without the setting the same commit stales the records (425.059598ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 100545.071906
+=== plugins/openspec/hooks/deliver-check.test.mjs: pass 100.6s
+pass 0.4s plugins/openspec/hooks/deliver-check-archive.test.mjs
+pass 0.4s plugins/openspec/hooks/deliver-check-cli.test.mjs
+pass 100.6s plugins/openspec/hooks/deliver-check.test.mjs
+pass 0.8s plugins/openspec/hooks/delivery-models.test.mjs
+pass 0.4s plugins/openspec/hooks/guard.test.mjs
+pass 24.7s plugins/openspec/hooks/release-merge.test.mjs
+pass 18.9s plugins/openspec/hooks/release-note.test.mjs
+suite: 7 files, 83 tests, 83 pass, 0 fail, 100.6s, concurrency 3
+exit: 0
+
+Task 9.6, reading of the run: the nine red tests of 9.5 pass, the two guards still pass, the changed "documents" subtest passes, and every release-note AC-2, AC-4 and AC-14 test and T-2, T-16, T-32, T-33 ("format: ship-change archive rows ...", "... reused merge rows ...", "... Start takes the id ...", "commit-attribution AC-1 T36"), T-35 and T-36 stay green.
+
+
+Fix of D-20 (fix-defect, phase 9): the step record per key. The gap found while implementing 9.6: stepRecord read only the newest commit carrying `Release-change: <id>`, so a number the step kept in a later commit (a merge that renumbered nothing: 0002 to 0002) was no longer its own, and a later merge by hand read `hand` again. The rule now: each key takes the newest of the step's recorded commits that wrote it (changed it from its first parent); `adrs` and `citations` carry the commit that wrote them, which the give-back reads.
+
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="a number the step kept across a base merge" plugins/openspec/hooks/release-merge.test.mjs   (red, before the fix)
+✖ release-note AC-4 assign: a number the step kept across a base merge is still its own after a later merge by hand (2219.865743ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2396.013113
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-merge.test.mjs:1007:1
+✖ release-note AC-4 assign: a number the step kept across a base merge is still its own after a later merge by hand (2219.865743ms)
+  AssertionError [ERR_ASSERTION]: release-merge: release lines edited by hand: docs/adr/feat.md
+  {
+    "resolved": false,
+    "oldHead": "994cc710d4a39d745e1a76e3bb6f505d77819ac0",
+    "change": "feat",
+    "conflicts": [],
+    "error": "release lines edited by hand: docs/adr/feat.md",
+    "mode": "assign"
+  }
+  
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:1037:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="stepRecord reads the newest recorded commit" plugins/openspec/hooks/release-note.test.mjs   (red, before the fix: the per-key rule, its entries naming the commit that wrote them)
+✖ release-note AC-4 record: stepRecord reads the newest recorded commit, ignores a trailer whose commit wrote nothing, and is null without one (270.936085ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 461.182963
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-note.test.mjs:767:1
+✖ release-note AC-4 record: stepRecord reads the newest recorded commit, ignores a trailer whose commit wrote nothing, and is null without one (270.936085ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      {
+  -     commit: '0c164a36d143c12512f87778c3e2cca60a693089',
+        from: 'docs/adr/feat.md',
+        to: 'docs/adr/0002-feat.md'
+      }
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:778:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { from: 'docs/adr/feat.md', to: 'docs/adr/0002-feat.md' } ],
+    expected: [ { from: 'docs/adr/feat.md', to: 'docs/adr/0002-feat.md', commit: '0c164a36d143c12512f87778c3e2cca60a693089' } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+$ (the same two commands, green, after the fix)
+✔ release-note AC-4 assign: a number the step kept across a base merge is still its own after a later merge by hand (2820.640563ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2974.126501
+✔ release-note AC-4 record: stepRecord reads the newest recorded commit, ignores a trailer whose commit wrote nothing, and is null without one (665.988976ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 848.364469
+
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/deliver-check.test.mjs   (after the fix; python3 scripts/check.py: all checks passed)
+=== plugins/openspec/hooks/release-merge.test.mjs: pass 49.5s
+=== plugins/openspec/hooks/release-note.test.mjs: pass 53.7s
+=== plugins/openspec/hooks/deliver-check.test.mjs: pass 311.2s
+pass 311.2s plugins/openspec/hooks/deliver-check.test.mjs
+pass 49.5s plugins/openspec/hooks/release-merge.test.mjs
+pass 53.7s plugins/openspec/hooks/release-note.test.mjs
+suite: 3 files, 410 tests, 410 pass, 0 fail, 311.2s, concurrency 3
+exit: 0
+
+Task 9.8: the D-26 tests of D-21 and D-22, run on the code as phase 9 finds it after 9.7 (the red ones fail; the guards pass)
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 --test-name-pattern='^release-note (AC-16 (stages|conduct|loop)|AC-12 (approval: approvalState reads|conduct|accept))' plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/change-loop.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/flow-check.test.mjs
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✖ release-note AC-12 approval: approvalState reads devkit.release_tag itself, and a folder outside a project gets no note keys (247.099221ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 779.919165
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2877:1
+✖ release-note AC-12 approval: approvalState reads devkit.release_tag itself, and a folder outside a project gets no note keys (247.099221ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      ok: true,
+      readiness: 'sha256:464c1ea56b08',
+      recorded: 'sha256:464c1ea56b08',
+  -   recordedRelease: 'sha256:faa605ee9d2f',
+  -   release: 'sha256:faa605ee9d2f',
+      status: 'APPROVED'
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2882:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { status: 'APPROVED', recorded: 'sha256:464c1ea56b08', readiness: 'sha256:464c1ea56b08', ok: true },
+    expected: { status: 'APPROVED', recorded: 'sha256:464c1ea56b08', readiness: 'sha256:464c1ea56b08', release: 'sha256:faa605ee9d2f', recordedRelease: 'sha256:faa605ee9d2f', ok: true },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/deliver-check.test.mjs: FAIL 0.9s
+start plugins/openspec/hooks/conduct-check.test.mjs
+=== plugins/openspec/hooks/conduct-check.test.mjs
+✖ release-note AC-16 conduct: a note newer than readiness.md hands readiness (2233.820134ms)
+✖ release-note AC-12 conduct: a note changed after the approval answers approve with that reason (1928.478101ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4793.493168
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:1705:1
+✖ release-note AC-16 conduct: a note newer than readiness.md hands readiness (2233.820134ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'stop-plan-approval',
+  +   'owner'
+  -   'readiness',
+  -   'subagent'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/conduct-check.test.mjs:1718:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'stop-plan-approval', 'owner' ],
+    expected: [ 'readiness', 'subagent' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:1727:1
+✖ release-note AC-12 conduct: a note changed after the approval answers approve with that reason (1928.478101ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'stop-plan-approval',
+  -   'approve',
+      'owner'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/conduct-check.test.mjs:1736:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'stop-plan-approval', 'owner' ],
+    expected: [ 'approve', 'owner' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/conduct-check.test.mjs: FAIL 5.0s
+=== plugins/openspec/hooks/change-loop.test.mjs
+✖ release-note AC-16 loop: after a note-only revision of a failed readiness the next action is the readiness review (6176.453138ms)
+✖ release-note AC-12 accept: accept-decisions refuses a note changed after the approval (313.202233ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6929.409544
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2188:1
+✖ release-note AC-16 loop: after a note-only revision of a failed readiness the next action is the readiness review (6176.453138ms)
+  AssertionError [ERR_ASSERTION]: the readiness review again
+  + actual - expected
+  
+    [
+      'agent',
+  +   'devkit-core:change-planner',
+  +   'proposal'
+  -   'devkit-core:plan-readiness-reviewer',
+  -   'readiness'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/change-loop.test.mjs:2198:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'agent', 'devkit-core:change-planner', 'proposal' ],
+    expected: [ 'agent', 'devkit-core:plan-readiness-reviewer', 'readiness' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2201:1
+✖ release-note AC-12 accept: accept-decisions refuses a note changed after the approval (313.202233ms)
+  AssertionError [ERR_ASSERTION]: {
+    "version": 1,
+    "change": "feat",
+    "accepted": [
+      "docs/adr/feat.md"
+    ],
+    "already": []
+  }
+  
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/change-loop.test.mjs:2211:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/change-loop.test.mjs: FAIL 7.1s
+=== plugins/openspec/hooks/flow-check.test.mjs
+✖ release-note AC-16 stages: a note newer than readiness.md makes it stale (377.593066ms)
+✖ release-note AC-16 stages: a readiness failed on the note is offered again after a note-only revision (584.428205ms)
+✔ release-note AC-16 stages: without devkit.release_tag the note stales nothing (328.006528ms)
+✔ release-note AC-16 stages: once a task is ticked the note stales nothing (264.970387ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20192.072289
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/flow-check.test.mjs:1108:1
+✖ release-note AC-16 stages: a note newer than readiness.md makes it stale (377.593066ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'passed' !== 'stale'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/flow-check.test.mjs:1110:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'passed',
+    expected: 'stale',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:1118:1
+✖ release-note AC-16 stages: a readiness failed on the note is offered again after a note-only revision (584.428205ms)
+  AssertionError [ERR_ASSERTION]: the review again, not the same revision
+  + actual - expected
+  
+    {
+  +   next: 'proposal',
+  +   reasonCode: 'fix-after-failure'
+  -   next: 'readiness',
+  -   reasonCode: 'rerun-after-fix'
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/flow-check.test.mjs:1126:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: { next: 'proposal', reasonCode: 'fix-after-failure' },
+    expected: { next: 'readiness', reasonCode: 'rerun-after-fix' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/flow-check.test.mjs: FAIL 20.3s
+FAIL 7.1s plugins/openspec/hooks/change-loop.test.mjs
+FAIL 5.0s plugins/openspec/hooks/conduct-check.test.mjs
+FAIL 0.9s plugins/openspec/hooks/deliver-check.test.mjs
+FAIL 20.3s plugins/openspec/hooks/flow-check.test.mjs
+suite: 4 files, 9 tests, 2 pass, 7 fail, 20.4s, concurrency 3
+exit: 1
+
+Task 9.8, reading of the run: the seven red tests fail for the missing behaviour. "a note newer than readiness.md makes it stale" reads the readiness passed beside a release.md 10 s newer; "a readiness failed on the note is offered again after a note-only revision" hands the same revision (proposal, fix-after-failure) after the planner changed only release.md, the stall of B1. On the conductor, "a note newer than readiness.md hands readiness" finds the planning rows done (readiness.fresh ignores the note) and falls through to the delivery checker's stop-plan-approval, and "a note changed after the approval answers approve with that reason" gets the same delivery row in place of the planning row's approve: the planning row reads approvalState(dir) with no note. On the loop, "after a note-only revision of a failed readiness the next action is the readiness review" is handed the planner again, and "accept-decisions refuses a note changed after the approval" accepts (exit 0). "approvalState reads devkit.release_tag itself ..." gets the four keys with no option given. The two guards, "without devkit.release_tag the note stales nothing" and "once a task is ticked the note stales nothing", pass on this code.
+
+Task 9.9: the same tests after D-21 and D-22 are applied (flow-check.mjs collectFlow noteFiles and the staleAfter loop of artifactState; conduct-check.mjs planFacts newestNote in readiness.fresh and the approve reason; deliver-check.mjs approvalState's default, namesReleaseTag moved from change-loop.mjs, changeRoot and noteMoved; change-loop.mjs acceptDecisions' refusal; the sentence of "The release note" in docs/openspec-flow.md)
+Waited: before this run a train's whole suite (node scripts/test-suite.mjs with no file arguments, pid 2061050) was running on the machine; no test run started until it ended at 23:37:10Z.
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 --test-name-pattern='^release-note (AC-16 (stages|conduct|loop)|AC-12 (approval: approvalState reads|conduct|accept))' plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/change-loop.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/flow-check.test.mjs
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✔ release-note AC-12 approval: approvalState reads devkit.release_tag itself, and a folder outside a project gets no note keys (109.343673ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 311.606505
+=== plugins/openspec/hooks/deliver-check.test.mjs: pass 0.4s
+start plugins/openspec/hooks/conduct-check.test.mjs
+=== plugins/openspec/hooks/conduct-check.test.mjs
+✔ release-note AC-16 conduct: a note newer than readiness.md hands readiness (983.488545ms)
+✔ release-note AC-12 conduct: a note changed after the approval answers approve with that reason (583.756502ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1764.444184
+=== plugins/openspec/hooks/conduct-check.test.mjs: pass 1.8s
+=== plugins/openspec/hooks/change-loop.test.mjs
+✔ release-note AC-16 loop: after a note-only revision of a failed readiness the next action is the readiness review (3931.815871ms)
+✔ release-note AC-12 accept: accept-decisions refuses a note changed after the approval (123.556619ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4266.263941
+=== plugins/openspec/hooks/change-loop.test.mjs: pass 4.3s
+=== plugins/openspec/hooks/flow-check.test.mjs
+✔ release-note AC-16 stages: a note newer than readiness.md makes it stale (266.341749ms)
+✔ release-note AC-16 stages: a readiness failed on the note is offered again after a note-only revision (187.057557ms)
+✔ release-note AC-16 stages: without devkit.release_tag the note stales nothing (128.958108ms)
+✔ release-note AC-16 stages: once a task is ticked the note stales nothing (117.051283ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12503.406875
+=== plugins/openspec/hooks/flow-check.test.mjs: pass 12.6s
+pass 4.3s plugins/openspec/hooks/change-loop.test.mjs
+pass 1.8s plugins/openspec/hooks/conduct-check.test.mjs
+pass 0.4s plugins/openspec/hooks/deliver-check.test.mjs
+pass 12.6s plugins/openspec/hooks/flow-check.test.mjs
+suite: 4 files, 9 tests, 9 pass, 0 fail, 12.6s, concurrency 3
+exit: 0
+
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs   (the files that hold T-4, T-13, T-19 and T-29, whole; python3 scripts/check.py: all checks passed)
+=== plugins/openspec/hooks/change-loop-compozy.test.mjs: pass 371.7s
+=== plugins/openspec/hooks/flow-check.test.mjs: pass 119.4s
+=== plugins/openspec/hooks/deliver-check.test.mjs: pass 528.6s
+=== plugins/openspec/hooks/change-loop.test.mjs: pass 600.4s
+=== plugins/openspec/hooks/conduct-check.test.mjs: pass 176.1s
+suite: 5 files, 932 tests, 932 pass, 0 fail, 667.2s, concurrency 3
+exit: 0
+
+Task 9.11: the remaining D-26 tests (test-coverage F1, F2, F3, F4, F6 and nits F7 to F10; code-quality nit F5; spec-reviewer nit F7; readiness M2), run on the code as phase 9 finds it after 9.10 (the ## body test and the exit 3 part fail; every guard passes)
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 --test-name-pattern='^release-note (AC-4 assign: (run again after the base released another|a manifest field|a slug refusal after)|AC-9 assign: the refusals|AC-1 reader: a ## line|AC-8 consumer: run again|AC-4 staleness: a consumer|AC-4 row N6: before ready-base|AC-3 trainCheck: a consumer|AC-9 join: with no|AC-12 format: ship-change|AC-4 fetch:)' plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop.test.mjs
+start plugins/openspec/hooks/change-loop.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/delivery-train.test.mjs
+=== plugins/openspec/hooks/delivery-train.test.mjs
+✔ release-note AC-9 join: with no devkit.release_tag a head carrying release.md joins by the old rule (1100.863424ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1404.796794
+=== plugins/openspec/hooks/delivery-train.test.mjs: pass 1.5s
+start plugins/openspec/hooks/deliver-check-cli.test.mjs
+=== plugins/openspec/hooks/deliver-check-cli.test.mjs
+✔ release-note AC-12 format: ship-change's stop-plan-approval row writes - Release note: <next.release> after - Readiness: when next.release is set (7.601472ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 305.967104
+=== plugins/openspec/hooks/deliver-check-cli.test.mjs: pass 0.4s
+start plugins/openspec/hooks/release-merge.test.mjs
+=== plugins/openspec/hooks/change-loop.test.mjs
+✔ release-note AC-4 fetch: a base that moved on the remote hands assign-release, not resolve-release-conflict, to a noted change (5789.330485ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6165.086502
+=== plugins/openspec/hooks/change-loop.test.mjs: pass 6.3s
+start plugins/openspec/hooks/delivery-train-after.test.mjs
+=== plugins/openspec/hooks/release-merge.test.mjs
+✔ release-note AC-4 assign: run again after the base released another devkit-openspec version, the pin-only conflict of a flow page that cites no ADR is resolved by rule (1696.718542ms)
+✔ release-note AC-4 assign: a manifest field the branch added is kept when the step merges a base that released, and only the version moves (2063.43069ms)
+✖ release-note AC-9 assign: the refusals before any write (345.107287ms)
+✔ release-note AC-4 assign: a slug refusal after the step gave back its own numbered record leaves the tree as it was (1514.878144ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5891.576292
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-merge.test.mjs:1193:1
+✖ release-note AC-9 assign: the refusals before any write (345.107287ms)
+  AssertionError [ERR_ASSERTION]: {
+    "resolved": false,
+    "oldHead": "8df9975ba265c6f3d9e354466f2a05516746059e",
+    "conflicts": [],
+    "error": "openspec/config.yaml names no devkit.release_tag: this project has no release to assign",
+    "mode": "assign"
+  }
+  
+  
+  2 !== 3
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:1197:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-merge.test.mjs: FAIL 6.0s
+start plugins/openspec/hooks/release-note.test.mjs
+=== plugins/openspec/hooks/delivery-train-after.test.mjs
+✔ release-note AC-3 trainCheck: a consumer's join that writes the release file passes (3124.59485ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3397.786444
+=== plugins/openspec/hooks/delivery-train-after.test.mjs: pass 3.5s
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✔ release-note AC-4 row N6: before ready-base in a two-prs project (8305.638712ms)
+✔ release-note AC-4 staleness: a consumer's step commit leaves tasks, acceptance and approved reviews current (1420.71204ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10047.088608
+=== plugins/openspec/hooks/deliver-check.test.mjs: pass 10.2s
+=== plugins/openspec/hooks/release-note.test.mjs
+✖ release-note AC-1 reader: a ## line in the changelog body is refused naming its line; a ### line and a fenced ## line are kept (11.945495ms)
+✔ release-note AC-8 consumer: run again after the base released, the release file takes the note's bump above the base's (1853.035908ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2139.190226
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-note.test.mjs:80:1
+✖ release-note AC-1 reader: a ## line in the changelog body is refused naming its line; a ### line and a fenced ## line are kept (11.945495ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'release.md: changelog body: line 7: "## 2.0.0 — another" is a version heading; write ### or a list item'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:82:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'release.md: changelog body: line 7: "## 2.0.0 — another" is a version heading; write ### or a list item',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-note.test.mjs: FAIL 2.2s
+pass 6.3s plugins/openspec/hooks/change-loop.test.mjs
+pass 0.4s plugins/openspec/hooks/deliver-check-cli.test.mjs
+pass 10.2s plugins/openspec/hooks/deliver-check.test.mjs
+pass 3.5s plugins/openspec/hooks/delivery-train-after.test.mjs
+pass 1.5s plugins/openspec/hooks/delivery-train.test.mjs
+FAIL 6.0s plugins/openspec/hooks/release-merge.test.mjs
+FAIL 2.2s plugins/openspec/hooks/release-note.test.mjs
+suite: 7 files, 12 tests, 10 pass, 2 fail, 10.2s, concurrency 3
+exit: 1
+
+Task 9.11, reading of the run: the two red tests fail for the missing behaviour. "a ## line in the changelog body is refused naming its line; ..." gets no error from parseReleaseNote, which reads "## 2.0.0 — another" as body text (D-23). "the refusals before any write" fails on its first case, the project with no devkit.release_tag, which --assign answers with exit 2 and a JSON error in place of exit 3, the stderr line and no JSON (D-24); its other cases (a setting the reader refuses, --roadmap-ticks, no and two noted changes) run after it and are proven by the 9.12 run. The ten guards pass on this code: the pin-only conflict of a flow page that cites no ADR (test-coverage F1), the consumer run again after the base released (F2), the consumer step commit that leaves the records current and the consumer join that passes trainCheck (F3), the manifest field kept on the merged text (F4), the stop-plan-approval clause (F6), the join with no devkit.release_tag (F8), row N6 before ready-base (F9), the slug refusal after the give-back (F10) and the fetch that hands assign-release to a noted change (readiness M2). The M2 guard builds the noted change with the step's release lines written out by hand and the remote's newer commit releasing another change over them, since a noted change whose branch edits the release files of staleMergeFixture is refused as a hand edit (row N3) before any fetch decides.
+
+Task 9.12: the 9.11 tests after D-23 and D-24 are applied (deliver-check.mjs parseReleaseNote's refusal of a ## body line outside a fence; release-merge.mjs --assign exits 3 with no devkit.release_tag, on stderr with no JSON; the --assign bullet of docs/openspec-flow.md names that exit 3), with every release-note AC-1 and AC-9 test
+Before this run, a first run of the same command failed one assertion of "the refusals before any write": its case of a setting the reader refuses (code as phase 9 found it: exit 3) expected the stderr without the "openspec/config.yaml: " prefix that ShipConfigError gives every message; the test now expects the real message, and the code of that case is unchanged.
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 --test-name-pattern='^release-note (AC-1 |AC-9 |AC-4 assign: (run again after the base released another|a manifest field|a slug refusal after)|AC-8 consumer: run again|AC-4 staleness: a consumer|AC-4 row N6: before ready-base|AC-3 trainCheck: a consumer|AC-12 format: ship-change|AC-4 fetch:)' plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/merge-setup.test.mjs
+start plugins/openspec/hooks/change-loop.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/delivery-train.test.mjs
+=== plugins/openspec/hooks/delivery-train.test.mjs
+✔ release-note AC-9 join: with no devkit.release_tag a head carrying release.md joins by the old rule (1111.965877ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1441.778437
+=== plugins/openspec/hooks/delivery-train.test.mjs: pass 1.5s
+start plugins/openspec/hooks/deliver-check-cli.test.mjs
+=== plugins/openspec/hooks/deliver-check-cli.test.mjs
+✔ release-note AC-12 format: ship-change's stop-plan-approval row writes - Release note: <next.release> after - Readiness: when next.release is set (9.009039ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 301.59879
+=== plugins/openspec/hooks/deliver-check-cli.test.mjs: pass 0.4s
+start plugins/openspec/hooks/release-merge.test.mjs
+=== plugins/openspec/hooks/release-merge.test.mjs
+✔ release-note AC-4 assign: run again after the base released another devkit-openspec version, the pin-only conflict of a flow page that cites no ADR is resolved by rule (2062.463367ms)
+✔ release-note AC-4 assign: a manifest field the branch added is kept when the step merges a base that released, and only the version moves (2097.682082ms)
+✔ release-note AC-9 assign: the refusals before any write (1839.523923ms)
+✔ release-note AC-4 assign: a slug refusal after the step gave back its own numbered record leaves the tree as it was (1679.255614ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8058.343266
+=== plugins/openspec/hooks/release-merge.test.mjs: pass 8.2s
+start plugins/openspec/hooks/delivery-train-after.test.mjs
+=== plugins/openspec/hooks/delivery-train-after.test.mjs
+✔ release-note AC-3 trainCheck: a consumer's join that writes the release file passes (3416.703203ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3709.952584
+=== plugins/openspec/hooks/delivery-train-after.test.mjs: pass 3.8s
+start plugins/openspec/hooks/release-note.test.mjs
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✔ release-note AC-1 row N1: a bump that is not one blocks the delivery with the reason of the reader (832.712626ms)
+✔ release-note AC-1 row N1: a pack the project does not have blocks the delivery with the reason of the reader (755.218584ms)
+✔ release-note AC-1 row N1: marketplace: in a project with no marketplace file blocks the delivery with the reason of the reader (990.716069ms)
+✔ release-note AC-1 row N1: release: on a pack manifest blocks the delivery with the reason of the reader (857.819386ms)
+✔ release-note AC-4 row N6: before ready-base in a two-prs project (8582.98217ms)
+✔ release-note AC-4 staleness: a consumer's step commit leaves tasks, acceptance and approved reviews current (1573.291786ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13935.742475
+=== plugins/openspec/hooks/deliver-check.test.mjs: pass 14.1s
+start plugins/openspec/hooks/merge-setup.test.mjs
+=== plugins/openspec/hooks/merge-setup.test.mjs
+✔ release-note AC-9 boundary: deliver-check --ci and guard.mjs ci run from the three downloaded files for a noted change (2029.691449ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2304.036067
+=== plugins/openspec/hooks/merge-setup.test.mjs: pass 2.4s
+=== plugins/openspec/hooks/release-note.test.mjs
+✔ release-note AC-1 reader: a complete note is read with its packs, the largest bump as the marketplace bump, the title and the body (8.872242ms)
+✔ release-note AC-1 reader: the marketplace and release lines are read when given, and a file name constant names the note (1.126929ms)
+✔ release-note AC-1 reader: packs: [] is no release and needs no title and no body (1.16253ms)
+✔ release-note AC-1 reader: CRLF is read as LF and a last line with no newline as if it had one (1.306354ms)
+✔ release-note AC-1 reader: a code fence that is closed, backticks or tildes, is part of the body (1.576629ms)
+✔ release-note AC-1 reader: a ## line in the changelog body is refused naming its line; a ### line and a fenced ## line are kept (1.34497ms)
+✔ release-note AC-1 reader: refuses an empty file naming the field (0.598468ms)
+✔ release-note AC-1 reader: refuses no packs line naming the field (0.4684ms)
+✔ release-note AC-1 reader: refuses a list line that is not "- name: kind" naming the field (0.783909ms)
+✔ release-note AC-1 reader: refuses a kind outside patch, minor and major naming the field (1.013566ms)
+✔ release-note AC-1 reader: refuses a pack twice naming the field (0.447308ms)
+✔ release-note AC-1 reader: refuses marketplace: before packs: naming the field (0.496948ms)
+✔ release-note AC-1 reader: refuses release: before marketplace: naming the field (3.726286ms)
+✔ release-note AC-1 reader: refuses marketplace: twice naming the field (0.452099ms)
+✔ release-note AC-1 reader: refuses a marketplace bump that is not one naming the field (2.308487ms)
+✔ release-note AC-1 reader: refuses a release bump that is not one naming the field (0.254041ms)
+✔ release-note AC-1 reader: refuses an unknown line before the title naming the field (0.212456ms)
+✔ release-note AC-1 reader: refuses no title for a note that releases naming the field (0.275413ms)
+✔ release-note AC-1 reader: refuses no title for a release: bump alone naming the field (0.215954ms)
+✔ release-note AC-1 reader: refuses no body for a note that releases naming the field (0.329783ms)
+✔ release-note AC-1 reader: refuses a code fence never closed naming the field (0.368513ms)
+✔ release-note AC-1 reader: releaseNoteHash is the first 12 hex of the sha256 of the file bytes, null with no file (236.233912ms)
+✔ release-note AC-1 reader: a pack the project does not have is refused naming it (174.105243ms)
+✔ release-note AC-1 reader: marketplace: in a project with no marketplace file is refused, a default marketplace is not (278.657691ms)
+✔ release-note AC-1 reader: release: when the release file is a pack manifest is refused naming the pack (303.264909ms)
+✔ release-note AC-9 no key: the project names no devkit.release_tag, so no rule applies whatever release.md holds (335.750591ms)
+✔ release-note AC-9 no key: the delivery checker walks a change with a malformed release.md to ready as before (3478.614348ms)
+✔ release-note AC-9 release file missing: the key names a file the project does not have and nothing is written or refused (398.936674ms)
+✔ release-note AC-9 no key: releaseTagOf names the file the key gives, and null without the key (358.0987ms)
+✔ release-note AC-8 consumer: run again after the base released, the release file takes the note's bump above the base's (1721.152322ms)
+✔ release-note AC-9 no docs/adr: a project with no ADR folder gets its release lines and no docs/adr (616.343476ms)
+✔ release-note AC-9 boundary: release-merge.mjs re-exports the moved names as the same objects (0.439472ms)
+✔ release-note AC-9 boundary: deliver-check.mjs names no relative module but guard.mjs and merge-setup.mjs (2.294961ms)
+✔ release-note AC-1 texts: the planner says a pack is a plugin manifest of the project and that the release file's bump goes under release: (0.68752ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8244.00674
+=== plugins/openspec/hooks/release-note.test.mjs: pass 8.3s
+=== plugins/openspec/hooks/change-loop.test.mjs
+✔ release-note AC-1 planner stop: no release.md is refused once naming the file, the same state goes through, a changed plan is refused again, a written note goes through (10331.897487ms)
+✔ release-note AC-1 planner stop: a malformed release.md is refused once with the reader's message (5145.393852ms)
+✔ release-note AC-1 planner stop: another role, a plan with no tasks.md yet and a project with no release_tag are not asked for the note (7206.244427ms)
+✔ release-note AC-4 fetch: a base that moved on the remote hands assign-release, not resolve-release-conflict, to a noted change (4803.553722ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 27801.563333
+=== plugins/openspec/hooks/change-loop.test.mjs: pass 27.9s
+pass 27.9s plugins/openspec/hooks/change-loop.test.mjs
+pass 0.4s plugins/openspec/hooks/deliver-check-cli.test.mjs
+pass 14.1s plugins/openspec/hooks/deliver-check.test.mjs
+pass 3.8s plugins/openspec/hooks/delivery-train-after.test.mjs
+pass 1.5s plugins/openspec/hooks/delivery-train.test.mjs
+pass 2.4s plugins/openspec/hooks/merge-setup.test.mjs
+pass 8.2s plugins/openspec/hooks/release-merge.test.mjs
+pass 8.3s plugins/openspec/hooks/release-note.test.mjs
+suite: 8 files, 52 tests, 52 pass, 0 fail, 27.9s, concurrency 3
+exit: 0
+
+Task 9.12, reading of the run: the two red tests of 9.11 pass ("a ## line in the changelog body is refused naming its line; ..." and "the refusals before any write", all five cases: no devkit.release_tag exit 3 with the stderr line and no JSON, a refused setting exit 3, --roadmap-ticks exit 3, no and two noted changes exit 2, each with the tree as it was), the ten guards of 9.11 still pass, and every release-note AC-1 and AC-9 test stays green (52 tests, 0 fail).
+Task 9.12, the two files of the reader and the step whole (env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/release-merge.test.mjs): suite: 2 files, 156 tests, 156 pass, 0 fail, 55.1s, concurrency 3; exit: 0.

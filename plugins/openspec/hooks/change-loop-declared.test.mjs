@@ -664,7 +664,10 @@ test('coordinator-loop-fixes AC-8 T61 ship-change\'s stop-plan-approval row writ
   const ship = readFileSync(join(REPO_ROOT, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
   const row = ship.split('\n').find((l) => l.startsWith('| `stop-plan-approval` |'));
   assert.ok(row, 'the stop-plan-approval row');
-  assert.ok(row.includes('`- Readiness: <next.readiness>`, `- Plan: <next.plan>` (omitted when `next.plan` is null), `- Date: <YYYY-MM-DD>`'), row);
+  // The plan line follows the readiness line and comes before the date; release-at-merge's `- Release note:` line may sit between
+  // the plan and the date (deliver-check-cli.test.mjs pins that one).
+  assert.ok(row.includes('`- Readiness: <next.readiness>`, `- Plan: <next.plan>` (omitted when `next.plan` is null), '), row);
+  assert.ok(row.indexOf('`- Plan: <next.plan>`') < row.indexOf('`- Date: <YYYY-MM-DD>`'), 'the plan line comes before the date');
   assert.ok(ship.includes('A change whose tasks are already ticked is resumed without it, unless its approval records a plan the plan files no longer match.'));
   const perChange = section(skillText(), '### A session per change', '### Every change in this session');
   assert.ok(perChange.includes('`ask.action.detail.readiness`, `ask.action.detail.plan`'), 'A session per change names the plan digest beside the readiness hash');

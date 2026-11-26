@@ -1,0 +1,601 @@
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --test-name-pattern='^release-note AC-(3|4|5|7|8|9|10) (assign|rewrite|mask|citation|consumer|no docs/adr|join|trainCheck|departure)' plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs
+start plugins/openspec/hooks/delivery-train.test.mjs
+start plugins/openspec/hooks/delivery-train-after.test.mjs
+start plugins/openspec/hooks/release-merge.test.mjs
+start plugins/openspec/hooks/release-note.test.mjs
+=== plugins/openspec/hooks/delivery-train.test.mjs
+✖ release-note AC-3 join: two noted heads bumping the same pack join with no conflict, the first boarded takes the next version and the second the one after (541.570514ms)
+✖ release-note AC-3 join: two unnumbered ADRs take the next numbers on the train in boarding order, their citations follow and the change folders do not change (852.546449ms)
+✖ release-note AC-10 join: a noted head and an old-rule head on one train, in both orders, are numbered from the note and by the kind of the old one's bump (1118.692957ms)
+✖ release-note AC-7 join: a citation of an ADR neither the base nor an earlier join numbered exits 2 naming the slug and leaves the train as it was (486.634984ms)
+✖ release-note AC-7 join: a citation of an ADR an earlier join of the train numbered is rewritten to that number (847.856821ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 0
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4202.630959
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:394:1
+✖ release-note AC-3 join: two noted heads bumping the same pack join with no conflict, the first boarded takes the next version and the second the one after (541.570514ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  '0.29.0' !== '0.30.0'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/delivery-train.test.mjs:407:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '0.29.0',
+    expected: '0.30.0',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:424:1
+✖ release-note AC-3 join: two unnumbered ADRs take the next numbers on the train in boarding order, their citations follow and the change folders do not change (852.546449ms)
+  Error: ENOENT: no such file or directory, open '/var/tmp/devkit-release-at-merge/devkit-suite-mv9HPO/17/devkit-train-noted-W2aEcV/docs/adr/0027-alpha.md'
+      at readFileSync (node:fs:624:20)
+      at read (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/delivery-train.test.mjs:174:27)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/delivery-train.test.mjs:434:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/var/tmp/devkit-release-at-merge/devkit-suite-mv9HPO/17/devkit-train-noted-W2aEcV/docs/adr/0027-alpha.md'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:447:1
+✖ release-note AC-10 join: a noted head and an old-rule head on one train, in both orders, are numbered from the note and by the kind of the old one's bump (1118.692957ms)
+  AssertionError [ERR_ASSERTION]: the old head's patch above the note's minor
+  
+  '0.6.1' !== '0.7.1'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/delivery-train.test.mjs:451:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '0.6.1',
+    expected: '0.7.1',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:467:1
+✖ release-note AC-7 join: a citation of an ADR neither the base nor an earlier join numbered exits 2 naming the slug and leaves the train as it was (486.634984ms)
+  AssertionError [ERR_ASSERTION]: {
+    "resolved": true,
+    "oldHead": "f9ec92e26efc3fbcf5b37fbad35c01becf44bb26",
+    "newHead": "1416f628f792384db83b7957777d76e63e2cc15c",
+    "versions": {
+      "packs": {}
+    },
+    "files": [],
+    "conflicts": [],
+    "mode": "merge"
+  }
+  
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/delivery-train.test.mjs:471:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:481:1
+✖ release-note AC-7 join: a citation of an ADR an earlier join of the train numbered is rewritten to that number (847.856821ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Amends ADR [alpha].\n'
+  - 'Amends ADR 0001.\n'
+                ^
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/delivery-train.test.mjs:487:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Amends ADR [alpha].\n',
+    expected: 'Amends ADR 0001.\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/delivery-train.test.mjs: FAIL 4.4s
+=== plugins/openspec/hooks/release-note.test.mjs
+✖ release-note AC-5 rewrite: ADR [<slug>] becomes ADR <NNNN> and <slug>.md becomes <NNNN>-<slug>.md, each only as a whole token (10.188597ms)
+✖ release-note AC-5 rewrite: the step numbers the ADR, its title and both citation forms, and writes what the release lines of stepCommit hold (535.035745ms)
+✖ release-note AC-5 rewrite: no file under openspec/changes/ changes, in the change's folder, another change's or the archive (489.7225ms)
+✖ release-note AC-5 rewrite: a binary file that holds the citation bytes is skipped (473.036108ms)
+✖ release-note AC-5 mask: the step's rewrite masks back to the unnumbered text, and another number does not (1.275978ms)
+✖ release-note AC-7 citation: a citation of another change's ADR that has not landed is refused naming the slug, and nothing changes (493.884139ms)
+✖ release-note AC-7 citation: once the cited ADR landed on the base, the step rewrites the citation to its number (626.421364ms)
+✖ release-note AC-8 consumer: the release file gets the note's bump and CHANGELOG.md the entry above its newest (553.490216ms)
+✖ release-note AC-8 consumer: with no CHANGELOG.md only the release file changes and no file is created (435.768586ms)
+✖ release-note AC-9 no docs/adr: a project with no ADR folder gets its release lines and no docs/adr (476.705163ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 0
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4463.218445
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-note.test.mjs:366:1
+✖ release-note AC-5 rewrite: ADR [<slug>] becomes ADR <NNNN> and <slug>.md becomes <NNNN>-<slug>.md, each only as a whole token (10.188597ms)
+  TypeError [Error]: R.rewriteCitations is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:368:18)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at plugins/openspec/hooks/release-note.test.mjs:371:1
+✖ release-note AC-5 rewrite: the step numbers the ADR, its title and both citation forms, and writes what the release lines of stepCommit hold (535.035745ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:375:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:384:1
+✖ release-note AC-5 rewrite: no file under openspec/changes/ changes, in the change's folder, another change's or the archive (489.7225ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:393:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:399:1
+✖ release-note AC-5 rewrite: a binary file that holds the citation bytes is skipped (473.036108ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:403:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:408:1
+✖ release-note AC-5 mask: the step's rewrite masks back to the unnumbered text, and another number does not (1.275978ms)
+  TypeError [Error]: R.rewriteCitations is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:411:22)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:418:1
+✖ release-note AC-7 citation: a citation of another change's ADR that has not landed is refused naming the slug, and nothing changes (493.884139ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])
+  
+  
+  3 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:422:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:429:1
+✖ release-note AC-7 citation: once the cited ADR landed on the base, the step rewrites the citation to its number (626.421364ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:433:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:439:1
+✖ release-note AC-8 consumer: the release file gets the note's bump and CHANGELOG.md the entry above its newest (553.490216ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:443:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:450:1
+✖ release-note AC-8 consumer: with no CHANGELOG.md only the release file changes and no file is created (435.768586ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:454:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:461:1
+✖ release-note AC-9 no docs/adr: a project with no ADR folder gets its release lines and no docs/adr (476.705163ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:466:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-note.test.mjs: FAIL 4.6s
+=== plugins/openspec/hooks/release-merge.test.mjs
+✖ release-note AC-4 assign: a branch up to date with the base gets one plain commit holding only the release lines and the numbered ADR (392.33792ms)
+✖ release-note AC-4 assign: a branch behind the base gets one merge commit of origin/<base> and the release above it (470.888778ms)
+✖ release-note AC-4 assign: run again after the base released the same pack, the release and the ADR are renumbered above it with no conflict (392.962331ms)
+✖ release-note AC-4 assign: two changes in a row bumping the same pack never conflict, the second takes the version after the first (502.80257ms)
+✖ release-note AC-4 assign: a release already current, or a note with nothing to write, exits 0 with no commit (377.252511ms)
+✖ release-note AC-4 assign: a conflict in src/a.ts exits 2 naming it and the branch is at its old head (458.543177ms)
+✖ release-note AC-4 assign: a version edited by hand exits 2 naming the release line (404.126071ms)
+✖ release-note AC-4 assign: a slug the base already has exits 2 naming the slug and both paths, and nothing is renamed (517.121134ms)
+✖ release-note AC-4 assign: a citation of an ADR the base has not numbered exits 2 naming the slug (419.454882ms)
+✖ release-note AC-4 assign: a malformed note exits 2 with the reader's message (364.419797ms)
+✖ release-note AC-4 assign: the preflights of --base are setup errors (exit 3) and touch nothing (300.46338ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 0
+ℹ fail 11
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4888.787197
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-merge.test.mjs:738:1
+✖ release-note AC-4 assign: a branch up to date with the base gets one plain commit holding only the release lines and the numbered ADR (392.33792ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:742:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:768:1
+✖ release-note AC-4 assign: a branch behind the base gets one merge commit of origin/<base> and the release above it (470.888778ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:777:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:787:1
+✖ release-note AC-4 assign: run again after the base released the same pack, the release and the ADR are renumbered above it with no conflict (392.962331ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:789:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:811:1
+✖ release-note AC-4 assign: two changes in a row bumping the same pack never conflict, the second takes the version after the first (502.80257ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:816:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:832:1
+✖ release-note AC-4 assign: a release already current, or a note with nothing to write, exits 0 with no commit (377.252511ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:834:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:857:1
+✖ release-note AC-4 assign: a conflict in src/a.ts exits 2 naming it and the branch is at its old head (458.543177ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])
+  
+  
+  3 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:866:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:872:1
+✖ release-note AC-4 assign: a version edited by hand exits 2 naming the release line (404.126071ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])
+  
+  
+  3 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:876:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:881:1
+✖ release-note AC-4 assign: a slug the base already has exits 2 naming the slug and both paths, and nothing is renamed (517.121134ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])
+  
+  
+  3 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:890:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:898:1
+✖ release-note AC-4 assign: a citation of an ADR the base has not numbered exits 2 naming the slug (419.454882ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])
+  
+  
+  3 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:902:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:907:1
+✖ release-note AC-4 assign: a malformed note exits 2 with the reader's message (364.419797ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])
+  
+  
+  3 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:911:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:916:1
+✖ release-note AC-4 assign: the preflights of --base are setup errors (exit 3) and touch nothing (300.46338ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /git fetch origin nope/. Input:
+  
+  'release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:921:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'release-merge: unknown option --assign (usage: release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json])\n',
+    expected: /git fetch origin nope/,
+    operator: 'match',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-merge.test.mjs: FAIL 5.0s
+=== plugins/openspec/hooks/delivery-train-after.test.mjs
+✖ release-note AC-3 trainCheck: a join that numbers an ADR passes the train's own-commit rule, and one that also edits a sentence fails naming the join and the file (1530.023719ms)
+✖ release-note AC-5 departure: two noted changes depart on one train, numbered in boarding order, and both boarded heads stay current at their own heads (5194.451238ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7032.524927
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-train-after.test.mjs:465:1
+✖ release-note AC-3 trainCheck: a join that numbers an ADR passes the train's own-commit rule, and one that also edits a sentence fails naming the join and the file (1530.023719ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: train 1 (openspec/trains/1.md, 1 boarded)
+    change alpha (#11, head b9b1a05): pass
+    4d3a15e (chore(train): join b9b1a05 and renumber its release above the train) changes docs/adr/0001-alpha.md, docs/adr/alpha.md, docs/alpha.md: the train's own commits change only release files, the CI pin, openspec/roadmap.md and openspec/trains/1.md
+  fail: 4d3a15e (chore(train): join b9b1a05 and renumber its release above the train) changes docs/adr/0001-alpha.md, docs/adr/alpha.md, docs/alpha.md: the train's own commits change only release files, the CI pin, openspec/roadmap.md and openspec/trains/1.md
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/delivery-train-after.test.mjs:469:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train-after.test.mjs:477:1
+✖ release-note AC-5 departure: two noted changes depart on one train, numbered in boarding order, and both boarded heads stay current at their own heads (5194.451238ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  '0.6.0' !== '0.8.0'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/delivery-train-after.test.mjs:487:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '0.6.0',
+    expected: '0.8.0',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/delivery-train-after.test.mjs: FAIL 7.2s
+FAIL 7.2s plugins/openspec/hooks/delivery-train-after.test.mjs
+FAIL 4.4s plugins/openspec/hooks/delivery-train.test.mjs
+FAIL 5.0s plugins/openspec/hooks/release-merge.test.mjs
+FAIL 4.6s plugins/openspec/hooks/release-note.test.mjs
+suite: 4 files, 28 tests, 0 pass, 28 fail, 7.2s, concurrency 8
+exit 1

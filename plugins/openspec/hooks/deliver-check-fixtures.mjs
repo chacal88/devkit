@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { nextStep, collectState } from './deliver-check.mjs';
 import { createHash } from 'node:crypto';
+import { tmpFolder } from './test-tmp.mjs';
 import {
   git, gitRepo, put, commitAll, proposalWith, fakeGh, tasksText, check, presetSetup, shipRepo, cli, ARCHIVE_LISTING, ACTIVE_ON_MAIN, ARCHIVE_PRS,
 } from './test-fixtures.mjs';
@@ -126,7 +127,7 @@ export function driveToReady(t) {
     const state = collectState(t.root, 'feat', { env: t.env });
     const n = nextStep(state);
     taken.push(n.step);
-    if (['ready', 'enable-auto-merge'].includes(n.step)) break;
+    if (['ready', 'enable-auto-merge', 'assign-release'].includes(n.step)) break;
     assert.ok(!n.step.startsWith('stop-') && n.step !== 'blocked', `${n.step}: ${n.reason}`);
     switch (n.step) {
       case 'implement': {
@@ -317,3 +318,121 @@ export function ownFilesRepo({ config = 'schema: devkit-lite\n', origin = 'tip',
 }
 // The merge of main after the commits `edit` makes on main.
 export const ownBrings = (files) => (root) => { put(root, files); commitAll(root, 'base brings files'); };
+
+// ---- the release note (release-at-merge): the repositories the release-note tests share. The texts the delivery step writes are
+// written out here by hand, never computed by the code under test.
+export const REL_FILE = 'plugins/openspec/.claude-plugin/plugin.json';
+export const REL_CONFIG = `devkit:\n  release_tag: ${REL_FILE}\n`;
+const manifestJson = (name, version) => `${JSON.stringify({ name, version, description: `pack ${name}` }, null, 2)}\n`;
+const marketJson = (metadata, packs) => `${JSON.stringify({ name: 'devkit', metadata: { description: 'd', version: metadata }, plugins: Object.entries(packs).map(([name, version]) => ({ name, description: `pack ${name}`, version })) }, null, 2)}\n`;
+export const flowPage = (version) => `# Flow\n\nProse of the flow page.\n\n## CI\n\n# pinned to the commit of v${version} here\n`;
+export const START_ADR = '# ADR 0001: start\n\n- Status: accepted\n';
+export const CHANGELOG0 = '# Changelog\n\n## 1.0.0 — first\n\n- **devkit-openspec**: start\n';
+// The release lines of a project with two packs and a marketplace, at the given versions.
+export const releaseLayout = ({ openspec = '1.0.0', core = '1.0.0', market = '1.0.0', changelog = CHANGELOG0 } = {}) => ({
+  [REL_FILE]: manifestJson('devkit-openspec', openspec),
+  'plugins/core/.claude-plugin/plugin.json': manifestJson('devkit-core', core),
+  '.claude-plugin/marketplace.json': marketJson(market, { 'devkit-openspec': openspec, 'devkit-core': core }),
+  'CHANGELOG.md': changelog,
+  'docs/openspec-flow.md': flowPage(openspec),
+  'docs/adr/0001-start.md': START_ADR,
+});
+export const NOTE_TEXT = '# Release note\n\npacks:\n- devkit-openspec: minor\n- devkit-core: patch\n\n## a change that does a thing\n\n- **devkit-openspec**: it does a thing\n- **devkit-core**: it helps\n';
+export const ADR_FEAT = '# ADR [feat]: the rule\n\n- Status: proposed\n- Change: `feat`\n';
+export const DECISIONS = '# Decisions\n\n- ADR: `docs/adr/feat.md`\n';
+// What the delivery step writes on the layout above for NOTE_TEXT and the ADR `docs/adr/feat.md`, with the base at 1.0.0.
+export const ASSIGNED_CHANGELOG = '# Changelog\n\n## 1.1.0 — a change that does a thing\n\n- **devkit-openspec** 1.1.0: it does a thing\n- **devkit-core** 1.0.1: it helps\n\n## 1.0.0 — first\n\n- **devkit-openspec**: start\n';
+
+// A repository whose main holds `files`, with a bare origin, and the noted change `feat` on branch `feat`: its plan files, the note
+// (null: none), the ADR `docs/adr/feat.md` listed in decisions.md (`adr: false`: none) and `docs/x.md`, which cites it. Returns the root.
+export function noteRepo({ config = `schema: devkit-lite\n${REL_CONFIG}`, files = releaseLayout(), note = NOTE_TEXT, adr = true, extra = {} } = {}) {
+  const root = gitRepo({ config, files: { 'src/a.ts': 'a\n', ...files } });
+  const origin = tmpFolder('devkit-origin-');
+  git(origin, 'init', '-q', '--bare', '-b', 'main');
+  git(root, 'remote', 'add', 'origin', origin);
+  git(root, 'push', '-q', 'origin', 'main');
+  git(root, 'switch', '-q', '-c', 'feat');
+  put(root, {
+    ...changeFiles(changeFilesOf()),
+    ...(note === null ? {} : { 'openspec/changes/feat/release.md': note }),
+    ...(adr ? { 'openspec/changes/feat/decisions.md': DECISIONS, 'docs/adr/feat.md': ADR_FEAT, 'docs/x.md': 'See ADR [feat] for the rule.\n' } : {}),
+    ...extra,
+  });
+  commitAll(root, 'plan files');
+  return root;
+}
+// The commit the delivery step would make on noteRepo's branch (base at 1.0.0): the versions, the changelog entry, the pin and the
+// ADR numbered 0002 with its citations rewritten. each option set to false leaves that part out, to build a half of it. `record: true`
+// ends its message with the step's record of all of it (release-at-merge D-20), written out here by hand.
+export const STEP_RECORD = [
+  'Release-change: feat',
+  `Release-line: ${REL_FILE}`,
+  'Release-line: plugins/core/.claude-plugin/plugin.json',
+  'Release-line: .claude-plugin/marketplace.json',
+  'Release-line: CHANGELOG.md',
+  'Release-line: docs/openspec-flow.md',
+  'Release-adr: docs/adr/feat.md -> docs/adr/0002-feat.md',
+  'Release-citation: docs/x.md',
+].join('\n');
+export function stepCommit(root, { versions = true, changelog = true, pin = true, adr = true, record = false } = {}) {
+  const files = {};
+  if (versions) {
+    files[REL_FILE] = manifestJson('devkit-openspec', '1.1.0');
+    files['plugins/core/.claude-plugin/plugin.json'] = manifestJson('devkit-core', '1.0.1');
+    files['.claude-plugin/marketplace.json'] = marketJson('1.1.0', { 'devkit-openspec': '1.1.0', 'devkit-core': '1.0.1' });
+  }
+  if (changelog) files['CHANGELOG.md'] = ASSIGNED_CHANGELOG;
+  if (pin) files['docs/openspec-flow.md'] = flowPage('1.1.0');
+  put(root, files);
+  if (adr) {
+    git(root, 'mv', 'docs/adr/feat.md', 'docs/adr/0002-feat.md');
+    put(root, { 'docs/adr/0002-feat.md': ADR_FEAT.replace('ADR [feat]', 'ADR 0002'), 'docs/x.md': 'See ADR 0002 for the rule.\n' });
+  }
+  return commitAll(root, `chore(release): assign the release of feat${record ? `\n\n${STEP_RECORD}` : ''}`);
+}
+// A commit on main that releases another change (every file written by hand) and the bare origin follows; the root ends on `branch`.
+export function baseReleases(root, files, branch = 'feat') {
+  git(root, 'switch', '-q', 'main');
+  put(root, files);
+  commitAll(root, 'another change released');
+  try { git(root, 'push', '-q', 'origin', 'main'); } catch { git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD'); }
+  git(root, 'switch', '-q', branch);
+}
+
+// shipRepo's change `feat` with the release layout on main, origin/main set to it (`origin: false`: no remote-tracking ref), the
+// note, the ADR and `docs/x.md` committed as the plan files, on branch ship/feat. `train` names the suite of a delivery train.
+export function noteShip({ ship = 'merge', train = null, note = NOTE_TEXT, files = releaseLayout(), adr = true, origin = true } = {}) {
+  const trainConfig = train === null ? '' : `  delivery:\n    model: trunk-auto\n    train: "${train}"\n`;
+  const t = shipRepo({ ship, extra: `${REL_CONFIG}${trainConfig}` });
+  git(t.root, 'switch', '-q', 'main');
+  put(t.root, files);
+  commitAll(t.root, 'release layout');
+  if (origin) git(t.root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  git(t.root, 'switch', '-q', 'ship/feat');
+  git(t.root, 'merge', '-q', '--ff-only', 'main');
+  put(t.root, {
+    ...(note === null ? {} : { 'openspec/changes/feat/release.md': note }),
+    ...(adr ? { 'openspec/changes/feat/decisions.md': DECISIONS, 'docs/adr/feat.md': ADR_FEAT, 'docs/x.md': 'See ADR [feat] for the rule.\n' } : {}),
+  });
+  commitAll(t.root, 'plan files');
+  return t;
+}
+
+// Every task of shipRepo's change ticked and committed as code.
+export function tickAll(t) {
+  tick(t.root, '1.1', '1.2', '2.1', '2.2', '2.3');
+  commitAll(t.root, 'all code');
+  return t;
+}
+// A merge-mode (or `ship`) noted change driven until the checker has nothing before the release step to ask: its last step is
+// `enable-auto-merge` on the code before the release rows, `assign-release` after them. The pull request is open at the head.
+export function noteReady(opts = {}) {
+  const t = noteShip(opts);
+  driveToReady(t);
+  setPrHead(t);
+  return t;
+}
+// The fake gh answers for an open pull request at the local head (a push done), with `over` on top.
+export function setPrHead(t, over = {}) {
+  t.gh.set('pr-view', { stdout: prJson({ headRefOid: head(t.root), body: PR_BODY, ...over }) });
+}

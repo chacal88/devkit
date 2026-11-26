@@ -22,6 +22,7 @@ The architecture-reviewer agent judges whether the design is right; you judge wh
    - Read the folder's index first (`README.md`, or an `ADR_INDEX.md`/`DECISION_INDEX.md` mapping subject → ADR) when one exists.
    - Include the project's open-decisions log if it keeps one (e.g. `OPEN_DECISIONS.md`).
    - No ADRs in the project: say so and stop with `Verdict: approved` and "no ADRs found". Never invent decisions to review against.
+   - Where `openspec/config.yaml` names `devkit.release_tag`, a change's own record is unnumbered until its delivery numbers it: `docs/adr/<slug>.md` (or `<slug>.md` in the project's ADR folder), titled `# ADR [<slug>]: ...` and cited `ADR [<slug>]`. Accept that file name and that citation before its delivery, read them as the record they name, and do not report the missing number.
 2. **Select the in-scope ADRs.** From the index and the change, read in full every ADR whose subject the change touches: stack, architecture, code patterns, error contracts, observability, auth, frontend, process, repo layout. Skip superseded ADRs; follow the superseder.
 3. **Check conformance, line by line where it matters:**
    - **Stack:** framework, runtime, datastore, service technology or infrastructure locked by an ADR.

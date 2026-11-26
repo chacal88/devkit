@@ -42,7 +42,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, handOffKey, handOffsOf, typedSince, isChangeId, readRoadmap, readValue, isDecisionRecord, parseStageHeader, parseDevkitBlock, changeDevkitBlock, deliverySettings, budgetValue, releaseTagSetting, trainSetting, SPEND_MESSAGES } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, readTestSettings, appliedStages } from './flow-check.mjs';
-import { collectState, buildReport, locateChange, approvalState, planDigest, planRevision, makeGh, readDeclared, authorizedRounds, REVIEW_ROUNDS } from './deliver-check.mjs';
+import { collectState, buildReport, locateChange, approvalState, planDigest, planRevision, makeGh, readDeclared, authorizedRounds, REVIEW_ROUNDS, ADR_LINES, releaseTagOf, parseReleaseNote, RELEASE_NOTE, namesReleaseTag, noteMoved } from './deliver-check.mjs';
 import { OFFLINE_GH } from './merge-setup.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
 import { emptyRun, readRun, runFilePath } from './run-file.mjs';
@@ -1095,6 +1095,7 @@ const ROWS = {
   'enable-auto-merge': session('delivery'),
   'disable-auto-merge': session('delivery'),
   'update-branch': session('delivery'),
+  'assign-release': session('delivery'),
   answer: session('delivery'),
   retro: session('retro'),
   archive: session('retro'),
@@ -1227,6 +1228,15 @@ export function decide(facts) {
   });
   const blocked = (why, params = {}, stageId = null, detail) => finish('blocked', why, 'blocked', { why, ...params }, stageId, detail);
   const waiting = (state, key, stageId, params = {}, detail) => finish(state, key, key, params, stageId, detail);
+  // The detail of a wait for the plan approval: the readiness hash and, for a change with a release note, the note's hash beside it
+  // (release-at-merge D-9); `row` is the delivery checker's row, read when the facts have none.
+  // The plan digest (coordinator-loop-fixes D-7) and the release note's hash (release-at-merge D-9) beside the readiness hash,
+  // each only when it is known.
+  const approvalDetail = (row = {}) => {
+    const release = facts.approval?.release ?? row.release ?? null;
+    const plan = facts.plan?.plan ?? row.plan ?? null;
+    return { readiness: facts.approval?.readiness ?? row.readiness ?? null, ...(plan !== null ? { plan } : {}), ...(release !== null ? { release } : {}) };
+  };
   // GitHub did not answer: a wait on GitHub, never a stop (`what` silent).
   const silent = (stageId, error) => waiting('waiting-on-github', 'waiting-github', stageId, { what: 'silent' }, { error: error ?? '' });
 
@@ -1347,8 +1357,8 @@ export function decide(facts) {
       }
       return blocked('unknown-step', {}, n.stage);
     }
-    if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'owner-pending') return waiting('waiting-for-owner', 'waiting-approval', 'approval', {}, { readiness: facts.approval?.readiness ?? null, plan: facts.plan?.plan ?? null });
-    if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'approval-stale') return waiting('waiting-for-owner', 'waiting-approval-again', 'approval', {}, { readiness: facts.approval?.readiness ?? null, plan: facts.plan?.plan ?? null });
+    if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'owner-pending') return waiting('waiting-for-owner', 'waiting-approval', 'approval', {}, approvalDetail());
+    if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'approval-stale') return waiting('waiting-for-owner', 'waiting-approval-again', 'approval', {}, approvalDetail());
     if (e.state === 'waiting-for-owner' && e.stage === 'mockup' && e.reasonCode === 'owner-pending') {
       return waiting('waiting-for-owner', 'waiting-mockup', 'mockup', {}, { file: `openspec/changes/${ctx.id}/mockup.md`, folder: `openspec/changes/${ctx.id}/mock/` });
     }
@@ -1454,7 +1464,7 @@ export function decide(facts) {
     }
     if (step === 'stop-plan-approval') {
       const again = facts.approval?.status === 'APPROVED' && Boolean(facts.approval.recorded);
-      return waiting('waiting-for-owner', again ? 'waiting-approval-again' : 'waiting-approval', currentId, {}, { readiness: facts.approval?.readiness ?? row.next.readiness ?? null, plan: facts.plan?.plan ?? row.next.plan ?? null });
+      return waiting('waiting-for-owner', again ? 'waiting-approval-again' : 'waiting-approval', currentId, {}, approvalDetail(row.next));
     }
     const number = row.next.number ?? row.delivered?.next?.number;
     const named = Object.fromEntries(['branch', 'base', 'list'].filter((k) => row.next[k] !== undefined).map((k) => [k, row.next[k]]));
@@ -1634,7 +1644,7 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     report,
     after,
     fingerprint: facts.fingerprint ?? fingerprint(found.root, facts.head ?? null),
-    approval: approvalState(dir),
+    approval: approvalState(dir, { release: namesReleaseTag(found.root) }),
     plan: planRevision(dir),
     tests: readTestSettings(found.root),
     decisions: decisionRecords(found.root, dir),
@@ -1827,7 +1837,6 @@ export function writeBackAsk(cwd, id, { input, lang = 'pt-BR', env = process.env
 
 const STATUS_LINE = /^(\s*[-*]?\s*\**Status\**\s*:\s*\**\s*)(\S+)(.*)$/im;
 const BULLETED_STATUS = /^([ \t]*[-*][ \t]+)Status[ \t]*:[ \t]*$/i; // the bullet and its indent, when the status line is a plain bulleted `- Status:` one
-const ADR_LINES = /^[ \t]*(?:[-*][ \t]+)?ADR:[ \t]*`([^`\n]+)`/gm;
 
 // One record `decisions.md` lists, read from `root`: { path, ok: true, rel, text, status, match } or { path, ok: false, why }.
 function readRecord(root, path) {
@@ -1852,7 +1861,22 @@ function readRecord(root, path) {
   return { path, ok: true, rel, text, status, match };
 }
 
-// The records the change's `decisions.md` lists (`- ADR: \`<path>\``): { listed, proposed, unreadable: [{ path, why }] }.
+// The record a listed `<dir>/<slug>.md` became once the release step numbered it (release-at-merge D-10): with the listed file
+// missing, the one `<dir>/<NNNN>-<slug>.md`; two or more of them are unreadable, naming them. Any other path is read as listed.
+function numberedRecord(root, path) {
+  const cut = path.lastIndexOf('/');
+  const folder = path.slice(0, cut);
+  const name = path.slice(cut + 1);
+  if (cut < 0 || isAbsolute(path) || /^\d{4}-/.test(name) || !name.endsWith('.md') || existsSync(resolve(root, path))) return { path };
+  let names;
+  try { names = readdirSync(resolve(root, folder)); } catch { return { path }; }
+  const found = names.filter((n) => /^\d{4}-/.test(n) && n.slice(5) === name).sort().map((n) => `${folder}/${n}`);
+  if (found.length > 1) return { path, why: `the file does not exist and more than one numbered record has its name: ${found.join(', ')}` };
+  return { path: found[0] ?? path };
+}
+
+// The records the change's `decisions.md` lists (`- ADR: \`<path>\``): { listed, proposed, unreadable: [{ path, why }] }; a listed
+// record the release step numbered is read from its numbered file.
 export function decisionRecords(root, dir) {
   const file = join(dir, 'decisions.md');
   const out = { listed: [], proposed: [], unreadable: [] };
@@ -1860,7 +1884,12 @@ export function decisionRecords(root, dir) {
   const paths = [...new Set([...readFileSync(file, 'utf8').matchAll(ADR_LINES)].map((m) => m[1].trim()))];
   for (const path of paths) {
     out.listed.push(path);
-    const record = readRecord(root, path);
+    const numbered = numberedRecord(root, path);
+    if (numbered.why) {
+      out.unreadable.push({ path, why: numbered.why });
+      continue;
+    }
+    const record = readRecord(root, numbered.path);
     if (!record.ok) out.unreadable.push({ path, why: record.why });
     else if (record.status === 'proposed') out.proposed.push(path);
   }
@@ -1881,7 +1910,7 @@ export function acceptDecisions(cwd, id, { lang = 'pt-BR' } = {}) {
   if (!located) throw new LoopUsageError(`unknown change ${id}`);
   const refuse = (error) => new LoopRefusal(error, render(l, 'blocked', { id, why: 'cannot-accept', error }));
   const approval = approvalState(located.dir);
-  if (!approval.ok) throw refuse(approval.status === 'APPROVED' && approval.recorded ? 'approval.md is for an earlier readiness.md' : 'the plan has no current recorded approval (approval.md)');
+  if (!approval.ok) throw refuse(noteMoved(approval) ? 'release note changed after approval' : approval.status === 'APPROVED' && approval.recorded ? 'approval.md is for an earlier readiness.md' : 'the plan has no current recorded approval (approval.md)');
   const approvalFile = join(located.dir, 'approval.md');
   const date = readValue(approvalFile, 'Date');
   if (!date) throw refuse('approval.md has no Date line');
@@ -2767,13 +2796,30 @@ export function subagentStopFor(input, change, { env = process.env } = {}) {
   if (!start) return allow('no-project', change);
   const found = locate(start, change);
   const clean = cleanOf(env);
-  const flow0 = changeFlow(found.root, locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change)).flow;
+  const dir = locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change);
+  const flow0 = changeFlow(found.root, dir).flow;
   if (!flow0 || !flow0.stages.some((s) => s.source === 'artifact' && s.role === role)) return allow('no-stage-file', change);
   const { facts, flow } = collectFlow(found.root, change, { env: clean, openspec: makeOpenspec(found.root, clean) });
   const report = computeFlow(facts, flow, {});
   const next = report.next;
   const stage = next && flow.stages.find((s) => s.id === next.stage);
-  if (!stage || stage.source !== 'artifact' || stage.role !== role) return allow('delivered', change);
+  if (!stage || stage.source !== 'artifact' || stage.role !== role) {
+    // The planner's plan is delivered: in a project that names devkit.release_tag it also leaves a readable release note
+    // (release-at-merge D-11). A bad setting throws, and the caller lets the stop through.
+    if (role === 'change-planner' && releaseTagOf(found.root) !== null && existsSync(join(dir, 'tasks.md'))) {
+      const file = `openspec/changes/${change}/${RELEASE_NOTE}`;
+      const noteFile = join(dir, RELEASE_NOTE);
+      const read = existsSync(noteFile) ? parseReleaseNote(readFileSync(noteFile, 'utf8')) : null;
+      if (read === null || read.error) {
+        const kind = read === null ? 'missing' : 'malformed';
+        const reason = read === null
+          ? `${file} does not exist: write the release note (packs:, the changelog title and body) before you stop`
+          : `${file} cannot be read: ${read.error}`;
+        return refuseOnce(input, `release-note/${kind}@${facts.fingerprint ?? ''}`, 'no-release-note', change, reason);
+      }
+    }
+    return allow('delivered', change);
+  }
   const key = `${stage.id}/${next.reasonCode}@${facts.fingerprint ?? ''}`;
   if (next.reasonCode === 'no-file') {
     return refuseOnce(input, key, 'no-file', change, `${stage.file} of stage ${stage.id} does not exist: write it, with its stage header, before you stop`);
@@ -3069,10 +3115,13 @@ const refusal = (what) => new LoopUsageError(`${what}: nothing was written or ru
 const changeFolder = (action, id) => locateChange(action.root, id)?.dir ?? join(action.root, 'openspec', 'changes', id);
 const headOf = (root) => tryGit(root, ['rev-parse', 'HEAD']) || 'none';
 
-// The text of approval.md in the form of the `stop-plan-approval` row of `ship-change`; the `- Plan:` line only with a `plan` (D-7).
-export function approvalText({ id, attempt, commit, readiness: hash, plan = null, date, words }) {
+// The text of approval.md in the form of the `stop-plan-approval` row of `ship-change`: the `- Plan:` line only with a `plan`
+// (coordinator-loop-fixes D-7), then, with `release` (the hash of the change's release.md), the `- Release note:` line that records
+// the note the owner approves (release-at-merge D-9).
+export function approvalText({ id, attempt, commit, readiness: hash, plan = null, release = null, date, words }) {
   const planLine = plan ? `- Plan: ${plan}\n` : '';
-  return `<!-- devkit-stage approval result=passed attempt=${attempt} commit=${commit} -->\n# Plan approval: ${id}\n\n- Status: APPROVED\n- Readiness: ${hash}\n${planLine}- Date: ${date}\n- Owner's words: "\`${words}\`"\n`;
+  const note = release ? `- Release note: ${release}\n` : '';
+  return `<!-- devkit-stage approval result=passed attempt=${attempt} commit=${commit} -->\n# Plan approval: ${id}\n\n- Status: APPROVED\n- Readiness: ${hash}\n${planLine}${note}- Date: ${date}\n- Owner's words: "\`${words}\`"\n`;
 }
 
 // The text of mockup.md after the owner's answer, in the form of the `stop-mockup-approval` row: `approve` or `changes`.
@@ -3094,12 +3143,13 @@ const stateFor = (cwd, id, kind, ctx) => {
 export function recordApproval(cwd, id, { words, lang, env, openspec, gh } = {}) {
   const st = stateFor(cwd, id, 'approval', { env, lang, openspec, gh });
   const dir = changeFolder(st.action, id);
-  const hash = approvalState(dir).readiness;
+  const approval = approvalState(dir, { release: namesReleaseTag(st.action.root) });
+  const hash = approval.readiness;
   if (!hash) throw refusal('the plan has no readiness.md to approve');
   const file = join(dir, 'approval.md');
   const earlier = existsSync(file) ? parseStageHeader(readFileSync(file, 'utf8')) : null;
   const attempt = earlier && !earlier.malformed ? earlier.attempt + 1 : 1;
-  writeFileSync(file, approvalText({ id, attempt, commit: headOf(st.action.root), readiness: hash, plan: planDigest(dir), date: today(), words: wordsOf(words) }));
+  writeFileSync(file, approvalText({ id, attempt, commit: headOf(st.action.root), readiness: hash, plan: planDigest(dir), release: approval.release ?? null, date: today(), words: wordsOf(words) }));
   return { version: 1, change: id, recorded: 'approval', attempt };
 }
 

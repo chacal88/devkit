@@ -1191,6 +1191,10 @@ test('config.yaml rules: no list item is an unquoted string holding ": " (YAML w
 
 // ---------------------------------------------------------------- ADR 0005 (conduct-rounds D13)
 
+// The numbers of the numbered records of an ADR folder. An unnumbered record (`<slug>.md`, numbered by its change's delivery) has no
+// number, and two of them may share their first four letters (release-at-merge D-14, T-1).
+const adrNumbers = (dir) => readdirSync(dir).filter((f) => /^\d{4}-/.test(f)).map((f) => f.slice(0, 4));
+
 test('ADR 0006 supersedes ADR 0005, and ADR 0001 and the config point to it', () => {
   const root = join(here, '..', '..', '..');
   const n5 = '0005-parallel-steps-and-a-session-wake-up.md';
@@ -1214,7 +1218,7 @@ test('ADR 0006 supersedes ADR 0005, and ADR 0001 and the config point to it', ()
     assert.match(adr7, new RegExp(`^#+ ${h}$`, 'm'), `ADR 0007 has ${h}`);
   }
   assert.match(adr6, /^- Amended by ADR 0007 \(0007-one-change-on-request\.md\)/m);
-  const nums = readdirSync(join(root, 'docs', 'adr')).map((f) => f.slice(0, 4));
+  const nums = adrNumbers(join(root, 'docs', 'adr'));
   assert.equal(new Set(nums).size, nums.length, 'no duplicate ADR number');
 });
 
@@ -1230,7 +1234,7 @@ test('ADR 0008 records the reviewer round as a Workflow script; ADR 0001 and the
   }
   const cfg = readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8');
   assert.match(cfg, /0008 reviews as a workflow/);
-  const nums = readdirSync(join(root, 'docs', 'adr')).map((f) => f.slice(0, 4));
+  const nums = adrNumbers(join(root, 'docs', 'adr'));
   assert.equal(new Set(nums).size, nums.length, 'no duplicate ADR number');
 });
 

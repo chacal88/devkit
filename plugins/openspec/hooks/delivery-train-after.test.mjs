@@ -17,7 +17,7 @@ import { MESSAGES, render } from './change-loop.mjs';
 import {
   GIT_ENV, git, SUITE, block, trunkAuto, configRepo, startRun, optedIn, GREEN, PENDING, PARTS, recordText, prove, project, addChange, headOf,
   launchTrain, boardedOf, SPEC, train, perform, depEnv, departIn, nextIn, roadmapOfIds, RELEASE_BASE, bumpFiles, gitOf, showOn, addArchive,
-  SUITE_COUNTER, countRuns, recordOn, noScratch, liveTrain, trainLoopFile, endOf,
+  SUITE_COUNTER, countRuns, recordOn, noScratch, liveTrain, trainLoopFile, endOf, projectConfig,
 } from './delivery-train-fixtures.mjs';
 
 // ---------------------------------------------------------------- P9 depart --update
@@ -433,6 +433,83 @@ test('delivery-train AC-9: two archives board together, no archive branch is upd
   const bad = ciOf(handTrain(p, 2, [{ kind: 'archive', id: 'gamma' }]));
   assert.equal(bad.code, 1, bad.out);
   assert.match(bad.out, /files no approved proposal names: docs\/unnamed\.md/);
+});
+
+// ---- release-at-merge: the numbering of a noted change's ADR is the train's own work (D-5, D-7)
+
+const NOTED_TRAIN = `${projectConfig('trunk-auto', 'true')}  release_tag: plugins/a/.claude-plugin/plugin.json\n`;
+const notedFiles = (id) => ({
+  [`openspec/changes/${id}/release.md`]: `packs:\n- a: minor\n\n## ${id}\n\n- **a**: ${id}\n`,
+  [`openspec/changes/${id}/decisions.md`]: `# Decisions\n\n- ADR: \`docs/adr/${id}.md\`\n`,
+  [`docs/adr/${id}.md`]: `# ADR [${id}]: ${id}\n`,
+  [`docs/${id}.md`]: `See ADR [${id}].\n`,
+});
+// A train cut from origin/main by hand whose one join numbers `id`'s ADR 0001 and rewrites its citation, as the join does; with
+// `sentence` the join also rewords the cited sentence. Then the record, at the join.
+function numberingTrain(p, n, id, { sentence = false } = {}) {
+  const wt = join(tmpFolder('devkit-train-hand-'), 'w');
+  const branch = `train/${n}`;
+  git(p.t.main, 'worktree', 'add', '-q', '-b', branch, wt, 'origin/main');
+  const boarded = [entryOf(p, id)];
+  git(wt, 'merge', '--no-ff', '--no-commit', '-q', boarded[0].head);
+  git(wt, 'mv', `docs/adr/${id}.md`, `docs/adr/0001-${id}.md`);
+  put(wt, { [`docs/adr/0001-${id}.md`]: `# ADR 0001: ${id}\n`, [`docs/${id}.md`]: sentence ? 'See ADR 0001, reworded on the train.\n' : 'See ADR 0001.\n' });
+  git(wt, 'add', '-A');
+  git(wt, 'commit', '-q', '-m', `chore(train): join ${boarded[0].head.slice(0, 7)} and renumber its release above the train`);
+  const ranAt = git(wt, 'rev-parse', 'HEAD');
+  put(wt, { [`openspec/trains/${n}.md`]: recordText({ n, baseSha: git(wt, 'rev-parse', 'origin/main'), ranAt, boarded }) });
+  commitAll(wt, `chore(train): record train ${n}`);
+  return { wt, boarded, ranAt, branch };
+}
+
+test('release-note AC-3 trainCheck: a join that numbers an ADR passes the train\'s own-commit rule, and one that also edits a sentence fails naming the join and the file', () => {
+  const p = project({ train: 'true', config: NOTED_TRAIN, files: RELEASE_BASE });
+  addChange(p, 'alpha', { files: notedFiles('alpha') });
+  const ok = ciOf(numberingTrain(p, 1, 'alpha'));
+  assert.equal(ok.code, 0, ok.out + ok.err);
+  const edited = numberingTrain(p, 2, 'alpha', { sentence: true });
+  const bad = ciOf(edited);
+  assert.equal(bad.code, 1, bad.out);
+  assert.match(bad.out, new RegExp(`${edited.ranAt.slice(0, 7)} \\(chore\\(train\\): join [0-9a-f]{7} and renumber its release above the train\\) changes docs/alpha\\.md:`));
+  assert.doesNotMatch(bad.out, /changes [^\n]*docs\/adr\/0001-alpha\.md/, 'the numbered record itself is the numbering');
+});
+
+// Review round 1 (test-coverage F3): in a consumer project the join writes the file devkit.release_tag names, which is no release file of
+// the devkit packs; the train's own-commit rule must take it as the numbering.
+const appPkg = (v) => `${JSON.stringify({ name: 'app', version: v }, null, 2)}\n`;
+test('release-note AC-3 trainCheck: a consumer\'s join that writes the release file passes', () => {
+  const config = `${projectConfig('trunk-auto', 'true')}  release_tag: package.json\n`;
+  const p = project({ train: 'true', config, files: { 'package.json': appPkg('1.4.0'), 'CHANGELOG.md': '# Changelog\n\n## 1.4.0 — old\n\n- x\n' } });
+  addChange(p, 'alpha', { files: { 'openspec/changes/alpha/release.md': 'packs: []\nrelease: minor\n\n## alpha\n\nalpha\n' } });
+  const out = departIn(p);
+  assert.equal(out.code, 0, JSON.stringify(out.out));
+  assert.deepEqual(out.out.boarded.map((b) => b.id), ['alpha']);
+  const wt = out.out.worktree;
+  assert.equal(readFileSync(join(wt, 'package.json'), 'utf8'), appPkg('1.5.0'), 'the join wrote the release file');
+  assert.equal(readFileSync(join(wt, 'CHANGELOG.md'), 'utf8'), '# Changelog\n\n## 1.5.0 — alpha\n\nalpha\n\n## 1.4.0 — old\n\n- x\n');
+  const r = ciIn(wt, { head: 'train/1' });
+  assert.equal(r.code, 0, r.out + r.err);
+  assert.equal(trainLines(r).filter((l) => l.startsWith('  change alpha ') && /pass$/.test(l)).length, 1, r.out);
+});
+
+test('release-note AC-5 departure: two noted changes depart on one train, numbered in boarding order, and both boarded heads stay current at their own heads', () => {
+  const p = project({ train: 'true', config: NOTED_TRAIN, files: RELEASE_BASE });
+  addChange(p, 'alpha', { files: notedFiles('alpha'), at: '2026-11-23T10:00:00Z' });
+  addChange(p, 'beta', { files: notedFiles('beta'), at: '2026-11-23T10:10:00Z' });
+  const heads = ['alpha', 'beta'].map((id) => headOf(p, id));
+  const out = departIn(p);
+  assert.equal(out.code, 0, JSON.stringify(out.out));
+  assert.deepEqual(out.out.boarded.map((b) => b.id), ['alpha', 'beta']);
+  assert.deepEqual(out.out.left, []);
+  const wt = out.out.worktree;
+  assert.equal(JSON.parse(readFileSync(join(wt, 'plugins/a/.claude-plugin/plugin.json'), 'utf8')).version, '0.8.0');
+  assert.equal(readFileSync(join(wt, 'docs/adr/0001-alpha.md'), 'utf8'), '# ADR 0001: alpha\n');
+  assert.equal(readFileSync(join(wt, 'docs/adr/0002-beta.md'), 'utf8'), '# ADR 0002: beta\n');
+  assert.equal(readFileSync(join(wt, 'docs/beta.md'), 'utf8'), 'See ADR 0002.\n');
+  const r = ciIn(wt, { head: 'train/1' });
+  assert.equal(r.code, 0, r.out + r.err);
+  for (const id of ['alpha', 'beta']) assert.equal(trainLines(r).filter((l) => l.startsWith(`  change ${id} `) && /pass$/.test(l)).length, 1, `${id} passes at its own head: ${r.out}`);
+  assert.deepEqual(['alpha', 'beta'].map((id) => headOf(p, id)), heads, 'no boarded branch moved');
 });
 
 test('delivery-train P11: TRAIN_PIN_FILE is the pin file release-merge rewrites', () => {

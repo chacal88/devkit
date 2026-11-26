@@ -2,12 +2,16 @@
 // release-merge: merge origin/<base> into the current branch and resolve the release-file conflicts
 // by rule; commit the merge, never push (conduct-rounds design D11, release-merge-conflict D-1).
 // With --merge <rev> it joins a change's head into a delivery train's branch with the roles swapped: the
-// change's release is renumbered above the train's (delivery-train D-6). No dependencies.
+// change's release is renumbered above the train's (delivery-train D-6). With --assign it is the delivery step of a change that
+// states its release in openspec/changes/<id>/release.md: it merges origin/<base> when the branch is behind it and writes the
+// release lines and the ADR numbers above it; a joined head with a note is numbered the same way above the train (release-at-merge
+// D-4, D-6, D-7). No dependencies.
 //
 //   node release-merge.mjs --base <base> [--roadmap-ticks] [--json]
+//   node release-merge.mjs --assign --base <base> [--json]
 //   node release-merge.mjs --merge <rev> [--json]
 //
-// Exit 0 resolved (the merge is committed) or nothing to do, 2 not resolvable (the merge is undone and
+// Exit 0 resolved (the merge or the release is committed) or nothing to do, 2 not resolvable (the merge is undone and
 // the branch is at its old head), 3 setup or usage error.
 
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -15,36 +19,12 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { RELEASE_FILE, pinsIn, setPins } from './deliver-check.mjs';
-export { pinsIn, setPins }; // the pin definition lives in deliver-check.mjs (ADR 0027)
-
-export class ReleaseError extends Error {
-  constructor(message) { super(message); this.name = 'ReleaseError'; }
-}
+import { RELEASE_FILE, pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, withoutVersions, PIN_FILE, PIN_PACK, PIN_PACK_NAME, ADR_DIRS, RELEASE_NOTE, ShipConfigError, parseReleaseNote, repoReader, computeRelease, changeAdrs, releaseStateAt, releaseTagOf, withReleaseVersion, CITATION_PATHSPEC, adrFileRe, adrNumberRe, maskCitations, stepRecord } from './deliver-check.mjs';
+// The pin definition (ADR 0027) and the helpers every consumer CI needs live in deliver-check.mjs, which it downloads alone (release-at-merge D-3a);
+// each name stays importable from here as the same object.
+export { pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, PIN_FILE, PIN_PACK, PIN_PACK_NAME };
 
 // ---------------------------------------------------------------- versions
-
-const SEMVER = /^(\d+)\.(\d+)\.(\d+)$/;
-function parseSemver(v) {
-  const m = SEMVER.exec(String(v));
-  if (!m) throw new ReleaseError(`not a semver version: ${JSON.stringify(v)}`);
-  return [Number(m[1]), Number(m[2]), Number(m[3])];
-}
-
-export function bumpKind(from, to) {
-  const a = parseSemver(from);
-  const b = parseSemver(to);
-  const i = a.findIndex((n, k) => n !== b[k]);
-  return i < 0 ? 'none' : ['major', 'minor', 'patch'][i];
-}
-
-export function applyBump(version, kind) {
-  const [major, minor, patch] = parseSemver(version);
-  if (kind === 'major') return `${major + 1}.0.0`;
-  if (kind === 'minor') return `${major}.${minor + 1}.0`;
-  if (kind === 'patch') return `${major}.${minor}.${patch + 1}`;
-  return version;
-}
 
 // `mergeBase`: the version where the branch forked; `change`: the branch's own; `base`: origin/<base>'s.
 export function resolveVersion({ mergeBase, change, base }) {
@@ -52,24 +32,6 @@ export function resolveVersion({ mergeBase, change, base }) {
 }
 
 // ---------------------------------------------------------------- manifests
-
-// versions: { packs: { <plugin name>: version }, metadata?: version }
-export function resolveManifest(baseText, versions) {
-  const obj = JSON.parse(baseText);
-  const packs = versions.packs ?? {};
-  if (typeof obj.name === 'string' && typeof obj.version === 'string' && obj.name in packs) obj.version = packs[obj.name];
-  if (obj.metadata && versions.metadata !== undefined) obj.metadata.version = versions.metadata;
-  if (Array.isArray(obj.plugins)) for (const p of obj.plugins) if (p && p.name in packs) p.version = packs[p.name];
-  return JSON.stringify(obj, null, 2) + (baseText.endsWith('\n') ? '\n' : '');
-}
-
-function withoutVersions(obj) {
-  const c = JSON.parse(JSON.stringify(obj));
-  delete c.version;
-  if (c.metadata) delete c.metadata.version;
-  if (Array.isArray(c.plugins)) for (const p of c.plugins) delete p.version;
-  return c;
-}
 
 function diffPaths(a, b, path, out) {
   const named = (x) => Array.isArray(x) && x.every((e) => e && typeof e === 'object' && typeof e.name === 'string');
@@ -124,27 +86,29 @@ export function resolveChangelog({ mergeBase, change, base, version }) {
 
 // ---------------------------------------------------------------- the CI pin
 
-// docs/openspec-flow.md pins the CI snippet to the devkit-openspec release (release-rebase-pin design D1-D4).
-export const PIN_FILE = 'docs/openspec-flow.md';
-export const PIN_PACK = 'plugins/openspec/.claude-plugin/plugin.json';
-export const PIN_PACK_NAME = 'devkit-openspec';
 const MASK = '0.0.0';
 
-// The three sides merged with their pins masked: the merged text (pins at v0.0.0), or null when the
-// merge conflicts, errors, or a side is missing. The temporary folder is always removed.
-export function mergePins({ base, ours, theirs }) {
-  if (base === null || ours === null || theirs === null) return null;
-  const dir = mkdtempSync(join(tmpdir(), 'devkit-pin-'));
+// `git merge-file` of three texts in a temporary folder named `prefix`, always removed: the merged text, or null when the merge
+// conflicts or errors.
+function mergeTexts(base, ours, theirs, prefix) {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
   try {
     const paths = { base: join(dir, 'base'), ours: join(dir, 'ours'), theirs: join(dir, 'theirs') };
-    writeFileSync(paths.base, setPins(base, MASK));
-    writeFileSync(paths.ours, setPins(ours, MASK));
-    writeFileSync(paths.theirs, setPins(theirs, MASK));
+    writeFileSync(paths.base, base);
+    writeFileSync(paths.ours, ours);
+    writeFileSync(paths.theirs, theirs);
     const r = spawnSync('git', ['merge-file', '-p', paths.ours, paths.base, paths.theirs], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
     return r.status === 0 ? r.stdout : null;
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+// The three sides merged with their pins masked: the merged text (pins at v0.0.0), or null when the
+// merge conflicts, errors, or a side is missing. The temporary folder is always removed.
+export function mergePins({ base, ours, theirs }) {
+  if (base === null || ours === null || theirs === null) return null;
+  return mergeTexts(setPins(base, MASK), setPins(ours, MASK), setPins(theirs, MASK), 'devkit-pin-');
 }
 
 // ---------------------------------------------------------------- the roadmap ticks
@@ -249,18 +213,19 @@ function rebaseInProgress(root) {
 }
 const listPaths = (root, args) => gitOut(root, args).split('\n').filter(Boolean);
 
-const USAGE = 'release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json]';
+const USAGE = 'release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --assign --base <base> [--json] | --merge <rev> [--json]';
 
 function parseArgs(argv) {
-  const opts = { base: null, merge: null, roadmapTicks: false, json: false };
+  const opts = { base: null, merge: null, assign: false, roadmapTicks: false, json: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--base' && argv[i + 1]) opts.base = argv[++i];
     else if (argv[i] === '--merge' && argv[i + 1]) opts.merge = argv[++i];
+    else if (argv[i] === '--assign') opts.assign = true;
     else if (argv[i] === '--roadmap-ticks') opts.roadmapTicks = true;
     else if (argv[i] === '--json') opts.json = true;
     else throw new ReleaseError(`unknown option ${argv[i]} (usage: ${USAGE})`);
   }
-  if (!opts.base === !opts.merge) throw new ReleaseError(`usage: ${USAGE}`);
+  if (!opts.base === !opts.merge || (opts.assign && (!opts.base || opts.roadmapTicks))) throw new ReleaseError(`usage: ${USAGE}`);
   return opts;
 }
 
@@ -298,11 +263,364 @@ function resolveVersions(root, { mergeBase, oldHead, ref }) {
 }
 
 // Undo the run: abort the merge (which resets what it staged), then put back every touched path that still
-// differs from HEAD (a write whose `git add` never ran). Step 4 of main guarantees those held no edit of the person's.
+// differs from HEAD (a write whose `git add` never ran), and take out a touched path HEAD does not hold (the new name of a
+// renamed ADR). Step 4 of main guarantees those held no edit of the person's.
 function restore(root, touched = []) {
   if (mergeInProgress(root)) sh(root, ['merge', '--abort']);
-  for (const path of touched) {
-    if (sh(root, ['cat-file', '-e', `HEAD:${path}`]).ok && !sh(root, ['diff', '--quiet', 'HEAD', '--', path]).ok) sh(root, ['checkout', 'HEAD', '--', path]);
+  for (const path of new Set(touched)) {
+    if (sh(root, ['cat-file', '-e', `HEAD:${path}`]).ok) {
+      if (!sh(root, ['diff', '--quiet', 'HEAD', '--', path]).ok) sh(root, ['checkout', 'HEAD', '--', path]);
+    } else {
+      sh(root, ['rm', '-q', '--cached', '--ignore-unmatch', '--', path]);
+      rmSync(join(root, path), { force: true });
+    }
+  }
+}
+
+// ---------------------------------------------------------------- the release note: the step and the join (release-at-merge D-4, D-6, D-7)
+
+const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const CHANGELOG = 'CHANGELOG.md';
+const CATALOG = 'docs/catalog.md';
+
+// The two citation forms of the ADR `slug` once it is numbered `number`, in the text of the file `path` (D-4, D-19): `ADR [<slug>]` becomes
+// `ADR <number>`, and `<slug>.md` becomes `<number>-<slug>.md` only where it names a file of an ADR folder (adrFileRe).
+export function rewriteCitations(text, slug, number, path = '') {
+  return text.split(`ADR [${slug}]`).join(`ADR ${number}`)
+    .replace(adrFileRe(slug, path), (_, dir = '') => `${dir}${number}-${slug}.md`);
+}
+
+const NOTE_PATH = new RegExp(`^openspec/changes/([^/]+)/${escapeRe(RELEASE_NOTE)}$`);
+
+// The noted change of `side` (D-6 step 1): the one folder under openspec/changes/ (not archive/) whose release note `side` added or
+// changed since `mergeBase`: { id }, { none: true } when there is none, or { error } when there are two or more.
+function notedChangeOf(root, mergeBase, side) {
+  const ids = listPaths(root, ['diff', '--name-only', '--no-renames', '--diff-filter=AM', mergeBase, side, '--', 'openspec/changes'])
+    .map((p) => NOTE_PATH.exec(p)?.[1]).filter((id) => id && id !== 'archive');
+  if (ids.length === 1) return { id: ids[0] };
+  if (ids.length === 0) return { none: true, error: `no change under openspec/changes/ adds a ${RELEASE_NOTE} since its merge base with the base` };
+  return { error: `more than one change adds a ${RELEASE_NOTE}: ${ids.join(', ')}` };
+}
+
+// The devkit-openspec version at `rev` when the pack the CI pins follow is there, else null (the pins are then left as they are).
+function pinPackVersion(root, rev) {
+  try {
+    const obj = JSON.parse(show(root, rev, PIN_PACK) ?? 'null');
+    return obj?.name === PIN_PACK_NAME && typeof obj.version === 'string' ? obj.version : null;
+  } catch { return null; }
+}
+
+// The number of the ADR `slug` in the folders of ADR_DIRS at `rev`, or null.
+function landedNumber(reader, rev, slug) {
+  for (const dir of ADR_DIRS) {
+    const found = reader.dir(rev, dir).map((n) => new RegExp(`^(\\d{4})-${escapeRe(slug)}\\.md$`).exec(n)?.[1]).find(Boolean);
+    if (found) return found;
+  }
+  return null;
+}
+
+// The records `adrs` (each { folder, slug, ... }) that `side` holds numbered: the one `<NNNN>-<slug>.md` of each folder, with its `number`
+// and `path` (release-at-merge D-31: shared by the step and the conductor's override).
+export function ownRecords(reader, side, adrs) {
+  return adrs.flatMap((a) => {
+    const numbered = reader.dir(side, a.folder).filter((n) => new RegExp(`^\\d{4}-${escapeRe(a.slug)}\\.md$`).test(n));
+    return numbered.length === 1 ? [{ ...a, number: numbered[0].slice(0, 4), path: `${a.folder}/${numbered[0]}` }] : [];
+  });
+}
+
+// The step's classification of a merge of `target` into `side` (step 2 of numberRelease, D-31): each text the side numbered is merged with
+// its numbers masked into `masked`, or is `blocking` when that merge conflicts; then, of `conflicts`, a release file keeps the target's
+// side (`keepTarget`) unless it is docs/catalog.md with no generator or a manifest edited beyond its versions, the file `file` is merged
+// with its version masked, the roadmap is merged only with `merging` (`roadmapMerged`), and any other path is blocking. It writes nothing
+// in the repository: it reads revisions and merges texts in a temporary folder it removes.
+export function assignBlocking(root, { side, target, mergeBase, conflicts, own, file, merging = false }) {
+  const hasGen = existsSync(join(root, 'scripts', 'gen-catalog.py'));
+  const targetPin = pinPackVersion(root, target);
+  const unassign = (path, text) => maskCitations(text, path, own);
+  const masked = new Map();
+  const blocking = [];
+  const ownPaths = new Set(own.map((a) => a.path));
+  const pinMask = (path, text) => (path === PIN_FILE && targetPin !== null ? setPins(text, MASK) : text);
+  for (const path of listPaths(root, ['diff', '--name-only', '--no-renames', mergeBase, side])) {
+    if (path.startsWith('openspec/changes/') || RELEASE_FILE.test(path) || path === file || ownPaths.has(path)) continue;
+    const mine = show(root, side, path);
+    if (mine === null || (unassign(path, mine) === mine && !(path === PIN_FILE && targetPin !== null && conflicts.includes(path)))) continue;
+    const merged = mergeTexts(pinMask(path, show(root, mergeBase, path) ?? ''), pinMask(path, unassign(path, mine)), pinMask(path, show(root, target, path) ?? ''), 'devkit-release-');
+    if (merged === null) blocking.push(path);
+    else masked.set(path, merged);
+  }
+  const keepTarget = [];
+  let roadmapMerged = null;
+  for (const path of conflicts) {
+    if (masked.has(path) || blocking.includes(path)) continue;
+    if (RELEASE_FILE.test(path)) {
+      // A release file keeps the target's side; a manifest the side also edited beyond its versions is a conflict of other lines.
+      if (path === CATALOG && !hasGen) blocking.push(path);
+      else if (MANIFEST.test(path) && manifestEditsBeyondVersion(show(root, mergeBase, path), show(root, side, path) ?? '{}').length) blocking.push(path);
+      else keepTarget.push(path);
+    } else if (path === file) {
+      const theirs = show(root, target, path);
+      const version = JSON.parse(theirs ?? '{}').version;
+      const merged = typeof version === 'string' && show(root, mergeBase, path) !== null
+        ? mergeTexts(withReleaseVersion(show(root, mergeBase, path), version), withReleaseVersion(show(root, side, path), version), theirs, 'devkit-release-')
+        : null;
+      if (merged === null) blocking.push(path);
+      else masked.set(path, merged);
+    } else if (path === ROADMAP_FILE && merging) {
+      try { roadmapMerged = resolveRoadmapTicks({ mergeBase: show(root, mergeBase, path), change: show(root, side, path), base: show(root, target, path) }); } catch (e) {
+        if (!(e instanceof ReleaseError)) throw e;
+        blocking.push(path);
+      }
+    } else blocking.push(path);
+  }
+  return { blocking, masked, keepTarget, roadmapMerged };
+}
+
+// The paths of `conflicts` (a merge of `target` into the working tree's HEAD) the step's own merge would refuse, sorted and de-duplicated:
+// the conductor's classification of a noted change's conflict (D-31). `id` is the noted change, `file` the release file the project names.
+export function assignBlockingAt(root, { target, conflicts, id, file }) {
+  const mergeBase = gitOut(root, ['merge-base', 'HEAD', target]);
+  const adrs = changeAdrs(root, null, id).map((from) => {
+    const folder = from.slice(0, from.lastIndexOf('/'));
+    return { from, folder, slug: from.slice(folder.length + 1).replace(/\.md$/, '') };
+  });
+  const own = ownRecords(repoReader(root), 'HEAD', adrs);
+  return [...new Set(assignBlocking(root, { side: 'HEAD', target, mergeBase, conflicts, own, file }).blocking)].sort();
+}
+
+// The give-back span by span (D-34), for a path whose whole-text give-back conflicts. The spans are the matches in `recorded` (the path's
+// text at the recorded commit) of the two written forms of each { number, slug } of `numbers`, with maskCitations' boundaries: `ADR <number>`
+// and, where adrFileRe matches it, `<number>-<slug>.md`. Each is found in `working` by a window of `recorded` on its line, grown to the left
+// first and then to the right, at the first window that occurs once in `working` and never in `base` (the path's text at the merge base),
+// the span still matching its form there; it is replaced by its unnumbered form and every other character of `working` stays. Returns that
+// text, or null when a span is found by no window or two spans are found at overlapping places.
+export function givenBackBySpan({ recorded, working, base, path, numbers }) {
+  const forms = numbers.flatMap(({ number, slug }) => [
+    { re: adrNumberRe(number), back: () => `ADR [${slug}]` },
+    { re: adrFileRe(`${number}-${slug}`, path), back: (m) => `${m[1] ?? ''}${slug}.md` },
+  ]);
+  const matchAt = (re, text, at) => {
+    const sticky = new RegExp(re.source, 'y');
+    sticky.lastIndex = at;
+    return sticky.exec(text);
+  };
+  const located = [];
+  for (const form of forms) {
+    for (const m of recorded.matchAll(form.re)) {
+      const a = m.index;
+      const b = a + m[0].length;
+      const ls = recorded.lastIndexOf('\n', a - 1) + 1;
+      const le = recorded.indexOf('\n', b) === -1 ? recorded.length : recorded.indexOf('\n', b);
+      // Where the span stands in `text` for each occurrence of the window recorded[x, y) whose span still matches its form, up to `max`.
+      const places = (text, x, y, max) => {
+        const window = recorded.slice(x, y);
+        const found = [];
+        for (let q = text.indexOf(window); q !== -1 && found.length < max; q = text.indexOf(window, q + 1)) {
+          const at = q + (a - x);
+          if (matchAt(form.re, text, at)?.[0].length === b - a) found.push(at);
+        }
+        return found;
+      };
+      // The span's place for the window recorded[x, y): a number, null to grow the window, or false to stop growing it this way.
+      const placeOf = (x, y) => {
+        const inWorking = places(working, x, y, 2);
+        if (!inWorking.length) return false;
+        return inWorking.length === 1 && !places(base, x, y, 1).length ? inWorking[0] : null;
+      };
+      let at = null;
+      for (let x = a; x >= ls && at === null; x--) at = placeOf(x, b);
+      if (typeof at !== 'number') at = null;
+      for (let y = b + 1; y <= le && at === null; y++) at = placeOf(a, y);
+      if (typeof at !== 'number') return null;
+      const span = matchAt(form.re, working, at);
+      located.push({ at, end: at + span[0].length, text: form.back(span) });
+    }
+  }
+  located.sort((p, q) => p.at - q.at);
+  if (located.some((p, i) => i > 0 && p.at < located[i - 1].end)) return null;
+  return located.reduceRight((text, p) => text.slice(0, p.at) + p.text + text.slice(p.end), working);
+}
+
+// The numbering core of the step and the join (D-6, D-7). With `merging` (the join) HEAD is `target`, the train's tip, and `side` the head
+// joined into it; otherwise HEAD is `side` and `target` is origin/<base>, merged when the branch is behind it. `id` is the noted change,
+// `file` the release file the project names, `label` how a message names the target. The release lines keep no number the side wrote: the
+// release files take the target's side, a text the side numbered is merged with its numbers masked, and its ADRs get their unnumbered
+// names back; then the lines `computeRelease` gives above `target` are written on the merged text, each ADR is renamed to its number and
+// every citation outside openspec/changes/ is rewritten. With no merge to make, what the step's own record wrote is given back first (D-20).
+// The step's commit ends with its record, the join's with none. Returns { code, out, text }; a refusal or a failure leaves the tree as it was.
+export function numberRelease(root, { side, target, id, file, merging = false, label }) {
+  const oldHead = gitOut(root, ['rev-parse', 'HEAD']);
+  const notePath = `openspec/changes/${id}/${RELEASE_NOTE}`;
+  const noteText = merging ? show(root, side, notePath) : (existsSync(join(root, notePath)) ? readFileSync(join(root, notePath), 'utf8') : null);
+  const touched = [];
+  const refuse = (extra) => {
+    restore(root, touched);
+    return { code: 2, out: { resolved: false, oldHead, change: id, conflicts: [], ...extra }, text: `not resolved: ${extra.error ?? `conflicts in ${extra.conflicts.join(', ')}`}` };
+  };
+  const note = parseReleaseNote(noteText ?? '');
+  if (note.error) return refuse({ error: note.error });
+  const adrs = changeAdrs(root, merging ? side : null, id);
+  const state = releaseStateAt(root, { head: side, tip: target, base: label, note, file, adrs, id });
+  if (state.kind === 'error') return refuse({ error: state.error });
+  if (state.kind === 'hand') return refuse({ error: `release lines edited by hand: ${state.paths.join(', ')}` });
+  if (state.citations.unlanded.length) return refuse({ error: state.citations.unlanded.map((x) => `ADR [${x}] is cited but has not landed on ${label}; it lands with its own change`).join('; ') });
+  const nothing = { resolved: true, oldHead, newHead: oldHead, versions: { packs: {} }, files: [], change: id, adrs: [], citations: [] };
+  if (!merging && state.current) return { code: 0, out: nothing, text: `the release of ${id} is current on ${label}: nothing to do` };
+
+  const reader = repoReader(root);
+  const mergeBase = gitOut(root, ['merge-base', side, target]);
+  const needsMerge = merging || !sh(root, ['merge-base', '--is-ancestor', target, oldHead]).ok;
+  const hasGen = existsSync(join(root, 'scripts', 'gen-catalog.py'));
+  const targetPin = pinPackVersion(root, target);
+  let conflicts = [];
+  if (needsMerge) {
+    const started = sh(root, ['-c', 'rerere.enabled=false', 'merge', '--no-ff', '--no-commit', merging ? side : target]);
+    if (!started.ok && !mergeInProgress(root)) return { code: 3, error: `git merge failed: ${started.err}` };
+    conflicts = listPaths(root, ['diff', '--name-only', '--diff-filter=U']);
+  }
+  try {
+    // Step 2: what the side numbered is given back. Its own numbered records, and the texts that hold their numbers, are merged unnumbered.
+    const own = ownRecords(reader, side, state.adrs);
+    // The ADR part of D-5's mask on the real path (D-18): the side's ADR numbers back to their citations, nothing else, and only in a file
+    // that holds citations: the step never numbered a test literal or a binary file, so it does not give one back.
+    const unassign = (path, text) => maskCitations(text, path, own);
+    if (needsMerge) {
+      const { blocking, masked, keepTarget, roadmapMerged } = assignBlocking(root, { side, target, mergeBase, conflicts, own, file, merging });
+      if (blocking.length) return refuse({ conflicts: [...new Set([...conflicts, ...blocking])] });
+      const keep = merging ? '--ours' : '--theirs';
+      for (const path of keepTarget) {
+        touched.push(path);
+        if (!sh(root, ['checkout', keep, '--', path]).ok || !sh(root, ['add', '--', path]).ok) return refuse({ conflicts, error: `cannot keep the base's side of ${path}` });
+      }
+      for (const [path, text] of masked) writeStaged(root, touched, path, text);
+      if (roadmapMerged !== null) writeStaged(root, touched, ROADMAP_FILE, roadmapMerged);
+      for (const a of own) {
+        const text = unassign(a.path, readFileSync(join(root, a.path), 'utf8'));
+        touched.push(a.path, a.from);
+        gitOut(root, ['mv', '-f', a.path, a.from]);
+        writeStaged(root, touched, a.from, text);
+      }
+    }
+    // D-20: with no merge to make (a person merged the base by hand), what the step's own record wrote is given back: each renamed record
+    // whose key is in `reassign`, and the record's citation paths that hold its number, each through `git merge-file` of the path's text at
+    // the recorded commit that wrote it, the working text and that commit's text with the record's numbers masked. Only the tokens the step
+    // wrote go back, so a citation the base brought with the same number stays; a line edited where the step wrote a number conflicts and is
+    // refused. When that merge conflicts, `givenBackBySpan` gives each number back on its own, found by the text around it at the recorded
+    // commit, and refuses only a number it cannot find once in the working text and nowhere in the merge base's text (D-34).
+    // A release line in `reassign` is left to step 3, which writes every release line; so is a citation in CHANGELOG.md, whose
+    // whole text step 3 writes from the note on the target (a merge by hand that took the base's changelog holds no entry to give back).
+    if (!needsMerge && state.reassign.length) {
+      const record = stepRecord(root, { head: oldHead, tip: target, id });
+      const back = (record?.adrs ?? []).filter((a) => state.reassign.includes(a.from));
+      const nameOf = (path) => path.slice(path.lastIndexOf('/') + 1);
+      const numbers = back.map((a) => ({ number: nameOf(a.to).slice(0, 4), slug: nameOf(a.from).replace(/\.md$/, '') }));
+      const givenBack = (commit, path, working) => {
+        const recorded = show(root, commit, path) ?? '';
+        const theirs = maskCitations(recorded, path, numbers);
+        return theirs === recorded ? working : (mergeTexts(recorded, working, theirs, 'devkit-release-') ?? givenBackBySpan({ recorded, working, base: show(root, mergeBase, path) ?? '', path, numbers }));
+      };
+      const cannot = (path) => refuse({ error: `cannot give back the numbers the step wrote in ${path}` });
+      for (const a of back) {
+        const text = givenBack(a.commit, a.to, readFileSync(join(root, a.to), 'utf8'));
+        if (text === null) return cannot(a.to);
+        touched.push(a.to, a.from);
+        gitOut(root, ['mv', '-f', a.to, a.from]);
+        writeStaged(root, touched, a.from, text);
+      }
+      for (const { path, commit } of back.length ? record.citations : []) {
+        if (path === CHANGELOG || !existsSync(join(root, path))) continue;
+        const working = readFileSync(join(root, path), 'utf8');
+        const text = givenBack(commit, path, working);
+        if (text === null) return cannot(path);
+        if (text !== working) writeStaged(root, touched, path, text);
+      }
+    }
+    // A slug another record of the ADR folders already has (D-4).
+    const listed = listPaths(root, ['ls-files', '--', ...ADR_DIRS]);
+    for (const a of state.adrs) {
+      const others = listed.filter((p) => p !== a.from && ADR_DIRS.includes(p.slice(0, p.lastIndexOf('/'))) && new RegExp(`^(\\d{4}-)?${escapeRe(a.slug)}\\.md$`).test(p.slice(p.lastIndexOf('/') + 1)));
+      if (others.length) return refuse({ error: `a second ADR with the slug ${a.slug}: ${[a.from, ...others].join(', ')}` });
+    }
+
+    // Step 3: the release lines computed above the target, set on the merged text so the side's other edits stay.
+    const computed = computeRelease(reader, target, note, file, adrs);
+    const { versions } = computed;
+    const current = (path) => (existsSync(join(root, path)) ? readFileSync(join(root, path), 'utf8') : null);
+    const files = [];
+    const writeLine = (path, text) => {
+      if (text === current(path)) return;
+      writeStaged(root, touched, path, text);
+      files.push(path);
+    };
+    for (const path of Object.keys(computed.files)) {
+      if (path === PIN_FILE) continue;
+      if (path === CHANGELOG) writeLine(path, computed.files[path]);
+      else if (path === file && versions.release !== undefined) writeLine(path, withReleaseVersion(current(path), versions.release));
+      else writeLine(path, resolveManifest(current(path), { packs: versions.packs, ...(versions.metadata === undefined ? {} : { metadata: versions.metadata }) }));
+    }
+    if (targetPin !== null && current(PIN_FILE) !== null) writeLine(PIN_FILE, setPins(current(PIN_FILE), versions.packs[PIN_PACK_NAME] ?? targetPin));
+    if (hasGen && (conflicts.includes(CATALOG) || files.some((f) => MANIFEST.test(f)))) {
+      touched.push(CATALOG);
+      const g = spawnSync('python3', ['scripts/gen-catalog.py'], { cwd: root, encoding: 'utf8' });
+      if (g.status !== 0) throw new ReleaseError(`scripts/gen-catalog.py failed: ${(g.stderr || g.stdout).trim()}`);
+      if (!sh(root, ['add', '--', CATALOG]).ok) throw new ReleaseError(`git add ${CATALOG} failed`);
+      files.push(CATALOG);
+    }
+    for (const a of computed.adrs) {
+      touched.push(a.from, a.to);
+      gitOut(root, ['mv', a.from, a.to]);
+      writeStaged(root, touched, a.to, rewriteCitations(readFileSync(join(root, a.to), 'utf8'), a.slug, a.number, a.to));
+    }
+    // The citations, in every tracked file that holds citations (CITATION_PATHSPEC): the change's own ADRs and those it cites that the target
+    // numbered.
+    const numbers = new Map(computed.adrs.map((a) => [a.slug, a.number]));
+    for (const slug of state.citations.cited) {
+      const n = landedNumber(reader, target, slug);
+      if (n) numbers.set(slug, n);
+    }
+    const citations = [];
+    if (numbers.size) {
+      const patterns = [...numbers.keys()].flatMap((slug) => ['-e', `ADR [${slug}]`, '-e', `${slug}.md`]);
+      const hits = spawnSync('git', ['-C', root, 'grep', '-I', '-l', '-z', '-F', ...patterns, '--', ...CITATION_PATHSPEC], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+      if (hits.status !== 0 && hits.status !== 1) throw new ReleaseError(`git grep failed: ${(hits.stderr ?? '').trim()}`);
+      const renamed = new Set(computed.adrs.map((a) => a.to));
+      for (const path of (hits.stdout ?? '').split('\0').filter(Boolean)) {
+        const text = readFileSync(join(root, path), 'utf8');
+        let out = text;
+        for (const [slug, number] of numbers) out = rewriteCitations(out, slug, number, path);
+        if (out === text) continue;
+        writeStaged(root, touched, path, out);
+        if (!renamed.has(path)) citations.push(path);
+      }
+    }
+
+    // Step 4: one commit, never a push.
+    const left = listPaths(root, ['diff', '--name-only', '--diff-filter=U']);
+    if (left.length) return refuse({ conflicts: left });
+    const adrsOut = computed.adrs.map(({ from, to }) => ({ from, to }));
+    if (!needsMerge && sh(root, ['diff', '--cached', '--quiet']).ok) return { code: 0, out: nothing, text: `the release of ${id} writes nothing: nothing to do` };
+    const message = merging
+      ? `chore(train): join ${side.slice(0, 7)} and renumber its release above the train`
+      : needsMerge ? `chore(release): merge origin/${label} and assign the release of ${id}` : `chore(release): assign the release of ${id}`;
+    // The step's record (D-20): one trailer per thing the commit wrote, the release lines in the order they are written.
+    const lineOrder = [...Object.keys(computed.files).filter((p) => p !== PIN_FILE), PIN_FILE];
+    const trailers = [
+      `Release-change: ${id}`,
+      ...lineOrder.filter((p) => files.includes(p)).map((p) => `Release-line: ${p}`),
+      ...adrsOut.map((a) => `Release-adr: ${a.from} -> ${a.to}`),
+      ...citations.map((p) => `Release-citation: ${p}`),
+    ].join('\n');
+    const committed = sh(root, ['commit', '-q', '-m', message, ...(merging ? [] : ['-m', trailers])]);
+    if (!committed.ok) return refuse({ error: `git commit failed: ${committed.err}` });
+    const newHead = gitOut(root, ['rev-parse', 'HEAD']);
+    return {
+      code: 0,
+      out: { resolved: true, oldHead, newHead, versions, files, ...(merging ? { conflicts } : {}), change: id, adrs: adrsOut, citations },
+      text: `resolved: ${merging ? `joined ${side.slice(0, 7)}` : `assigned the release of ${id}`} at ${newHead.slice(0, 7)} (${Object.entries(versions.packs).map(([n, v]) => `${n} ${v}`).join(', ') || 'no pack'}${adrsOut.length ? `; ${adrsOut.map((a) => a.to).join(', ')}` : ''})`,
+    };
+  } catch (e) {
+    // Any failure after the merge started (a malformed manifest, a write error) leaves the tree as it was found.
+    return refuse({ error: e instanceof Error ? e.message : String(e) });
   }
 }
 
@@ -316,11 +634,11 @@ export function main(argv, { cwd = process.cwd(), stdout = (s) => process.stdout
   const merging = opts.merge !== null;
   // `ref` is what is merged into HEAD: origin/<base>, or in --merge mode the revision joined into the train (as a sha).
   let ref = merging ? opts.merge : `origin/${opts.base}`;
-  const tag = merging ? { mode: 'merge' } : {};
+  const tag = merging ? { mode: 'merge' } : opts.assign ? { mode: 'assign' } : {};
   const report = (code, obj, text) => { stdout(opts.json ? `${JSON.stringify({ ...obj, ...tag }, null, 2)}\n` : `${text}\n`); return code; };
   const found = sh(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
   if (!found.ok) { stderr(merging ? `release-merge: ${ref} is not a commit of this repository\n` : `release-merge: ${ref} is missing; run: git fetch origin ${opts.base}\n`); return 3; }
-  if (merging) ref = found.out;
+  if (merging || opts.assign) ref = found.out;
 
   if (mergeInProgress(root)) sh(root, ['merge', '--abort']);
   if (rebaseInProgress(root)) { stderr(`release-merge: a rebase is in progress in ${root}; finish or abort it first\n`); return 3; }
@@ -328,8 +646,38 @@ export function main(argv, { cwd = process.cwd(), stdout = (s) => process.stdout
   if (dirty.length) { stderr(`release-merge: uncommitted changes outside openspec/: ${dirty.join(', ')}; commit them first\n`); return 3; }
   const oldHead = gitOut(root, ['rev-parse', 'HEAD']);
   const mergeBase = gitOut(root, ['merge-base', oldHead, ref]);
+  // The release note (release-at-merge D-6, D-7): the step of a noted change, and the join of a noted head.
+  const numbered = (r) => {
+    if (r.code === 3) { stderr(`release-merge: ${r.error}\n`); return 3; }
+    if (r.code === 2 && opts.assign && r.out.error) stderr(`release-merge: ${r.out.error}\n`);
+    return report(r.code, r.out, r.text);
+  };
+  // The release file the project names; read only by the step and the join, so --base is as it was. A setting the reader refuses is a
+  // setup error of the step; the join then takes every head by the old rule.
+  let file = null;
+  if (opts.assign || merging) {
+    try { file = releaseTagOf(root); } catch (e) {
+      if (!(e instanceof ShipConfigError)) throw e;
+      if (opts.assign) { stderr(`release-merge: ${e.message}\n`); return 3; }
+    }
+  }
+  if (opts.assign) {
+    // No release to assign is a setup error, as a setting the reader refuses is (D-24): no JSON, nothing written.
+    if (file === null) { stderr('release-merge: openspec/config.yaml names no devkit.release_tag: this project has no release to assign\n'); return 3; }
+    const noted = notedChangeOf(root, mergeBase, oldHead);
+    if (noted.error) return report(2, { resolved: false, oldHead, conflicts: [], error: noted.error }, `not resolved: ${noted.error}`);
+    return numbered(numberRelease(root, { side: oldHead, target: ref, id: noted.id, file, label: opts.base }));
+  }
   if (sh(root, ['merge-base', '--is-ancestor', ref, oldHead]).ok) {
     return report(0, { resolved: true, oldHead, newHead: oldHead, versions: { packs: {} }, files: [], ...(merging ? { conflicts: [] } : {}) }, merging ? `${ref.slice(0, 7)} is already in the train: nothing to do` : `already on ${ref}: nothing to do`);
+  }
+  if (merging && file !== null) {
+    // A head with no note joins by the old rule below (AC-10).
+    const noted = notedChangeOf(root, mergeBase, ref);
+    if (!noted.none) {
+      if (noted.error) return report(2, { resolved: false, oldHead, conflicts: [], error: noted.error }, `not resolved: ${noted.error}`);
+      return numbered(numberRelease(root, { side: ref, target: oldHead, id: noted.id, file, merging: true, label: 'the train' }));
+    }
   }
   // The two sides of the release computation: `change`'s bumps are kept by kind and numbered above `base`'s numbers. --base
   // keeps the branch's and numbers above origin/<base>; --merge swaps them (the train's tip is the side numbered above).

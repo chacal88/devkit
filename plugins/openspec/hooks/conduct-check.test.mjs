@@ -3,11 +3,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, realpathSync, utimesSync, rmSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import { tmpFolder } from './test-tmp.mjs';
 import { createHash } from 'node:crypto';
-import { gitRepo, put, commitAll, git, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, CONFIG, TWO_PRS, cleanEnv, real, roundRepo, pinDoc, underOwnTmp, MERGE_CONFIG, MERGE_FILES, presetMerge } from './test-fixtures.mjs';
+import { gitRepo, put, commitAll, git, GIT_ENV, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, CONFIG, TWO_PRS, cleanEnv, real, roundRepo, pinDoc, underOwnTmp, MERGE_CONFIG, MERGE_FILES, presetMerge } from './test-fixtures.mjs';
 import { makeGh } from './merge-setup.mjs';
+import { REL_CONFIG, releaseLayout, NOTE_TEXT, stepCommit } from './deliver-check-fixtures.mjs';
+import { PIN_FILE } from './release-merge.mjs';
 import { parseRoadmap, readRoadmap } from './guard.mjs';
 import { conductState, planningStep, dependencyStep, deliveryStep, deliveryRow, actorOf, selectDispatch, sessionPrefixes, main as conductMain } from './conduct-check.mjs';
 
@@ -1620,6 +1624,258 @@ test('upfront AC-11 adr: an unresolvable base gives no step', () => {
   const report = { summary: 's', met: [], next: { step: 'wait-checks', reason: 'r' } };
   const out = deliveryRow(ctx, row, { state: {}, report });
   assert.notEqual(out.next.step, 'renumber-adr');
+});
+
+// ---------------------------------------------------------------- release-at-merge: the conductor and the release note (D-10, AC-4, AC-10)
+// A change with `openspec/changes/<id>/release.md`, in a project that names `devkit.release_tag`, is numbered only by `assign-release`:
+// the conductor gives it neither `resolve-release-conflict` nor a `renumber-adr` for the ADR its decisions.md lists without a number.
+
+const NOTED_ROUND = `${CONFIG}${REL_CONFIG}`;
+const OTHER_RELEASE = '# Changelog\n\n## 1.1.0 — another change\n\n- **devkit-openspec**: another thing\n\n## 1.0.0 — first\n\n- **devkit-openspec**: start\n';
+// A round whose noted change `b` was assigned (the step's commit, release lines only) before another change released on origin/main,
+// so that its pull request conflicts with the base in CHANGELOG.md alone. Each path of `also` (release-at-merge D-35) is written by the
+// round as `r\n`, by the branch as `b edits <path>\n` and by the base beside its release as `origin edits <path>\n`. With `record`, the
+// round's main holds the one-line list `docs/context.yaml`, `b` lists the record `docs/adr/b.md` and cites it on that line, its step
+// commit is the real step's run (ADR 0002), and the base's release lands its own record 0002 and extends the same line.
+const CONTEXT0 = '  ADRs: docs/adr/ (0001 start)\n';
+const HOOKS = dirname(fileURLToPath(import.meta.url));
+const STEP_ENV = { ...cleanEnv, ...Object.fromEntries(Object.entries(GIT_ENV).filter(([k]) => k.startsWith('GIT_'))) };
+// The step's command (`node <hooks>/release-merge.mjs --assign --base main --json`, or the one `next` hands) run in `wt`.
+const runStep = (wt, command = ['node', join(HOOKS, 'release-merge.mjs'), '--assign', '--base', 'main', '--json']) => spawnSync(command[0] === 'node' ? process.execPath : command[0], command.slice(1), { cwd: wt, encoding: 'utf8', env: STEP_ENV });
+function notedConflict({ also = [], record = false } = {}) {
+  const t = roundRepo({
+    roadmap: roadmapOf(['Round 1: x', '- [ ] b']), config: NOTED_ROUND,
+    files: { ...releaseLayout(), ...Object.fromEntries(also.map((p) => [p, 'r\n'])), ...(record ? { 'docs/context.yaml': CONTEXT0 } : {}) },
+  });
+  const b = t.addWt('b');
+  readyChange(b, 'b', { files: {
+    'openspec/changes/b/release.md': NOTE_TEXT,
+    ...Object.fromEntries(also.map((p) => [p, `b edits ${p}\n`])),
+    ...(record ? {
+      'openspec/changes/b/decisions.md': '# Decisions\n\n- ADR: `docs/adr/b.md`\n',
+      'docs/adr/b.md': '# ADR [b]: the rule\n',
+      'docs/context.yaml': '  ADRs: docs/adr/ (0001 start; ADR [b] the rule)\n',
+    } : {}),
+  } });
+  if (record) {
+    const r = runStep(b);
+    assert.equal(r.status, 0, r.stderr + r.stdout);
+    assert.ok(existsSync(join(b, 'docs/adr/0002-b.md')), 'the real step numbered the record 0002');
+  } else stepCommit(b, { adr: false });
+  t.commitOrigin({
+    ...releaseLayout({ openspec: '1.1.0', market: '1.1.0', changelog: OTHER_RELEASE }),
+    ...Object.fromEntries(also.map((p) => [p, `origin edits ${p}\n`])),
+    ...(record ? { 'docs/adr/0002-other.md': '# ADR 0002: other\n', 'docs/context.yaml': '  ADRs: docs/adr/ (0001 start; 0002 other)\n' } : {}),
+  }, 'another change released');
+  openPr(t, b, 'b', { mergeable: 'CONFLICTING' });
+  return { t, b };
+}
+
+test('release-note AC-4 conduct: actorOf gives assign-release to the main session', () => {
+  assert.deepEqual(actorOf('assign-release'), { actor: 'main' });
+});
+
+test('release-note AC-4 conduct: a noted change in a release-only conflict gets assign-release for the main session, never resolve-release-conflict', () => {
+  const { t, b } = notedConflict();
+  const head0 = headOf(b);
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['assign-release', 'main']);
+  assert.deepEqual(c.next.command.slice(2), ['--assign', '--base', 'main', '--json']);
+  assert.equal(headOf(b), head0, 'the conductor wrote nothing');
+  // The same conflict reported as the conflict stop of item 5: the override leaves a noted change's conflict to the release step.
+  const ctx = { root: t.main, ref: 'origin/main', base: 'main' };
+  const state = { release: { applies: true, noted: true, base: 'main' }, ship: 'pr', branch: 'b', pr: { number: 12, state: 'OPEN', headRefOid: head0 } };
+  const report = { summary: 'S', met: [], next: { step: 'blocked', reason: 'item 5 (PR #12 conflicts with main)', item: 5, conflict: true } };
+  const out = deliveryRow(ctx, { id: 'b', worktree: b }, { state, report });
+  assert.notEqual(out.next.step, 'resolve-release-conflict');
+  assert.equal(out.next.step, 'blocked');
+});
+
+// ---- release-at-merge D-31: a noted change's conflict the release step's masked merge does not resolve goes to resolve-base-conflict
+const mergeTreePaths = (wt) => {
+  const r = spawnSync('git', ['-C', wt, 'merge-tree', '--write-tree', '--name-only', '--no-messages', 'origin/main', 'HEAD'], { encoding: 'utf8' });
+  return r.stdout.split('\n').slice(1).filter(Boolean).sort();
+};
+// The merge of origin/main into `wt` by hand: the release files of releaseLayout taken from the base, `files` written, committed; then
+// its records written again at the merge and committed, as readyChange writes them (the merge staled them, ADR 0025 decision 2).
+function handMerge(wt, files) {
+  spawnSync('git', ['-C', wt, 'merge', '--no-ff', '--no-commit', 'origin/main'], { encoding: 'utf8', env: GIT_ENV });
+  git(wt, 'checkout', 'origin/main', '--', ...Object.keys(releaseLayout()));
+  put(wt, files);
+  const merged = commitAll(wt, 'merge origin/main by hand');
+  writeReviews(wt, 'b', merged);
+  commitAll(wt, 'reviews and evidence at the merge');
+  return merged;
+}
+
+test('release-note AC-4 conduct: a noted change in conflict outside the release files gets resolve-base-conflict for the implementer, with noted, the base, every conflicting path and the others', () => {
+  const { t } = notedConflict({ also: ['README.md'] });
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['resolve-base-conflict', 'subagent'], c.next.reason);
+  assert.equal(c.next.agent, TDD);
+  assert.deepEqual([c.next.paths, c.next.others, c.next.base, c.next.number, c.next.archive, c.next.noted], [['CHANGELOG.md', 'README.md'], ['README.md'], 'main', 12, false, true]);
+  assert.deepEqual([c.deliver.next.step, c.deliver.next.conflict], ['assign-release', true]);
+});
+
+test('release-note AC-4 conduct: a noted change whose merge of the base is committed and not pushed, while GitHub still reports the conflict, gets a plain push', () => {
+  const { t, b } = notedConflict({ also: ['README.md'] });
+  const old = headOf(b);
+  handMerge(b, { 'README.md': 'b and origin edit README.md\n' });
+  const c = byId(t.state(), 'b');
+  assert.equal(c.deliver.next.step, 'assign-release', c.deliver.next.reason);
+  assert.deepEqual(planStep(c), ['push', actorOf('push').actor], c.next.reason);
+  assert.deepEqual(c.next.command, ['git', 'push', 'origin', 'b']);
+  assert.equal(c.next.number, 12);
+  assert.match(c.next.reason, new RegExp(`PR #12 still has ${old.slice(0, 7)}`));
+});
+
+test('release-note AC-4 conduct: a noted change behind its base, whose merge would conflict outside the release files, gets resolve-base-conflict before the step runs', () => {
+  const { t, b } = notedConflict({ also: ['README.md'] });
+  openPr(t, b, 'b', { mergeable: 'MERGEABLE', mergeStateStatus: 'BEHIND' });
+  const c = byId(t.state(), 'b');
+  assert.equal(c.deliver.next.step, 'assign-release');
+  assert.equal(Object.hasOwn(c.deliver.next, 'conflict'), false, 'GitHub reports no conflict');
+  assert.deepEqual(planStep(c), ['resolve-base-conflict', 'subagent'], c.next.reason);
+  assert.deepEqual([c.next.others, c.next.noted], [['README.md'], true]);
+});
+
+test('release-note AC-4 conduct: a noted change in conflict in the release files and the CI pins of the flow page keeps assign-release', () => {
+  const t = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] b']), config: NOTED_ROUND, files: releaseLayout() });
+  const b = t.addWt('b');
+  readyChange(b, 'b', { files: { 'openspec/changes/b/release.md': NOTE_TEXT } });
+  stepCommit(b, { adr: false });
+  const patch = '# Changelog\n\n## 1.0.1 — a patch\n\n- **devkit-openspec**: a fix\n\n## 1.0.0 — first\n\n- **devkit-openspec**: start\n';
+  t.commitOrigin(releaseLayout({ openspec: '1.0.1', market: '1.0.1', changelog: patch }), 'a patch released');
+  openPr(t, b, 'b', { mergeable: 'CONFLICTING' });
+  const paths = mergeTreePaths(b);
+  assert.ok(paths.includes(PIN_FILE) && paths.includes('CHANGELOG.md'), JSON.stringify(paths));
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['assign-release', 'main'], c.next.reason);
+});
+
+// The release file the project names reaches the classification (assignConflict's `file`), so a project whose devkit.release_tag is not a
+// manifest of the marketplace layout keeps assign-release for a version conflict in that file.
+test('release-note AC-4 conduct: a noted consumer change in conflict only in its release file and the changelog keeps assign-release', () => {
+  const pkg = (v) => `${JSON.stringify({ name: 'app', version: v }, null, 2)}\n`;
+  const t = roundRepo({
+    roadmap: roadmapOf(['Round 1: x', '- [ ] b']), config: `${CONFIG}devkit:\n  release_tag: package.json\n`,
+    files: { 'package.json': pkg('1.4.0'), 'CHANGELOG.md': '# Changelog\n\n## 1.4.0 — old\n\n- x\n' },
+  });
+  const b = t.addWt('b');
+  readyChange(b, 'b', { files: { 'openspec/changes/b/release.md': '# Release note\n\npacks: []\nrelease: minor\n\n## the change b\n\nbody\n' } });
+  const r = runStep(b);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(readFileSync(join(b, 'package.json'), 'utf8'), pkg('1.5.0'));
+  t.commitOrigin({ 'package.json': pkg('1.4.1'), 'CHANGELOG.md': '# Changelog\n\n## 1.4.1 — a patch\n\n- y\n\n## 1.4.0 — old\n\n- x\n' }, 'a patch released');
+  openPr(t, b, 'b', { mergeable: 'CONFLICTING' });
+  assert.deepEqual(mergeTreePaths(b), ['CHANGELOG.md', 'package.json']);
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['assign-release', 'main'], c.next.reason);
+});
+
+test('release-note AC-4 conduct: a noted change whose base extended the one-line list holding its own citation gets resolve-base-conflict naming that file, and after the merge keeping both entries and its push, assign-release numbers the branch above the base', () => {
+  const { t, b } = notedConflict({ record: true });
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['resolve-base-conflict', 'subagent'], c.next.reason);
+  assert.deepEqual([c.next.others, c.next.noted], [['docs/context.yaml'], true]);
+  handMerge(b, { 'docs/context.yaml': '  ADRs: docs/adr/ (0001 start; ADR 0002 the rule; 0002 other)\n' });
+  git(b, 'push', '-q', 'origin', 'b');
+  openPr(t, b, 'b', { mergeable: 'MERGEABLE' });
+  const after = byId(t.state(), 'b');
+  assert.deepEqual(planStep(after), ['assign-release', 'main'], after.next.reason);
+  const r = runStep(b, after.next.command);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.ok(existsSync(join(b, 'docs/adr/0003-b.md')));
+  assert.equal(readFileSync(join(b, 'docs/context.yaml'), 'utf8'), '  ADRs: docs/adr/ (0001 start; ADR 0003 the rule; 0002 other)\n');
+});
+
+test('release-note AC-4 conduct: a noted change whose ADR the step numbered 0016, a number the base then took, gets no renumber-adr', () => {
+  const t = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] b']), config: NOTED_ROUND, files: { 'docs/adr/0001-first.md': ADR_BODY('1', 'first') } });
+  const b = t.addWt('b');
+  readyChange(b, 'b', { files: {
+    'openspec/changes/b/release.md': '# Release note\n\npacks: []\n',
+    'openspec/changes/b/decisions.md': '# Decisions\n\n- ADR: `docs/adr/b.md`\n',
+    'docs/adr/0016-b.md': ADR_BODY('16', 'b'),
+  } });
+  t.commitOrigin({ 'docs/adr/0016-x.md': ADR_BODY('16', 'x') }, 'origin adds record 0016');
+  openPr(t, b, 'b');
+  const c = byId(t.state(), 'b');
+  assert.notEqual(c.next.step, 'renumber-adr', 'the number of an ADR listed without one is the release step\'s');
+  assert.equal(c.next.files, undefined);
+});
+
+test('release-note AC-10 conduct: an old-rule change, and a numbered ADR a noted change lists, still get resolve-release-conflict and renumber-adr', () => {
+  const { t } = conflictRepo(['CHANGELOG.md', '.claude-plugin/marketplace.json'], { config: NOTED_ROUND });
+  assert.deepEqual(planStep(byId(t.state(), 'b')), ['resolve-release-conflict', 'subagent'], 'old rule: no release.md');
+  const numbered = (release) => {
+    const r = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] b']), config: NOTED_ROUND, files: { 'docs/adr/0001-first.md': ADR_BODY('1', 'first') } });
+    const b = r.addWt('b');
+    readyChange(b, 'b', { files: {
+      ...(release ? { 'openspec/changes/b/release.md': '# Release note\n\npacks: []\n' } : {}),
+      'openspec/changes/b/decisions.md': '# Decisions\n\n- ADR: `docs/adr/0016-a.md`\n',
+      'docs/adr/0016-a.md': ADR_BODY('16', 'a'),
+    } });
+    r.commitOrigin({ 'docs/adr/0016-x.md': ADR_BODY('16', 'x') }, 'origin adds record 0016');
+    openPr(r, b, 'b');
+    return byId(r.state(), 'b');
+  };
+  for (const release of [false, true]) {
+    const c = numbered(release);
+    assert.deepEqual(planStep(c), ['renumber-adr', 'subagent'], release ? 'a numbered ADR of a noted change keeps the old rule' : 'old rule');
+    assert.deepEqual(c.next.files, [{ from: 'docs/adr/0016-a.md', to: 'docs/adr/0017-a.md', number: '0017' }]);
+  }
+});
+
+// ---- release-at-merge D-21 and D-22: the conductor's planning rows read the release note as the loop does
+// Invariant (B1, architecture F2; conductor, conduct-check.test.mjs): in a project that names devkit.release_tag, a release.md newer than
+// readiness.md hands the readiness review again (the dependency audit, which judges the order of changes, is not staled by it), and a
+// note whose hash is not the one approval.md recorded hands approve with the reason the delivery checker gives.
+
+// The note `text` written at `seconds` and an approval of the current readiness.md that records the note's hash, written after it.
+function notedApproval(wt, id, { text = NOTE_TEXT, seconds = T0 } = {}) {
+  writeChange(wt, id, { 'release.md': text });
+  at(cf(wt, id, 'release.md'), seconds);
+  writeChange(wt, id, { 'approval.md': `# Plan approval: ${id}\n\n- Status: APPROVED\n- Readiness: ${hashOf(cf(wt, id, 'readiness.md'))}\n- Release note: ${hashOf(cf(wt, id, 'release.md'))}\n- Date: 2026-11-09\n- Owner's words: "ok"\n` });
+  at(cf(wt, id, 'approval.md'), Math.max(seconds, T0 + 5) + 1);
+}
+const REVISED_NOTE = NOTE_TEXT.replace('devkit-core: patch', 'devkit-core: minor');
+
+test('release-note AC-16 conduct: a note newer than readiness.md hands readiness', () => {
+  const t = roundRepo({ roadmap: DEPS, config: NOTED_ROUND });
+  const b = t.addWt('b');
+  planFiles(b, 'b', { schema: 'devkit', readiness: 'APPROVED' });
+  notedApproval(b, 'b');
+  t.commitOrigin({ 'openspec/roadmap.md': TICKED_A }, 'tick a');
+  git(b, 'rebase', '--autostash', 'origin/main');
+  auditMd(t, b, 'ACCURATE');
+  assert.deepEqual(planStep(byId(t.state(), 'b')), ['implement', 'subagent'], 'the plan, its note and the audit are current');
+  // the planner revises release.md and no other plan file
+  writeChange(b, 'b', { 'release.md': REVISED_NOTE });
+  at(cf(b, 'b', 'release.md'), T0 + 200);
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['readiness', 'subagent']);
+  assert.equal(c.next.agent, 'devkit-core:plan-readiness-reviewer');
+  // the reviewer passes it and the owner approves the new note: the audit, older than the note, is not asked again
+  writeFileSync(cf(b, 'b', 'readiness.md'), '# Readiness\n\n- Status: APPROVED\n- Round: 2\n');
+  at(cf(b, 'b', 'readiness.md'), T0 + 205);
+  notedApproval(b, 'b', { text: REVISED_NOTE, seconds: T0 + 200 });
+  assert.deepEqual(planStep(byId(t.state(), 'b')), ['implement', 'subagent'], 'audit.md stays fresh beside a newer note');
+});
+
+test('release-note AC-12 conduct: a note changed after the approval answers approve with that reason', () => {
+  const t = oneChange('', NOTED_ROUND);
+  const b = t.addWt('b');
+  planFiles(b, 'b', { schema: 'devkit', readiness: 'APPROVED' });
+  notedApproval(b, 'b');
+  assert.deepEqual(planStep(byId(t.state(), 'b')), ['implement', 'subagent'], 'the approval covers the note it recorded');
+  writeChange(b, 'b', { 'release.md': REVISED_NOTE });
+  at(cf(b, 'b', 'release.md'), T0); // older than readiness.md: only the approval is out of date
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['approve', 'owner']);
+  assert.equal(c.next.reason, 'release note changed after approval');
+  assert.equal(c.next.readiness, hashOf(cf(b, 'b', 'readiness.md')));
+  assert.equal(c.next.release, hashOf(cf(b, 'b', 'release.md')));
+  assert.match(c.next.file, /openspec\/changes\/b\/approval\.md$/);
 });
 
 // ---------------------------------------------------------------- coordinator-loop-fixes: a conflict outside the release files (D-5)

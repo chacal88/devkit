@@ -702,6 +702,52 @@ test('loop-evidence 16: the ship-change review row leaves the commit to the loop
   assert.ok(commit.includes('are still staged from `git status`'), 'the commit row still stages the folder from git status');
 });
 
+// Invariant (release-at-merge D-20, test-coverage F6): the session's assign-release row says how the step is run and what follows its exit
+// 2, the merge by hand included. Owner: the ship-change skill (text pins). Suite: deliver-check-cli.test.mjs.
+test('release-note AC-4 format: ship-change\'s assign-release row fetches, runs next.command, pushes plain and never by force, stops blocked on exit 2 and names the merge by hand', () => {
+  const md = readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
+  const row = md.split('\n').find((l) => l.startsWith('| `assign-release` |')) ?? '';
+  const at = (part) => { const i = row.indexOf(part); assert.ok(i >= 0, `the row names ${part}`); return i; };
+  assert.ok(at('`git fetch origin <next.base>`') < at('`next.command`'), 'it fetches before it runs the step');
+  assert.ok(at('`next.command`') < at('`git push origin <next.branch>`'), 'it pushes after the step');
+  at('a plain push, never a force push');
+  assert.doesNotMatch(row, /--force|\bpush -f\b/);
+  const stop = at('Exit 2: stop as `blocked: item 5');
+  assert.ok(stop < at('merge `origin/<next.base>` by hand'), 'the merge by hand follows the stop');
+  for (const part of ['take the base\'s side of every release line in conflict', 'run the loop again', 'from its own record']) at(part);
+});
+
+// Invariant (release-at-merge D-31): the session's texts follow the routing of a noted change's conflict outside the release lines: an
+// assign-release exit 2 that lists conflicts and holds no error runs next again, which hands resolve-base-conflict, whose brief takes the
+// base's side of every release line for next.noted. Owner: the ship-change and devkit skills and the flow page (text pins). Suite:
+// deliver-check-cli.test.mjs.
+test('release-note AC-4 format: after an assign-release exit 2 that lists conflicts and no error the session runs next again, and resolve-base-conflict takes the base\'s side of every release line for next.noted', () => {
+  const ship = readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
+  const devkit = readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'devkit', 'SKILL.md'), 'utf8');
+  const flow = readFileSync(join(repoRoot, 'docs', 'openspec-flow.md'), 'utf8');
+  const line = (text, start) => text.split('\n').find((l) => l.startsWith(start)) ?? '';
+  const holds = (text, where, ...parts) => { for (const part of parts) assert.ok(text.includes(part), `${where} holds: ${part}`); };
+  holds(line(ship, '| `assign-release` |'), 'the assign-release row',
+    'unless the JSON lists `conflicts` and holds no `error`', 'so run `next` again, which hands `resolve-base-conflict`',
+    'which the loop hands to the implementer as `resolve-base-conflict`');
+  holds(line(ship, '| `resolve-base-conflict` |'), 'the resolve-base-conflict row',
+    'with `next.noted` (a change with a release note), by taking the base\'s side of every release line in conflict',
+    'keeping, on a line where the base\'s entries meet the change\'s own citations', 'by writing no version and no ADR number');
+  holds(line(ship, '- `app`:'), 'the app bullet', 'or with `resolve-base-conflict` when the conflict lies outside the release lines, and the session runs that row.');
+  holds(line(devkit, '- `session`:'), 'the session bullet',
+    'An `assign-release` step whose command exits 2 with an `error` in its JSON (a release line edited by hand, an ADR cited before it landed, a number it cannot give back)',
+    'one whose JSON lists `conflicts` and holds no `error` (a conflict outside the release lines that the base brought after `next` judged it) runs `next` again, which hands `resolve-base-conflict`.');
+  holds(line(flow, '- **Release-file conflict.**'), 'the Release-file conflict bullet',
+    'the override classifies the merge of `origin/<base>` by the release step\'s own rule (`assignBlockingAt` of `release-merge.mjs`)',
+    'gives `resolve-base-conflict` with `noted: true`', 'a branch only behind a base whose merge would conflict outside those lines gets `resolve-base-conflict` too.');
+  holds(line(flow, '- **`--assign --base <base>`'), 'the --assign bullet',
+    'which the loop hands to the implementer as `resolve-base-conflict` once `next` sees the conflict (the session runs `next` again after such an exit 2)');
+  holds(line(flow, '| N5 |'), 'row N5', 'and `conflict: true` in place of the conflict stop', 'the conductor hands a conflict outside the release lines to `resolve-base-conflict`');
+  holds(line(flow, '| `assign-release` |'), 'the step table row', 'except an exit 2 that lists conflicts and names no error, after which `next` runs again and hands `resolve-base-conflict`');
+  holds(line(flow, '| `blocked: item 5` |'), 'the troubleshooting row',
+    'for a change with a release note, `assign-release` merges itself what its masked merge resolves and any other conflict goes to `resolve-base-conflict`');
+});
+
 test('loop-evidence 17: the flow doc\'s order of the delivery steps names the commit before the review round', () => {
   const doc = readFileSync(join(repoRoot, 'docs', 'openspec-flow.md'), 'utf8');
   const para = doc.split('\n').find((l) => l.startsWith('**Order of the delivery steps.**')) ?? '';
@@ -725,6 +771,19 @@ test('format: ship-change enables auto-merge with one exact command, only at ena
   assert.match(md, /`merge`/);
   assert.doesNotMatch(md, /`merge` is not available yet/);
   for (const report of ['archived', 'archive PR open: waiting for', 'archive PR ready', 'archive: waiting for the owner', 'blocked: archive (', 'auto-merge on: waiting for', 'blocked: merge setup']) assert.ok(md.includes(report), `Report names ${report}`);
+});
+
+// Invariant (release-at-merge D-9, test-coverage F6, the clause's part): the session writes the approval the checker reads, so the
+// stop-plan-approval row puts the note's hash right after the readiness hash, and only when the checker gives one. Owner: the ship-change
+// skill (text pins). Suite: deliver-check-cli.test.mjs.
+test('release-note AC-12 format: ship-change\'s stop-plan-approval row writes - Release note: <next.release> after - Readiness: when next.release is set', () => {
+  const md = readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
+  const rows = md.split('\n').filter((l) => l.startsWith('| `stop-plan-approval` |'));
+  assert.equal(rows.length, 1, 'one stop-plan-approval row');
+  const at = (part) => { const i = rows[0].indexOf(part); assert.ok(i >= 0, `the row names ${part}`); return i; };
+  assert.ok(at('`- Readiness: <next.readiness>`') < at('`- Release note: <next.release>`'), 'the note line follows the readiness line');
+  assert.ok(at('`- Release note: <next.release>`') < at('`- Date: <YYYY-MM-DD>`'), 'and comes before the date');
+  assert.ok(at('`- Release note: <next.release>`') < at('right after it when `next.release` is set'), 'only when the checker gives a hash');
 });
 
 // ---------------------------------------------------------------- --ci: the devkit-reviews check (auto-merge D5)

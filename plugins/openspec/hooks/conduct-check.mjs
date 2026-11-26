@@ -14,9 +14,10 @@ import { changeSchemaAt, changeFlow, changeDeclaresOrInstalled, findRoot, parseR
 import { readRepoSettings } from './merge-setup.mjs';
 import { FlowUsageError } from './flow-check.mjs';
 import {
-  UsageError, gitFacts, makeGh, listWorktrees, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes,
+  UsageError, gitFacts, makeGh, listWorktrees, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes, ADR_DIRS, changeAdrs,
+  namesReleaseTag, noteMoved, RELEASE_NOTE,
 } from './deliver-check.mjs';
-import { PIN_FILE, classifyConflict, resolveRoadmapTicks } from './release-merge.mjs';
+import { PIN_FILE, classifyConflict, assignBlockingAt, resolveRoadmapTicks } from './release-merge.mjs';
 
 // The worktree list lives in deliver-check.mjs (delivery-models D-11) and stays importable from here.
 export { listWorktrees };
@@ -60,7 +61,7 @@ const SUBAGENT = {
   readiness: 'devkit-core:plan-readiness-reviewer',
   audit: 'devkit-core:plan-reality-auditor',
 };
-const MAIN = ['edit-pr-body', 'enable-auto-merge', 'disable-auto-merge', 'update-branch', 'archive', 'tick-roadmap', 'tag-release', 'answer', 'worktree', 'rebase', 'rerun-checks',
+const MAIN = ['edit-pr-body', 'enable-auto-merge', 'disable-auto-merge', 'update-branch', 'assign-release', 'archive', 'tick-roadmap', 'tag-release', 'answer', 'worktree', 'rebase', 'rerun-checks',
   'checkout-support', 'merge-into-support', 'close-boarded-pr', 'rejoin-archive', 'conductor-task'];
 const ASKABLE = ['stop-retro-answers', 'stop-plan-approval', 'create', 'new-change', 'grill', 'approve'];
 const OWNER = ['ready', 'archive-pr-ready', 'archive-prs-ready', 'ready-test-branch', 'ready-base', 'boarded', 'stop-review-deadlock', 'stop-readiness-blocked', 'stop-audit-unverifiable'];
@@ -194,6 +195,9 @@ function planFacts(ctx, item, entry) {
   const started = Boolean(located?.archived) || (existsSync(tasksFile) && parseTasks(readFileSync(tasksFile, 'utf8')).some((t) => t.done));
   const planned = artifacts.map((a) => mtime(join(dir, a))).filter((m) => m !== null);
   const newestPlan = planned.length ? Math.max(...planned) : null;
+  // The release note counts in the readiness only (release-at-merge D-21): never in planArtifacts, so no plan step asks for it, and never in
+  // newestPlan, so the dependency audit is not staled by it.
+  const newestNote = located && namesReleaseTag(root) ? mtime(join(dir, RELEASE_NOTE)) : null;
   const readinessFile = join(dir, 'readiness.md');
   const needsReadiness = Boolean(located) && changeDeclaresOrInstalled(root, dir, 'readiness');
   const needsRequirements = Boolean(located) && changeDeclaresOrInstalled(root, dir, 'requirements');
@@ -223,7 +227,7 @@ function planFacts(ctx, item, entry) {
     readiness: needsReadiness ? {
       exists: readinessAt !== null,
       status: readValue(readinessFile, 'Status'),
-      fresh: readinessAt !== null && (newestPlan === null || readinessAt >= newestPlan - FRESH_MS),
+      fresh: readinessAt !== null && [newestPlan, newestNote].every((m) => m === null || readinessAt >= m - FRESH_MS),
     } : null,
     readinessFile,
     approval: needsReadiness ? approvalState(dir) : null,
@@ -269,8 +273,10 @@ export function planningStep(f) {
     if (r.status === 'NEEDS-REVISION') return step('revise-plan', 'readiness is NEEDS-REVISION', { findings: f.readinessFile });
     if (r.status === 'BLOCKED') return step('stop-readiness-blocked', 'readiness is BLOCKED; the owner decides');
     if (!f.approval.ok) {
-      const earlier = f.approval.status === 'APPROVED' && f.approval.recorded;
-      return step('approve', earlier ? 'approval.md is for an earlier readiness.md' : 'no recorded owner approval', { readiness: f.approval.readiness, file: f.approvalFile });
+      const a = f.approval;
+      const earlier = a.status === 'APPROVED' && a.recorded;
+      const reason = noteMoved(a) ? 'release note changed after approval' : earlier ? 'approval.md is for an earlier readiness.md' : 'no recorded owner approval';
+      return step('approve', reason, { readiness: a.readiness, ...(a.release != null ? { release: a.release } : {}), file: f.approvalFile });
     }
   }
   return null;
@@ -373,10 +379,12 @@ function threeVersions(root, ref, path) {
 // Override 3: an ADR number the default branch took (roadmap-sessions-upfront D-10). The ADR files the branch added since it left
 // `ctx.ref` whose four-digit number another file of the same folder has on `ctx.ref` are each renumbered to the next free number of
 // the folder, in the order of their numbers: the implementer does it and rewrites the references, and the owner is not asked. The
-// same path on both sides is no clash (the branch was merged); a `ctx.ref` that does not resolve gives no override.
-export const ADR_DIRS = ['docs/adr', 'docs/decisions'];
+// same path on both sides is no clash (the branch was merged); a `ctx.ref` that does not resolve gives no override. For a change with a
+// release note, `<dir>/<NNNN>-<slug>.md` of a record its decisions.md lists as `<dir>/<slug>.md` is left out: that number is the release
+// step's (release-at-merge D-10); a numbered record such a change lists keeps this rule.
+export { ADR_DIRS }; // the folders live in deliver-check.mjs (release-at-merge D-2)
 const ADR_FILE = /^(\d{4})-(.+\.md)$/;
-function adrClash(ctx, row) {
+function adrClash(ctx, row, noted = false) {
   const root = row.worktree;
   if (!root || !resolves(root, ctx.ref)) return null;
   try {
@@ -384,13 +392,15 @@ function adrClash(ctx, row) {
     const added = new Set(git(root, ['diff', '--name-only', '--diff-filter=A', mergeBase, 'HEAD']).split('\n').filter(Boolean));
     const listing = (rev, dir) => git(root, ['ls-tree', '--name-only', rev, `${dir}/`]).split('\n').filter(Boolean);
     const numberOf = (path) => ADR_FILE.exec(path.slice(path.lastIndexOf('/') + 1));
+    const assigned = new Set(noted ? changeAdrs(root, null, row.id) : []);
+    const stepNumbers = (p) => assigned.has(`${p.slice(0, p.lastIndexOf('/'))}/${numberOf(p)[2]}`);
     const files = [];
     for (const dir of ADR_DIRS) {
       const onBase = listing(ctx.ref, dir);
       const onBranch = listing('HEAD', dir);
       let top = Math.max(0, ...[...onBase, ...onBranch].map((p) => Number(numberOf(p)?.[1] ?? 0)));
       const clashes = onBranch
-        .filter((p) => added.has(p) && numberOf(p) && !onBase.includes(p) && onBase.some((b) => numberOf(b)?.[1] === numberOf(p)[1]))
+        .filter((p) => added.has(p) && numberOf(p) && !stepNumbers(p) && !onBase.includes(p) && onBase.some((b) => numberOf(b)?.[1] === numberOf(p)[1]))
         .sort((a, b) => numberOf(a)[1].localeCompare(numberOf(b)[1]) || a.localeCompare(b));
       for (const from of clashes) {
         top += 1;
@@ -404,7 +414,8 @@ function adrClash(ctx, row) {
 }
 
 // Override 1: a PR in conflict. Release files only: resolve-release-conflict; anything else: resolve-base-conflict
-// (coordinator-loop-fixes D-5). A conflict git cannot classify, and a head that is not in local history, stay blocked.
+// (coordinator-loop-fixes D-5). A conflict git cannot classify, and a head that is not in local history, stay blocked. A change with a
+// release note gets assignConflict below in its place, which classifies by the release step's own rule (release-at-merge D-31).
 function releaseConflict(ctx, row, state, report) {
   const n = report.next;
   const onChange = n.step === 'blocked' && n.item === 5 && n.conflict === true;
@@ -442,6 +453,37 @@ function releaseConflict(ctx, row, state, report) {
   });
 }
 
+// Override 1 for a change with a release note (release-at-merge D-31): on every `assign-release` (in place of the conflict stop, with
+// `conflict: true`, or for a branch behind or a base that moved), the merge of `ctx.ref` is classified by the release step's own rule
+// (`assignBlockingAt`): a conflict its masked merge resolves keeps `assign-release`; any other path is `resolve-base-conflict` for the
+// implementer, with `noted`. A merge made here and not pushed while GitHub reports the conflict is pushed plainly first; with the conflict
+// reported, a conflict git cannot classify, and a clean merge whose PR head is not in local history, stop as releaseConflict stops.
+function assignConflict(ctx, row, state, report) {
+  const n = report.next;
+  if (n.step !== 'assign-release') return null;
+  const reported = n.conflict === true;
+  const pr = openPrOf(state);
+  if (reported && unpushedMerge(row.worktree, ctx.ref, pr)) {
+    return step('push', `the merge of ${ctx.ref} is not pushed yet; PR #${pr.number} still has ${pr.headRefOid.slice(0, 7)}`, {
+      number: pr.number, branch: state.branch, command: ['git', 'push', 'origin', state.branch],
+    });
+  }
+  const stop = (message) => ({ ...step('blocked', message), blockedState: `blocked: ${message}` });
+  const found = conflictedPaths(row.worktree, ctx.ref);
+  if (found.error) return reported ? stop('item 5 (cannot classify the conflict: git merge-tree --write-tree needs git 2.38)') : null;
+  if (found.clean) {
+    if (reported && pr?.headRefOid && !gitOk(row.worktree, ['merge-base', '--is-ancestor', pr.headRefOid, 'HEAD'])) {
+      return stop(`item 5 (PR #${pr.number} head ${pr.headRefOid.slice(0, 7)} is not in local history)`);
+    }
+    return null;
+  }
+  const others = assignBlockingAt(row.worktree, { target: ctx.ref, conflicts: found.paths, id: row.id, file: state.release?.file ?? null });
+  if (!others.length) return null;
+  return step('resolve-base-conflict', `the PR conflicts with ${ctx.base} outside the release lines the release step writes: ${others.join(', ')}`, {
+    number: pr?.number ?? null, paths: [...found.paths].sort(), others, base: ctx.base, archive: false, noted: true,
+  });
+}
+
 // Override 4: an archive that left a train for a conflict (delivery-train D-2). Once its train ended, the archive merges the base
 // when that conflicts only in release files, the CI pin and roadmap ticks (`rejoin-archive`, a session step that runs
 // `release-merge.mjs --base <base> --roadmap-ticks` in the archive's worktree and is followed by a plain push); a merge made
@@ -467,7 +509,9 @@ export function trainRejoin(ctx, row, state, report) {
 }
 
 // deliver-check's report as a conduct row, after the overrides that need git (D9): the release-file conflict and the archive that
-// left a train, except that auto-merge is switched off before anything else.
+// left a train, except that auto-merge is switched off before anything else. A change with a release note gets no release-file
+// conflict override: its conflicts are the release step's (`assign-release`, release-at-merge D-10), except one the step's masked merge
+// does not resolve, which assignConflict hands to `resolve-base-conflict` (release-at-merge D-31).
 export function deliveryRow(ctx, row, d) {
   const plain = deliveryStep(row, d.report);
   const info = { delivered: { summary: d.report.summary, met: d.report.met, next: d.report.next } };
@@ -476,7 +520,8 @@ export function deliveryRow(ctx, row, d) {
     const next = { ...plain.next, base: ctx.base };
     return { next, state: stateOf(next, { summary: d.report.summary }), ...info };
   }
-  const override = adrClash(ctx, row) ?? releaseConflict(ctx, row, d.state, d.report) ?? trainRejoin(ctx, row, d.state, d.report);
+  const noted = Boolean(d.state?.release?.noted);
+  const override = adrClash(ctx, row, noted) ?? (noted ? assignConflict(ctx, row, d.state, d.report) : releaseConflict(ctx, row, d.state, d.report)) ?? trainRejoin(ctx, row, d.state, d.report);
   if (!override) return { ...plain, ...info };
   const next = { ...override, ...actorOf(override.step) };
   return { next, state: stateOf(next, { summary: d.report.summary }), ...info };

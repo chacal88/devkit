@@ -11,6 +11,7 @@ import { DEVKIT_REVIEWS_CHECK, WORKFLOW_PATH, RULESET_NAME, MERGE_METHODS, merge
 import * as M from './merge-setup.mjs';
 import { makeGh } from './deliver-check.mjs';
 import { fakeGh, gitRepo, put, commitAll } from './test-fixtures.mjs';
+import { noteRepo, ciProve, stepCommit } from './deliver-check-fixtures.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..', '..');
@@ -195,6 +196,25 @@ test('workflow (the setup template): deliver-check --ci and guard.mjs ci run fro
     const j = JSON.parse(r.stdout);
     assert.deepEqual([j.mode, j.change, j.pass], ['ci', 'feat', false], basename(args[0]));
     assert.doesNotMatch(r.stderr, /ERR_MODULE_NOT_FOUND|Cannot find module/);
+  }
+});
+
+// The same download set, for a change with a release note: the checker reads the note and the delivery step's commit with no other file.
+test('release-note AC-9 boundary: deliver-check --ci and guard.mjs ci run from the three downloaded files for a noted change', () => {
+  const yml = read('the setup template');
+  const names = [...yml.matchAll(/curl [^\n]*-o "?([^"\s]+)"?/g)].map((m) => basename(m[1]));
+  const dir = tmpFolder('devkit-downloaded-');
+  for (const n of names) copyFileSync(join(here, n), join(dir, n));
+  const root = noteRepo();
+  ciProve(root, 'feat');
+  stepCommit(root);
+  const env = { ...process.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
+  for (const args of [[join(dir, 'deliver-check.mjs'), '--ci', '--json'], [join(dir, 'guard.mjs'), 'ci', '--json']]) {
+    const r = spawnSync('node', args, { cwd: root, encoding: 'utf8', env });
+    assert.doesNotMatch(r.stderr, /ERR_MODULE_NOT_FOUND|Cannot find module/, basename(args[0]));
+    assert.equal(r.status, 0, `${basename(args[0])}: ${r.stdout}${r.stderr}`);
+    const j = JSON.parse(r.stdout);
+    assert.deepEqual([j.mode, j.change, j.pass], ['ci', 'feat', true], basename(args[0]));
   }
 });
 

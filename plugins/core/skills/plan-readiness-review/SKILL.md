@@ -55,7 +55,7 @@ OpenSpec: validate first with `openspec validate <id> --type change --strict --n
 - Don't assume behavior that isn't written. Missing is missing; don't invent details.
 - Every conclusion cites an artifact or is labeled a hypothesis. Generic feedback is invalid.
 - Prefer repository constraints and specs over personal preference.
-- A revision that follows a merge of `main` re-reads the project's rules (`openspec/config.yaml`) before it is reviewed: a rule added since the approval applies to the revised plan, for example a task naming "the next free number" and not a literal ADR number or version, and a check line carries only a count or an anchor that someone ran at the commit it names.
+- A revision that follows a merge of `main` re-reads the project's rules (`openspec/config.yaml`) before it is reviewed: a rule added since the approval applies to the revised plan, for example, in a change on the old rule (no `release.md`), a task naming "the next free number" and not a literal ADR number or version, and a check line carries only a count or an anchor that someone ran at the commit it names.
 - Support docs are evidence, but any behavior needed to implement must be in specs or tasks.
 
 ## Process
@@ -93,6 +93,8 @@ Normative language (`SHALL`/`MUST`) where appropriate; every requirement has tes
 ### 7. Review the tasks
 
 Executable and ordered by dependency; `- [ ]` checkboxes; small enough to map to issues; dependencies explicit or obvious; acceptance criteria specific and testable before the change's pull request merges (a criterion that only the archive or a later step can prove reads `no proof` in the evidence and blocks the delivery contract, so it is a Mandatory finding: the work moves to the `## Workflow follow-up` of tasks.md); no decision hidden behind "define", "handle", "support" without an expected output; every task path falls under a real directory of the repo; every phase gate command that already exists on the base is run there once (a command the tasks mark as long is run by the caller and its result handed over), and a gate that is red on the base is a Mandatory finding.
+
+**The release note**, where `openspec/config.yaml` names `devkit.release_tag`: `<change-root>/release.md` exists and reads (a `packs:` line with one `- <pack>: patch|minor|major` line per pack, or `packs: []`; optional `marketplace:` and `release:` bumps, in that order; a `## <title>` line and a body when it releases anything; every code fence closed). A missing or unreadable note is a `Mandatory before implementation` finding naming `release.md`. With the note, no task bumps a version, edits a CHANGELOG line or a CI pin, or numbers an ADR (the delivery writes them at the merge), and `decisions.md` lists the change's records unnumbered (`docs/adr/<slug>.md`, cited `ADR [<slug>]`): a task that sets a version is a finding naming the task, and a numbered record of the change is a finding naming its path.
 
 If the workflow fills issue references into `tasks.md` (e.g. an `**Issue:**` line with a placeholder until sync), a placeholder is not a failure by itself; it is one only when the package claims sync already happened or execution depends on it.
 

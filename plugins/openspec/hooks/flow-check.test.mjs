@@ -15,6 +15,7 @@ import * as DC from './deliver-check.mjs';
 import { gitRepo, put, commitAll, git, fakeGh, openspecStub, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, roundRepo } from './test-fixtures.mjs';
 import { collectState, nextStep, approvalState } from './deliver-check.mjs';
 import { conductState } from './conduct-check.mjs';
+import { REL_CONFIG, NOTE_TEXT, DECISIONS, ADR_FEAT, releaseLayout, stepCommit } from './deliver-check-fixtures.mjs';
 
 const SHA7 = 'a1b2c3d';
 const SHA40 = 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678';
@@ -1053,6 +1054,89 @@ test('own-files AC-2 stages: an own-file merge reports the first code-bound stag
   assert.equal(first.reasonCode, 'stale-code');
   assert.match(first.params.why, new RegExp(`is behind ${merged.slice(0, 7)}, which touches src/a\\.ts$`));
   assert.equal(report.next.stage, 'unit-tests');
+});
+
+// ---- release-at-merge: the stage readout reads the delivery step's commit as a release edit, not as a plain commit
+
+// liveChange() of a devkit project that names devkit.release_tag, with the release layout on main (origin/main set to it) and the
+// noted change `feat` on a branch; the evidence and review headers are rewritten to the commit R of the plan files, then the commit
+// the delivery step would make follows. `noted: false` leaves the change without a release.md.
+function releaseStagesReadout({ noted = true } = {}) {
+  const root = liveChange({ ship: 'plan', config: `schema: devkit\nship:\n  devkit: plan\n${REL_CONFIG}` });
+  put(root, releaseLayout());
+  commitAll(root, 'release layout on main');
+  git(root, 'update-ref', 'refs/remotes/origin/main', git(root, 'rev-parse', 'HEAD'));
+  git(root, 'switch', '-q', '-c', 'feat');
+  put(root, { ...(noted ? { 'openspec/changes/feat/release.md': NOTE_TEXT } : {}), 'openspec/changes/feat/decisions.md': `<!-- devkit-stage decisions result=passed attempt=1 commit=none -->\n${DECISIONS}`, 'docs/adr/feat.md': ADR_FEAT, 'docs/x.md': 'See ADR [feat] for the rule.\n' });
+  const R = commitAll(root, 'plan files');
+  for (const f of ['evidence.md', 'review.md']) {
+    const file = join(root, 'openspec', 'changes', 'feat', f);
+    writeFileSync(file, readFileSync(file, 'utf8').replace(/commit=[0-9a-f]+/, `commit=${R}`));
+  }
+  commitAll(root, 'headers at the plan commit');
+  stepCommit(root, { adr: true });
+  const env = { ...fakeGh().env, ...SHIP_ENV };
+  const { facts, flow } = collectFlow(root, 'feat', { env, gh: makeGh(root, env), openspec: fakeOpenspec(root) });
+  return computeFlow(facts, flow, {});
+}
+
+test('release-note AC-4 stages: the evidence and review headers stay passed after the delivery step\'s commit, and stale for a change with no note', () => {
+  const report = releaseStagesReadout();
+  for (const id of ['evidence', 'review']) assert.equal(stageOf(report, id).state, 'passed', id);
+  assert.equal(stageOf(releaseStagesReadout({ noted: false }), 'evidence').state, 'stale', 'a change with no release note reads the same commit as before');
+});
+
+// ---- release-at-merge D-21: the release note counts with tasks.md when the readiness is judged stale, until the work starts
+// Invariant (B1, checker, flow-check.test.mjs): in a project that names devkit.release_tag, a release.md newer than readiness.md by more
+// than the tolerance makes the readiness stale (a failed one is offered again), as a newer tasks.md does; without the setting, or once a
+// task is ticked, the note stales nothing.
+
+// liveChange() with tasks.md `ticked` or not, readiness.md of result `readiness`, and the note release.md `ahead` seconds newer than every
+// stage file; `key: false` names no devkit.release_tag.
+function noteStages({ key = true, readiness = 'passed', ticked = false, ahead = 10 } = {}) {
+  const root = liveChange({ config: `schema: devkit\n${key ? REL_CONFIG : ''}`, tasks: `# Tasks\n\n- [${ticked ? 'x' : ' '}] 1.1 a\n- [ ] 1.2 b\n` });
+  const c0 = git(root, 'rev-list', '--max-parents=0', 'HEAD');
+  if (readiness !== 'passed') put(root, { 'openspec/changes/feat/readiness.md': `<!-- devkit-stage readiness result=${readiness} attempt=1 commit=${c0} -->\n# Readiness\n\n- Status: NEEDS-REVISION\n- F1: release.md bumps devkit-core for a text-only change\n` });
+  put(root, { 'openspec/changes/feat/release.md': NOTE_TEXT });
+  noteAt(root, ahead);
+  return root;
+}
+const noteAt = (root, ahead) => {
+  const when = new Date(Date.now() + ahead * 1000);
+  utimesSync(join(root, 'openspec', 'changes', 'feat', 'release.md'), when, when);
+};
+
+test('release-note AC-16 stages: a note newer than readiness.md makes it stale', () => {
+  const r = liveReport(noteStages());
+  assert.equal(stageOf(r, 'readiness').state, 'stale');
+  assert.equal(stageOf(r, 'readiness').reasonCode, 'stale-plan');
+  assert.equal(stageOf(r, 'readiness').params.by, 'tasks', 'the note counts with the files of the tasks stage');
+  assert.equal(stageOf(r, 'tasks').state, 'passed', 'release.md is not read as a file of the tasks stage');
+  assert.equal(r.next.stage, 'readiness');
+  assert.equal(stageOf(liveReport(noteStages({ ahead: 1 })), 'readiness').state, 'passed', 'within the 2 s tolerance');
+});
+
+test('release-note AC-16 stages: a readiness failed on the note is offered again after a note-only revision', () => {
+  const root = noteStages({ readiness: 'failed', ahead: 0 });
+  const before = liveReport(root);
+  assert.deepEqual(outcome(before), { next: 'proposal', reasonCode: 'fix-after-failure' }, 'the revision of the plan first');
+  put(root, { 'openspec/changes/feat/release.md': NOTE_TEXT.replace('devkit-core: patch', 'devkit-core: minor') }); // the planner revises release.md and no other plan file
+  noteAt(root, 10);
+  const after = liveReport(root, before.next.progressKey);
+  assert.equal(stageOf(after, 'readiness').state, 'failed');
+  assert.deepEqual(outcome(after), { next: 'readiness', reasonCode: 'rerun-after-fix' }, 'the review again, not the same revision');
+});
+
+test('release-note AC-16 stages: without devkit.release_tag the note stales nothing', () => {
+  const r = liveReport(noteStages({ key: false }));
+  assert.equal(stageOf(r, 'readiness').state, 'passed');
+  assert.equal(r.next.stage, 'implementation');
+});
+
+test('release-note AC-16 stages: once a task is ticked the note stales nothing', () => {
+  const r = liveReport(noteStages({ ticked: true }));
+  assert.equal(stageOf(r, 'readiness').state, 'passed');
+  assert.equal(r.next.stage, 'implementation');
 });
 
 // ---- field-fixes 4: a merged pull request delivers only when it is the change's own and every task is ticked
@@ -2476,12 +2560,15 @@ test('coordinator-loop-fixes AC-7 T132 computeFlow: the failures in a row since 
 // edit); a tick or a later stage file changes nothing, and a flow with no approval stage never reads it. Layer: the stage checker
 // (collectFlow and computeFlow) on a real repository. Suite: flow-check.
 
-// liveChange() with one task ticked and one open, its approval.md recording the readiness hash and the plan's digest.
-function revisedChange() {
-  const root = liveChange({ tasks: '# Tasks\n\n- [x] 1.1 a\n- [ ] 1.2 b\n' });
+// liveChange() with one task ticked and one open, its approval.md recording the readiness hash and the plan's digest. `noted`: the
+// project names devkit.release_tag, the change carries the note release.md (NOTE_TEXT), and the approval records its hash too.
+function revisedChange({ noted = false } = {}) {
+  const root = liveChange({ tasks: '# Tasks\n\n- [x] 1.1 a\n- [ ] 1.2 b\n', ...(noted ? { config: `schema: devkit\n${REL_CONFIG}` } : {}) });
   const dir = join(root, 'openspec', 'changes', 'feat');
+  if (noted) put(root, { 'openspec/changes/feat/release.md': NOTE_TEXT });
   const c0 = /commit=([0-9a-f]+)/.exec(readFileSync(join(dir, 'approval.md'), 'utf8'))[1];
-  const record = `<!-- devkit-stage approval result=passed attempt=1 commit=${c0} -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${approvalState(dir).readiness}\n- Plan: ${DC.planDigest?.(dir)}\n- Date: 2026-11-24\n`;
+  const note = noted ? `- Release note: ${DC.releaseNoteHash(dir)}\n` : '';
+  const record = `<!-- devkit-stage approval result=passed attempt=1 commit=${c0} -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${approvalState(dir).readiness}\n- Plan: ${DC.planDigest?.(dir)}\n${note}- Date: 2026-11-24\n`;
   put(root, { 'openspec/changes/feat/approval.md': record });
   commitAll(root, 'the owner approves the plan, with its digest');
   return { root, dir, c0 };
@@ -2500,6 +2587,25 @@ test('coordinator-loop-fixes AC-8 T57 flow-check: started, approval ok, plan cha
   for (const lang of ['en', 'pt-BR']) assert.equal(typeof TEXT[lang]['plan-revised'], 'function', lang);
   assert.equal(reasonText('en', 'plan-revised', {}, {}), 'the plan changed after the owner approved it');
   assert.equal(reasonText('pt-BR', 'plan-revised', {}, {}), 'o plano mudou depois que o dono o aprovou');
+});
+
+// release-at-merge D-32: the plan-revised rule asks whether the owner approved the current readiness, so it reads the approval
+// without the note; a note changed with the plan is asked at the approval after the readiness runs again.
+test('release-note AC-12 stages: a started noted change whose plan files and release.md both changed after the approval is stale with plan-revised, and the note alone is not', () => {
+  const major = NOTE_TEXT.replace('devkit-openspec: minor', 'devkit-openspec: major');
+  const both = revisedChange({ noted: true });
+  assert.equal(approvalState(both.dir).ok, true);
+  revisedEdit(both.root, 'design.md', both.c0);
+  put(both.root, { 'openspec/changes/feat/release.md': major });
+  commitAll(both.root, 'a plan revision with its note');
+  const r = liveReport(both.root);
+  assert.deepEqual([stageOf(r, 'readiness').state, stageOf(r, 'readiness').reasonCode], ['stale', 'plan-revised']);
+  assert.deepEqual([r.next?.stage, r.next?.reasonCode], ['readiness', 'plan-revised']);
+  const only = revisedChange({ noted: true });
+  put(only.root, { 'openspec/changes/feat/release.md': major });
+  commitAll(only.root, 'a revision of the note alone');
+  assert.equal(stageOf(liveReport(only.root), 'readiness').state, 'passed');
+  assert.equal(approvalState(only.dir).ok, false);
 });
 
 test('coordinator-loop-fixes AC-8 T58 flow-check: started, approval ok, only a tick since: the readiness passed', () => {

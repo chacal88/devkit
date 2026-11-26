@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader, FlowUsageError, readFlow, readFlowFile, FLOW_LANGS, changeFlow, changeSchemaAt, parseDevkitBlock, changeDevkitBlock, budgetValue, spendOf, spendSources, spendLines } from './guard.mjs';
-import { gitFacts, staleness, ownFiles, stalenessBase, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads, trainFacts, isDevkitScript, authorizedRounds, approvalState, planRevision, headInBase } from './deliver-check.mjs';
+import { gitFacts, staleness, ownFiles, stalenessBase, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads, trainFacts, isDevkitScript, releaseEditOf, namesReleaseTag, RELEASE_NOTE, authorizedRounds, approvalState, planRevision, headInBase } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
 // The flow file reader and its error live in guard.mjs (the CI job downloads that file, not this one); one reader, re-exported.
@@ -292,6 +292,14 @@ function readDelivery({ ship, gh, head, delivery, twoPrs = null, train = null })
   return next('delivery', 'enable-auto-merge', { number: pr.number });
 }
 
+// The release note, counted with the files of the tasks stage when a plan stage is judged stale (release-at-merge D-21): [{ path, mtimeMs }]
+// in a project that names devkit.release_tag (a value the setting reader refuses names none, as in releaseFacts) whose change folder holds
+// release.md, else []. It never joins files.tasks, so the tasks stage asks no header of it.
+function noteFilesOf(root, dir) {
+  const file = join(dir, RELEASE_NOTE);
+  return namesReleaseTag(root) && existsSync(file) ? [{ path: RELEASE_NOTE, mtimeMs: statSync(file).mtimeMs }] : [];
+}
+
 // The facts computeFlow reads, and the declaration: { facts, flow }. The only function that runs programs
 // (git, openspec and gh). An archived change is decided from its folder alone, with no OpenSpec call.
 export function collectFlow(root, id, { env = process.env, openspec = makeOpenspec(root, env), gh = makeGh(root, env) } = {}) {
@@ -306,11 +314,13 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   if (located.archived || !flow) return { facts, flow };
   const files = {};
   for (const s of flow.stages) if (s.source === 'artifact') files[s.id] = stageFiles(located.dir, s.file);
-  Object.assign(facts, { files, opened: existsSync(join(located.dir, '.openspec.yaml')), skipped: [], tasks: null, dirty: [], head: null,
+  Object.assign(facts, { files, noteFiles: noteFilesOf(root, located.dir), opened: existsSync(join(located.dir, '.openspec.yaml')), skipped: [], tasks: null, dirty: [], head: null,
     flags: classificationFlags(located.dir), authorizedReviewRounds: authorizedRounds(located.dir, 'review'), settings: readTestSettings(root).paths,
     flowVersion: { version: followed.version, installed: followed.installed, pinned: followed.pinned } });
-  // The owner's approval and the plan it records, for a flow that declares the approval (D-7).
-  if (flow.stages.some((s) => s.id === 'approval')) Object.assign(facts, { approvalOk: approvalState(located.dir).ok, planRevision: planRevision(located.dir) });
+  // The owner's approval and the plan it records, for a flow that declares the approval (D-7). The approval is read without the note
+  // (D-32 of release-at-merge: whether the owner approved this readiness review; a note changed with the plan is asked at the approval
+  // after the readiness runs again).
+  if (flow.stages.some((s) => s.id === 'approval')) Object.assign(facts, { approvalOk: approvalState(located.dir, { release: false }).ok, planRevision: planRevision(located.dir) });
   if (isPreviousScript(files, flow)) return { facts, flow };
   let config;
   try { config = deliveryConfig(root, schema); } catch (e) {
@@ -333,7 +343,7 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   const postMerge = config.ship !== 'plan' && (offOwnBranch(root, id, branch) || headInBase(root, gf)) && delivery().delivered;
   Object.assign(facts, {
     head: gf.head, dirty: gf.dirty, fingerprint: fingerprint(root, gf.head), postMerge,
-    staleness: (sha) => (postMerge ? null : sha === 'none' ? 'the header records no commit' : staleness(root, { sha, uncommitted: false }, gf, { own: ownFiles(root, id, gf) })),
+    staleness: (sha) => (postMerge ? null : sha === 'none' ? 'the header records no commit' : staleness(root, { sha, uncommitted: false }, gf, { own: ownFiles(root, id, gf), release: releaseEditOf(root, id, gf) })),
     staleReviewers: () => (postMerge ? [] : readReviews(root, id, gf).filter((r) => r.why).map((r) => r.name)),
     delivery: () => readDelivery({ ship: config.ship, gh, head: gf.head, delivery, twoPrs, train: trainOn ? (prHead) => trainFacts(gh, root, id, { suite: config.train, prHead, kind: 'change' }) : null }),
     history: (path) => {
@@ -553,7 +563,7 @@ function artifactState(stage, files, facts, flow, started) {
   if (!stale && !started && !facts.postMerge) {
     const mine = maxMtime(files);
     for (const a of stage.staleAfter ?? []) {
-      const other = maxMtime(facts.files[a] ?? []);
+      const other = maxMtime([...(facts.files[a] ?? []), ...(a === 'tasks' ? facts.noteFiles ?? [] : [])]);
       if (mine !== null && other !== null && other - mine > FRESH_MS) { stale = { code: 'stale-plan', params: { by: a } }; break; }
     }
   }

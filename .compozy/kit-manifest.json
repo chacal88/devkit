@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "pack": "0.6.0",
+  "pack": "0.6.1",
   "inputs": {
     "__TIMEZONE__": "America/Sao_Paulo",
     "__SCREEN_MAP__": "",
@@ -8,11 +8,11 @@
   },
   "files": {
     "README.md": "sha256:95a6e724ef06e93689aef22092e0032aaa5d10245cfdd3854df2bd89741bf245",
-    "agents/adr-author/AGENT.md": "sha256:3f932961f6895069a2cd8ca019986be7b0af260697a6f318f34b726a6f75df19",
-    "agents/adr-reviewer/AGENT.md": "sha256:24aa865983a1fd489bb328bf1d02307478981044fef9775c0ce9f2c330c011c7",
+    "agents/adr-author/AGENT.md": "sha256:63661c721f5581664ea3cbd3d3bc7546f0dedca22e44d98a2504ed436702ce87",
+    "agents/adr-reviewer/AGENT.md": "sha256:86d06169e41eba33fd77b7f74f663052e49ea100c9246809f90738a22b9709ee",
     "agents/architecture-reviewer/AGENT.md": "sha256:1e947e2f092b0f0d4f47b9293d2f9cbf43fa895137c090260b624653c5d48d61",
     "agents/change-coordinator/AGENT.md": "sha256:2eb1f2444f66cadc424bf3a1a08fe6a42db009d039f8bc916f18a0e27fb1b587",
-    "agents/change-planner/AGENT.md": "sha256:607d7e451a35652df168819cd49492e2a4c8b79c8a27c197e9de01496451024b",
+    "agents/change-planner/AGENT.md": "sha256:dc344362af102dcf09fa650d2d341b3abf6de0b90cd28eb48095212ba301396d",
     "agents/code-quality-reviewer/AGENT.md": "sha256:88cc03a8422ef85b68d875d0675e21e0caa9a537ef7cab4f5f5b2f627388c5f5",
     "agents/codebase-researcher/AGENT.md": "sha256:15cefadade0f550142a3eefcd4083377608b10039c7fe3f03ee75dbd631a54d3",
     "agents/commit-and-pr/AGENT.md": "sha256:95aec928d1844e92a15f74d2ce27c0efb654ca777510a7282e4abfad13adb77a",
@@ -26,7 +26,7 @@
     "agents/screen-designer/AGENT.md": "sha256:2863af2719ed844a0aeb388c48cf31006d8b61a2323ffbd00e12cbbe00da0230",
     "agents/security-reviewer/AGENT.md": "sha256:97fe10f00344478fa59eb91b00e30f583d7a48efdab0f18066ef6f4d6ac72c42",
     "agents/spec-reviewer/AGENT.md": "sha256:82e3f5c2666f9ce5afc560c11ef0d3babd7556454f3221facec8f9da4680a503",
-    "agents/tdd-implementer/AGENT.md": "sha256:256fd2a5731065d86b34bf714bfd6f50d58b6a021f2ca23af398a25d3655da1e",
+    "agents/tdd-implementer/AGENT.md": "sha256:fc5e96efb1150334bc1e721f75c3a7b213ac1908e0014bc499c936b7c87945a8",
     "agents/test-coverage-reviewer/AGENT.md": "sha256:05231de00666c7a548fb002ee5714c98dc66d4884c7a499ee7e09540008d73a3",
     "agents/test-runner/AGENT.md": "sha256:cc67ac107a978016e78e5120ce53ef51212a87300a6f204b400182f326a9d563",
     "bin/devkit-kit": "sha256:ddeaaccab9b989f408ed2a9004b9d6b637c14ee43a0fe1ef6c359805f8a945de",
