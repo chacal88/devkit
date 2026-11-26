@@ -166,9 +166,9 @@ test('delivery-train P13: /devkit train starts the verb, with text after it is r
 });
 
 test('delivery-train P13: the reply to an unknown verb names /devkit train, in order, in both languages', () => {
-  assert.match(render('en', 'verb-unknown'), /So far \/devkit change, \/devkit roadmap, \/devkit status, \/devkit project and \/devkit train exist/);
+  assert.match(render('en', 'verb-unknown'), /So far \/devkit change, \/devkit roadmap, \/devkit status, \/devkit setup, \/devkit project and \/devkit train exist/);
   assert.match(render('en', 'verb-unknown'), /or \/devkit train to send the boarded changes on one train\.$/);
-  assert.match(render('pt-BR', 'verb-unknown'), /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit project e \/devkit train/);
+  assert.match(render('pt-BR', 'verb-unknown'), /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit setup, \/devkit project e \/devkit train/);
   assert.match(render('pt-BR', 'verb-unknown'), /\/devkit train para mandar as changes embarcadas em um trem só\.$/);
   const unknown = startRun(configRepo(optedIn(trunkAuto(`"${SUITE}"`))), 'teleport');
   assert.equal(unknown.body.mode, 'unknown-verb');
@@ -207,7 +207,7 @@ test('delivery-train docs: the documents follow', () => {
   assert.equal(heads.indexOf('## Train'), heads.indexOf('## Waiting on GitHub') + 1, 'it sits right after Waiting on GitHub');
   const train = sliceOf(skill, '## Train', '## Roadmap');
   for (const re of [/train-loop\.mjs next/, /depart/, /update-train/, /background/, /`end`/, /wait/]) assert.match(train, re, String(re));
-  assert.match(skill, /argument-hint: "change \[<request> \| <change-id> \| <Jira key or link>\] \| roadmap \[<n> \| stop\] \| status \| train \| project \[<name>\]"/);
+  assert.match(skill, /argument-hint: "change \[<request> \| <change-id> \| <Jira key or link>\] \| roadmap \[<n> \| stop\] \| status \| setup \| train \| project \[<name>\]"/); // project-setup T-30: setup right after status
   assert.match(skill, /\/devkit train departs the boarded changes of a project with a delivery train, together on one train\./);
   for (const mode of ['train', 'train-args']) assert.ok(sliceOf(skill, '## Start', '## A new change').includes(`\`${mode}\``), `the start mode ${mode}`);
 

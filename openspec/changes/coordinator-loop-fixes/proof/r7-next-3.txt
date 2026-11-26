@@ -1,0 +1,45 @@
+devkit-run: feat
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit-lite",
+  "root": "<scratch>/proj/.claude/worktrees/feat",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "review",
+  "stageTitle": "Code review",
+  "role": "review-bench",
+  "skills": [
+    "review-change"
+  ],
+  "model": "sonnet",
+  "step": "review",
+  "detail": {
+    "step": "review",
+    "reason": "review needed from code-quality-reviewer, test-coverage-reviewer",
+    "reviewers": [
+      "code-quality-reviewer",
+      "test-coverage-reviewer"
+    ],
+    "round": 3,
+    "limit": 3
+  },
+  "progressKey": "review/review@378a20f3e1ae",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🔍",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "review",
+    "stageTitle": "Code review",
+    "phase": null,
+    "stageIcon": "🔍",
+    "stateIcon": null,
+    "title": "🔍 feat"
+  },
+  "sessionTitle": "🔍 feat"
+}

@@ -1320,6 +1320,17 @@ test('stage-models AC-12 flow-check prints the spend block after the readout, wi
   assert.equal(json(w.env).stdout, json(cleanEnv).stdout, '--json prints no spend');
 });
 
+// coordinator-loop-fixes (D-22): the cap of the spend block is the change's own budget, read from its `x-devkit:` block, else from
+// its `devkit:` block, over the project's. Layer: flow-check's spend block (`capOf`). Suite: stage-models.
+test('coordinator-loop-fixes AC-19 T138 the spend block names the cap of the change\'s x-devkit block, and of a devkit block alone', () => {
+  const w = knownWorld();
+  for (const change of ['x-devkit:\n  budget: 500000\n', 'devkit:\n  budget: 500000\n']) {
+    const root = featWith({ have: PLAN_OF.design, project: 'devkit:\n  budget: 2000000\n', change });
+    const r = flowCheck.main(['feat', '--lang', 'en'], { cwd: root, env: w.env, gh: OFFLINE });
+    assert.ok(r.stdout.endsWith('Total: 4315 tokens of the budget 500000\n'), `${change}${r.stdout}`);
+  }
+});
+
 test('stage-models AC-12 roadmap status prints one spend block for the open change that counted tokens, and none for the other', () => {
   const root = featWith({ have: PLAN_OF.design });
   put(root, { 'openspec/roadmap.md': '# Roadmap\n\n## Round 1: x\n- [ ] feat\n- [ ] other\n' });

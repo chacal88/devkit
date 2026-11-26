@@ -9,7 +9,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap, findRoot, changeSchema, changeDir, archiveBranchChange, commandSegments, classify, DEVKIT_SCHEMAS, projectSchema, optedIn } from './guard.mjs';
 
 import * as GUARD from './guard.mjs';
-import { gitRepo, put, commitAll, git as gitIn, openspecStub } from './test-fixtures.mjs'; // ship-modes tests ride on the same command
+import { gitRepo, put, commitAll, git as gitIn, openspecStub, typedLine, toolResultLine, transcriptOf, roundRepo } from './test-fixtures.mjs'; // ship-modes tests ride on the same command
+import { startRun, openRun, body as startBody } from './change-loop-fixtures.mjs'; // setup AC-8: an old project opens a change
 
 const here = dirname(fileURLToPath(import.meta.url));
 const guard = join(here, 'guard.mjs');
@@ -628,9 +629,12 @@ test('the hook docs say where the hooks act (1.7)', () => {
   assert.match(read('plugins', 'openspec', 'hooks', 'hooks.json'), /opted-in|opted in/);
 });
 
-test('openspec-setup SKILL.md teaches the per-project opt-in (2.4)', () => {
+test('setup skill: the Setup section teaches the per-project opt-in (2.4)', () => {
   const root = join(here, '..', '..', '..');
-  const skill = readFileSync(join(root, 'plugins', 'openspec', 'skills', 'openspec-setup', 'SKILL.md'), 'utf8');
+  const md = readFileSync(join(root, 'plugins', 'openspec', 'skills', 'devkit', 'SKILL.md'), 'utf8');
+  const from = md.indexOf('\n## Setup\n');
+  assert.ok(from >= 0, 'the devkit skill has a Setup section');
+  const skill = md.slice(from, md.indexOf('\n## ', from + 1));
   assert.match(skill, /scripts\/project-settings\.mjs/);
   assert.match(skill, /--user/);
   assert.match(skill, /\.claude\/settings\.json/);
@@ -638,7 +642,7 @@ test('openspec-setup SKILL.md teaches the per-project opt-in (2.4)', () => {
   for (const line of skill.split('\n').filter((l) => /install-schemas\.sh/.test(l) && /bash /.test(l))) {
     assert.match(line, /install-schemas\.sh (<project-root>|--user)/, `install-schemas.sh call needs an argument: ${line}`);
   }
-  const never = skill.slice(skill.indexOf('## Never'));
+  const never = md.slice(md.indexOf('## Never'));
   assert.match(never, /user scope/);
   assert.match(never, /~\/\.claude/);
 });
@@ -651,7 +655,7 @@ test('this repository opts in through .claude/settings.json (2.5, ADR 0004)', ()
   assert.deepEqual(s.extraKnownMarketplaces.devkit.source, { source: 'github', repo: 'chacal88/devkit' });
   assert.equal(s.enabledPlugins['devkit-core@devkit'], true);
   assert.equal(s.enabledPlugins['devkit-openspec@devkit'], true);
-  const script = join(root, 'plugins', 'openspec', 'skills', 'openspec-setup', 'scripts', 'project-settings.mjs');
+  const script = join(root, 'plugins', 'openspec', 'skills', 'devkit', 'scripts', 'project-settings.mjs');
   const r = spawnSync('node', [script, root, '--dry-run'], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /file: unchanged /);
@@ -1543,7 +1547,7 @@ test('stage-roles guard: the implementer is unchanged, and the main session is s
 
 // ---------------------------------------------------------------- stage-roles: the setup (design D-3; tasks 2.1, 2.8)
 
-const setupRoot = join(here, '..', 'skills', 'openspec-setup');
+const setupRoot = join(here, '..', 'skills', 'devkit');
 const setupStep5 = () => {
   const md = readFileSync(join(setupRoot, 'SKILL.md'), 'utf8');
   const from = md.indexOf('5. **Write `openspec/config.yaml`.**');
@@ -1784,7 +1788,8 @@ test('upfront AC-5 docs: the flow doc names the released flow versions, the 0.37
   const openspec = entry.slice(entry.indexOf('**devkit-openspec** 0.33.0'), entry.indexOf('- **devkit-core**'));
   assert.ok(openspec.includes('The `devkit` and `devkit-lite` flows are released as flow version 2, which adds the `requirements-triage` helper to the grill'), 'the devkit-openspec bullet names flow version 2');
   assert.ok(openspec.includes('a change opened before keeps flow 1 and its grill with no triage until the owner moves it with `change-loop.mjs flow <id>`'), 'and what a change under way keeps');
-  assert.ok(entry.includes('- Projects: re-run `openspec-setup` to install `flows/2.json`; changes under way keep flow 1 and their grill'), 'the Projects line');
+  // The past entry's literal is split so that no source line names the removed skill (project-setup D-9); the string is the same.
+  assert.ok(entry.includes('- Projects: re-run `' + 'openspec' + '-setup` to install `flows/2.json`; changes under way keep flow 1 and their grill'), 'the Projects line');
   // ADR 0021: the Note after the Decision list
   const adr = read('docs', 'adr', '0021-a-roadmap-run-opens-every-change-at-its-start.md');
   const noteAt = adr.indexOf('Note (roadmap-sessions-upfront, 2026-11-23):');
@@ -1795,4 +1800,410 @@ test('upfront AC-5 docs: the flow doc names the released flow versions, the 0.37
     'a change on flow 1 (opened before devkit-openspec 0.33.0, or with no recorded flow) keeps its grill with no triage until the owner moves it',
   ]) assert.ok(note.includes(part), `ADR 0021's Note says: ${part}`);
   assert.match(adr, /^- Status: accepted$/m, 'its status stays');
+});
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: declared.json, the declare command and the end marker (D-1, D-2)
+// Invariant: openspec/changes/<id>/declared.json and the `change-loop.mjs declare` command are the main session's only, in any
+// change's folder (D-1, "Who writes it"); a subagent's edit, shell redirect or `node ... change-loop.mjs declare` is refused, the
+// main session's is let through, and a project with no devkit schema is not judged. Layer: guard's classify, writeViolation and
+// guardBash, through `guard edit` and `guard bash`. Suite: guard.
+
+const DECLARED_FILE = 'openspec/changes/feat/declared.json';
+const DECLARE_RE = /is written only by the main session, through change-loop\.mjs declare; not by tdd-implementer/;
+const DECLARE_CMD_RE = /change-loop\.mjs declare is run only by the main session .*; not by tdd-implementer/;
+const RECORD_BODY = '{"version":1,"steps":[]}';
+
+test('coordinator-loop-fixes AC-1 T18 a subagent write of the active change\'s declared.json is refused, by edit and by shell redirect', () => {
+  const root = repo({ changes: { feat: approved } });
+  const byEdit = edit(root, DECLARED_FILE, 'tdd-implementer');
+  assert.equal(byEdit.code, 2, byEdit.err);
+  assert.match(byEdit.err, DECLARE_RE);
+  assert.ok(byEdit.err.includes(DECLARED_FILE), byEdit.err);
+  const byRedirect = bash(root, `echo '${RECORD_BODY}' > ${DECLARED_FILE}`, 'tdd-implementer');
+  assert.equal(byRedirect.code, 2, byRedirect.err);
+  assert.match(byRedirect.err, DECLARE_RE);
+});
+
+test('coordinator-loop-fixes AC-1 T19 declared.json is a main-session gate, and the main session\'s write of it is allowed', () => {
+  const root = repo({ changes: { feat: approved } });
+  assert.deepEqual(classify(root, 'feat', DECLARED_FILE), { kind: 'gate', owner: '' });
+  assert.deepEqual(classify(root, null, 'openspec/changes/other/declared.json'), { kind: 'gate', owner: '' }, 'in any change folder');
+  assert.equal(edit(root, DECLARED_FILE).code, 0, 'by Write');
+  assert.equal(bash(root, `echo '${RECORD_BODY}' > ${DECLARED_FILE}`).code, 0, 'by redirect');
+});
+
+// Invariant: an end line sets the run's `ended` only when it names the run's change (D-2). Layer: guard's runOf on given events. Suite: guard.
+const typedChange = { typed: { name: 'devkit', args: 'change add the feature' } };
+const printed = (text) => ({ texts: [text], stdout: text });
+
+test('coordinator-loop-fixes AC-2 T20 runOf: an end line naming the run\'s change sets ended', () => {
+  const own = [typedChange, printed('devkit-run: feat\n{"version":1}'), printed('devkit-end: feat waiting-for-owner\nThe change feat is paused.')];
+  const r = GUARD.runOf(null, own);
+  assert.equal(r?.change, 'feat');
+  assert.equal(r?.ended, 'waiting-for-owner');
+  const later = GUARD.runOf(null, [...own, printed('devkit-end: other blocked\nThe change other stopped.')]);
+  assert.equal(later?.ended, 'waiting-for-owner', 'a later end of another change leaves it as it was');
+});
+
+test('coordinator-loop-fixes AC-2 T21 runOf: an end line naming another change leaves ended null', () => {
+  const r = GUARD.runOf(null, [typedChange, printed('devkit-run: feat\n{"version":1}'), printed('devkit-end: other blocked\nThe change other stopped.')]);
+  assert.equal(r?.change, 'feat');
+  assert.equal(r?.ended, null);
+});
+
+const DECLARE_LINE = 'node plugins/openspec/hooks/change-loop.mjs declare feat review-round --param words=x';
+const QUOTED_LINE = 'node "$CLAUDE_PLUGIN_ROOT/hooks/change-loop.mjs" declare feat gate-red --param phase=1';
+
+test('coordinator-loop-fixes AC-1 T98 guardBash: a subagent running change-loop.mjs declare is refused, naming the main session', () => {
+  const root = repo({ changes: { feat: approved } });
+  const r = bash(root, DECLARE_LINE, 'tdd-implementer');
+  assert.equal(r.code, 2, r.err);
+  assert.match(r.err, DECLARE_CMD_RE);
+});
+
+// A node option word between `node` and the script path (review round 1): the call is the same declare.
+const OPTION_LINES = [
+  'node --no-warnings plugins/openspec/hooks/change-loop.mjs declare feat review-round --param words=x',
+  'node -- plugins/openspec/hooks/change-loop.mjs declare feat gate-red --param phase=1',
+  'node --no-warnings --stack-size=2000 "$CLAUDE_PLUGIN_ROOT/hooks/change-loop.mjs" declare feat review-round --stdin words',
+];
+
+test('coordinator-loop-fixes AC-1 T99 guardBash: a quoted plugin path, a node option and a cd before the call are refused too, and the main session\'s are allowed', () => {
+  const root = repo({ changes: { feat: approved } });
+  const scratch = tmpFolder('devkit-guard-scratch-');
+  for (const command of [QUOTED_LINE, `cd ${scratch} && ${DECLARE_LINE}`, `cd ${scratch} && ${QUOTED_LINE}`, ...OPTION_LINES, `cd ${scratch} && ${OPTION_LINES[0]}`]) {
+    const r = bash(root, command, 'tdd-implementer');
+    assert.equal(r.code, 2, `${command}: ${r.err}`);
+    assert.match(r.err, DECLARE_CMD_RE, command);
+  }
+  for (const command of OPTION_LINES) {
+    const r = bash(root, command);
+    assert.equal(r.code, 0, `the main session: ${command}: ${r.err}`);
+  }
+});
+
+test('coordinator-loop-fixes AC-1 T100 guardBash: the main session\'s declare commands are allowed', () => {
+  const root = repo({ changes: { feat: approved } });
+  for (const command of [DECLARE_LINE, QUOTED_LINE]) {
+    const r = bash(root, command);
+    assert.equal(r.code, 0, `${command}: ${r.err}`);
+  }
+});
+
+test('coordinator-loop-fixes AC-1 T101 guardBash: a subagent running next or reply of change-loop.mjs is allowed', () => {
+  const root = repo({ changes: { feat: approved } });
+  for (const command of ['node plugins/openspec/hooks/change-loop.mjs next feat --lang en', 'node plugins/openspec/hooks/change-loop.mjs reply waiting-pause --param id=feat']) {
+    const r = bash(root, command, 'tdd-implementer');
+    assert.equal(r.code, 0, `${command}: ${r.err}`);
+  }
+});
+
+test('coordinator-loop-fixes AC-1 T102 guardBash: a commit message and a heredoc body naming the declare command are allowed', () => {
+  const root = repo({ changes: { feat: approved } });
+  const commit = bash(root, 'git commit -m "add the declare verb to change-loop.mjs"', 'tdd-implementer');
+  assert.equal(commit.code, 0, commit.err);
+  const heredoc = bash(root, `cat > openspec/changes/feat/notes.md <<'EOF'\n${DECLARE_LINE}\nEOF`, 'tdd-implementer');
+  assert.equal(heredoc.code, 0, heredoc.err);
+});
+
+test('coordinator-loop-fixes AC-1 T103 guardBash: in a project with no devkit schema a subagent\'s declare command is allowed', () => {
+  const root = repo({ changes: { feat: approved } });
+  writeFileSync(join(root, 'openspec', 'config.yaml'), 'schema: spec-driven\n');
+  const r = bash(root, DECLARE_LINE, 'tdd-implementer');
+  assert.equal(r.code, 0, r.err);
+});
+
+test('coordinator-loop-fixes AC-1 T104 another change\'s declared.json is refused to a subagent, and declareViolation lets the main session through', () => {
+  const root = repo({ changes: { feat: approved, other: approved }, branch: 'feat' });
+  const f = 'openspec/changes/other/declared.json';
+  const r = edit(root, f, 'tdd-implementer');
+  assert.equal(r.code, 2, r.err);
+  assert.match(r.err, DECLARE_RE);
+  assert.equal(bash(root, `echo '${RECORD_BODY}' > ${f}`, 'tdd-implementer').code, 2, 'by redirect');
+  assert.equal(GUARD.declareViolation?.(DECLARE_LINE, ''), null);
+  assert.equal(typeof GUARD.declareViolation?.(DECLARE_LINE, 'tdd-implementer'), 'string');
+});
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: the verifier's proof folder (D-8)
+// Invariant: pr-verifier writes evidence.md and any file under the active change's proof/ folder, by Write and by shell redirect,
+// and nothing else; its refusal names those two places; every other writer's rule under proof/ is as before. Layer: guard's
+// inProofFolder and writeViolation, through `guard edit` and `guard bash`. Suite: guard.
+
+const PROOF = 'openspec/changes/feat/proof';
+const VERIFIER_PLACES = /evidence\.md.*proof\//;
+
+test('coordinator-loop-fixes AC-12 T70 pr-verifier writes proof/run.txt and proof/runs/a.jsonl of the active change: allowed', () => {
+  const root = repo({ changes: { feat: approved } });
+  for (const f of [`${PROOF}/run.txt`, `${PROOF}/runs/a.jsonl`]) {
+    const r = edit(root, f, 'pr-verifier');
+    assert.equal(r.code, 0, `${f}: ${r.err}`);
+  }
+  assert.equal(GUARD.inProofFolder?.(root, 'feat', `${PROOF}/runs/a.jsonl`), true, 'inProofFolder');
+  assert.equal(GUARD.inProofFolder?.(root, 'feat', join(root, PROOF, 'run.txt')), true, 'an absolute path');
+  assert.equal(GUARD.inProofFolder?.(root, 'feat', 'openspec/changes/feat/proofs/a.txt'), false, 'a folder whose name only starts with proof');
+  assert.equal(GUARD.inProofFolder?.(root, 'feat', 'openspec/changes/other/proof/a.txt'), false, 'another change');
+});
+
+test('coordinator-loop-fixes AC-12 T71 pr-verifier redirects into proof/out.txt: allowed; into design.md: refused', () => {
+  const root = repo({ changes: { feat: approved } });
+  const into = bash(root, `node run.mjs > ${PROOF}/out.txt`, 'pr-verifier');
+  assert.equal(into.code, 0, into.err);
+  const design = bash(root, 'echo x > openspec/changes/feat/design.md', 'pr-verifier');
+  assert.equal(design.code, 2, design.err);
+  assert.match(design.err, VERIFIER_PLACES);
+});
+
+test('coordinator-loop-fixes AC-12 T72 pr-verifier writes proposal.md, other/proof/a.txt and src/a.ts: each refused', () => {
+  const root = repo({ changes: { feat: approved, other: approved }, branch: 'feat' });
+  for (const f of ['openspec/changes/feat/proposal.md', 'other/proof/a.txt', 'src/a.ts', 'openspec/changes/other/proof/a.txt']) {
+    const r = edit(root, f, 'pr-verifier');
+    assert.equal(r.code, 2, `${f}: ${r.err}`);
+    assert.match(r.err, VERIFIER_PLACES, f);
+  }
+});
+
+test('coordinator-loop-fixes AC-12 T73 tdd-implementer and the main session write under proof/ as before; change-planner writing evidence.md is still refused', () => {
+  const root = repo({ changes: { feat: approved } });
+  assert.equal(edit(root, `${PROOF}/run.txt`, 'tdd-implementer').code, 0, 'tdd-implementer');
+  assert.equal(edit(root, `${PROOF}/run.txt`).code, 0, 'the main session');
+  assert.equal(bash(root, `echo x > ${PROOF}/out.txt`).code, 0, 'the main session by redirect');
+  assert.equal(edit(root, 'openspec/changes/feat/evidence.md', 'change-planner').code, 2, 'change-planner');
+  assert.equal(edit(root, `${PROOF}/run.txt`, 'code-quality-reviewer').code, 2, 'a reviewer');
+});
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: a change's own settings block (D-22)
+// Invariant: a change's `.openspec.yaml` is read from its `x-devkit:` block when it has one, else from its `devkit:` block; the flat
+// `x-devkit-*` keys open no block; `parseDevkitBlock` with no key reads only `devkit:`. Layer: changeDevkitBlock and
+// parseDevkitBlock. Suite: guard.
+
+const X_SETTINGS = 'x-devkit:\n  budget: 2000000\n  models:\n    review: opus\n';
+const OLD_SETTINGS = 'devkit:\n  budget: 5\n  models:\n    design: haiku\n';
+const settingsOf = (block) => [block.budget, [...block.models]];
+
+test('coordinator-loop-fixes AC-19 T135 changeDevkitBlock reads the x-devkit block, else the devkit block, and the flat keys open none', () => {
+  assert.equal(typeof GUARD.changeDevkitBlock, 'function', 'changeDevkitBlock is exported');
+  assert.deepEqual(settingsOf(GUARD.changeDevkitBlock(`schema: devkit\n${X_SETTINGS}`)), ['2000000', [['review', 'opus']]], 'an x-devkit: block');
+  assert.deepEqual(settingsOf(GUARD.changeDevkitBlock(`schema: devkit\n${OLD_SETTINGS}`)), ['5', [['design', 'haiku']]], 'only a devkit: block, as today');
+  assert.deepEqual(settingsOf(GUARD.changeDevkitBlock(`schema: devkit\n${OLD_SETTINGS}${X_SETTINGS}`)), ['2000000', [['review', 'opus']]], 'both: the x-devkit: block alone');
+  assert.deepEqual(settingsOf(GUARD.changeDevkitBlock(`schema: devkit\n${X_SETTINGS}${OLD_SETTINGS}`)), ['2000000', [['review', 'opus']]], 'both, in the other order');
+  const flat = 'schema: devkit\nx-devkit-version: 0.1.0\nx-devkit-flow: 2\nx-devkit-budget: 5\n  budget: 7\n';
+  assert.deepEqual(settingsOf(GUARD.changeDevkitBlock(flat)), [undefined, []], 'the flat keys open no block');
+  assert.deepEqual(settingsOf(GUARD.parseDevkitBlock(flat, 'x-devkit')), [undefined, []]);
+  assert.deepEqual(settingsOf(GUARD.parseDevkitBlock(`schema: devkit\n${X_SETTINGS}`)), [undefined, []], 'parseDevkitBlock with no key reads no x-devkit: block');
+});
+
+// ---------------------------------------------------------------- /devkit setup (project-setup D-1)
+
+// A transcript of `lines`, as the hooks read it.
+const setupTranscript = (...lines) => ({ transcript_path: transcriptOf(lines) });
+
+// Invariant: a typed /devkit setup ends the hold of a /devkit change run, as any other typed command does, with no code of its own.
+// Layer: guard.mjs#runOf. Suite: guard. Passes on the base (project-setup D-1).
+test('setup AC-1 guard: a typed /devkit setup ends a /devkit change run', () => {
+  const marker = toolResultLine('devkit-run: feat\n{"version":1}');
+  assert.equal(GUARD.runOf(setupTranscript(typedLine('change add an export'), marker))?.change, 'feat', 'the fixture is a change run');
+  assert.equal(GUARD.runOf(setupTranscript(typedLine('change add an export'), marker, typedLine('setup'))), null);
+  assert.equal(GUARD.runOf(setupTranscript(typedLine('change add an export'), marker, typedLine('setup', '/devkit-openspec:devkit'))), null, 'plugin-scoped');
+});
+
+// Invariant: a typed /devkit setup ends the hold of a /devkit roadmap run, and a typed /devkit status keeps it. Layer:
+// guard.mjs#roadmapRunOf. Suite: guard. Passes on the base (project-setup D-1).
+test('setup AC-1 guard: a typed /devkit setup ends a /devkit roadmap run and /devkit status does not', () => {
+  const marker = toolResultLine('devkit-roadmap: 2\n{}');
+  assert.deepEqual(GUARD.roadmapRunOf(setupTranscript(typedLine('roadmap 2'), marker, typedLine('status'))), { command: 'roadmap 2', stopping: false }, 'status keeps the run');
+  assert.equal(GUARD.roadmapRunOf(setupTranscript(typedLine('roadmap 2'), marker, typedLine('setup'))), null);
+  assert.equal(GUARD.roadmapRunOf(setupTranscript(typedLine('roadmap 2'), marker, typedLine('status'), typedLine('setup'))), null, 'status, then setup');
+});
+
+// ---------------------------------------------------------------- the Setup section of the devkit skill (project-setup D-5 to D-7)
+
+const DEVKIT_SKILL_MD = join(here, '..', 'skills', 'devkit', 'SKILL.md');
+// The text of the devkit skill from `from` to the next `to` after it (the end of the file when there is none).
+function skillPart(from, to) {
+  const md = readFileSync(DEVKIT_SKILL_MD, 'utf8');
+  const at = md.indexOf(from);
+  assert.ok(at >= 0, `the devkit skill holds ${from}`);
+  const end = md.indexOf(to, at + from.length);
+  return md.slice(at, end < 0 ? md.length : end);
+}
+
+// Invariant: /devkit setup is a typed verb of the devkit skill, listed right after status, and Start sends it to the Setup
+// section whatever the driver, so a re-run on the compozy driver runs the setup. Layer: skill text. Suite: guard.
+test('setup AC-1 skill: the hint lists setup right after status, the description names /devkit setup, the skill stays not model-invocable, and Start sends setup to the Setup section on every driver', () => {
+  const fm = skillPart('---\n', '\n---\n').split('\n');
+  assert.ok(fm.includes('argument-hint: "change [<request> | <change-id> | <Jira key or link>] | roadmap [<n> | stop] | status | setup | train | project [<name>]"'), 'the hint');
+  assert.ok(fm.includes('disable-model-invocation: true'), 'typed only');
+  const description = /^description: "(.*)"$/m.exec(fm.join('\n'))?.[1] ?? '';
+  assert.ok(description.includes('/devkit train departs the boarded changes of a project with a delivery train, together on one train. /devkit setup sets the project up for the devkit flow, or updates its setup.'), 'the setup sentence right after the train sentence');
+  assert.ok(description.includes('/devkit status, /devkit setup, /devkit train or /devkit project [<name>].'), 'the Use when list');
+  const start = skillPart('\n## Start\n', '\n## On the CompozyOS driver\n');
+  const say = start.split('\n').find((l) => l.startsWith('- `not-built`')) ?? '';
+  assert.ok(say.includes('`setup-no-repo`'), 'setup-no-repo says its reply');
+  assert.ok(say.endsWith("When the JSON's `settings.driver` is `compozy` and the mode is neither `setup` nor `setup-no-repo`, read the next section instead of the lines below."), say);
+  assert.match(start, /^- `setup`: the Setup section below, in `root`, whatever the driver/m);
+  assert.doesNotMatch(skillPart('\n## On the CompozyOS driver\n', '\n## A new change\n'), /^- `setup/m, 'the CompozyOS section gains no setup item');
+});
+
+// Invariant: the kit is a question of its own, asked from the plan's `kit` and the driver, and a re-run of an installed kit runs the
+// installer again with no question. Layer: skill text (step 8). Suite: guard.
+test('setup AC-6 skill: step 8 asks the kit apart from the driver, runs kit-installer on yes and enables devkit-compozy, writes nothing on no, and the compozy driver installs the kit', () => {
+  const step = skillPart('8. **The CompozyOS kit.**', '9. **Report**');
+  assert.match(step, /Ask whether to install the kit, one question, when the plan's `kit` is `absent` and the driver[^\n]* is not `compozy`/);
+  assert.match(step, /A no writes nothing for the kit/);
+  assert.match(step, /A yes, or the driver `compozy`, runs `node <skill-dir>\/scripts\/kit-installer\.mjs <project-root>`/);
+  assert.match(step, /`devkit-compozy` added to `--packs`/);
+  assert.match(step, /When the plan's `kit` is `installed`, ask no kit question: the installer runs again/);
+  assert.match(skillPart('5. **Write `openspec/config.yaml`.**', '6. **Check.**'), /`driverNotBuilt`/, 'a present driver not built is said, never asked');
+});
+
+// Invariant: the setup copies no checker, and names the devkit-openspec version, each pack not enabled and a CI pin that differs.
+// Layer: skill text (steps 2 and 9). Suite: guard.
+test('setup AC-5 skill: the Setup section copies no checker, names the version, the packs not enabled and a CI pin that differs', () => {
+  const setup = skillPart('\n## Setup\n', '\n## Roadmap\n');
+  assert.match(setup, /copies no checker/);
+  assert.doesNotMatch(setup, /\b(guard|flow-check|deliver-check|merge-setup)\.mjs\b/, 'no checker is named for copying');
+  const step2 = skillPart('2. **Opt the project in.**', '3. **Initialize OpenSpec**');
+  const dry = step2.indexOf('node <skill-dir>/scripts/project-settings.mjs <project-root> --packs <list> --dry-run --json');
+  assert.ok(dry >= 0, 'the packs dry run');
+  assert.ok(dry < step2.indexOf('node <skill-dir>/scripts/project-settings.mjs <project-root>`'), 'the dry run comes before the opt-in');
+  assert.match(step2, /each item whose `action` is not `ok`, by its pack/);
+  const report = skillPart('9. **Report**', '\n## Roadmap\n');
+  assert.match(report, /the schemas come from devkit-openspec <the plan's `pluginVersion`>/);
+  assert.match(report, /`ciPin`[^\n]*differs from `v<pluginVersion>`[^\n]*the `workflow` item of step 7 moves it/);
+  assert.match(report, /`\/devkit change <what to do>`/, 'the first command');
+});
+
+// Invariant: the ship mode is asked in step 5 with the plan's default suggested, merge_method only when the mode merges, and
+// the GitHub step asks one question per item. Layer: skill text (steps 5 and 7). Suite: guard.
+test('setup AC-7 skill: step 5 asks the ship mode with merge suggested and step 7 asks one question per item', () => {
+  const step5 = skillPart('5. **Write `openspec/config.yaml`.**', '6. **Check.**');
+  assert.match(step5, /the `missing` questions in order, one question each/);
+  assert.match(step5, /its `options` with its `default` suggested/);
+  assert.match(step5, /Skip `ship` when the delivery answer is a model/);
+  assert.match(step5, /Skip `merge_method` when the mode does not merge/);
+  const step7 = skillPart('7. **GitHub (merge mode).**', '8. **The CompozyOS kit.**');
+  assert.match(step7, /Runs when the mode merges/);
+  assert.match(step7, /one question per item/);
+  assert.match(step7, /`ship` and `merge_method` are asked in step 5, `merge` suggested/);
+  assert.doesNotMatch(step7, /only if the owner asks/);
+});
+
+// Invariant: when GitHub refuses the ruleset, the session tells the owner that the ship map step 5 wrote stays merge and that the
+// owner changes it to pr or plan by hand, since a re-run never rewrites a present ship map (ADR 0002). Layer: skill text (step 7).
+// Suite: guard.
+test('setup AC-7 skill: a blocked ruleset tells the owner the written ship map stays merge and is changed to pr or plan by hand', () => {
+  const step7 = skillPart('7. **GitHub (merge mode).**', '8. **The CompozyOS kit.**');
+  const blocked = step7.split('\n').find((line) => line.includes('A `ruleset` that reads `blocked`'));
+  assert.ok(blocked, 'step 7 has the ruleset-blocked bullet');
+  assert.match(blocked, /`ship:` map[^\n]*stays `merge`/);
+  assert.match(blocked, /changes it to `pr` or `plan` by hand in `openspec\/config\.yaml`/);
+  assert.match(blocked, /never rewrites a `ship:` map already present/);
+});
+
+// Invariant: an old project's configuration, settings and schemas run /devkit change with no setup step, and the change's
+// readout reads. Layer: startMode, open and flow-check on the old-setup fixture. Suite: guard. Passes on the base: old projects
+// already work, and it guards the later tasks.
+test('setup AC-8 old project: the configuration the old skill wrote opens a change with no setup step and its readout reads', () => {
+  const fixture = join(here, '..', 'skills', 'devkit', 'scripts', 'fixtures', 'old-setup');
+  const config = readFileSync(join(fixture, 'config.yaml'), 'utf8');
+  assert.equal(/^devkit:/m.test(config), false, 'every line of its devkit example is a comment');
+  // roundRepo copies the pack's schemas into openspec/schemas, as install-schemas.sh does.
+  const t = roundRepo({ roadmap: '# Roadmap\n', config, files: { '.claude/settings.json': readFileSync(join(fixture, 'settings.json'), 'utf8') } });
+  const start = startRun(t.main, 'change add an export');
+  assert.equal(start.code, 0, start.stdout + start.stderr);
+  assert.deepEqual([startBody(start).mode, startBody(start).settings.driver], ['new', 'claude']);
+  const opened = openRun(t.main, 'add-an-export', { script: 'devkit-lite', why: 'small', request: 'add an export\n' });
+  assert.equal(opened.code, 0, opened.stdout + opened.stderr);
+  const readout = spawnSync(process.execPath, [join(here, 'flow-check.mjs'), 'add-an-export', '--lang', 'en'], { cwd: join(t.main, '.claude', 'worktrees', 'add-an-export'), env: { ...process.env, ...clean }, encoding: 'utf8' });
+  // A change just opened waits for the owner's grill: the readout exits 1 (3 is the checker's error), with no error line.
+  assert.equal(readout.status, 1, readout.stdout + readout.stderr);
+  assert.equal(readout.stderr, '');
+  assert.ok(readout.stdout.startsWith('Change add-an-export (devkit-lite script)\n'), readout.stdout);
+  assert.match(readout.stdout, /^ +1 +Open the change +passed$/m);
+});
+
+// Invariant: step 5 writes outside the block only what `fill` names, and the block only through the block writer, so a re-run
+// with nothing to fill writes nothing. Layer: skill text (step 5). Suite: guard.
+test('setup AC-4 skill: step 5 writes schema, context, rules and operations only where fill names them, and the block only through setup-block.mjs apply', () => {
+  const step = skillPart('5. **Write `openspec/config.yaml`.**', '6. **Check.**');
+  assert.ok(step.includes('node <skill-dir>/scripts/setup-block.mjs plan <project-root> --json'), 'the plan first');
+  assert.ok(step.includes('Every part of `openspec/config.yaml` that `fill` does not name stays as it is: a re-run with an empty `fill` and nothing `missing` writes nothing.'), 'the pinned sentence');
+  for (const part of ['`schema` in `fill`', '`context` in `fill`', '`rules` or `operations` in `fill`']) assert.ok(step.includes(part), part); // D-7's wording
+  assert.ok(step.includes("node <skill-dir>/scripts/setup-block.mjs apply <project-root> <<'DEVKIT_SETUP'"), 'apply through the quoted heredoc');
+  assert.match(step, /the `devkit:` block, the `ship:` map and `merge_method` only through `setup-block\.mjs apply`/);
+  assert.match(step, /`kept`/);
+  for (const old of [/set `schema: devkit-lite` as the default/, /merge in only the missing/, /Fill `context` from the repo/]) assert.doesNotMatch(step, old);
+});
+
+// Invariant: ADR 0026, whose Decision names the suite's folders, records that this change moved two of them: a dated Note naming
+// the new folders and the Amended-by line, ADR <n> (this change's record, its number taken from its file name, as task 6.7 does)
+// naming ADR 0026 in its Amends line, and the ADR list of openspec/config.yaml saying so. Layer: the repository's records.
+// Suite: guard.
+test('setup AC-2 records: ADR 0026 notes the two moved suite folders and is amended by the setup record', () => {
+  const root = join(here, '..', '..', '..');
+  const dir = join(root, 'docs', 'adr');
+  const record = readdirSync(dir).filter((f) => f.endsWith('-one-setup-verb-replaces-the-two-setup-skills.md'));
+  assert.equal(record.length, 1, 'one setup record');
+  const n = record[0].slice(0, 4);
+  const adr26 = readFileSync(join(dir, '0026-the-devkit-test-suite-runs-by-file-in-parallel.md'), 'utf8');
+  const header = adr26.split('\n## Context')[0];
+  assert.ok(header.split('\n').includes(`- Amended by ADR ${n} (${record[0]})`), 'ADR 0026 has the Amended-by line in its header');
+  const note = adr26.split('\n').filter((line) => line.startsWith('Note (project-setup, 2026-11-24)'));
+  assert.equal(note.length, 1, 'one project-setup Note');
+  for (const folder of ['plugins/openspec/skills/devkit/scripts/', 'plugins/compozy/kit/scripts/', `ADR ${n}`]) assert.ok(note[0].includes(folder), folder);
+  const amends = readFileSync(join(dir, record[0]), 'utf8').split('\n## Context')[0];
+  assert.match(amends, /ADR 0026\s+\(0026-the-devkit-test-suite-runs-by-file-in-parallel\.md\)/, 'the setup record amends ADR 0026');
+  assert.ok(readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8').includes(`0026 the devkit test suite runs by file in parallel, each file in its own temporary folder, amended by ${n};`),
+    'the ADR list of openspec/config.yaml');
+});
+
+// Invariant: outside the history (records, past changelog entries, change folders, train records), the two fixture folders that
+// hold a past commit's bytes and the canonical requirement blocks this change's delta MODIFIES, no file of the working tree
+// names a removed setup skill, and neither skill folder exists. Layer: the repository's files (working tree, never git history).
+// Suite: guard. The names are built by concatenation so that this file names neither (project-setup D-9, N-10).
+test('setup AC-2 tree: no file outside the history names the removed setup skills, and neither skill folder exists', () => {
+  const root = join(here, '..', '..', '..');
+  const removed = ['openspec' + '-setup', 'compozy' + '-setup'];
+  assert.equal(existsSync(join(root, 'plugins', 'openspec', 'skills', removed[0])), false, 'the OpenSpec setup skill folder is gone');
+  assert.equal(existsSync(join(root, 'plugins', 'compozy', 'skills', removed[1])), false, 'the kit setup skill folder is gone');
+  // D-9 point 1, history; point 2, the two fixture folders that hold a past commit's bytes.
+  const skipped = [/^\.git\//, /(^|\/)node_modules\//, /^docs\/adr\//, /^openspec\/changes\//, /^openspec\/trains\//, /^CHANGELOG\.md$/,
+    /^plugins\/openspec\/skills\/devkit\/scripts\/fixtures\/old-setup\//, /^plugins\/openspec\/hooks\/fixtures\/c561553\//];
+  // D-9 point 3: the delta's MODIFIED headers, read from the change folder or, once archived, from its archive folder.
+  const changes = join(root, 'openspec', 'changes');
+  const archive = join(changes, 'archive');
+  const archived = existsSync(archive) ? readdirSync(archive).filter((d) => d.endsWith('-project-setup')) : [];
+  const deltaDir = existsSync(join(changes, 'project-setup')) ? join(changes, 'project-setup') : archived.length ? join(archive, archived[0]) : null;
+  const modified = (capability) => {
+    const file = deltaDir && join(deltaDir, 'specs', capability, 'spec.md');
+    if (!file || !existsSync(file)) return new Set();
+    const text = readFileSync(file, 'utf8');
+    const at = text.indexOf('## MODIFIED Requirements');
+    if (at === -1) return new Set();
+    const next = text.indexOf('\n## ', at + 1);
+    const section = text.slice(at, next === -1 ? undefined : next);
+    return new Set([...section.matchAll(/^### Requirement: (.+)$/gm)].map((m) => m[1].trim()));
+  };
+  const blocks = new Map(['project-setup', 'compozy-kit-setup'].map((c) => [`openspec/specs/${c}/spec.md`, modified(c)]));
+  const listed = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  assert.equal(listed.status, 0, listed.stderr);
+  const stray = [];
+  for (const f of listed.stdout.split('\0').filter(Boolean)) {
+    if (skipped.some((r) => r.test(f)) || !existsSync(join(root, f))) continue;
+    let text;
+    try { text = readFileSync(join(root, f), 'utf8'); } catch { continue; } // a folder (a nested repository) is not a file
+    if (text.includes('\0')) continue;
+    const headers = blocks.get(f);
+    let inSkipped = false;
+    text.split('\n').forEach((line, i) => {
+      if (headers) {
+        const req = /^### Requirement: (.+)$/.exec(line);
+        if (req) inSkipped = headers.has(req[1].trim());
+        else if (/^## /.test(line)) inSkipped = false;
+        if (inSkipped) return;
+      }
+      if (removed.some((name) => line.includes(name))) stray.push(`${f}:${i + 1}: ${line.trim().slice(0, 120)}`);
+    });
+  }
+  assert.deepEqual(stray, [], 'no file outside the history names a removed setup skill');
 });

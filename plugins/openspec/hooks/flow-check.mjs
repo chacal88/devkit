@@ -7,8 +7,8 @@ import { dirname, join, relative, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader, FlowUsageError, readFlow, readFlowFile, FLOW_LANGS, changeFlow, changeSchemaAt, parseDevkitBlock, budgetValue, spendOf, spendSources, spendLines } from './guard.mjs';
-import { gitFacts, staleness, ownFiles, stalenessBase, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads, trainFacts, isDevkitScript, releaseEditOf, namesReleaseTag, RELEASE_NOTE } from './deliver-check.mjs';
+import { findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader, FlowUsageError, readFlow, readFlowFile, FLOW_LANGS, changeFlow, changeSchemaAt, parseDevkitBlock, changeDevkitBlock, budgetValue, spendOf, spendSources, spendLines } from './guard.mjs';
+import { gitFacts, staleness, ownFiles, stalenessBase, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads, trainFacts, isDevkitScript, releaseEditOf, namesReleaseTag, RELEASE_NOTE, authorizedRounds, approvalState, planRevision, headInBase } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
 // The flow file reader and its error live in guard.mjs (the CI job downloads that file, not this one); one reader, re-exported.
@@ -129,7 +129,7 @@ export function readTestSettings(root) {
   const paths = {};
   const open = [];
   let inBlock = false;
-  for (const line of text.split('\n')) {
+  for (const line of text.split(/\r?\n/)) {
     if (/^devkit:\s*(#.*)?\r?$/.test(line)) { inBlock = true; open.length = 0; continue; }
     if (!inBlock) continue;
     if (line.trim() === '' || /^\s*#/.test(line)) continue;
@@ -315,8 +315,10 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   const files = {};
   for (const s of flow.stages) if (s.source === 'artifact') files[s.id] = stageFiles(located.dir, s.file);
   Object.assign(facts, { files, noteFiles: noteFilesOf(root, located.dir), opened: existsSync(join(located.dir, '.openspec.yaml')), skipped: [], tasks: null, dirty: [], head: null,
-    flags: classificationFlags(located.dir), settings: readTestSettings(root).paths,
+    flags: classificationFlags(located.dir), authorizedReviewRounds: authorizedRounds(located.dir, 'review'), settings: readTestSettings(root).paths,
     flowVersion: { version: followed.version, installed: followed.installed, pinned: followed.pinned } });
+  // The owner's approval and the plan it records, for a flow that declares the approval (D-7).
+  if (flow.stages.some((s) => s.id === 'approval')) Object.assign(facts, { approvalOk: approvalState(located.dir).ok, planRevision: planRevision(located.dir) });
   if (isPreviousScript(files, flow)) return { facts, flow };
   let config;
   try { config = deliveryConfig(root, schema); } catch (e) {
@@ -335,7 +337,8 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   let testLookup = null;
   const twoPrs = two ? { base: config.base, testBranch: config.testBranch, testPr: () => (testLookup ??= findTestPr(gh, { id, testBranch: config.testBranch })) } : null;
   const histories = new Map(); // the earlier headers of a stage file, read once and only for a failed stage (design D-1)
-  const postMerge = config.ship !== 'plan' && offOwnBranch(root, id, branch) && delivery().delivered;
+  // Also on the change's own branch once it was advanced into the base after the merge (coordinator-loop-fixes D-21).
+  const postMerge = config.ship !== 'plan' && (offOwnBranch(root, id, branch) || headInBase(root, gf)) && delivery().delivered;
   Object.assign(facts, {
     head: gf.head, dirty: gf.dirty, fingerprint: fingerprint(root, gf.head), postMerge,
     staleness: (sha) => (postMerge ? null : sha === 'none' ? 'the header records no commit' : staleness(root, { sha, uncommitted: false }, gf, { own: ownFiles(root, id, gf), release: releaseEditOf(root, id, gf) })),
@@ -383,6 +386,7 @@ export const TEXT = {
     'header-failed': (p) => `failed at attempt ${p.attempt}; failures in a row: ${p.failures} of ${p.ceiling}`,
     'stale-code': (p) => `the code changed since it ran (${p.why})`,
     'stale-plan': (p, n) => `${nameOf(n, p.by)} changed after it`,
+    'plan-revised': () => 'the plan changed after the owner approved it',
     'stale-reviewers': (p) => `the reviews of ${p.names.join(', ')} are stale`,
     'tasks-pending': (p) => `${p.count} task${p.count === 1 ? '' : 's'} pending (${p.ids.join(', ')})`,
     uncommitted: (p) => `code changed and is not committed (${p.paths.join(', ')})`,
@@ -405,7 +409,7 @@ export const TEXT = {
     archive: () => 'every stage passed; the change is archived with openspec archive',
     archived: () => 'the change is archived',
     'previous-script': () => 'the change began under the previous script: its files carry no stage header',
-    'schema-without-declaration': () => 'the schema has no flow.json: the project has not re-run openspec-setup',
+    'schema-without-declaration': () => 'the schema has no flow.json: the project has not re-run /devkit setup',
     'ship-plan': () => 'the owner opens and merges the pull request',
     'gh-error': (p) => `GitHub cannot be read: ${p.error}`,
     'no-pr': () => 'there is no pull request for this change yet',
@@ -440,6 +444,7 @@ export const TEXT = {
     'header-failed': (p) => `falhou na tentativa ${p.attempt}; falhas seguidas: ${p.failures} de ${p.ceiling}`,
     'stale-code': (p) => `o código mudou desde que ela rodou (${p.why})`,
     'stale-plan': (p, n) => `${nameOf(n, p.by)} mudou depois dela`,
+    'plan-revised': () => 'o plano mudou depois que o dono o aprovou',
     'stale-reviewers': (p) => `as revisões de ${p.names.join(', ')} estão desatualizadas`,
     'tasks-pending': (p) => `${p.count} ${p.count === 1 ? 'tarefa pendente' : 'tarefas pendentes'} (${p.ids.join(', ')})`,
     uncommitted: (p) => `há código alterado e não commitado (${p.paths.join(', ')})`,
@@ -462,7 +467,7 @@ export const TEXT = {
     archive: () => 'todas as etapas passaram; a change é arquivada com openspec archive',
     archived: () => 'a change está arquivada',
     'previous-script': () => 'a change começou no roteiro anterior: os arquivos dela não têm o cabeçalho de etapa',
-    'schema-without-declaration': () => 'o schema não tem flow.json: o projeto ainda não rodou openspec-setup de novo',
+    'schema-without-declaration': () => 'o schema não tem flow.json: o projeto ainda não rodou /devkit setup de novo',
     'ship-plan': () => 'o dono abre e mescla o pull request',
     'gh-error': (p) => `não foi possível ler o GitHub: ${p.error}`,
     'no-pr': () => 'ainda não há pull request desta change',
@@ -560,7 +565,12 @@ function artifactState(stage, files, facts, flow, started) {
       if (mine !== null && other !== null && other - mine > FRESH_MS) { stale = { code: 'stale-plan', params: { by: a } }; break; }
     }
   }
-  const ceiling = stage.ceiling === 'owner' ? null : stage.ceiling ?? flow.ceilings.default;
+  // Once the work has started, a plan file edited after the owner approved the plan (the approval records its digest) makes
+  // the readiness stale (coordinator-loop-fixes D-7); a tick or a later stage file is no plan edit.
+  if (!stale && started && !facts.postMerge && stage.id === 'readiness' && facts.approvalOk && facts.planRevision?.changed) {
+    stale = { code: 'plan-revised', params: {} };
+  }
+  const ceiling = ceilingOf(stage, flow, facts);
   if (result === 'failed' && stage.ceiling === 'owner') return out('failed', 'changes-asked', { attempt: h.attempt }, info);
   if (result === 'failed') {
     // The failures in a row since the stage file last passed, from git (design D-1, D-3); a facts with no history counts none earlier.
@@ -570,6 +580,15 @@ function artifactState(stage, files, facts, flow, started) {
   }
   if (stale) return out('stale', stale.code, stale.params, info);
   return out('passed', 'passed', { attempt: h.attempt }, info);
+}
+
+// The attempt ceiling of `stage` (coordinator-loop-fixes D-4): null for a stage the owner ends; else its own ceiling or the flow's
+// default, and for the code review (the `review` stage of role `review-bench`) one more per review round the owner authorized
+// (`facts.authorizedReviewRounds`, 0 when absent). No other stage, and no review of another role, is lifted.
+export function ceilingOf(stage, flow, facts) {
+  if (stage.ceiling === 'owner') return null;
+  const lifted = stage.id === 'review' && stage.role === 'review-bench' ? facts?.authorizedReviewRounds ?? 0 : 0;
+  return (stage.ceiling ?? flow.ceilings.default) + lifted;
 }
 
 function tasksState(facts) {
@@ -616,7 +635,6 @@ export function computeFlow(facts, flow, { after = null } = {}) {
     return artifactState(s, facts.files[s.id] ?? [], facts, flow, started);
   });
   const settled = (r) => r.state === 'passed' || r.state === 'not-applicable';
-  const ceilingOf = (s) => s.ceiling ?? flow.ceilings.default;
 
   // The current stage: the first that is not settled. The delivery is read only when reached.
   let cur = -1;
@@ -684,7 +702,7 @@ export function computeFlow(facts, flow, { after = null } = {}) {
   if (raw.state === 'failed') {
     // The owner ends the attempts of a stage declared `ceiling: "owner"`: it is drawn again, never blocked by a number.
     if (s.ceiling === 'owner') return offer(s.id, 'owner-changes', { stage: s.id, attempt: raw.attempt });
-    const ceiling = ceilingOf(s);
+    const ceiling = ceilingOf(s, flow, facts);
     if (raw.failures >= ceiling) return finishEnd('blocked', s.id, 'ceiling-reached', { stage: s.id, attempt: raw.attempt, failures: raw.failures, ceiling });
     if (raw.fixed) return offer(s.id, 'rerun-after-fix', { stage: s.id });
     return offer(s.onFail ?? s.id, 'fix-after-failure', { failed: s.id, attempt: raw.attempt, failures: raw.failures, ceiling });
@@ -765,12 +783,13 @@ export function renderText(report, flow, lang = 'pt-BR') {
 
 // ---------------------------------------------------------------- the spend block (stage-models D-7)
 
-// The token cap of change `id`: its own `budget:`, else the project's; null when none is set or the value is no cap (a file that cannot
-// be read and an invalid value show no cap here: the loop's own `next` is what refuses them).
+// The token cap of change `id`: its own `budget:` (its `x-devkit:` block, else its `devkit:` block: `changeDevkitBlock`,
+// coordinator-loop-fixes D-22), else the project's; null when none is set or the value is no cap (a file that cannot be read and an
+// invalid value show no cap here: the loop's own `next` is what refuses them).
 function capOf(root, id) {
-  const budgetIn = (file) => { try { return budgetValue(parseDevkitBlock(readFileSync(file, 'utf8')).budget); } catch { return null; } };
+  const budgetIn = (file, parse) => { try { return budgetValue(parse(readFileSync(file, 'utf8')).budget); } catch { return null; } };
   const dir = locateChange(root, id)?.dir ?? join(root, 'openspec', 'changes', id);
-  const picked = budgetIn(join(dir, '.openspec.yaml')) ?? budgetIn(join(root, 'openspec', 'config.yaml'));
+  const picked = budgetIn(join(dir, '.openspec.yaml'), changeDevkitBlock) ?? budgetIn(join(root, 'openspec', 'config.yaml'), parseDevkitBlock);
   return picked?.cap ?? null;
 }
 

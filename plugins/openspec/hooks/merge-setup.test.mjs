@@ -27,7 +27,7 @@ test('constants: the check name, the workflow path, the ruleset name and the met
 
 const files = {
   'this repository': join(repoRoot, WORKFLOW_PATH),
-  'the setup template': join(repoRoot, 'plugins', 'openspec', 'skills', 'openspec-setup', 'templates', 'devkit-reviews.yml'),
+  'the setup template': join(repoRoot, 'plugins', 'openspec', 'skills', 'devkit', 'templates', 'devkit-reviews.yml'),
 };
 const read = (label) => {
   assert.ok(existsSync(files[label]), `${label}: ${files[label]} exists`);
@@ -75,7 +75,7 @@ test('workflow (the setup template): downloads the checker from chacal88/devkit/
 
 // ---------------------------------------------------------------- the preflight (design D4, AC-6, AC-8)
 
-const POINTER = '; run the openspec-setup skill (GitHub step) to configure it';
+const POINTER = '; run the GitHub step of /devkit setup to configure it';
 const K = {
   repo: 'api-GET-repos__owner___repo_',
   rules: (b = 'main') => `api-GET-repos__owner___repo__rules_branches_${b}`,
@@ -106,7 +106,7 @@ test('mergeSetup: all four facts met is ok, with the default branch and the exac
   ]);
 });
 
-test('mergeSetup: each fact missing alone is listed with its exact text and the openspec-setup pointer (AC-6)', () => {
+test('mergeSetup: each fact missing alone is listed with its exact text and the /devkit setup pointer (AC-6)', () => {
   const cases = [
     [{ repo: { allow_auto_merge: false } }, 'auto-merge is not allowed (allow_auto_merge)'],
     [{ rules: [] }, 'no active rule requires the devkit-reviews check on main'],

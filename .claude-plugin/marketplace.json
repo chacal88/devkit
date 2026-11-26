@@ -6,21 +6,21 @@
   },
   "metadata": {
     "description": "Reusable Claude Code agents, skills and an OpenSpec-based workflow, split into packs you install per project.",
-    "version": "0.52.2"
+    "version": "0.54.0"
   },
   "plugins": [
     {
       "name": "devkit-core",
       "source": "./plugins/core",
       "description": "Stack-agnostic dev workflow: research, plan, implement, review, ship, debug and test.",
-      "version": "0.16.3",
+      "version": "0.17.0",
       "category": "development"
     },
     {
       "name": "devkit-openspec",
       "source": "./plugins/openspec",
       "description": "Runs the devkit flow on top of OpenSpec: the devkit and devkit-lite schemas (grill → plan → readiness → TDD → evidence → review) and hooks that keep product code closed until readiness is APPROVED and refuse a PR without an approved review and evidence, and flow-check, which reads each stage file's header and says which stage passed and which comes next, and `/devkit change`, which runs one change as a loop over the checker, with locks that keep it from stopping early or writing code, and `/devkit roadmap`, which runs the roadmap's ready changes, several at once, with `/devkit status`, and `/devkit project`, which defines a project or one slice of it in the devkit-project schema.",
-      "version": "0.47.2",
+      "version": "0.49.0",
       "category": "development"
     },
     {
@@ -54,8 +54,8 @@
     {
       "name": "devkit-compozy",
       "source": "./plugins/compozy",
-      "description": "Ships the CompozyOS driver of the devkit flow: one agent per devkit role and three loops (a change, its review round and a roadmap), installed into any project by compozy-setup.",
-      "version": "0.4.0",
+      "description": "Ships the CompozyOS driver of the devkit flow: one agent per devkit role and three loops (a change, its review round and a roadmap), installed into a project by `/devkit setup`.",
+      "version": "0.6.0",
       "category": "development"
     }
   ]

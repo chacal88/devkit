@@ -1,0 +1,46 @@
+devkit-run: feat
+devkit-end: feat blocked
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit-lite",
+  "root": "<scratch>/proj/.claude/worktrees/feat",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "end",
+  "stage": "review",
+  "stageTitle": "Code review",
+  "role": "review-bench",
+  "skills": [
+    "review-change"
+  ],
+  "model": "sonnet",
+  "end": {
+    "state": "blocked",
+    "why": "ceiling"
+  },
+  "params": {
+    "id": "feat",
+    "why": "ceiling",
+    "stage": "Code review",
+    "attempt": 2,
+    "failures": 2,
+    "error": ""
+  },
+  "reply": "The change feat stopped: the code review reached its limit of failures in a row (2). Nothing more runs until this is sorted out.",
+  "icon": "🔍",
+  "state": {
+    "state": "blocked",
+    "reason": {
+      "code": "ceiling",
+      "text": "the code review reached its limit of failures in a row (2)"
+    },
+    "stage": "review",
+    "stageTitle": "Code review",
+    "phase": null,
+    "stageIcon": "🔍",
+    "stateIcon": "⛔",
+    "title": "⛔ 🔍 feat"
+  },
+  "sessionTitle": "⛔ 🔍 feat"
+}

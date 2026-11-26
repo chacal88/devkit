@@ -541,6 +541,7 @@ test('roadmap-loop replies: every owner wait has a gate', () => {
     'waiting-archive-merge': 'merge', 'waiting-pr-decision': 'decision', 'waiting-review-dispute': 'dispute',
     'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup', 'waiting-budget': 'budget',
     'waiting-merge-test-branch': 'merge', 'waiting-merge-base': 'merge', 'waiting-archive-merges': 'merge', 'waiting-train': 'train',
+    'waiting-pause': 'pause', 'waiting-owner-decision': 'decision',
   };
   const waits = Object.keys(MESSAGES.en).filter((k) => k.startsWith('waiting-') && k !== 'waiting-github' && k !== 'waiting-place');
   assert.deepEqual([...waits].sort(), Object.keys(expected).sort(), 'every waiting- key of the table is covered');
@@ -745,7 +746,7 @@ test('roadmap-loop start: roadmap and status are routed', () => {
   for (const [verb, round] of [['help', 23]]) assert.equal(JSON.parse(startRun(root, verb).stdout).reply, render('en', 'verb-not-built', { verb, round }));
   assert.notEqual(JSON.parse(startRun(root, 'project').stdout).mode, 'not-built', 'project leaves the not-built row');
   assert.match(render('en', 'verb-unknown'), /\/devkit change.*\/devkit roadmap.*\/devkit status.*\/devkit project/);
-  assert.match(render('pt-BR', 'verb-unknown'), /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit project e \/devkit train/);
+  assert.match(render('pt-BR', 'verb-unknown'), /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit setup, \/devkit project e \/devkit train/);
   assert.equal(JSON.parse(startRun(root, 'frobnicate', 'pt-BR').stdout).reply, render('pt-BR', 'verb-unknown'));
   assert.equal(picture(root), before, 'start creates nothing');
 });

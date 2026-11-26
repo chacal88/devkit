@@ -4,8 +4,11 @@
 - Accepted by: the owner, on 2026-11-23, in the message that approved the plan of the change: `Aprovo o plano`; recorded in `openspec/changes/suite-speed/approval.md`
 - Date: 2026-11-23
 - Change: suite-speed
+- Amended by ADR 0031 (0031-one-setup-verb-replaces-the-two-setup-skills.md)
 
 ## Context
+
+Note (project-setup, 2026-11-24): the two setup skills are gone ([ADR 0031](0031-one-setup-verb-replaces-the-two-setup-skills.md)) and their test files moved with their scripts, unchanged: the suite's folders that decisions 1 and 6 name as `plugins/openspec/skills/openspec-setup/scripts/` and `plugins/compozy/skills/compozy-setup/scripts/` now read `plugins/openspec/skills/devkit/scripts/` and `plugins/compozy/kit/scripts/`. The suite runs the same files and the same tests. The Decision is otherwise unchanged.
 
 The repository's test command, `node --test plugins/openspec/hooks/guard.test.mjs`, is a contract:
 `CLAUDE.md`, `CONTRIBUTING.md`, `plugins/openspec/README.md`, CI's `check` job (which ADR 0002 and

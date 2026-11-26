@@ -185,7 +185,7 @@ exists since round 15), the roadmap coordinator in round 18; the second pull req
 | 9 | Unit tests | `test-runner` (built, round 16); `test-and-coverage`, `systematic-debugging` | the whole suite and its coverage | suite green, coverage within the project's target |
 | 10 | E2E tests, only where the project has E2E configured | `e2e-tester` (built, round 16), skill `e2e-testing` (built, round 16) | E2E tests written from the acceptance criteria, apart from the implementer, and their result | green; it is a delivery condition |
 | 11 | Demonstration | `pr-verifier` (built, round 16) | `evidence.md`, as text, inside the change: per acceptance criterion, what the agent did, what it observed and whether it passed | every criterion demonstrated and recorded |
-| 12 | Code review | the six reviewers, `finding-verifier` x3; `review-change` | `reviews/*.md`, `review.md` | consensus; two rounds at most |
+| 12 | Code review | the six reviewers, `finding-verifier` x3; `review-change` | `reviews/*.md`, `review.md` | consensus; two rounds, one more for each the owner authorizes ([ADR 0032](adr/0032-the-loop-declares-the-decisions-outside-the-stage-gates.md)) |
 | 13 | Delivery | `commit-and-pr`; `commit-message-guidelines` | commit, push, the pull request to the base of the delivery model (in the two-PR model, both pull requests open together) | GitHub checks green and the merge the model defines |
 | 14 | Second pull request, two-PR model only (built, round 17) | `commit-and-pr` | the pull request from the same branch to `master`, opened together with the one to `develop` | the owner merges the one to `develop` first; the check on the one to `master` then turns green; the owner merges it |
 | 15 | Retro and archive | change coordinator with the owner; `retro` | `retro.md`, `openspec archive`, the roadmap line ticked | the owner answered each proposal |
@@ -423,10 +423,10 @@ devkit:
 `devkit.tests.e2e`. Decided by `delivery-models` (round 17): `devkit.delivery.model` (`two-prs`, `trunk` or
 `trunk-auto`), `devkit.delivery.base` and `devkit.delivery.test_branch`. The other fields stay proposed,
 for round 20. `devkit.budget` (a whole number of tokens, the
-cap of a `/devkit change` run), and its override in a change's own `.openspec.yaml`, are final too, decided by
+cap of a `/devkit change` run), and its override in a change's own `.openspec.yaml` (its `x-devkit:` block), are final too, decided by
 `change-budget` on 2026-11-22.
 `devkit.models` (a table from a stage id to a model, built-in default per stage), and its override in a change's own
-`.openspec.yaml`, is final, decided by `stage-models` on 2026-11-23.
+`.openspec.yaml` (its `x-devkit:` block), is final, decided by `stage-models` on 2026-11-23.
 Decided by `jira-entry` on 2026-11-22: the task source needs no field; the key or link typed names it.
 
 
@@ -552,14 +552,10 @@ The points still to prove are proved together, in one live test session, when th
 
 Every item nobody has decided yet. The command names, the role names, holding a start while the
 machine is loaded (and how the load is measured, answered by the change `roadmap-coordinator` on 2026-11-21, section 2), writing back to Jira, small work and the roadmap, and the lean pull-request
-template were answered on 2026-11-19 and are recorded in their sections; the header's field names were answered by the change `flow-script-checker`; what to do when the task branch conflicts with `develop` was answered by the change `delivery-models` on 2026-11-21 (section 5); and four points were answered by the change `change-coordinator` on 2026-11-20: the ADR 0007 rules the change coordinator keeps, the configuration's field names, how it waits on GitHub and how the two roles called `tech-lead` are told apart (sections 2, 8 and 10); and whether CompozyOS can choose the role at each turn was answered by the change `compozy-driver` on 2026-11-23 (section 10).
+template were answered on 2026-11-19 and are recorded in their sections; the header's field names were answered by the change `flow-script-checker`; what to do when the task branch conflicts with `develop` was answered by the change `delivery-models` on 2026-11-21 (section 5); and four points were answered by the change `change-coordinator` on 2026-11-20: the ADR 0007 rules the change coordinator keeps, the configuration's field names, how it waits on GitHub and how the two roles called `tech-lead` are told apart (sections 2, 8 and 10); and whether CompozyOS can choose the role at each turn was answered by the change `compozy-driver` on 2026-11-23 (section 10); and project setup was answered by the change `project-setup` on 2026-11-24: one verb, `/devkit setup`, with no checker copied into the project (the version pin and the schemas are what lives under its `openspec/`).
 
 - Whether the review stage keeps the Workflow path in the Claude driver (ADR 0008, ADR 0010).
 - The script driver for an AI other than Claude (section 10).
-- Project setup (proposed; to be built in round 26): one setup step per project writes the `devkit:`
-  block of `openspec/config.yaml` (driver, language of the files, delivery model, test commands, task
-  source), installs the schemas and the checker under the project's `openspec/` and wires the chosen
-  driver. It replaces what `openspec-setup` and `compozy-setup` do today.
 
 ## What stays shipped until its round
 

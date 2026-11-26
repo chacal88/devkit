@@ -19,7 +19,9 @@
 //    approve it:
 //      readiness.md              plan-readiness-reviewer
 //      reviews/<reviewer>.md     that reviewer
-//      evidence.md               pr-verifier
+//      evidence.md, proof/       pr-verifier (proof/: the output of the runs it records, coordinator-loop-fixes D-8)
+//      approval.md               the main session (any change's folder)
+//      declared.json             the main session (any change's folder), through change-loop.mjs declare
 //      product code              tdd-implementer (devkit schema, once approved)
 //      decision records          adr-author (a Markdown file in a folder named adr, adrs or decisions)
 //      test files                e2e-tester (devkit schema, once approved; a test folder or a test file name)
@@ -27,7 +29,8 @@
 //    "- Status: APPROVED"; `gh pr create` needs every review in reviews/ to be
 //    approved (code-quality-reviewer and test-coverage-reviewer at least) and an
 //    evidence.md.
-// 3. Destructive git is refused.
+// 3. Destructive git is refused, and so is `node ... change-loop.mjs declare` run by a subagent:
+//    the steps it records are the main session's (coordinator-loop-fixes D-1).
 // 4. A `/devkit change` run (the newest slash command typed in the session, and the
 //    `devkit-run: <id>` line the loop printed after it, both read from the transcript):
 //    the session itself writes no product code, hands work only to the script's roles,
@@ -112,15 +115,18 @@ const DELIVERY_KEYS = ['model', 'base', 'test_branch', 'train'];
 // not set, or empty, is undefined; a key nested under `delivery:` or `models:` never sets `driver`, `language`, `budget` or
 // `release_tag`; an entry nested deeper than the table is ignored; other keys of the block are ignored. `trainUnclosed` is set
 // (delivery-train D-1) when the raw value of `train` opens a quote it never closes, which `plainValue` would read as the rest of the line.
-export function parseDevkitBlock(text) {
+// `key` names the line that opens the block (coordinator-loop-fixes D-22): `devkit` by default, which every reader of openspec/config.yaml
+// uses; `x-devkit` for a change's own block (`changeDevkitBlock`).
+export function parseDevkitBlock(text, key = 'devkit') {
   const block = { driver: undefined, language: undefined, budget: undefined, release_tag: undefined, delivery: { model: undefined, base: undefined, test_branch: undefined }, models: new Map() };
+  const opening = new RegExp(`^${key}:\\s*(#.*)?\\r?$`);
   let inBlock = false;
   let indent = null;
   let inDelivery = false;
   let inModels = false;
   let modelsIndent = null;
-  for (const line of String(text).split('\n')) {
-    if (/^devkit:\s*(#.*)?\r?$/.test(line)) { inBlock = true; continue; }
+  for (const line of String(text).split(/\r?\n/)) {
+    if (opening.test(line)) { inBlock = true; continue; }
     if (!inBlock) continue;
     if (line.trim() === '' || /^\s*#/.test(line)) continue;
     if (!/^\s/.test(line)) { inBlock = false; continue; }
@@ -146,6 +152,13 @@ export function parseDevkitBlock(text) {
     if (m[2] === 'driver' || m[2] === 'language' || m[2] === 'budget' || m[2] === 'release_tag') block[m[2]] = value;
   }
   return block;
+}
+
+// The settings of a change's own `.openspec.yaml` (coordinator-loop-fixes D-22): its `x-devkit:` block when the file has a top-level
+// `x-devkit:` line, else its `devkit:` block, which a change written before keeps (the strict validation of OpenSpec refuses that key,
+// and accepts one that starts with `x-`). A file is read from one block only; the flat `x-devkit-*` keys open none.
+export function changeDevkitBlock(text) {
+  return /^x-devkit:\s*(#.*)?\r?$/m.test(String(text)) ? parseDevkitBlock(text, 'x-devkit') : parseDevkitBlock(text);
 }
 
 // A path from the repository root to a JSON file (release-tags D-1): every segment is made of letters, digits, `.`, `_` and `-`
@@ -547,7 +560,7 @@ export function changeFlow(root, dir) {
     const rel = kept ? relative(root, kept) : '';
     const shown = kept ? (rel.startsWith('..') ? kept : rel) : `openspec/schemas/${schema}/flows/${want}.json`;
     if (!kept || !existsSync(kept)) {
-      throw new FlowUsageError(`${basename(dir)} follows flow ${want} of the ${schema} script, and this checkout has no ${shown}: re-run openspec-setup with a devkit-openspec that ships it`);
+      throw new FlowUsageError(`${basename(dir)} follows flow ${want} of the ${schema} script, and this checkout has no ${shown}: re-run /devkit setup with a devkit-openspec that ships it`);
     }
     flow = readFlowFile(kept, `${schema} flow ${want}`);
     if (flow.version !== want) throw new FlowUsageError(`${shown} declares version ${flow.version}, not ${want}`);
@@ -617,6 +630,8 @@ export function classify(root, change, file) {
   if (parts[0] !== 'openspec') return { kind: 'code' };
   // approval.md is main-session only wherever it sits: any change's folder, whatever the active change is.
   if (parts[1] === 'changes' && parts.length === 4 && parts[3] === 'approval.md') return { kind: 'gate', owner: '' };
+  // declared.json, the record of the declared steps, is main-session only the same way (coordinator-loop-fixes D-1).
+  if (parts[1] === 'changes' && parts.length === 4 && parts[3] === 'declared.json') return { kind: 'gate', owner: '' };
   // An archived slice's ADR verdict file belongs to its reviewer, wherever the active change is (as approval.md above).
   const archivedVerdict = parts[1] === 'changes' && parts[2] === 'archive' && parts.length === 6 && parts[4] === 'reviews'
     ? /^([\w-]+)\.md$/.exec(parts[5]) : null;
@@ -630,6 +645,13 @@ export function classify(root, change, file) {
   if (rv) return { kind: 'gate', owner: rv[1] };
   if (inner.startsWith('reviews/')) return { kind: 'gate', owner: '(a reviewer, as reviews/<its-name>.md)' };
   return { kind: 'planning' };
+}
+
+// True when `file` is under the change's proof/ folder, where pr-verifier writes the output of the runs it records (coordinator-loop-fixes D-8).
+export function inProofFolder(root, change, file) {
+  if (!change) return false;
+  const rel = relative(join(root, 'openspec', 'changes', change, 'proof'), isAbsolute(file) ? file : resolve(root, file));
+  return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
 }
 
 // A decision record: a Markdown file in a folder named adr, adrs or decisions, in any letter case (design stage-roles D-6).
@@ -658,14 +680,20 @@ function writeViolation(root, ch, actor, file) {
     return 'in a CompozyOS session approval.md is written only by the kit\'s record step, from the owner\'s answer';
   }
   if (c.kind === 'gate' && c.owner === '') {
-    return actor === '' ? null
-      : `approval.md is written only by the main session, from the owner's own message; not by ${who}`;
+    if (actor === '') return null;
+    const rel = relative(root, resolve(root, file));
+    const how = basename(rel) === 'declared.json' ? 'through change-loop.mjs declare' : 'from the owner\'s own message';
+    return `${rel} is written only by the main session, ${how}; not by ${who}`;
   }
   if (c.kind === 'gate') {
     return actor === c.owner ? null
       : `${relative(root, resolve(root, file))} is written only by the ${c.owner} agent, not by ${who}. Dispatch it with the Agent tool (subagent_type devkit-core:${c.owner}).`;
   }
-  if (REVIEWERS.includes(actor) || actor === 'plan-readiness-reviewer' || actor === 'pr-verifier') {
+  if (actor === 'pr-verifier' && inProofFolder(root, ch.name, file)) return null;
+  if (actor === 'pr-verifier') {
+    return `pr-verifier writes only evidence.md and the output of the runs it records under openspec/changes/${ch.name}/proof/, not ${relative(root, resolve(root, file))}.`;
+  }
+  if (REVIEWERS.includes(actor) || actor === 'plan-readiness-reviewer') {
     return `${who} only writes its own verdict file, not ${relative(root, resolve(root, file))}.`;
   }
   if (c.kind !== 'code') return null;
@@ -690,9 +718,9 @@ function writeViolation(root, ch, actor, file) {
 
 // ---------------------------------------------------------------- bash
 
-// The command with heredoc bodies and quoted strings removed, so text being
-// written to a file is not mistaken for a command.
-export function sanitize(cmd) {
+// The command with heredoc bodies removed and its quotes kept, so text being written to a file is not mistaken for a command
+// while a quoted path still is seen.
+export function withoutHeredocs(cmd) {
   let out = '';
   const lines = cmd.split('\n');
   for (let i = 0; i < lines.length; i++) {
@@ -703,7 +731,23 @@ export function sanitize(cmd) {
       i++; // the terminator line
     }
   }
-  return out.replace(/'[^']*'/g, "''").replace(/"(?:[^"\\]|\\.)*"/g, '""');
+  return out;
+}
+
+// The command with heredoc bodies and quoted strings removed, so text being
+// written to a file is not mistaken for a command.
+export function sanitize(cmd) {
+  return withoutHeredocs(cmd).replace(/'[^']*'/g, "''").replace(/"(?:[^"\\]|\\.)*"/g, '""');
+}
+
+// Why `actor` may not run the command `cmd` for `change-loop.mjs declare`, or null: the steps it records are the main session's
+// (coordinator-loop-fixes D-1), so a subagent's call is refused, wherever it runs. The quotes are kept, so a quoted plugin path is seen;
+// node's option words before the script (`--no-warnings`, `--`) are skipped.
+const DECLARE_CALL = /\bnode(?:\s+-[^\s;&|]*)*\s+(?:"[^"\n]*change-loop\.mjs"|'[^'\n]*change-loop\.mjs'|[^\s;&|]*change-loop\.mjs)\s+declare\b/;
+export function declareViolation(cmd, actor) {
+  if (actor === '') return null;
+  if (!DECLARE_CALL.test(withoutHeredocs(cmd))) return null;
+  return `change-loop.mjs declare is run only by the main session (a review round from the owner's own typed message, a red gate from its own gate run); not by ${actor}`;
 }
 
 // The command's segments (split on `&&`, `||`, `;` and newlines, quoted text
@@ -818,14 +862,14 @@ function prViolation(root, ch) {
 // The run a session is in, read from its transcript (`input.transcript_path`): { change, command, ended } when the newest
 // slash command typed in the session is `/devkit change ...` (bare or plugin-scoped) and a tool result carrying a
 // line `devkit-run: <id>` follows it (the newest such id is the run's change), else null. `ended` is the state of the
-// newest of the `devkit-run:` and `devkit-end: <id> <state>` lines after that command when it is an end line (printed
-// by the loop on an end, or by the session's own `reply` of an end key), else null: the run's last recorded action is
-// an end until a later `devkit-run:` line. Only lines of type `user`
+// newest `devkit-end: <id> <state>` line naming the run's change after its newest `devkit-run:` line (printed by the loop
+// on an end, or by the session's own `reply` of an end key), else null: the run's last recorded action is an end until a
+// later `devkit-run:` line, and an end line of another change leaves it as it was (coordinator-loop-fixes D-2). Only lines of type `user`
 // count: a typed command has a string `message.content`, the printed line sits in a `tool_result` block (or its
 // `toolUseResult.stdout`). The skill's own body (`isMeta`), the `api-request-*` lines and a sidechain are not read.
-// The run and end marker lines of a text, in order: { run } for `devkit-run: <id>`, { end } for `devkit-end: <id> <state>`.
-const runMarkers = (s) => [...String(s).matchAll(/^(?:devkit-run: ([A-Za-z0-9][\w.-]*)|devkit-end: [A-Za-z0-9][\w.-]* (archived|waiting-for-owner|waiting-on-github|blocked))[ \t]*\r?$/gm)]
-  .map((m) => (m[1] ? { run: m[1] } : { end: m[2] }));
+// The run and end marker lines of a text, in order: { run } for `devkit-run: <id>`, { end: { id, state } } for `devkit-end: <id> <state>`.
+const runMarkers = (s) => [...String(s).matchAll(/^(?:devkit-run: ([A-Za-z0-9][\w.-]*)|devkit-end: ([A-Za-z0-9][\w.-]*) (archived|waiting-for-owner|waiting-on-github|blocked))[ \t]*\r?$/gm)]
+  .map((m) => (m[1] ? { run: m[1] } : { end: { id: m[2], state: m[3] } }));
 
 // Pure: it interprets the events of `transcriptEvents` (scanned when not given) and returns null when it cannot read them (the locks then let everything through).
 export function runOf(input, events = transcriptEvents(input)) {
@@ -842,7 +886,7 @@ export function runOf(input, events = transcriptEvents(input)) {
     }
     if (!command) continue;
     for (const mark of marksOf(event, runMarkers)) {
-      if (mark.run) { change = mark.run; ended = null; } else ended = mark.end;
+      if (mark.run) { change = mark.run; ended = null; } else if (mark.end.id === change) ended = mark.end.state; // an end of another change leaves it (D-2)
     }
   }
   return command && change ? { change, command: `change ${command.args.replace(/^change\s*/, '')}`.trim(), ended } : null;
@@ -1324,6 +1368,8 @@ function guardBash(input) {
   const sessionRoot = findRoot(input.cwd);
   const why = sessionRoot && optedIn(sessionRoot) ? gitViolation(cmd) ?? testBranchViolation(cmd, input.cwd) : null;
   if (why) block(`blocked: ${why}. If you really need it, ask the user to run it.`);
+  const declared = sessionRoot && optedIn(sessionRoot) ? declareViolation(cmd, role(input)) : null;
+  if (declared) block(declared);
   const cwd = input.cwd || process.cwd();
   // Each root's change is resolved once; a target or a segment is judged by its own root.
   const changes = new Map();

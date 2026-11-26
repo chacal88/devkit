@@ -1,9 +1,11 @@
 # project-setup Specification
 
 ## Purpose
-Says what `openspec-setup` reports about the GitHub repository before it prepares `merge` mode,
-which checks it proposes to require, and how it upgrades a project's schemas without breaking the
-changes already under way.
+Says how the typed `/devkit setup` sets a project up for the devkit flow and runs again on it (the
+`devkit:` block of `openspec/config.yaml`, the schemas, and the CompozyOS kit through devkit-compozy's
+kit installer), what it reports about the GitHub repository before it prepares `merge` mode, which
+checks it proposes to require, and how it upgrades a project's schemas without breaking the changes
+already under way.
 
 ## Requirements
 

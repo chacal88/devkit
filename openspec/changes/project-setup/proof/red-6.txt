@@ -1,0 +1,64 @@
+start plugins/openspec/hooks/guard.test.mjs
+=== plugins/openspec/hooks/guard.test.mjs
+✖ setup AC-2 tree: no file outside the history names the removed setup skills, and neither skill folder exists (63.646098ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 178.6667
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/guard.test.mjs:1918:1
+✖ setup AC-2 tree: no file outside the history names the removed setup skills, and neither skill folder exists (63.646098ms)
+  AssertionError [ERR_ASSERTION]: no file outside the history names a removed setup skill
+  + actual - expected
+  
+  + [
+  +   '.claude-plugin/marketplace.json:57: "description": "Ships the CompozyOS driver of the devkit flow: one agent per devkit role and three loops (a change, its ',
+  +   "CONTRIBUTING.md:60: A release that changes devkit-openspec's version is tagged `v<that version>` on its merge commit on `main`: a lightweigh",
+  +   'README.md:15: | [**devkit-compozy**](plugins/compozy/README.md) | The CompozyOS driver of the devkit flow: `compozy-setup` installs `.',
+  +   'docs/catalog.md:122: Ships the CompozyOS driver of the devkit flow: one agent per devkit role and three loops (a change, its review round and',
+  +   'docs/compozy-kit.md:5: `compozy-setup` skill that installs them into a project as `.compozy/`. CompozyOS runs the loops and',
+  +   'docs/compozy-kit.md:84: 1. **Install the pack and run `compozy-setup`.** It writes `.compozy/` into the project:',
+  +   'docs/compozy-kit.md:102: A project on the first kit (four role shells and the `openspec-change` loop) runs `compozy-setup`',
+  +   'docs/conventions.md:24: | `compozy` | The CompozyOS driver of the devkit flow: `compozy-setup` installs `.compozy/` (twenty-one agents generated',
+  +   'docs/coordination-design.md:562: driver. It replaces what `openspec-setup` and `compozy-setup` do today.',
+  +   "docs/getting-started.md:67: Then in the project, run `/openspec-setup`. It writes the `.claude/settings.json` opt-in, installs OpenSpec's files and ",
+  +   'docs/getting-started.md:81: Then, in projects using the OpenSpec flow, run `/openspec-setup` again: it upgrades the schemas and keeps your `config.y',
+  +   'docs/openspec-flow.md:79: `/openspec-setup` asks for the values. The E2E tests the `e2e-tester` writes are a product commit, so the unit and E2E s',
+  +   'docs/openspec-flow.md:127: The `openspec-setup` skill does all of this; here is what it does, if you prefer by hand.',
+  +   'docs/openspec-flow.md:476: - **Preflight (read-only).** Before any work, merge mode checks that the repository can merge on its own. A missing piec',
+  +   'docs/openspec-flow.md:611: | `stop-merge-setup` | Stops: `blocked: merge setup (<missing>)`. Run the GitHub step of `openspec-setup` |',
+  +   'docs/openspec-flow.md:627: **Preparing the repository (setup order).** In the project, run the GitHub step of `/openspec-setup` (`scripts/github-se',
+  +   'docs/openspec-flow.md:714: # .github/workflows/devkit-reviews.yml (templates/devkit-reviews.yml in the openspec-setup skill)',
+  +   "docs/openspec-flow.md:747: Pin the commit sha of the release tag (`v0.44.1` above), not the tag: a tag can be moved, and this job's output gates th",
+  +   "docs/openspec-flow.md:805: | `schema 'devkit' not found` | Schemas not installed where OpenSpec looks | Run `/openspec-setup`, or check `openspec s",
+  +   'docs/openspec-flow.md:814: | `blocked: merge setup (...)` | `ship: merge`, but the repository lacks a piece: auto-merge or the merge method not all',
+  +   "openspec/specs/compozy-kit-setup/spec.md:4: Says how `compozy-setup` installs the CompozyOS kit's files into a project and installs them again",
+  +   'openspec/specs/project-setup/spec.md:4: Says what `openspec-setup` reports about the GitHub repository before it prepares `merge` mode,',
+  +   'plugins/compozy/.claude-plugin/plugin.json:4: "description": "Ships the CompozyOS driver of the devkit flow: one agent per devkit role and three loops (a change, its ',
+  +   'plugins/compozy/README.md:4: role, three loops and the skills the screen roles can use. `compozy-setup` writes them into the',
+  +   'plugins/compozy/README.md:49: `compozy-setup` writes `.compozy/` into the project: `config.toml`, `README.md`, the twenty-one agents',
+  +   'plugins/openspec/README.md:12: Then, in the project: `/openspec-setup`, which also writes that `.claude/settings.json` opt-in. The full guide is [docs/',
+  +   "plugins/openspec/README.md:36: | `openspec-setup` skill | Initializes OpenSpec, writes the project's `.claude/settings.json` opt-in (`scripts/project-s"
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-setup/plugins/openspec/hooks/guard.test.mjs:1962:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ '.claude-plugin/marketplace.json:57: "description": "Ships the CompozyOS driver of the devkit flow: one agent per devkit role and three loops (a change, its ', "CONTRIBUTING.md:60: A release that changes devkit-openspec's version is tagged `v<that version>` on its merge commit on `main`: a lightweigh", 'README.md:15: | [**devkit-compozy**](plugins/compozy/README.md) | The CompozyOS driver of the devkit flow: `compozy-setup` installs `.', 'docs/catalog.md:122: Ships the CompozyOS driver of the devkit flow: one agent per devkit role and three loops (a change, its review round and', 'docs/compozy-kit.md:5: `compozy-setup` skill that installs them into a project as `.compozy/`. CompozyOS runs the loops and', 'docs/compozy-kit.md:84: 1. **Install the pack and run `compozy-setup`.** It writes `.compozy/` into the project:', 'docs/compozy-kit.md:102: A project on the first kit (four role shells and the `openspec-change` loop) runs `compozy-setup`', 'docs/conventions.md:24: | `compozy` | The CompozyOS driver of the devkit flow: `compozy-setup` installs `.compozy/` (twenty-one agents generated', 'docs/coordination-design.md:562: driver. It replaces what `openspec-setup` and `compozy-setup` do today.', "docs/getting-started.md:67: Then in the project, run `/openspec-setup`. It writes the `.claude/settings.json` opt-in, installs OpenSpec's files and ", 'docs/getting-started.md:81: Then, in projects using the OpenSpec flow, run `/openspec-setup` again: it upgrades the schemas and keeps your `config.y', 'docs/openspec-flow.md:79: `/openspec-setup` asks for the values. The E2E tests the `e2e-tester` writes are a product commit, so the unit and E2E s', 'docs/openspec-flow.md:127: The `openspec-setup` skill does all of this; here is what it does, if you prefer by hand.', 'docs/openspec-flow.md:476: - **Preflight (read-only).** Before any work, merge mode checks that the repository can merge on its own. A missing piec', 'docs/openspec-flow.md:611: | `stop-merge-setup` | Stops: `blocked: merge setup (<missing>)`. Run the GitHub step of `openspec-setup` |', 'docs/openspec-flow.md:627: **Preparing the repository (setup order).** In the project, run the GitHub step of `/openspec-setup` (`scripts/github-se', 'docs/openspec-flow.md:714: # .github/workflows/devkit-reviews.yml (templates/devkit-reviews.yml in the openspec-setup skill)', "docs/openspec-flow.md:747: Pin the commit sha of the release tag (`v0.44.1` above), not the tag: a tag can be moved, and this job's output gates th", "docs/openspec-flow.md:805: | `schema 'devkit' not found` | Schemas not installed where OpenSpec looks | Run `/openspec-setup`, or check `openspec s", 'docs/openspec-flow.md:814: | `blocked: merge setup (...)` | `ship: merge`, but the repository lacks a piece: auto-merge or the merge method not all', "openspec/specs/compozy-kit-setup/spec.md:4: Says how `compozy-setup` installs the CompozyOS kit's files into a project and installs them again", 'openspec/specs/project-setup/spec.md:4: Says what `openspec-setup` reports about the GitHub repository before it prepares `merge` mode,', 'plugins/compozy/.claude-plugin/plugin.json:4: "description": "Ships the CompozyOS driver of the devkit flow: one agent per devkit role and three loops (a change, its ', 'plugins/compozy/README.md:4: role, three loops and the skills the screen roles can use. `compozy-setup` writes them into the', 'plugins/compozy/README.md:49: `compozy-setup` writes `.compozy/` into the project: `config.toml`, `README.md`, the twenty-one agents', 'plugins/openspec/README.md:12: Then, in the project: `/openspec-setup`, which also writes that `.claude/settings.json` opt-in. The full guide is [docs/', "plugins/openspec/README.md:36: | `openspec-setup` skill | Initializes OpenSpec, writes the project's `.claude/settings.json` opt-in (`scripts/project-s" ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/guard.test.mjs: FAIL 0.2s
+FAIL 0.2s plugins/openspec/hooks/guard.test.mjs
+suite: 1 files, 1 tests, 0 pass, 1 fail, 0.2s, concurrency 2

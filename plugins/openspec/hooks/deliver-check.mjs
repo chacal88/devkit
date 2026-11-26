@@ -6,7 +6,7 @@
 
 import { readFileSync, existsSync, readdirSync, statSync, realpathSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, basename, dirname, resolve } from 'node:path';
+import { join, basename, dirname, resolve, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -338,6 +338,13 @@ export function stalenessBase(root, env = process.env, configuredBase = null) {
   return ['main', 'master'].find((name) => baseTip(root, name)) ?? null;
 }
 
+// Whether the checkout's head is contained in origin/<facts.base> (coordinator-loop-fixes D-21); false with no
+// head, no base or no origin/<base>.
+export function headInBase(root, facts) {
+  const tip = facts.base && facts.head ? baseTip(root, facts.base) : null;
+  return Boolean(tip) && gitOk(root, ['merge-base', '--is-ancestor', facts.head, tip]);
+}
+
 // The change's own files (stale-only-on-own-files D-2): { base, tip, isOwn(path) }, or null when the rule cannot
 // tell (no base, no origin/<base>, no head, the head already in the base, no merge base). Own are the paths that
 // differ between the merge base and the head, both sides of a move included, less the release files, and
@@ -347,7 +354,7 @@ export function ownFiles(root, id, facts) {
   if (cache.has(id)) return cache.get(id);
   let own = null;
   const tip = facts.base && facts.head ? baseTip(root, facts.base) : null;
-  if (tip && !gitOk(root, ['merge-base', '--is-ancestor', facts.head, tip])) {
+  if (tip && !headInBase(root, facts)) {
     try {
       const paths = new Set(git(root, ['diff', '--name-only', '-z', '--no-renames', `${tip}...${facts.head}`]).split('\0').filter((p) => p && !RELEASE_FILE.test(p)));
       const folder = `openspec/changes/${id}/`;
@@ -508,8 +515,9 @@ export function fencedLines(text) {
   }
 }
 
-// The checkbox lines of tasks.md outside fenced blocks: { phase, id, done, isGate, command }. A gate
+// The checkbox lines of tasks.md outside fenced blocks: { phase, id, done, isGate, command, isConductor }. A gate
 // task's description (the text after its id) starts with "Gate:"; its command is the first backticked text after it.
+// A task whose description starts with "Conductor:" is the conducting session's (coordinator-loop-fixes D-6).
 export function parseTasks(text) {
   const tasks = [];
   let phase = 1;
@@ -522,22 +530,26 @@ export function parseTasks(text) {
     if (!m) continue;
     const description = m[3];
     const isGate = description.startsWith('Gate:');
-    tasks.push({ phase, id: m[2], done: m[1] !== ' ', isGate, command: isGate ? (description.match(/^Gate:[^`]*`([^`]+)`/)?.[1] ?? null) : null });
+    tasks.push({ phase, id: m[2], done: m[1] !== ' ', isGate, command: isGate ? (description.match(/^Gate:[^`]*`([^`]+)`/)?.[1] ?? null) : null, isConductor: description.startsWith('Conductor:') });
   }
   return tasks;
 }
 
-// Phases for the JSON report and nextStep: [{ n, title, open, gate }].
+// Phases for the JSON report and nextStep: [{ n, title, open, conductor, gate }]; `conductor` lists the open tasks the
+// conducting session does (D-6), [] when none.
 export function readPhases(file) {
   if (!existsSync(file)) return [];
   const text = readFileSync(file, 'utf8');
   const titles = new Map([...text.matchAll(/^##\s+(\d+)\.\s*(.*)$/gm)].map((m) => [Number(m[1]), m[2].trim()]));
   const phases = new Map();
   for (const t of parseTasks(text)) {
-    if (!phases.has(t.phase)) phases.set(t.phase, { n: t.phase, title: titles.get(t.phase) || '', open: [], gate: null });
+    if (!phases.has(t.phase)) phases.set(t.phase, { n: t.phase, title: titles.get(t.phase) || '', open: [], conductor: [], gate: null });
     const p = phases.get(t.phase);
     if (t.isGate) p.gate ??= { id: t.id, done: t.done, command: t.command };
-    else if (!t.done) p.open.push(t.id);
+    else if (!t.done) {
+      p.open.push(t.id);
+      if (t.isConductor) p.conductor.push(t.id);
+    }
   }
   return [...phases.values()].sort((a, b) => a.n - b.n);
 }
@@ -741,6 +753,9 @@ export const archiveHeads = (id) => [`chore/archive-${id}`, `archive-${id}`];
 // Every change's archive head, not only one id's (`chore/archive-<name>` or `archive-<name>`).
 export const isArchiveHead = (name) => /^(chore\/)?archive-/.test(String(name ?? ''));
 
+// An archive head other than change `id`'s own branch (coordinator-loop-fixes D-20).
+export const foreignArchiveHead = (id, name) => String(name ?? '') !== id && isArchiveHead(name);
+
 // The files a pull request changed, read by number and paginated (gh pr view --json files stops at 100):
 // { files } | { error }.
 export function prFiles(gh, number) {
@@ -760,12 +775,13 @@ function inOwnArchiveFolder(id, file) {
   return ARCHIVED.exec(rest.slice(0, slash))?.[2] === id;
 }
 
-// The change's own pull request (field-fixes D-4, own-pr-archive-paths): not an archive head, not a train's
+// The change's own pull request (field-fixes D-4, own-pr-archive-paths): not an archive head other than the change's own
+// branch (coordinator-loop-fixes D-20: a change whose id starts with `archive-` keeps its pull request), not a train's
 // (`train/<n>`), no file in the change's own archive folder (openspec/changes/archive/<date>-<id>/, the exact id;
 // another change's archived files do not count), and some file under the change's active folder. A body or a
 // head name that names the change is never proof.
 export function isOwnPr(id, pr, files) {
-  if (isArchiveHead(pr?.headRefName)) return false;
+  if (foreignArchiveHead(id, pr?.headRefName)) return false;
   if (TRAIN_BRANCH.test(String(pr?.headRefName ?? ''))) return false;
   if (files.some((f) => inOwnArchiveFolder(id, f))) return false;
   return files.some((f) => f.startsWith(`openspec/changes/${id}/`));
@@ -843,7 +859,7 @@ export function findChangePr(gh, root, id, { ship = 'plan', branch = '', env = p
   let list;
   try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
   if (!Array.isArray(list)) return { error: 'gh pr list returned unreadable JSON' };
-  const rest = list.filter((p) => !isArchiveHead(p.headRefName) && (!base || p.baseRefName === base)).sort((a, b) => when(b.mergedAt) - when(a.mergedAt));
+  const rest = list.filter((p) => !foreignArchiveHead(id, p.headRefName) && (!base || p.baseRefName === base)).sort((a, b) => when(b.mergedAt) - when(a.mergedAt));
   for (const p of rest) {
     const f = prFiles(gh, p.number);
     if (f.error) return { error: f.error };
@@ -874,7 +890,7 @@ function findByCommits(gh, id, base) {
     if (pulls.error) return fail(pulls.error);
     if (!Array.isArray(pulls.json)) return fail(`commits/${c.sha.slice(0, 7)}/pulls returned no list`);
     for (const p of pulls.json) {
-      if (!p?.merged_at || p.base?.ref !== branch || isArchiveHead(p.head?.ref) || seen.has(p.number)) continue;
+      if (!p?.merged_at || p.base?.ref !== branch || foreignArchiveHead(id, p.head?.ref) || seen.has(p.number)) continue;
       seen.add(p.number);
       const f = prFiles(gh, p.number);
       if (f.error) return fail(f.error);
@@ -1330,7 +1346,10 @@ export function prItem(root, id, fetched, facts = gitFacts(root), { merge = fals
   const pr = fetched.pr;
   const ref = { number: pr.number, url: pr.url };
   if (merge && pr.state === 'MERGED') {
-    if (pr.headRefOid === facts.head) return item(5, name, 'met', `PR #${pr.number} merged`, { pr: ref, merged: true });
+    // Met at the local head, or on a branch advanced into the base that holds the pull request's head (D-21): such a head
+    // holds no commit of its own, so a merge loses nothing.
+    const advanced = headInBase(root, facts) && gitOk(root, ['merge-base', '--is-ancestor', String(pr.headRefOid), 'HEAD']);
+    if (pr.headRefOid === facts.head || advanced) return item(5, name, 'met', `PR #${pr.number} merged`, { pr: ref, merged: true });
     return item(5, name, 'blocked', `PR #${pr.number} merged at ${String(pr.headRefOid).slice(0, 7)}; local head ${String(facts.head).slice(0, 7)} differs`, { pr: ref });
   }
   if (pr.state !== 'OPEN') return item(5, name, 'blocked', `PR #${pr.number} is ${String(pr.state).toLowerCase()}`, { pr: ref });
@@ -2596,6 +2615,78 @@ export function approvalState(dir, { release } = {}) {
 // conductor's approve row and accept-decisions give the same reason).
 export const noteMoved = (a) => a.status === 'APPROVED' && a.recorded === a.readiness && (a.release ?? null) !== (a.recordedRelease ?? null);
 
+// The .md files under the change folder's specs/, by their path relative to the folder ('specs/<...>.md'), sorted.
+function specFiles(dir) {
+  const specs = join(dir, 'specs');
+  if (!existsSync(specs)) return [];
+  return readdirSync(specs, { recursive: true })
+    .map((p) => `specs/${String(p).split(sep).join('/')}`)
+    .filter((rel) => rel.endsWith('.md') && statSync(join(dir, rel)).isFile())
+    .sort();
+}
+
+// The one digest of the plan (coordinator-loop-fixes D-7): SHA-256 over proposal.md, design.md, tasks.md and every .md file
+// under specs/ sorted by its path, each entry `<relative path>\0<bytes>\0` and a missing file `<relative path>\0<missing>\0`,
+// with every checkbox of tasks.md read as `[ ]` (a tick is no plan edit). `sha256:<first 12 hex>`.
+export function planDigest(dir) {
+  const hash = createHash('sha256');
+  const entry = (rel, bytes) => {
+    hash.update(`${rel}\0`);
+    hash.update(bytes ?? '<missing>');
+    hash.update('\0');
+  };
+  const read = (rel) => (existsSync(join(dir, rel)) ? readFileSync(join(dir, rel)) : null);
+  entry('proposal.md', read('proposal.md'));
+  entry('design.md', read('design.md'));
+  const tasks = read('tasks.md');
+  entry('tasks.md', tasks === null ? null : Buffer.from(tasks.toString('utf8').replace(/^(\s*[-*]\s+\[)[^\]\n]*(\])/gm, '$1 $2')));
+  for (const rel of specFiles(dir)) entry(rel, read(rel));
+  return `sha256:${hash.digest('hex').slice(0, 12)}`;
+}
+
+// The plan the owner approved against the plan files now (D-7): { plan, recorded, changed }. `recorded` is approval.md's
+// "- Plan:" value, lowercased, or null; with no such line nothing is changed (an approval written before this rule).
+export function planRevision(dir) {
+  const plan = planDigest(dir);
+  const recorded = readValue(join(dir, 'approval.md'), 'Plan')?.toLowerCase() ?? null;
+  return { plan, recorded, changed: recorded !== null && recorded !== plan };
+}
+
+// The keys of the steps the main session records with `change-loop.mjs declare` (coordinator-loop-fixes D-1): the `declare`
+// rows of change-loop.mjs's DECLARED, which this module cannot import (change-loop.mjs imports it); a test ties the two.
+export const RECORDED_KEYS = ['gate-red', 'review-round'];
+
+// The rounds of a review before the owner authorizes any more (D-4); each authorized round of a review's scope adds one.
+export const REVIEW_ROUNDS = 2;
+
+// The record of the declared steps, `<dir>/declared.json` (D-1): { steps, error }. A missing file is no step and no error; an
+// empty or unparsable file, a value that is not an object, a version other than 1 or a `steps` that is not a list is no step and
+// the error; an entry that is not an object, or whose key is not in RECORDED_KEYS, is skipped (a later version may add keys).
+export function readDeclared(dir) {
+  const file = join(dir, 'declared.json');
+  if (!existsSync(file)) return { steps: [], error: null };
+  const refused = (error) => ({ steps: [], error });
+  let text;
+  try { text = readFileSync(file, 'utf8'); } catch (e) { return refused(`cannot read declared.json: ${e.code ?? e.message}`); }
+  if (text.trim() === '') return refused('declared.json is empty');
+  let value;
+  try { value = JSON.parse(text); } catch { return refused('declared.json is not JSON'); }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return refused('declared.json holds no object');
+  if (value.version !== 1) return refused(`declared.json has version ${JSON.stringify(value.version)}, not 1`);
+  if (!Array.isArray(value.steps)) return refused('declared.json has no list of steps');
+  const steps = value.steps.filter((s) => s !== null && typeof s === 'object' && !Array.isArray(s) && RECORDED_KEYS.includes(s.key));
+  return { steps, error: null };
+}
+
+// The review rounds the owner authorized for the review `scope` ('review', the code review, or 'resolution', the review of a
+// conflict resolution on the support branch): the `review-round` entries of declared.json of that scope, an entry with no scope
+// counting as 'review'; 0 when the record cannot be read (D-4). The one count the delivery and the stage checkers read.
+export function authorizedRounds(dir, scope) {
+  const { steps, error } = readDeclared(dir);
+  if (error) return 0;
+  return steps.filter((s) => s.key === 'review-round' && (s.scope ?? 'review') === scope).length;
+}
+
 // The one step to take now, computed from facts only (see design D4, first
 // match wins; evidence-before-review design D2 puts fix-defect and verify ahead
 // of review). `state` is what collectState builds.
@@ -2643,12 +2734,15 @@ export function nextStep(state) {
   if (state.needsReadiness && state.readiness === 'APPROVED' && state.approval && !state.approval.ok) {
     const a = state.approval;
     // A1 (release-at-merge D-8): the readiness is the approved one and the release note is not the recorded one, whether or not a task is ticked.
+    // A started change is otherwise resumed without its approval, unless that approval records a plan the plan files no longer match
+    // (coordinator-loop-fixes D-7).
     const moved = noteMoved(a);
-    if (moved || !state.started) {
+    if (moved || !state.started || state.plan?.changed) {
       const earlier = a.status === 'APPROVED' && a.recorded;
       return step('stop-plan-approval', moved ? 'release note changed after approval' : earlier ? 'approval.md is for an earlier readiness.md' : 'no recorded owner approval', {
         readiness: a.readiness,
         ...(a.release != null ? { release: a.release } : {}),
+        plan: state.plan?.plan ?? null,
         file: `openspec/changes/${state.id}/approval.md`,
       });
     }
@@ -2657,7 +2751,18 @@ export function nextStep(state) {
     return step('stop-merge-setup', `merge mode needs the repository prepared: ${state.setup.missing.join('; ')}`, { missing: state.setup.missing });
   }
   for (const p of state.phases) {
-    if (p.open.length) return step('implement', `phase ${p.n} has unticked tasks: ${p.open.join(', ')}`, { phase: p.n });
+    if (p.open.length) {
+      // D-6: the tasks the conducting session does are never handed to the implementer; it stops before the first one.
+      const conductor = p.conductor ?? [];
+      const leading = [];
+      for (const id of p.open) {
+        if (!conductor.includes(id)) break;
+        leading.push(id);
+      }
+      if (leading.length) return step('conductor-task', `phase ${p.n} has tasks the conducting session does: ${leading.join(', ')}`, { phase: p.n, tasks: leading });
+      const stopAt = p.open.find((id) => conductor.includes(id));
+      return step('implement', `phase ${p.n} has unticked tasks: ${p.open.join(', ')}`, { phase: p.n, ...(stopAt ? { stopAt } : {}) });
+    }
     if (p.gate && !p.gate.done) {
       return step('gate', `phase ${p.n} is implemented; run its gate ${p.gate.id}`, { phase: p.n, task: p.gate.id, command: p.gate.command });
     }
@@ -2676,8 +2781,9 @@ export function nextStep(state) {
   }
 
   const rejectedNow = state.reviews.filter((r) => r.current && !approved(r.verdict)).map((r) => r.name);
-  if (rejectedNow.length && state.reviewMd?.consensus === 'FAIL' && state.reviewMd.round >= 2) {
-    return step('stop-review-deadlock', `${rejectedNow.join(', ')} still rejects after round 2; the owner decides`, { reviewers: rejectedNow });
+  const roundLimit = state.roundLimit ?? REVIEW_ROUNDS;
+  if (rejectedNow.length && state.reviewMd?.consensus === 'FAIL' && state.reviewMd.round >= roundLimit) {
+    return step('stop-review-deadlock', `${rejectedNow.join(', ')} still rejects after round ${roundLimit}; the owner decides`, { reviewers: rejectedNow });
   }
   // An approved verdict at the current commit that still lists an undisposed finding is fixed, not re-reviewed.
   const approvedOpen = uniq(it(3).details.undisposed.map((f) => f.reviewer)
@@ -2716,8 +2822,9 @@ export function nextStep(state) {
       const r = state.reviews.find((x) => x.name === n);
       return r && !approved(r.verdict);
     });
-    const round = state.reviewMd?.consensus === 'FAIL' && state.reviewMd.round === 1 && reRejected ? 2 : 1;
-    return step('review', `review needed from ${toReview.join(', ')}`, { reviewers: toReview, round });
+    const last = state.reviewMd?.round ?? 0;
+    const round = state.reviewMd?.consensus === 'FAIL' && reRejected && last >= 1 && last < roundLimit ? last + 1 : 1;
+    return step('review', `review needed from ${toReview.join(', ')}`, { reviewers: toReview, round, ...(roundLimit > REVIEW_ROUNDS ? { limit: roundLimit } : {}) });
   }
   const stuck = [1, 2, 3, 4].find((n) => it(n).status === 'blocked');
   if (stuck) return step('blocked', it(stuck).reason, { item: stuck });
@@ -2766,8 +2873,9 @@ export function nextStep(state) {
       const res = two.resolution;
       if (res.error) return step('blocked', res.error);
       if (!res.approved) {
-        if (res.rejected.length && res.round?.consensus === 'FAIL' && res.round.round >= 2) {
-          return step('stop-review-deadlock', `${res.rejected.join(', ')} still rejects the resolution after round 2; the owner decides`, { reviewers: res.rejected, resolution: true });
+        const limit = res.limit ?? REVIEW_ROUNDS;
+        if (res.rejected.length && res.round?.consensus === 'FAIL' && res.round.round >= limit) {
+          return step('stop-review-deadlock', `${res.rejected.join(', ')} still rejects the resolution after round ${limit}; the owner decides`, { reviewers: res.rejected, resolution: true });
         }
         const approvedOpen = uniq(res.undisposed.map((f) => f.reviewer)
           .filter((n) => res.verdicts.some((v) => v.name === n && !res.stale.includes(n) && approved(v.verdict))));
@@ -2780,9 +2888,11 @@ export function nextStep(state) {
           return step('fix-resolution', why, { root: sup.path, branch: sup.branch, findings: res.undisposed.filter((f) => fix.includes(f.reviewer)) });
         }
         const again = res.verdicts.some((v) => !approved(v.verdict) && [...res.stale, ...res.missing].includes(v.name));
-        const round = res.round?.consensus === 'FAIL' && res.round.round === 1 && again ? 2 : 1;
+        const last = res.round?.round ?? 0;
+        const round = res.round?.consensus === 'FAIL' && again && last >= 1 && last < limit ? last + 1 : 1;
         return step('review-resolution', `the resolution on ${sup.branch} needs a review from ${uniq([...res.missing, ...res.stale]).join(', ')}`, {
           root: two.root, support: sup.branch, commits: res.commits.map(({ sha, subject }) => ({ sha, subject })), diffs: res.commits.map((c) => c.diff), commit: res.newest, round,
+          ...(limit > REVIEW_ROUNDS ? { limit } : {}),
         });
       }
       if (sup.exists && !sup.hasTask) return step('merge-into-support', `${sup.branch} lacks the task branch ${state.id}`, { root: sup.path, branch: sup.branch, from: state.id });
@@ -2896,7 +3006,7 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     const test = findTestPr(gh, { id, testBranch, acIds });
     const support = supportState(root, id, testBranch);
     const taskRef = gitOk(root, ['rev-parse', '--verify', '--quiet', `refs/heads/${id}`]) ? `refs/heads/${id}` : 'HEAD';
-    const resolution = resolutionState(root, id, { taskRef, supportRef: support.exists ? `refs/heads/${support.branch}` : null });
+    const resolution = { ...resolutionState(root, id, { taskRef, supportRef: support.exists ? `refs/heads/${support.branch}` : null }), limit: REVIEW_ROUNDS + authorizedRounds(dir, 'resolution') };
     return {
       base: configuredBase, testBranch, defaultBranch, defaultOk: defaultBranch === configuredBase, defaultError: repo?.error ?? null,
       foreign: testBranchCommit(root, { base: configuredBase, testBranch, head: 'HEAD' }),
@@ -2967,13 +3077,18 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     needsReadiness,
     readiness: needsReadiness ? readValue(join(dir, 'readiness.md'), 'Status') : null,
     approval: needsReadiness ? approvalState(dir, { release: releaseFacts(root, id, facts).applies }) : null,
+    // The plan the approval records against the plan files now (D-7); null for a flow with no readiness.
+    plan: needsReadiness ? planRevision(dir) : null,
     started: existsSync(join(dir, 'tasks.md')) && parseTasks(readFileSync(join(dir, 'tasks.md'), 'utf8')).some((t) => t.done),
     phases: readPhases(join(dir, 'tasks.md')),
     reviewMd: readReviewMd(join(dir, 'review.md')),
+    // The code review's round limit: REVIEW_ROUNDS plus the rounds the owner authorized for it (D-4).
+    roundLimit: REVIEW_ROUNDS + authorizedRounds(dir, 'review'),
     reviews: readReviews(root, id, facts).map((r) => ({ name: r.name, verdict: r.verdict, current: !r.why })),
     release: releaseDelivery(root, id, facts),
-    // The change folder's files edited and not committed, outside its own review record: a plan fix waiting for its commit.
-    planDirty: changedUnder(root, `openspec/changes/${id}`).filter((p) => !reviewRecord(id)(p)),
+    // The change folder's files edited and not committed, outside its own review record and the record of the declared steps
+    // (coordinator-loop-fixes D-1): a plan fix waiting for its commit.
+    planDirty: changedUnder(root, `openspec/changes/${id}`).filter((p) => !reviewRecord(id)(p) && p !== `openspec/changes/${id}/declared.json`),
     // The change folder's uncommitted paths (loop-place-and-evidence D-1): the review round waits for their commit.
     folderDirty: changedUnder(root, `openspec/changes/${id}`),
     pr: prFacts(fetched),

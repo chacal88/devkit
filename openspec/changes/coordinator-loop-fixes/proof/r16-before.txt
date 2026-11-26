@@ -1,0 +1,41 @@
+devkit-run: archive-release-pin
+{
+  "version": 1,
+  "change": "archive-release-pin",
+  "script": "devkit",
+  "root": "<home>/repos/devkit/.claude/worktrees/archive-release-pin",
+  "branch": "archive-release-pin",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "delivery",
+  "stageTitle": "Delivery",
+  "role": "commit-and-pr",
+  "skills": [
+    "commit-message-guidelines"
+  ],
+  "model": "haiku",
+  "agent": "devkit-core:commit-and-pr",
+  "step": "open-pr",
+  "detail": {
+    "step": "open-pr",
+    "reason": "no pull request yet"
+  },
+  "brief": "Change archive-release-pin (devkit script), stage delivery: step open-pr {\"step\":\"open-pr\",\"reason\":\"no pull request yet\"}. Work only in <home>/repos/devkit/.claude/worktrees/archive-release-pin on branch archive-release-pin; every file path is absolute under it; start every Bash command with cd <home>/repos/devkit/.claude/worktrees/archive-release-pin && ; do not fetch. Write the change's files in English. Attribution: the session handing this off appends below this brief, verbatim, the lines it ends its own commit messages and pull-request descriptions with, as the block `Attribution (from the caller):` with one `Commit trailer: <line>` per commit line and one `PR footer: <line>` per pull-request line, or the line `Attribution (from the caller): none` when it ends them with none.",
+  "progressKey": "delivery/open-pr@d53de3e9b138",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🚀",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "delivery",
+    "stageTitle": "Delivery",
+    "phase": null,
+    "stageIcon": "🚀",
+    "stateIcon": null,
+    "title": "🚀 archive-release-pin"
+  },
+  "sessionTitle": "🚀 archive-release-pin"
+}

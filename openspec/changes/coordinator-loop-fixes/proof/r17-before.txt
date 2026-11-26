@@ -1,0 +1,44 @@
+devkit-run: feat
+devkit-end: feat blocked
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit-lite",
+  "root": "<scratch>/proj/.claude/worktrees/feat",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "end",
+  "stage": "evidence",
+  "stageTitle": "Demonstration",
+  "role": "pr-verifier",
+  "skills": [],
+  "model": "sonnet",
+  "end": {
+    "state": "blocked",
+    "why": "pr-problem"
+  },
+  "params": {
+    "id": "feat",
+    "why": "pr-problem"
+  },
+  "reply": "The change feat stopped: the pull request has a problem the session cannot fix alone. Nothing more runs until this is sorted out.",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🔍",
+  "state": {
+    "state": "blocked",
+    "reason": {
+      "code": "pr-problem",
+      "text": "the pull request has a problem the session cannot fix alone"
+    },
+    "stage": "evidence",
+    "stageTitle": "Demonstration",
+    "phase": null,
+    "stageIcon": "🔍",
+    "stateIcon": "⛔",
+    "title": "⛔ 🔍 feat"
+  },
+  "sessionTitle": "⛔ 🔍 feat"
+}

@@ -64,7 +64,7 @@ To call one explicitly: `/review-change`, `/plan-readiness-review`, or "use the 
 claude plugin install devkit-openspec@devkit --scope project
 ```
 
-Then in the project, run `/openspec-setup`. It writes the `.claude/settings.json` opt-in, installs OpenSpec's files and the devkit schemas into the project, and fills an `openspec/config.yaml` from your repo. Start a change with:
+Then in the project, type `/devkit setup`. It writes the `.claude/settings.json` opt-in, installs OpenSpec's files and the devkit schemas into the project, and fills an `openspec/config.yaml` from your repo. Start a change with:
 
 ```bash
 openspec new change add-csv-export
@@ -78,4 +78,4 @@ and ask Claude to "continue the change". Details: [openspec-flow.md](openspec-fl
 /plugin marketplace update devkit
 ```
 
-Then, in projects using the OpenSpec flow, run `/openspec-setup` again: it upgrades the schemas and keeps your `config.yaml`.
+Then, in projects using the OpenSpec flow, type `/devkit setup` again: it upgrades the schemas, asks only what is missing and keeps every value your `config.yaml` holds.

@@ -8,7 +8,10 @@ import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { tmpFolder } from './test-tmp.mjs';
-import { git, put, commitAll, SET, TWO_PRS, BODY, REVIEWS, prove, scenario, ARCHIVED_FEAT, TEST_ARCHIVE, archiving, roundRepo } from './test-fixtures.mjs';
+import {
+  git, put, commitAll, SET, TWO_PRS, BODY, REVIEWS, prove, scenario, ARCHIVED_FEAT, TEST_ARCHIVE, archiving, roundRepo,
+  REQUIRED, SUPPORT_BRANCH, conflictOnTest, mergeIntoSupport, resolveSupport, reviewResolution,
+} from './test-fixtures.mjs';
 import * as guard from './guard.mjs';
 import * as deliver from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
@@ -89,6 +92,14 @@ test('delivery-models config: nested keys never set driver or language', () => {
   assert.equal(block.driver, 'script');
   assert.equal(block.language, 'en-GB');
   assert.equal(parseDevkitBlock('devkit:\n  delivery:\n    driver: robot\n').driver, undefined);
+});
+
+// Invariant: a CRLF config gives the block its LF twin gives. Layer: guard parseDevkitBlock. Suite: delivery-models.
+test('delivery-models config: a CRLF block is read as its LF twin', () => {
+  const lf = 'schema: devkit\ndevkit:\n  language: en\n  driver: claude\n  release_tag: package.json\n  delivery:\n    model: two-prs\n    base: main\n    test_branch: develop\nship:\n  devkit: pr\n';
+  const crlf = parseDevkitBlock(lf.replace(/\n/g, '\r\n'));
+  assert.deepEqual(crlf, parseDevkitBlock(lf));
+  assert.deepEqual([crlf.language, crlf.driver, crlf.release_tag, crlf.delivery.model], ['en', 'claude', 'package.json', 'two-prs']);
 });
 
 test('delivery-models config: the block keeps the budget at its own level, never one nested under delivery', () => {
@@ -1316,7 +1327,7 @@ test('delivery-models P5: the same configuration read through S3 has no such lin
 
 for (const label of ['devkit-reviews.yml']) {
   test(`delivery-models P5 workflow (${label}): the job reads pull requests and the checker gets GH_TOKEN, the token staying read-only`, () => {
-    const yml = readFileSync(join(HERE, '..', 'skills', 'openspec-setup', 'templates', label), 'utf8');
+    const yml = readFileSync(join(HERE, '..', 'skills', 'devkit', 'templates', label), 'utf8');
     assert.match(yml, /^permissions:\n {2}contents: read\n {2}pull-requests: read\n/m);
     assert.match(yml, /- run: node "\$RUNNER_TEMP\/deliver-check\.mjs" --ci\n {8}env:\n {10}GH_TOKEN: \$\{\{ github\.token \}\}\n/);
     assert.doesNotMatch(yml, /: write/);
@@ -1325,40 +1336,6 @@ for (const label of ['devkit-reviews.yml']) {
 
 // ---------------------------------------------------------------- phase 4: the support branch and the resolution round (AC-6, AC-7, AC-8; P6, P7)
 
-const REQUIRED = ['code-quality-reviewer', 'test-coverage-reviewer'];
-const SUPPORT_BRANCH = 'feat-develop';
-
-// A commit on origin's test branch that conflicts with the task branch (both add src/a.ts) and brings a file of its own.
-function conflictOnTest(s) {
-  const o = s.addWt('other', { from: 'origin/develop' });
-  put(o, { 'src/a.ts': 'develop\n', 'dev.txt': 'dev\n' });
-  const sha = commitAll(o, 'develop edits a.ts');
-  git(o, 'push', '-q', 'origin', 'HEAD:refs/heads/develop');
-  git(s.main, 'fetch', '-q', 'origin');
-  return sha;
-}
-
-// What the session does for merge-into-support (D-8) and the implementer for resolve-support-conflict.
-function mergeIntoSupport(s, n) {
-  if (n.create) git(s.main, 'worktree', 'add', '-q', '-b', n.branch, n.root, 'feat');
-  try { git(n.root, 'merge', '--no-ff', '--no-edit', n.from); } catch { /* a conflict is left in the worktree */ }
-}
-function resolveSupport(n, text = 'merged\n') {
-  put(n.root, Object.fromEntries(n.paths.map((f) => [f, text])));
-  for (const f of n.paths) git(n.root, 'add', f);
-  git(n.root, 'commit', '-q', '--no-edit');
-  return git(n.root, 'rev-parse', 'HEAD');
-}
-// What the two reviewers and the consolidation leave in the task worktree, committed and pushed as the push row does.
-function reviewResolution(s, commit, { verdict = {}, findings = {}, consensus = 'PASS (round 1/2)' } = {}) {
-  const files = { 'openspec/changes/feat/resolution.md': `# Resolution review\n\nConsensus: ${consensus}\n` };
-  for (const r of REQUIRED) {
-    files[`openspec/changes/feat/reviews/resolution/${r}.md`] = `Verdict: ${verdict[r] ?? 'approved'}\nCommit: ${commit}\n\n## ${r} - feat\n\n### Findings\n${findings[r] ?? '- [nit] F1 src/a.ts:1 reads fine\n'}`;
-  }
-  put(s.wt, files);
-  commitAll(s.wt, 'resolution review');
-  git(s.wt, 'push', '-q', 'origin', 'feat');
-}
 const supportHead = (s) => spawnSync('git', ['--git-dir', s.originDir, 'rev-parse', '--verify', '-q', `refs/heads/${SUPPORT_BRANCH}`], { encoding: 'utf8' }).stdout.trim();
 const originTip = (s, branch) => spawnSync('git', ['--git-dir', s.originDir, 'rev-parse', `refs/heads/${branch}`], { encoding: 'utf8' }).stdout.trim();
 const taskHead = (s) => git(s.wt, 'rev-parse', 'HEAD');
@@ -1967,4 +1944,29 @@ test('delivery-models docs: the documents follow', () => {
   assert.match(agent, /^## Two-PR call$/m);
   assert.match(agent, /^## Test-branch archive call$/m);
   assert.match(read('plugins', 'openspec', 'README.md'), /two-prs/, 'the README names the delivery models');
+});
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: one more round of the resolution's review (D-4)
+// Invariant: the resolution review's round limit is `res.limit` (2 plus the resolution-scope rounds the owner authorized); with
+// no `res.limit` the deadlock comes after round 2 as before. Layer: deliver-check's nextStep on a built two-prs state.
+// Suite: delivery-models.
+
+test('coordinator-loop-fixes AC-7 T36 nextStep: the resolution review runs a round 3 under a limit of 3, then deadlocks after it', () => {
+  const at = (round, limit, current = true) => ({
+    ...PENDING, missing: [], stale: current ? [] : ['code-quality-reviewer'], rejected: current ? ['code-quality-reviewer'] : [],
+    verdicts: [verdictAt('code-quality-reviewer', 'REJECTED', current ? OWN[0].sha : 'd'.repeat(40)), verdictAt('test-coverage-reviewer', 'APPROVED')],
+    undisposed: current ? [OPEN_FINDING] : [], round: { consensus: 'FAIL', round }, ...(limit === undefined ? {} : { limit }),
+  });
+  const fix = deliver.nextStep(withTwo({ support: SUPPORT, resolution: at(2, 3) }));
+  assert.deepEqual([fix.step, fix.findings], ['fix-resolution', [OPEN_FINDING]]);
+  const again = deliver.nextStep(withTwo({ support: SUPPORT, resolution: at(2, 3, false) }));
+  assert.deepEqual([again.step, again.round, again.limit], ['review-resolution', 3, 3]);
+  const stuck = deliver.nextStep(withTwo({ support: SUPPORT, resolution: at(3, 3) }));
+  assert.deepEqual([stuck.step, stuck.reviewers, stuck.resolution], ['stop-review-deadlock', ['code-quality-reviewer'], true]);
+  assert.match(stuck.reason, /after round 3/);
+  const plain = deliver.nextStep(withTwo({ support: SUPPORT, resolution: at(2) }));
+  assert.deepEqual([plain.step, plain.resolution], ['stop-review-deadlock', true]);
+  assert.match(plain.reason, /after round 2/);
+  const roundTwo = deliver.nextStep(withTwo({ support: SUPPORT, resolution: at(1, undefined, false) }));
+  assert.deepEqual([roundTwo.step, roundTwo.round, Object.hasOwn(roundTwo, 'limit')], ['review-resolution', 2, false]);
 });

@@ -1,0 +1,46 @@
+devkit-run: feat
+devkit-end: feat waiting-on-github
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit",
+  "root": "<scratch>/noplan/proj/.claude/worktrees/feat",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "end",
+  "stage": "delivery",
+  "stageTitle": "Delivery",
+  "role": "commit-and-pr",
+  "skills": [
+    "commit-message-guidelines"
+  ],
+  "model": "haiku",
+  "end": {
+    "state": "waiting-on-github",
+    "why": "waiting-github"
+  },
+  "params": {
+    "id": "feat",
+    "what": "checks"
+  },
+  "reply": "feat is waiting on GitHub (the checks of the pull request). I keep waiting with no time limit and go on by myself when GitHub answers; calling /devkit change again is safe.",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🚀",
+  "state": {
+    "state": "waiting-on-github",
+    "reason": {
+      "code": "checks",
+      "text": "the checks of the pull request"
+    },
+    "stage": "delivery",
+    "stageTitle": "Delivery",
+    "phase": null,
+    "stageIcon": "🚀",
+    "stateIcon": "⏳",
+    "title": "⏳ 🚀 feat"
+  },
+  "sessionTitle": "⏳ 🚀 feat"
+}
