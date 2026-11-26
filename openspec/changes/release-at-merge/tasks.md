@@ -760,7 +760,7 @@ as a background command of the tool, judged by its exit code. End every task wit
   base's entry and the change's entry as the branch held it, nothing pushed by the agent, then `push`,
   then `assign-release` with exit 0 (AC-4, AC-15).
 - [x] 11.12 Gate: `python3 scripts/check.py && openspec validate release-at-merge --strict && grep -q "^## P-14 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## P-15 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## P-16 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## S-13 " openspec/changes/release-at-merge/proof/agents-run.md` green, the scratch folders removed; covers AC-15 for phase 11's cases and the real implementer.
-- [ ] 11.13 Gate: `node scripts/test-suite.mjs --concurrency=3 && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/kit/scripts/gen-agents.mjs --check && claude plugin validate . && openspec validate release-at-merge --strict` green at the final head, the whole suite run once as a background command with no other suite on the machine; the train's suite proves it again (AC-14).
+- [x] 11.13 Gate: `node scripts/test-suite.mjs --concurrency=3 && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/kit/scripts/gen-agents.mjs --check && claude plugin validate . && openspec validate release-at-merge --strict` green at the final head, the whole suite run once as a background command with no other suite on the machine; the train's suite proves it again (AC-14).
 
 ## Workflow follow-up
 
