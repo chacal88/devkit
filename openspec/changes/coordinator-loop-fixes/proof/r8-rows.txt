@@ -1,0 +1,4 @@
+change: kind=agent step=resolve-base-conflict agent=devkit-core:tdd-implementer stage=implementation paths=["README.md"] others=["README.md"] archive=false base=main
+change view compozy: kind=agent agent=tdd-implementer dispatch=true
+archive: kind=agent step=resolve-base-conflict agent=devkit-core:tdd-implementer stage=implementation paths=["README.md"] others=["README.md"] archive=true base=main
+release: kind=agent step=resolve-release-conflict agent=devkit-core:tdd-implementer stage=implementation paths=["CHANGELOG.md"] others=null archive=null base=main

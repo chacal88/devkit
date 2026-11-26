@@ -1993,8 +1993,9 @@ test('commit-attribution AC-1 T25 the S10 ADR reviewer hand-off does not carry t
   const t = loopProject();
   readySlice(t);
   const a = act(t.main, 'billing');
+  assert.ok(CL.ATTRIBUTION_ASK?.length > 0, 'the request is exported');
   assert.equal(a.agent, 'devkit-core:adr-reviewer');
-  assert.ok(!a.brief.includes(CL.ATTRIBUTION_ASK ?? '\u0000'), a.brief);
+  assert.ok(!a.brief.includes(CL.ATTRIBUTION_ASK), a.brief);
 });
 
 // ---------------------------------------------------------------- project-slice-claim: the claim at a slice's open (phase 1)

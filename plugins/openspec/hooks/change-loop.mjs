@@ -40,9 +40,9 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { hostname, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, handOffKey, handOffsOf, typedSince, isChangeId, readRoadmap, readValue, isDecisionRecord, parseStageHeader, parseDevkitBlock, deliverySettings, budgetValue, releaseTagSetting, trainSetting, SPEND_MESSAGES } from './guard.mjs';
+import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, handOffKey, handOffsOf, typedSince, isChangeId, readRoadmap, readValue, isDecisionRecord, parseStageHeader, parseDevkitBlock, changeDevkitBlock, deliverySettings, budgetValue, releaseTagSetting, trainSetting, SPEND_MESSAGES } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, readTestSettings, appliedStages } from './flow-check.mjs';
-import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
+import { collectState, buildReport, locateChange, approvalState, planDigest, planRevision, makeGh, readDeclared, authorizedRounds, REVIEW_ROUNDS } from './deliver-check.mjs';
 import { OFFLINE_GH } from './merge-setup.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
 import { emptyRun, readRun, runFilePath } from './run-file.mjs';
@@ -151,11 +151,12 @@ export function readDevkitSettings(root) {
 const DELIVERY_ACCEPTED = { 'delivery-model': 'two-prs, trunk, trunk-auto', 'delivery-test-branch': 'a branch other than the base', 'delivery-train': 'a command whose quotes are closed' };
 
 // The token cap of the change in `dir`: { cap, from: 'change' | 'project', file } (the file is always the change's own
-// `.openspec.yaml`, where the owner raises it), or null. The change's value wins over the project's, which is the one in
-// `root`'s openspec/config.yaml. An invalid value in either file is a LoopRefusal with the settings reply.
+// `.openspec.yaml`, where the owner raises it), or null. The change's value (its `x-devkit:` block, else its `devkit:` block:
+// `changeDevkitBlock`, coordinator-loop-fixes D-22) wins over the project's, which is the one in `root`'s openspec/config.yaml. An
+// invalid value in either file is a LoopRefusal with the settings reply.
 export function budgetOf(root, dir, lang) {
   const file = join(dir, '.openspec.yaml');
-  const mine = budgetValue(parseDevkitBlock(settingsText(file, '.openspec.yaml')).budget);
+  const mine = budgetValue(changeDevkitBlock(settingsText(file, '.openspec.yaml')).budget);
   const project = budgetValue(parseDevkitBlock(settingsText(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml')).budget);
   const bad = mine?.invalid !== undefined ? mine : project?.invalid !== undefined ? project : null;
   if (bad) throw new LoopRefusal('setting-unknown', render(lang, 'setting-unknown', { setting: 'budget', value: bad.invalid, accepted: BUDGET_ACCEPTED }));
@@ -176,12 +177,12 @@ export function modelProblems(map) {
 }
 
 // The model of every stage of the change in `dir`, a plain object over MODEL_STAGES (stage-models D-2): the change's non-empty
-// value, else the project's, else the default. With `strict` (the change's own loop) the first problem of the change's table, else
+// value (its `x-devkit:` block, else its `devkit:` block: `changeDevkitBlock`, coordinator-loop-fixes D-22), else the project's, else
+// the default. With `strict` (the change's own loop) the first problem of the change's table, else
 // of the project's, is a LoopRefusal with the settings reply; without it a table with a problem is ignored whole, so a typing error
 // in one change stops no lock and no other change.
 export function modelsOf(root, dir, { strict = false, lang = 'en' } = {}) {
-  const read = (file, label) => parseDevkitBlock(settingsText(file, label)).models;
-  const tables = [read(join(dir, '.openspec.yaml'), '.openspec.yaml'), read(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml')].map((map) => ({ map, problems: modelProblems(map) }));
+  const tables = [changeDevkitBlock(settingsText(join(dir, '.openspec.yaml'), '.openspec.yaml')).models, parseDevkitBlock(settingsText(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml')).models].map((map) => ({ map, problems: modelProblems(map) }));
   if (strict) {
     const bad = tables.find((t) => t.problems.length)?.problems[0];
     if (bad) throw new LoopRefusal('setting-unknown', render(lang, 'setting-unknown', bad));
@@ -275,12 +276,19 @@ export const MESSAGES = {
     'train-ready': 'Pull request #{number} of train {n} is ready: in this project, merging it is up to you, with a merge commit.',
     'train-delivered': 'Train {n} merged in pull request #{number}: its changes are delivered, and what it left behind is tidied now.',
     'train-args': '/devkit train takes nothing after it: type /devkit train alone. Nothing was started.',
-    'waiting-review-dispute': 'The code review of {id} still disagrees after its second round: the disputed points need your decision.',
+    'waiting-review-dispute': 'The code review of {id} still disagrees after its last round: the disputed points need your decision, or your word for one more round.',
     'waiting-by-hand': 'This project delivers each change by hand: {id} stops here, and the session writes no code for it.',
     'waiting-unrun-stage': '{Stage} of {id} has an unfinished file that no role of this version can finish: tell me its result, or remove it.',
     'waiting-pr-decision': 'A comment on the pull request of {id} asks for a decision only you can take: {url}.',
+    'waiting-pause': 'The change {id} is paused, as you asked. Calling /devkit change again takes it up where it stopped.',
+    'waiting-owner-decision': 'The change {id} needs a decision only you can take: {decision}. Your answer here lets it go on.',
+    'review-round-authorized': 'One more review round of {id} is authorized, as you asked: round {round} runs next.',
+    'declare-not-at-gate': 'The gate of phase {phase} of {id} is not the next step, so nothing was recorded.',
+    'declare-not-at-deadlock': 'The review of {id} is not waiting for your decision, so no round was authorized.',
+    'declare-no-words': 'One more review round of {id} needs your own words, so nothing was recorded.',
+    'declare-unreadable': 'The record of the steps declared for {id} cannot be read ({error}), so nothing was recorded.',
     'waiting-place': '{id} waits for a free place on {machine} ({taken} of {places} taken): it goes on when one frees, and the roadmap session tells it.',
-    'waiting-budget': 'The change {id} reached its token budget: {spent} tokens spent, and the cap is {cap}. To go on, raise budget in the devkit block of {file}, then type /devkit change again.',
+    'waiting-budget': 'The change {id} reached its token budget: {spent} tokens spent, and the cap is {cap}. To go on, raise budget in the x-devkit block of {file}, then type /devkit change again.',
     'waiting-github': '{id} is waiting on GitHub ({what}). I keep waiting with no time limit and go on by myself when GitHub answers; calling /devkit change again is safe.',
     'base-unfetched': 'The branch {base} could not be fetched from the remote, so this step was decided from this machine\'s copy of it.',
     archived: 'The change {id} is archived: merged, with its retro. Nothing is left to do.',
@@ -335,6 +343,7 @@ export const MESSAGES = {
     'gate.merge': 'your merge of its pull request',
     'gate.train': 'the departure of the next train',
     'gate.decision': 'a decision only you can take',
+    'gate.pause': 'your word to go on',
     'gate.dispute': 'your decision on the disputed review points',
     'gate.stage': 'your result for an unfinished file',
     'gate.by-hand': 'your delivery by hand',
@@ -571,12 +580,19 @@ export const MESSAGES = {
     'train-ready': 'O pull request #{number} do trem {n} está pronto: neste projeto, fazer o merge é com você, com um commit de merge.',
     'train-delivered': 'O trem {n} entrou no pull request #{number}: as changes dele estão entregues, e o que ele deixou para trás está sendo arrumado agora.',
     'train-args': '/devkit train não aceita nada depois dele: digite /devkit train sozinho. Nada foi iniciado.',
-    'waiting-review-dispute': 'A revisão de código de {id} ainda discorda depois da segunda rodada: os pontos em disputa precisam da sua decisão.',
+    'waiting-review-dispute': 'A revisão de código de {id} ainda discorda depois da última rodada: os pontos em disputa precisam da sua decisão, ou da sua palavra para mais uma rodada.',
     'waiting-by-hand': 'Este projeto entrega cada change à mão: {id} para aqui, e a sessão não escreve código para ela.',
     'waiting-unrun-stage': '{Stage} de {id} tem um arquivo inacabado que nenhum papel desta versão consegue terminar: diga o resultado ou remova o arquivo.',
     'waiting-pr-decision': 'Um comentário no pull request de {id} pede uma decisão que só você pode tomar: {url}.',
+    'waiting-pause': 'A change {id} está pausada, como você pediu. Chamar /devkit change de novo a retoma de onde parou.',
+    'waiting-owner-decision': 'A change {id} precisa de uma decisão que só você pode tomar: {decision}. A sua resposta aqui a deixa seguir.',
+    'review-round-authorized': 'Mais uma rodada de revisão de {id} está autorizada, como você pediu: a rodada {round} vem a seguir.',
+    'declare-not-at-gate': 'A verificação da fase {phase} de {id} não é o próximo passo, então nada foi registrado.',
+    'declare-not-at-deadlock': 'A revisão de {id} não está esperando a sua decisão, então nenhuma rodada foi autorizada.',
+    'declare-no-words': 'Mais uma rodada de revisão de {id} precisa das suas próprias palavras, então nada foi registrado.',
+    'declare-unreadable': 'O registro dos passos declarados de {id} não pode ser lido ({error}), então nada foi registrado.',
     'waiting-place': '{id} espera um lugar livre em {machine} ({taken} de {places} ocupados): segue quando um liberar, e a sessão do roadmap avisa.',
-    'waiting-budget': 'A change {id} atingiu o orçamento de tokens: {spent} tokens gastos, e o limite é {cap}. Para seguir, aumente budget no bloco devkit de {file} e digite /devkit change de novo.',
+    'waiting-budget': 'A change {id} atingiu o orçamento de tokens: {spent} tokens gastos, e o limite é {cap}. Para seguir, aumente budget no bloco x-devkit de {file} e digite /devkit change de novo.',
     'waiting-github': '{id} está esperando o GitHub ({what}). Eu continuo esperando, sem limite de tempo, e sigo sozinho quando o GitHub responder; chamar /devkit change de novo é seguro.',
     'base-unfetched': 'Não foi possível buscar o branch {base} no remoto, então este passo foi decidido pela cópia desta máquina.',
     archived: 'A change {id} está arquivada: mesclada, com a retro. Não resta nada a fazer.',
@@ -631,6 +647,7 @@ export const MESSAGES = {
     'gate.merge': 'o seu merge do pull request',
     'gate.train': 'a saída do próximo trem',
     'gate.decision': 'uma decisão que só você pode tomar',
+    'gate.pause': 'a sua palavra para continuar',
     'gate.dispute': 'a sua decisão sobre os pontos em disputa da revisão',
     'gate.stage': 'o resultado de um arquivo inacabado',
     'gate.by-hand': 'a sua entrega à mão',
@@ -836,6 +853,7 @@ export const GATE_OF_WHY = {
   'waiting-archive-merge': 'merge', 'waiting-pr-decision': 'decision', 'waiting-review-dispute': 'dispute',
   'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup', 'waiting-budget': 'budget',
   'waiting-merge-test-branch': 'merge', 'waiting-merge-base': 'merge', 'waiting-archive-merges': 'merge', 'waiting-train': 'train',
+  'waiting-pause': 'pause', 'waiting-owner-decision': 'decision',
 };
 
 // The gate the owner is asked for by an action: the grill, or an end waiting for the owner. Any other action, or a wait
@@ -989,20 +1007,25 @@ export const ATTRIBUTION_HEADER = 'Attribution (from the caller):';
 export const ATTRIBUTION_ASK = ' Attribution: the session handing this off appends below this brief, verbatim, the lines it ends its own commit messages and pull-request descriptions with, as the block `Attribution (from the caller):` with one `Commit trailer: <line>` per commit line and one `PR footer: <line>` per pull-request line, or the line `Attribution (from the caller): none` when it ends them with none.';
 export const withAttribution = (agent, text) => (agent === COMMIT_AGENT ? `${text}${ATTRIBUTION_ASK}` : text);
 
-const AGENT = {
-  'change-planner': 'devkit-core:change-planner',
-  'plan-readiness-reviewer': 'devkit-core:plan-readiness-reviewer',
-  'tdd-implementer': 'devkit-core:tdd-implementer',
-  'pr-verifier': 'devkit-core:pr-verifier',
-  'commit-and-pr': COMMIT_AGENT,
-  'screen-designer': 'devkit-core:screen-designer',
-  'adr-author': 'devkit-core:adr-author',
-  'test-runner': 'devkit-core:test-runner',
-  'e2e-tester': 'devkit-core:e2e-tester',
+// The devkit pack that ships the agent of each role and helper that has one (`<pack>:<role>`), as docs/roles.md names
+// them in its "Played today by" lines; a test holds the two together. A role with no agent (`shipped: false`) has none.
+export const PACKS = {
+  ...Object.fromEntries(['change-planner', 'plan-readiness-reviewer', 'tdd-implementer', 'pr-verifier', 'commit-and-pr', 'codebase-researcher',
+    'plan-reality-auditor', 'adr-reviewer', 'code-quality-reviewer', 'test-coverage-reviewer', 'architecture-reviewer', 'security-reviewer',
+    'spec-reviewer', 'finding-verifier', 'screen-designer', 'adr-author', 'test-runner', 'e2e-tester', 'requirements-triage'].map((r) => [r, 'devkit-core'])),
+  'openspec-validator': 'devkit-openspec',
+  'change-coordinator': 'devkit-openspec',
 };
+
+// The agent of a role, `<pack>:<role>` with the pack PACKS names, or undefined for a role with no agent (coordinator-loop-fixes D-9).
+export const agentOf = (role) => (PACKS[role] ? `${PACKS[role]}:${role}` : undefined);
+// The roles the loop hands to an agent itself when the stage names none, and their agents, built from PACKS (a test ties
+// COMMIT_AGENT, a literal above, to agentOf('commit-and-pr')).
+export const AGENT_ROLES = ['change-planner', 'plan-readiness-reviewer', 'tdd-implementer', 'pr-verifier', 'commit-and-pr', 'screen-designer', 'adr-author', 'test-runner', 'e2e-tester'];
+export const AGENT = Object.freeze(Object.fromEntries(AGENT_ROLES.map((r) => [r, agentOf(r)])));
 const BUILD_PARTS = ['build', 'after', 'delivery', 'close'];
 const TEST_STAGES = ['unit-tests', 'e2e-tests'];
-const PLAN_REASONS = ['no-file', 'no-header', 'bad-header', 'header-other-stage', 'not-judged', 'stale-plan', 'rerun-after-fix'];
+const PLAN_REASONS = ['no-file', 'no-header', 'bad-header', 'header-other-stage', 'not-judged', 'stale-plan', 'rerun-after-fix', 'plan-revised'];
 const NOT_DELIVERED = ['no-file', 'not-judged', 'no-header', 'bad-header', 'header-other-stage'];
 const SWITCH_FLAGS = ['architecture', 'contract', 'ui'];
 const BLOCKED_OF = { 'ceiling-reached': 'ceiling', 'no-progress': 'no-progress', 'gh-too-old': 'gh-too-old', 'pr-closed': 'pr-closed' };
@@ -1046,6 +1069,7 @@ const ROWS = {
   'fix-checks': handOff('implementation', 'tdd-implementer'),
   'apply-proposals': handOff('implementation', 'tdd-implementer'),
   'resolve-release-conflict': handOff('implementation', 'tdd-implementer'),
+  'resolve-base-conflict': handOff('implementation', 'tdd-implementer'),
   'rejoin-train': handOff('implementation', 'tdd-implementer'),
   'renumber-adr': handOff('implementation', 'tdd-implementer'),
   commit: handOff('delivery', 'commit-and-pr'),
@@ -1066,6 +1090,7 @@ const ROWS = {
   'merge-into-support': session('delivery'),
   'review-resolution': session('review'),
   gate: session('implementation'),
+  'conductor-task': session('implementation'),
   'edit-pr-body': session('delivery'),
   'enable-auto-merge': session('delivery'),
   'disable-auto-merge': session('delivery'),
@@ -1313,7 +1338,7 @@ export function decide(facts) {
         return agent(n.stage, s.role, null, `${failed} failed at attempt ${attempt} (failures in a row: ${failures} of ${ceiling}): revise the plan from its findings`);
       }
       if (PLAN_REASONS.includes(n.reasonCode) && s && AGENT[s.role]) {
-        const stale = ['stale-plan', 'rerun-after-fix'].includes(n.reasonCode);
+        const stale = ['stale-plan', 'rerun-after-fix', 'plan-revised'].includes(n.reasonCode);
         const what = stale ? `${n.stage} is out of date: bring it up to date`
           : s.role === 'plan-readiness-reviewer' ? 'review the plan'
             : s.role === 'change-planner' ? `write the plan files the script still lacks, from ${n.stage} on, each from \`openspec instructions <artifact> --change ${ctx.id}\``
@@ -1322,8 +1347,8 @@ export function decide(facts) {
       }
       return blocked('unknown-step', {}, n.stage);
     }
-    if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'owner-pending') return waiting('waiting-for-owner', 'waiting-approval', 'approval', {}, { readiness: facts.approval?.readiness ?? null });
-    if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'approval-stale') return waiting('waiting-for-owner', 'waiting-approval-again', 'approval', {}, { readiness: facts.approval?.readiness ?? null });
+    if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'owner-pending') return waiting('waiting-for-owner', 'waiting-approval', 'approval', {}, { readiness: facts.approval?.readiness ?? null, plan: facts.plan?.plan ?? null });
+    if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'approval-stale') return waiting('waiting-for-owner', 'waiting-approval-again', 'approval', {}, { readiness: facts.approval?.readiness ?? null, plan: facts.plan?.plan ?? null });
     if (e.state === 'waiting-for-owner' && e.stage === 'mockup' && e.reasonCode === 'owner-pending') {
       return waiting('waiting-for-owner', 'waiting-mockup', 'mockup', {}, { file: `openspec/changes/${ctx.id}/mockup.md`, folder: `openspec/changes/${ctx.id}/mock/` });
     }
@@ -1382,6 +1407,13 @@ export function decide(facts) {
       if (place.held >= place.places) return finish('blocked', 'no-place', 'waiting-place', { machine: place.machine, taken: place.held, places: place.places }, 'implementation');
       return sessionAction('implementation', 'take-place', { command: ['node', join(HOOKS_DIR, 'change-loop.mjs'), 'place', ctx.id, '--lang', lang] });
     }
+    // coordinator-loop-fixes D-3: a red gate the session declared (`declare gate-red`, the one source of `facts.redGate`): the
+    // implementer fixes the first red of the phase; a second red of the same phase ends the run blocked.
+    if (step === 'gate' && facts.redGate && facts.redGate.phase === row.next.phase) {
+      const { phase, task, command } = row.next;
+      if (facts.redGate.again) return blocked('tests-red', { phase }, 'implementation');
+      return agent('implementation', 'tdd-implementer', 'fix-gate', `the gate of phase ${phase} is red: run its command, find the cause, fix it test first within the approved tasks, and leave the gate task unticked; the gate runs again after you`, { phase, task, command });
+    }
     // post-merge-validate D-4: after a merge of the base the plan is checked before the evidence and before any push or wait. A red check
     // goes to the planner with no stage attempt spent (the loop's own count of reds, `reds`, ends it); a check that could not run ends it.
     const mc = facts.mergeCheck;
@@ -1422,12 +1454,23 @@ export function decide(facts) {
     }
     if (step === 'stop-plan-approval') {
       const again = facts.approval?.status === 'APPROVED' && Boolean(facts.approval.recorded);
-      return waiting('waiting-for-owner', again ? 'waiting-approval-again' : 'waiting-approval', currentId, {}, { readiness: facts.approval?.readiness ?? row.next.readiness ?? null });
+      return waiting('waiting-for-owner', again ? 'waiting-approval-again' : 'waiting-approval', currentId, {}, { readiness: facts.approval?.readiness ?? row.next.readiness ?? null, plan: facts.plan?.plan ?? row.next.plan ?? null });
     }
     const number = row.next.number ?? row.delivered?.next?.number;
     const named = Object.fromEntries(['branch', 'base', 'list'].filter((k) => row.next[k] !== undefined).map((k) => [k, row.next[k]]));
-    return waiting('waiting-for-owner', OWNER_STEP[step], currentId, number === undefined ? named : { number, ...named });
+    // The resolution review's deadlock says so in its detail (D-4): the owner's word for one more round answers that review.
+    const dispute = step === 'stop-review-deadlock' && row.next.resolution === true ? { resolution: true } : undefined;
+    return waiting('waiting-for-owner', OWNER_STEP[step], currentId, number === undefined ? named : { number, ...named }, dispute);
   }
+}
+
+// The review an action shows waiting for the owner's word (D-4): 'resolution' for the resolution review's deadlock, 'review' for
+// the code review's (its dispute end, or the blocked `ceiling` end of the `review` stage of role `review-bench`); null otherwise.
+export function deadlockScope(action) {
+  if (action?.kind !== 'end') return null;
+  if (action.end?.why === 'waiting-review-dispute') return action.detail?.resolution === true ? 'resolution' : 'review';
+  if (action.end?.state === 'blocked' && action.end.why === 'ceiling' && action.role === 'review-bench') return 'review';
+  return null;
 }
 
 // ---------------------------------------------------------------- reading the change (D-5)
@@ -1532,7 +1575,7 @@ export function isPlanStage(start, id, action) {
 // unreadable setting, no openspec CLI) are thrown; a delivery checker that throws becomes the `unreadable` end.
 // `fetchBase` is a `baseFetches()` record: given, the base is fetched (once per record) before the delivery checkers read it, and
 // the action carries `baseFetch`; absent (`state`, the locks), nothing is fetched.
-export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, claims, budget = false, fetchBase = false, strictModels = false, retry = false, handOffs, stages = false } = {}) {
+export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, claims, budget = false, fetchBase = false, strictModels = false, retry = false, handOffs, redGate = null, stages = false } = {}) {
   const clean = cleanOf(env);
   let baseFetch = null;
   const start = findRoot(cwd);
@@ -1592,6 +1635,7 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     after,
     fingerprint: facts.fingerprint ?? fingerprint(found.root, facts.head ?? null),
     approval: approvalState(dir),
+    plan: planRevision(dir),
     tests: readTestSettings(found.root),
     decisions: decisionRecords(found.root, dir),
     hasProposal: existsSync(join(dir, 'proposal.md')),
@@ -1605,6 +1649,7 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     budget: budgetFact,
     models,
     handOffs: handOffsFact,
+    redGate,
   });
   if (baseFetch) {
     action.baseFetch = baseFetch;
@@ -1928,7 +1973,7 @@ export const archivedOnDefault = (start, opts) => new Set(archivedDates(start, o
 
 // True when the active folder of `id` in `root` records a creation day later than the archive day: a new change that
 // reuses an archived id, not the stale copy of the archived one. A folder that records no day is the stale copy.
-function createdAfter(root, id, archivedDay) {
+export function createdAfter(root, id, archivedDay) {
   try {
     const m = /^created:\s*['"]?(\d{4}-\d{2}-\d{2})/m.exec(readFileSync(join(root, 'openspec', 'changes', id, '.openspec.yaml'), 'utf8'));
     return Boolean(m) && m[1] > archivedDay;
@@ -2746,16 +2791,6 @@ export function scriptAgents(flow) {
   return [...new Set(flow.stages.flatMap((s) => [s.role, ...(s.helpers ?? [])]))].filter((r) => !NOT_AGENTS.includes(r));
 }
 
-// The devkit pack that ships the agent of each role and helper that has one (`<pack>:<role>`), as docs/roles.md names
-// them in its "Played today by" lines; a test holds the two together. A role with no agent (`shipped: false`) has none.
-export const PACKS = {
-  ...Object.fromEntries(['change-planner', 'plan-readiness-reviewer', 'tdd-implementer', 'pr-verifier', 'commit-and-pr', 'codebase-researcher',
-    'plan-reality-auditor', 'adr-reviewer', 'code-quality-reviewer', 'test-coverage-reviewer', 'architecture-reviewer', 'security-reviewer',
-    'spec-reviewer', 'finding-verifier', 'screen-designer', 'adr-author', 'test-runner', 'e2e-tester', 'requirements-triage'].map((r) => [r, 'devkit-core'])),
-  'openspec-validator': 'devkit-openspec',
-  'change-coordinator': 'devkit-openspec',
-};
-
 // `guard.mjs agent` (H1 to H5): in a run the session hands work only to the roles of the change's script, named with no
 // prefix or with the prefix of the pack that ships that role's agent; no agent type is a general-purpose agent: refused.
 export function agentDecision(input, { events } = {}) {
@@ -3034,9 +3069,10 @@ const refusal = (what) => new LoopUsageError(`${what}: nothing was written or ru
 const changeFolder = (action, id) => locateChange(action.root, id)?.dir ?? join(action.root, 'openspec', 'changes', id);
 const headOf = (root) => tryGit(root, ['rev-parse', 'HEAD']) || 'none';
 
-// The text of approval.md in the form of the `stop-plan-approval` row of `ship-change`.
-export function approvalText({ id, attempt, commit, readiness: hash, date, words }) {
-  return `<!-- devkit-stage approval result=passed attempt=${attempt} commit=${commit} -->\n# Plan approval: ${id}\n\n- Status: APPROVED\n- Readiness: ${hash}\n- Date: ${date}\n- Owner's words: "\`${words}\`"\n`;
+// The text of approval.md in the form of the `stop-plan-approval` row of `ship-change`; the `- Plan:` line only with a `plan` (D-7).
+export function approvalText({ id, attempt, commit, readiness: hash, plan = null, date, words }) {
+  const planLine = plan ? `- Plan: ${plan}\n` : '';
+  return `<!-- devkit-stage approval result=passed attempt=${attempt} commit=${commit} -->\n# Plan approval: ${id}\n\n- Status: APPROVED\n- Readiness: ${hash}\n${planLine}- Date: ${date}\n- Owner's words: "\`${words}\`"\n`;
 }
 
 // The text of mockup.md after the owner's answer, in the form of the `stop-mockup-approval` row: `approve` or `changes`.
@@ -3063,7 +3099,7 @@ export function recordApproval(cwd, id, { words, lang, env, openspec, gh } = {})
   const file = join(dir, 'approval.md');
   const earlier = existsSync(file) ? parseStageHeader(readFileSync(file, 'utf8')) : null;
   const attempt = earlier && !earlier.malformed ? earlier.attempt + 1 : 1;
-  writeFileSync(file, approvalText({ id, attempt, commit: headOf(st.action.root), readiness: hash, date: today(), words: wordsOf(words) }));
+  writeFileSync(file, approvalText({ id, attempt, commit: headOf(st.action.root), readiness: hash, plan: planDigest(dir), date: today(), words: wordsOf(words) }));
   return { version: 1, change: id, recorded: 'approval', attempt };
 }
 
@@ -3147,6 +3183,7 @@ export function compozyRetry(cwd, id) {
 // ---------------------------------------------------------------- the command line (D-5)
 
 const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... [--stdin <name>] '
+  + '| declare <id> <gate-red|review-round> --lang <l> [--param name=value]... [--stdin words] '
   + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> [--task <KEY>] --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input, or with --task the task as JSON) '
   + '| write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | accept-decisions <id> --lang <l> | merge-check <id> --lang <l> | flow <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] [--offline] --lang <l> '
   + '| next --change <id> --lang <l> --view compozy | compozy-start <id> --lang <l> (the request on standard input) | confirm --change <id> --lang <l> --view <json> '
@@ -3175,8 +3212,119 @@ const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 // the stop lock reads, D-2), then the JSON action.
 export const loopOutput = (id, action) => `devkit-run: ${id}\n${action.kind === 'end' ? `devkit-end: ${id} ${action.end.state}\n` : ''}${json(action)}`;
 
-// The keys the session renders itself that end the run, and the state each one records.
-const END_OF_KEY = { blocked: 'blocked', 'waiting-pr-decision': 'waiting-for-owner' };
+// Every step or end the session declares outside the stage gates (coordinator-loop-fixes D-1). A `reply` row ends the run in
+// the state `end` (a wait for the owner at the gate `gate`); a `declare` row is recorded by `change-loop.mjs declare`, which the
+// main session alone runs, when the loop's current action is at `at`. roadmap-loop.mjs reads the same table.
+export const DECLARED = {
+  blocked: { via: 'reply', end: 'blocked' },
+  'waiting-pr-decision': { via: 'reply', end: 'waiting-for-owner', gate: 'decision' },
+  'waiting-pause': { via: 'reply', end: 'waiting-for-owner', gate: 'pause' },
+  'waiting-owner-decision': { via: 'reply', end: 'waiting-for-owner', gate: 'decision' },
+  'gate-red': { via: 'declare', at: 'gate' },
+  'review-round': { via: 'declare', at: 'review-deadlock' },
+};
+
+// The one function that prints a declared marker: { code, stdout, stderr }. A `reply` row renders the key and prints
+// `devkit-end: <id> <end>` before it. A `declare` row checks the loop's current action against its `at`, records the step in
+// declared.json and prints the action that follows, as `next` does (D-3, D-4). A refusal records nothing.
+export function declaredStep(cwd, key, { params, lang, env, openspec, gh }) {
+  const row = DECLARED[key];
+  if (!row) throw new LoopUsageError(`${key} is not a declared step`);
+  if (row.via === 'reply') return { code: 0, stdout: `devkit-end: ${params.id} ${row.end}\n${render(lang, key, params)}\n`, stderr: '' };
+  const id = params.id;
+  if (!NAME.test(id ?? '')) throw new LoopUsageError(`${id} cannot be a change name`);
+  const l = normalizeLang(lang);
+  const refuse = (k, p = {}) => new LoopRefusal(k, render(l, k, { id, ...p }));
+  const look = (extra = {}) => nextAction(cwd, id, { env, lang: l, openspec, gh, budget: true, strictModels: true, retry: false, ...extra });
+  const dir = changeDirOf(cwd, id);
+  const record = (entry) => {
+    const written = recordDeclared(dir, entry);
+    if (written.error) throw refuse('declare-unreadable', { error: written.error });
+  };
+  if (key === 'gate-red') {
+    const phase = Number(params.phase);
+    if (!Number.isInteger(phase) || phase < 1) throw new LoopUsageError('declare gate-red needs --param phase=<the phase number>');
+    const at = look();
+    if (!(at.kind === 'session' && at.step === 'gate' && at.detail?.phase === phase)) throw refuse('declare-not-at-gate', { phase: params.phase });
+    const read = readDeclared(dir);
+    if (read.error) throw refuse('declare-unreadable', { error: read.error });
+    const before = read.steps.filter((s) => s.key === 'gate-red' && s.phase === phase).length;
+    record({ key, phase, at: now() });
+    const action = look({ redGate: before ? { phase, again: true } : { phase } });
+    return { code: exitCodeOf(action), stdout: loopOutput(id, action), stderr: '' };
+  }
+  // review-round (D-4): only at a deadlock, only with the owner's own words; the round answers the review in front of the owner.
+  const words = typeof params.words === 'string' ? params.words : '';
+  if (words.trim() === '') throw refuse('declare-no-words');
+  const scope = deadlockScope(look());
+  if (scope === null) throw refuse('declare-not-at-deadlock');
+  const read = readDeclared(dir);
+  if (read.error) throw refuse('declare-unreadable', { error: read.error });
+  const round = REVIEW_ROUNDS + authorizedRounds(dir, scope) + 1;
+  record({ key, scope, round, words: words.slice(0, 200), at: now() });
+  const action = { ...look(), declared: { key, reply: render(l, 'review-round-authorized', { id, round }) } };
+  return { code: exitCodeOf(action), stdout: loopOutput(id, action), stderr: '' };
+}
+
+// The folder of change `id` as the loop finds it from `cwd` (its worktree, else the main checkout).
+function changeDirOf(cwd, id) {
+  const start = findRoot(cwd);
+  if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
+  const found = locate(start, id);
+  return locateChange(found.root, id)?.dir ?? join(found.root, 'openspec', 'changes', id);
+}
+
+// Appends `entry` to `<dir>/declared.json` (D-1): { error } and nothing written when the record cannot be read; else the
+// record with the entry added, written to a temporary file of the same folder and renamed over it. Entries of a key this
+// version does not know are kept as they are.
+export function recordDeclared(dir, entry) {
+  const read = readDeclared(dir);
+  if (read.error) return { error: read.error };
+  const file = join(dir, 'declared.json');
+  const steps = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')).steps : [];
+  const tmp = join(dir, `.declared.json.${process.pid}.tmp`);
+  writeFileSync(tmp, json({ version: 1, steps: [...steps, entry] }));
+  renameSync(tmp, file);
+  return { error: null };
+}
+
+// The `--param name=value` list of a command line as an object.
+function paramsOf(list) {
+  const params = {};
+  for (const p of list) {
+    const eq = p.indexOf('=');
+    if (eq < 1) throw new LoopUsageError(`--param needs name=value, got ${p}`);
+    params[p.slice(0, eq)] = p.slice(eq + 1);
+  }
+  return params;
+}
+
+// The text a heredoc hands over: the input without its one final line break, `\r\n` or else `\n`.
+const withoutFinalBreak = (text) => (text.endsWith('\r\n') ? text.slice(0, -2) : text.endsWith('\n') ? text.slice(0, -1) : text);
+
+// `--stdin <name>`: the parameter `name` is read from standard input, so a text with quotes, `$` or line breaks never
+// goes through the command line (jira-entry-followups D-5). `params` with that parameter added; `name` undefined adds none.
+const STDIN_NAME = /^[a-z][a-zA-Z]*$/;
+function withStdinParam(command, params, name, stdin) {
+  if (name === undefined) return params;
+  if (!STDIN_NAME.test(name)) throw new LoopUsageError('--stdin needs a parameter name of letters, starting with a lower-case one');
+  if (Object.hasOwn(params, name)) throw new LoopUsageError(`--param ${name} and --stdin ${name} name the same parameter`);
+  const value = withoutFinalBreak(stdin);
+  if (value === '') throw new LoopUsageError(`${command} --stdin ${name} needs the text on standard input`);
+  return { ...params, [name]: value };
+}
+
+// `declare <id> <key>`: a step the main session records (D-1); a key whose row is `reply`, or that the table lacks, is a usage error.
+// `--stdin words`: the owner's words of `review-round` are read from standard input, as reply's `--stdin` (coordinator-loop-fixes D-4).
+function runDeclare(args, { stdin = '', env, cwd, openspec, gh } = {}) {
+  const opts = parseArgs(args, { values: ['--lang', '--stdin'], multi: ['--param'] });
+  if (opts.positional.length !== 2) throw new LoopUsageError(USAGE);
+  const [id, key] = opts.positional;
+  if (DECLARED[key]?.via !== 'declare') throw new LoopUsageError(`${key} is not a step declare records (${Object.keys(DECLARED).filter((k) => DECLARED[k].via === 'declare').join(', ')}); ${USAGE}`);
+  if (opts.stdin !== undefined && STDIN_NAME.test(opts.stdin) && opts.stdin !== 'words') throw new LoopUsageError(`declare --stdin reads only words, not ${opts.stdin}`);
+  const params = withStdinParam('declare', paramsOf(opts.params), opts.stdin, stdin);
+  return declaredStep(cwd, key, { params: { ...params, id }, lang: opts.lang, env, openspec, gh });
+}
 
 function runNext(args, { env, cwd, openspec, gh }) {
   const opts = parseArgs(args, { values: ['--change', '--lang', '--after', '--view'] });
@@ -3198,30 +3346,15 @@ function runState(args, { env, cwd, openspec, gh }) {
   return { code: 0, stdout: json({ version: 1, changes }), stderr: '' };
 }
 
-// The text a heredoc hands over: the input without its one final line break, `\r\n` or else `\n`.
-const withoutFinalBreak = (text) => (text.endsWith('\r\n') ? text.slice(0, -2) : text.endsWith('\n') ? text.slice(0, -1) : text);
-
-// `--stdin <name>`: the parameter `name` is read from standard input, so a text with quotes, `$` or line breaks never
-// goes through the command line (jira-entry-followups D-5).
-function runReply(args, { stdin = '' } = {}) {
+function runReply(args, { stdin = '', env, cwd, openspec, gh } = {}) {
   const opts = parseArgs(args, { values: ['--lang', '--stdin'], multi: ['--param'] });
   if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
-  const params = {};
-  for (const p of opts.params) {
-    const eq = p.indexOf('=');
-    if (eq < 1) throw new LoopUsageError(`--param needs name=value, got ${p}`);
-    params[p.slice(0, eq)] = p.slice(eq + 1);
-  }
-  if (opts.stdin !== undefined) {
-    if (!/^[a-z][a-zA-Z]*$/.test(opts.stdin)) throw new LoopUsageError('--stdin needs a parameter name of letters, starting with a lower-case one');
-    if (Object.hasOwn(params, opts.stdin)) throw new LoopUsageError(`--param ${opts.stdin} and --stdin ${opts.stdin} name the same parameter`);
-    const value = withoutFinalBreak(stdin);
-    if (value === '') throw new LoopUsageError(`reply --stdin ${opts.stdin} needs the text on standard input`);
-    params[opts.stdin] = value;
-  }
-  const text = `${render(opts.lang, opts.positional[0], params)}\n`;
-  const state = END_OF_KEY[opts.positional[0]];
-  return { code: 0, stdout: state ? `devkit-end: ${params.id} ${state}\n${text}` : text, stderr: '' };
+  const params = withStdinParam('reply', paramsOf(opts.params), opts.stdin, stdin);
+  const key = opts.positional[0];
+  const row = DECLARED[key];
+  if (row?.via === 'declare') throw new LoopUsageError(`${key} is recorded with change-loop.mjs declare, never with reply`);
+  if (row) return declaredStep(cwd, key, { params, lang: opts.lang, env, openspec, gh });
+  return { code: 0, stdout: `${render(opts.lang, key, params)}\n`, stderr: '' };
 }
 
 function runStart(args, { env, cwd, stdin, openspec, gh }) {
@@ -3398,7 +3531,8 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
   try {
     const [sub, ...rest] = argv;
     if (sub === 'next') return runNext(rest, { env, cwd, openspec, gh });
-    if (sub === 'reply') return runReply(rest, { stdin });
+    if (sub === 'reply') return runReply(rest, { stdin, env, cwd, openspec, gh });
+    if (sub === 'declare') return runDeclare(rest, { stdin, env, cwd, openspec, gh });
     if (sub === 'state') return runState(rest, { env, cwd, openspec, gh });
     if (sub === 'start') return runStart(rest, { env, cwd, stdin, openspec, gh });
     if (sub === 'open') return runOpen(rest, { env, cwd, stdin, openspec, gh });
@@ -3459,7 +3593,7 @@ function isMain() {
 
 if (isMain()) {
   const argv = process.argv.slice(2);
-  runCommand(argv, { stdin: ['start', 'open', 'write-back', 'compozy-start'].includes(argv[0]) || (argv[0] === 'reply' && argv.includes('--stdin')) ? readStdin() : '' }).then((r) => {
+  runCommand(argv, { stdin: ['start', 'open', 'write-back', 'compozy-start'].includes(argv[0]) || (['reply', 'declare'].includes(argv[0]) && argv.includes('--stdin')) ? readStdin() : '' }).then((r) => {
     process.stdout.write(r.stdout);
     process.stderr.write(r.stderr);
     process.exitCode = r.code;

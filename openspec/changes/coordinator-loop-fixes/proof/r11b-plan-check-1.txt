@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "change": "feat",
+  "base": "main",
+  "merge": "395ca5cd9c0ac530f8a9cd9b52e7d24fc10d2a03",
+  "result": "red",
+  "reds": 1,
+  "errors": "- ERROR s/spec.md: MODIFIED \"Thing works\" omits scenario(s) the current spec still has: \"Second added on main\". The modified block has 1 scenario; the current spec has 2 scenarios. It adds none. Copy the omitted scenarios into the MODIFIED block (a MODIFIED requirement replaces the whole block, so archive refuses to drop them).",
+  "error": null
+}

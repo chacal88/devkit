@@ -552,3 +552,35 @@ test('field-fixes 11 setup: with the rulesets refused the line still lists devki
   assert.deepEqual(j.contexts, ['check']);
   assert.equal(j.items.find((i) => i.item === 'ruleset').requires, undefined, 'items[3] keeps today\'s fields');
 });
+
+// ---------------------------------------------------------------- coordinator-loop-fixes AC-14: a blocked state exits 1 (D-13)
+// Invariant: the read-only plan exits 1 when it reports Actions disabled, the newest runs failed without starting or the rulesets
+// refused, and 0 when nothing is blocked, an Actions state it cannot read included. Layer: the setup script, run as a process on a
+// fake gh. Suite: github-setup.
+
+test('coordinator-loop-fixes AC-14 T88 github-setup with Actions disabled exits 1', () => {
+  const w = world({ actions: { stdout: { enabled: false } } });
+  assert.equal(w.run().code, 1);
+  assert.equal(w.run('--json').code, 1);
+});
+
+test('coordinator-loop-fixes AC-14 T89 github-setup with the newest runs failed without starting exits 1', () => {
+  const w = world({ actionRuns: FAILED_RUNS, jobs: { 11: NO_STEP, 12: NO_STEP } });
+  assert.equal(w.run().code, 1);
+  assert.equal(w.run('--json').code, 1);
+});
+
+test('coordinator-loop-fixes AC-14 T90 github-setup with the rulesets refused exits 1', () => {
+  const w = world({ workflowOnMain: true });
+  w.gh.set(K.rulesets, REFUSED);
+  assert.equal(w.run().code, 1);
+  assert.equal(w.run('--json').code, 1);
+});
+
+test('coordinator-loop-fixes AC-14 T91 github-setup with nothing blocked and the Actions state unknown exits 0', () => {
+  const w = world({ actions: { exit: 1, stderr: 'gh: Must have admin rights to Repository. (HTTP 403)\n' } });
+  const r = w.run('--json');
+  assert.equal(r.code, 0, r.out);
+  assert.equal(repoCheck(r, 'actions').state, 'unknown');
+  assert.equal(w.run().code, 0);
+});

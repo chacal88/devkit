@@ -1,0 +1,49 @@
+devkit-run: feat
+devkit-end: feat waiting-for-owner
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit",
+  "root": "<scratch>/plan/proj/.claude/worktrees/feat",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "end",
+  "stage": "delivery",
+  "stageTitle": "Delivery",
+  "role": "commit-and-pr",
+  "skills": [
+    "commit-message-guidelines"
+  ],
+  "model": "haiku",
+  "end": {
+    "state": "waiting-for-owner",
+    "why": "waiting-approval-again"
+  },
+  "params": {
+    "id": "feat"
+  },
+  "detail": {
+    "readiness": "sha256:3082eecc44fd",
+    "plan": "sha256:dd4a8920c9fe"
+  },
+  "reply": "The plan of feat changed after your approval, so it needs your approval again.",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🚀",
+  "state": {
+    "state": "waiting-for-owner",
+    "reason": {
+      "code": "waiting-approval-again",
+      "text": "your approval of the plan"
+    },
+    "stage": "delivery",
+    "stageTitle": "Delivery",
+    "phase": null,
+    "stageIcon": "🚀",
+    "stateIcon": "🙋",
+    "title": "🙋 🚀 feat"
+  },
+  "sessionTitle": "🙋 🚀 feat"
+}

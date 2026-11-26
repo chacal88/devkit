@@ -399,6 +399,9 @@ artifacts:
       is a separate agent run. Split only where one part must be green
       before the next can start. End each group with a gate task, e.g.
       `- [ ] N.9 Gate: <test command> green; reference the AC ids covered`.
+      A task only the conducting session can do (a run in the host, a host
+      setting, a real session) starts its description with `Conductor:`; the
+      loop never hands it to the implementer.
       Every acceptance criterion id from requirements.md is covered by at
       least one task.
 
@@ -558,7 +561,7 @@ artifacts:
       line 1: `result=passed` when the consensus is PASS, `result=failed` when it is FAIL, `attempt` the
       round and `commit` the reviewed commit.
 
-      Gate: the reviewers reach consensus; two rounds at most.
+      Gate: the reviewers reach consensus; two rounds at most, one more for each round the owner authorizes.
     requires:
       - evidence
 

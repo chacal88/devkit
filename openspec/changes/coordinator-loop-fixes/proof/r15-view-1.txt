@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "kind": "agent",
+  "change": "feat",
+  "root": "<scratch>/proj",
+  "stage": "readiness",
+  "stage_title": "Plan readiness",
+  "agent": "plan-readiness-reviewer",
+  "step": "",
+  "brief": "Change feat (devkit script), stage readiness: readiness is out of date: bring it up to date. Work only in <scratch>/proj on branch feat; every file path is absolute under it; start every Bash command with cd <scratch>/proj && ; do not fetch. Write the change's files in English.",
+  "progress_key": "readiness/readiness@89374d0b47ff",
+  "question": "",
+  "reply": ""
+}

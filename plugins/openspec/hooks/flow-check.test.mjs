@@ -11,6 +11,7 @@ import { spawnSync } from 'node:child_process';
 import * as FC from './flow-check.mjs';
 import { parseStageHeader, readFlow, pendingTasks, FlowUsageError, collectFlow, computeFlow, renderText, TEXT, reasonText, notApplicableOf, appliedStages } from './flow-check.mjs';
 import { makeGh } from './deliver-check.mjs';
+import * as DC from './deliver-check.mjs';
 import { gitRepo, put, commitAll, git, fakeGh, openspecStub, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, roundRepo } from './test-fixtures.mjs';
 import { collectState, nextStep, approvalState } from './deliver-check.mjs';
 import { conductState } from './conduct-check.mjs';
@@ -1344,6 +1345,7 @@ test('flow-check readout: both languages cover every reason code', () => {
     'stale-reviewers': { names: ['spec-reviewer'] },
     // The delivery train (delivery-train D-2): a change that boards, rides a train or was taken off one.
     boarded: {}, 'on-train': { number: 40 }, 'left-train': { train: 4, number: 40 }, 'disable-auto-merge': { number: 12 },
+    'plan-revised': {},
   };
   assert.deepEqual(Object.keys(P).sort(), en, 'the table below names every code');
   for (const code of en) {
@@ -2380,4 +2382,229 @@ test('stage-ceiling-consecutive AC-6: the readout says the failures in a row in 
   const blockedFlow = readFlow(blockedRoot, 'devkit');
   assert.match(renderText(blocked, blockedFlow, 'en'), /\nEnd: blocked\. The code review failed at attempt 2; its failures in a row \(2\) reached its ceiling of 2\.\n$/);
   assert.match(renderText(blocked, blockedFlow, 'pt-BR'), /\nFim: bloqueada\. A etapa revisão de código falhou na tentativa 2; as falhas seguidas \(2\) chegaram ao limite de 2\.\n$/);
+});
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: one more review round on the owner's word (D-4)
+// Invariant: the ceiling of the `review` stage of role `review-bench` is its flow ceiling plus the review rounds the owner
+// authorized (`authorizedReviewRounds`, read from declared.json by collectFlow); no other stage and no other role's review is
+// lifted, and with no record every walk reads as before. The failures in a row (stage-ceiling-consecutive) stay the left side.
+// Layer: flow-check's computeFlow on synthetic facts, and collectFlow on a git fixture. Suite: flow-check.
+
+const failedReview = (attempt, commit = 'c000000') => ({ review: { result: 'failed', attempt, commit } });
+const ceilingEnd = (r) => [r.end?.state, r.end?.reasonCode, r.end?.params];
+
+test('coordinator-loop-fixes AC-7 T105 computeFlow: with no record a review failed at attempt 2 ends blocked at its ceiling 2', () => {
+  const blockedAt2 = ['blocked', 'ceiling-reached', { stage: 'review', attempt: 2, failures: 2, ceiling: 2 }];
+  assert.deepEqual(ceilingEnd(walk(failedReview(2))), blockedAt2, 'no authorizedReviewRounds fact');
+  assert.deepEqual(ceilingEnd(walk(failedReview(2), { authorizedReviewRounds: 0 })), blockedAt2, 'the fact 0');
+});
+
+test('coordinator-loop-fixes AC-7 T106 computeFlow: one authorized round lets a review failed at attempt 2 be fixed and run again', () => {
+  const r = walk(failedReview(2), { authorizedReviewRounds: 1 });
+  assert.equal(r.end, null);
+  assert.deepEqual([r.next.stage, r.next.reasonCode, r.next.params], ['implementation', 'fix-after-failure', { failed: 'review', attempt: 2, failures: 2, ceiling: 3 }]);
+  assert.deepEqual([stageOf(r, 'review').reasonCode, stageOf(r, 'review').params], ['header-failed', { attempt: 2, failures: 2, ceiling: 3 }]);
+  const after = walk(failedReview(2, 'c111111'), { authorizedReviewRounds: 1, staleness: (sha) => (sha === 'c111111' ? 'c111111 is behind c222222' : null) });
+  assert.equal(after.end, null);
+  assert.deepEqual([after.next.stage, after.next.reasonCode], ['review', 'rerun-after-fix']);
+});
+
+test('coordinator-loop-fixes AC-7 T107 computeFlow: one authorized round, the authorized round failed: blocked at the ceiling 3', () => {
+  assert.deepEqual(ceilingEnd(walk(failedReview(3), { authorizedReviewRounds: 1 })), ['blocked', 'ceiling-reached', { stage: 'review', attempt: 3, failures: 3, ceiling: 3 }]);
+});
+
+test('coordinator-loop-fixes AC-7 T108 computeFlow: each authorization adds one round, whichever ceiling the flow sets', () => {
+  const three = walk(failedReview(3), { authorizedReviewRounds: 2 });
+  assert.deepEqual([three.end, three.next.reasonCode, three.next.params.ceiling], [null, 'fix-after-failure', 4]);
+  assert.deepEqual(ceilingEnd(walk(failedReview(4), { authorizedReviewRounds: 2 })), ['blocked', 'ceiling-reached', { stage: 'review', attempt: 4, failures: 4, ceiling: 4 }]);
+  const one = { ...FLOW_DEVKIT, stages: FLOW_DEVKIT.stages.map((s) => (s.id === 'review' ? { ...s, ceiling: 1 } : s)) };
+  const first = computeFlow(synth(failedReview(1), { authorizedReviewRounds: 1 }), one, {});
+  assert.deepEqual([first.end, first.next.reasonCode, first.next.params], [null, 'fix-after-failure', { failed: 'review', attempt: 1, failures: 1, ceiling: 2 }]);
+  assert.deepEqual(ceilingEnd(computeFlow(synth(failedReview(2), { authorizedReviewRounds: 1 }), one, {})), ['blocked', 'ceiling-reached', { stage: 'review', attempt: 2, failures: 2, ceiling: 2 }]);
+});
+
+test('coordinator-loop-fixes AC-7 T109 computeFlow: an authorized round lifts no other stage and no review of another role', () => {
+  for (const id of ['evidence', 'readiness']) {
+    const r = walk({ [id]: { result: 'failed', attempt: 3 } }, { authorizedReviewRounds: 1 });
+    assert.deepEqual(ceilingEnd(r), ['blocked', 'ceiling-reached', { stage: id, attempt: 3, failures: 3, ceiling: 3 }], id);
+  }
+  const project = JSON.parse(readFileSync(join(PLUGIN_SCHEMAS, 'devkit-project', 'flow.json'), 'utf8'));
+  const files = {};
+  for (const s of project.stages.filter((x) => x.source === 'artifact')) {
+    files[s.id] = [{ path: s.file, header: { stage: s.id, result: s.id === 'review' ? 'failed' : 'passed', attempt: s.id === 'review' ? 2 : 1, commit: 'c000000' }, mtimeMs: T0 }];
+  }
+  const facts = { ...synth(), schema: 'devkit-project', files, authorizedReviewRounds: 1 };
+  assert.deepEqual(ceilingEnd(computeFlow(facts, project, {})), ['blocked', 'ceiling-reached', { stage: 'review', attempt: 2, failures: 2, ceiling: 2 }]);
+});
+
+test('coordinator-loop-fixes AC-7 T110 collectFlow: authorizedReviewRounds counts the review-scope rounds of declared.json', () => {
+  const root = liveChange();
+  const record = join(root, 'openspec', 'changes', 'feat', 'declared.json');
+  const rounds = () => collectFlow(root, 'feat', { openspec: fakeOpenspec(root) }).facts.authorizedReviewRounds;
+  const entry = (scope) => ({ key: 'review-round', ...(scope === undefined ? {} : { scope }), round: 3, words: 'one more', at: '2026-11-24T10:00:00.000Z' });
+  const write = (...steps) => writeFileSync(record, JSON.stringify({ version: 1, steps }));
+  assert.equal(rounds(), 0, 'no declared.json');
+  write(entry('review'));
+  assert.equal(rounds(), 1, 'one review entry');
+  write(entry());
+  assert.equal(rounds(), 1, 'one entry with no scope');
+  write(entry('review'), entry('resolution'));
+  assert.equal(rounds(), 1, 'one review and one resolution entry');
+  write(entry('resolution'));
+  assert.equal(rounds(), 0, 'only a resolution entry');
+  write(entry('review'), entry('review'));
+  assert.equal(rounds(), 2, 'two review entries');
+  writeFileSync(record, 'not json');
+  assert.equal(rounds(), 0, 'an unreadable record');
+});
+
+test('coordinator-loop-fixes AC-7 T132 computeFlow: the failures in a row since the last pass meet the lifted ceiling', () => {
+  const history = (...headers) => () => headers;
+  const earlier = [failedHeader(1, 'c111111', 'review'), passedHeader(1, 'c000000', 'review')];
+  const two = walk(failedReview(2, 'c222222'), { authorizedReviewRounds: 1, history: history(...earlier) });
+  assert.equal(two.end, null);
+  assert.deepEqual([two.next.reasonCode, two.next.params], ['fix-after-failure', { failed: 'review', attempt: 2, failures: 2, ceiling: 3 }]);
+  const three = walk(failedReview(3, 'c333333'), { authorizedReviewRounds: 1, history: history(failedHeader(2, 'c222222', 'review'), ...earlier) });
+  assert.deepEqual(ceilingEnd(three), ['blocked', 'ceiling-reached', { stage: 'review', attempt: 3, failures: 3, ceiling: 3 }]);
+  const none = walk(failedReview(2, 'c222222'), { history: history(...earlier) });
+  assert.deepEqual(ceilingEnd(none), ['blocked', 'ceiling-reached', { stage: 'review', attempt: 2, failures: 2, ceiling: 2 }]);
+});
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: a plan revised after the start (D-7)
+// Invariant: once a task is ticked, an approval that records the plan's digest (`- Plan:`) makes the readiness stale with the
+// reason `plan-revised` when a plan file changed since, whichever plan file (a merge-defect fix of a spec delta reads as a design
+// edit); a tick or a later stage file changes nothing, and a flow with no approval stage never reads it. Layer: the stage checker
+// (collectFlow and computeFlow) on a real repository. Suite: flow-check.
+
+// liveChange() with one task ticked and one open, its approval.md recording the readiness hash and the plan's digest.
+function revisedChange() {
+  const root = liveChange({ tasks: '# Tasks\n\n- [x] 1.1 a\n- [ ] 1.2 b\n' });
+  const dir = join(root, 'openspec', 'changes', 'feat');
+  const c0 = /commit=([0-9a-f]+)/.exec(readFileSync(join(dir, 'approval.md'), 'utf8'))[1];
+  const record = `<!-- devkit-stage approval result=passed attempt=1 commit=${c0} -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${approvalState(dir).readiness}\n- Plan: ${DC.planDigest?.(dir)}\n- Date: 2026-11-24\n`;
+  put(root, { 'openspec/changes/feat/approval.md': record });
+  commitAll(root, 'the owner approves the plan, with its digest');
+  return { root, dir, c0 };
+}
+const revisedEdit = (root, file, c0) => put(root, { [`openspec/changes/feat/${file}`]: `<!-- devkit-stage ${file.startsWith('specs/') ? 'specs' : 'design'} result=passed attempt=1 commit=${c0} -->\n# edited after the approval\n` });
+
+test('coordinator-loop-fixes AC-8 T57 flow-check: started, approval ok, plan changed: the readiness is stale with plan-revised and comes next', () => {
+  const { root, dir, c0 } = revisedChange();
+  assert.equal(approvalState(dir).ok, true);
+  revisedEdit(root, 'design.md', c0);
+  commitAll(root, 'a plan revision');
+  const r = liveReport(root);
+  assert.equal(stageOf(r, 'readiness').state, 'stale');
+  assert.equal(stageOf(r, 'readiness').reasonCode, 'plan-revised');
+  assert.deepEqual([r.next?.stage, r.next?.reasonCode], ['readiness', 'plan-revised']);
+  for (const lang of ['en', 'pt-BR']) assert.equal(typeof TEXT[lang]['plan-revised'], 'function', lang);
+  assert.equal(reasonText('en', 'plan-revised', {}, {}), 'the plan changed after the owner approved it');
+  assert.equal(reasonText('pt-BR', 'plan-revised', {}, {}), 'o plano mudou depois que o dono o aprovou');
+});
+
+test('coordinator-loop-fixes AC-8 T58 flow-check: started, approval ok, only a tick since: the readiness passed', () => {
+  const { root } = revisedChange();
+  put(root, { 'openspec/changes/feat/tasks.md': readFileSync(join(root, 'openspec/changes/feat/tasks.md'), 'utf8').replace('- [ ] 1.2', '- [x] 1.2') });
+  commitAll(root, 'a tick');
+  const r = liveReport(root);
+  assert.equal(stageOf(r, 'readiness').state, 'passed');
+  assert.equal(stageOf(r, 'readiness').reasonCode, 'passed');
+});
+
+test('coordinator-loop-fixes AC-8 T59 flow-check: started, evidence written since: the readiness passed', () => {
+  const { root, c0 } = revisedChange();
+  put(root, { 'openspec/changes/feat/evidence.md': `<!-- devkit-stage evidence result=passed attempt=2 commit=${c0} -->\n# evidence, written again\n` });
+  commitAll(root, 'evidence');
+  const r = liveReport(root);
+  assert.equal(stageOf(r, 'readiness').state, 'passed');
+  assert.equal(stageOf(r, 'readiness').reasonCode, 'passed');
+});
+
+test('coordinator-loop-fixes AC-8 T93 flow-check on a devkit-lite change: a tick, another plan recorded and an edited design leave no stage stale', () => {
+  const root = gitRepo({ config: 'schema: devkit-lite\n' });
+  const c0 = git(root, 'rev-parse', 'HEAD');
+  const text = (id, body = `# ${id}\n`) => `<!-- devkit-stage ${id} result=passed attempt=1 commit=${c0} -->\n${body}`;
+  put(root, Object.fromEntries(Object.entries({
+    '.openspec.yaml': 'schema: devkit-lite\n', 'requirements.md': text('requirements'), 'proposal.md': text('proposal'),
+    'specs/s/spec.md': text('specs'), 'tasks.md': text('tasks', '# Tasks\n\n- [x] 1.1 a\n- [ ] 1.2 b\n'),
+    'approval.md': '# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: sha256:000000000000\n- Plan: sha256:000000000000\n',
+  }).map(([f, b]) => [`openspec/changes/feat/${f}`, b])));
+  commitAll(root, 'a devkit-lite change, started');
+  put(root, { 'openspec/changes/feat/design.md': '# Design\n\nEdited after the tick.\n' });
+  commitAll(root, 'design edited');
+  const { facts, flow } = collectFlow(root, 'feat', { openspec: fakeOpenspec(root) });
+  const r = computeFlow(facts, flow, {});
+  assert.equal(flow.script, 'devkit-lite');
+  assert.deepEqual(r.stages.filter((s) => s.state === 'stale').map((s) => s.id), []);
+  assert.deepEqual(r.stages.filter((s) => s.reasonCode === 'plan-revised').map((s) => s.id), []);
+  assert.equal(r.next?.stage, 'implementation');
+});
+
+test('coordinator-loop-fixes AC-8 T133 flow-check: a spec delta edit (a merge-defect fix) and a design edit give the same readiness and approval entries', () => {
+  const { root, c0 } = revisedChange();
+  const spec = join(root, 'openspec/changes/feat/specs/s/spec.md');
+  const original = readFileSync(spec, 'utf8');
+  const entries = () => { const r = liveReport(root); return ['readiness', 'approval'].map((id) => stageOf(r, id)); };
+  revisedEdit(root, 'specs/s/spec.md', c0);
+  const fix = entries();
+  writeFileSync(spec, original);
+  revisedEdit(root, 'design.md', c0);
+  const ordinary = entries();
+  assert.deepEqual(fix, ordinary);
+  for (const [label, [readiness]] of [['the spec delta', fix], ['the design', ordinary]]) {
+    assert.deepEqual([readiness.state, readiness.reasonCode], ['stale', 'plan-revised'], label);
+  }
+});
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: a delivered change on a branch advanced into the base (D-21)
+// Invariant: a change delivered by its merged pull request switches to the walk after the merge on its own branch too when that
+// branch was advanced into the base (its head in origin/<base>); a branch with a commit of its own, a change not delivered and
+// `plan` mode keep today's walk. Layer: the stage checker (collectFlow and computeFlow) with a fake gh. Suite: flow-check.
+
+// liveChange() in `ship` mode on main; branch feat cut at its head (the reviewed head, the stage headers at the commit before it);
+// main gets a base commit touching src/a.ts and origin/main is set to it. `advance` fast-forwards feat to main; `own` commits
+// src/a.ts on feat instead, and the evidence again at that commit. The fake gh answers a merged pull request #12 of head feat, every task ticked on main unless `left`.
+function advancedChange({ ship = 'merge', advance = true, own = false, left = [] } = {}) {
+  const root = liveChange({ ship, skip: ['retro'] });
+  git(root, 'switch', '-q', '-c', 'feat');
+  const reviewed = git(root, 'rev-parse', 'HEAD');
+  git(root, 'switch', '-q', 'main');
+  put(root, { 'src/a.ts': 'the base edits a\n' });
+  git(root, 'update-ref', 'refs/remotes/origin/main', commitAll(root, 'a base commit after the merge'));
+  git(root, 'switch', '-q', 'feat');
+  if (advance) git(root, 'merge', '-q', '--ff-only', 'main');
+  if (own) {
+    put(root, { 'src/a.ts': 'the branch edits a\n' });
+    const mine = commitAll(root, 'a commit of its own');
+    // The evidence is taken again at that commit, so the code review is the first stage the commit leaves stale.
+    const evidence = join(root, 'openspec', 'changes', 'feat', 'evidence.md');
+    writeFileSync(evidence, readFileSync(evidence, 'utf8').replace(/commit=[0-9a-f]+/, `commit=${mine}`));
+    commitAll(root, 'the evidence at that commit');
+  }
+  const gh = fakeGh();
+  gh.set('pr-view', { stdout: prView(reviewed, { state: 'MERGED', headRefName: 'feat', mergeable: 'UNKNOWN', mergeStateStatus: 'UNKNOWN' }) });
+  ownMerged(gh.set.bind(gh));
+  if (left.length) gh.set(TASKS_ON_KEY('feat'), tasksFixture(tasksText({ ticked: ['1.1'], unticked: left })));
+  const env = { ...gh.env, ...SHIP_ENV };
+  const { facts, flow } = collectFlow(root, 'feat', { env, gh: makeGh(root, env), openspec: fakeOpenspec(root) });
+  return { root, facts, report: computeFlow(facts, flow, {}) };
+}
+
+test('coordinator-loop-fixes AC-18 T127 flow-check: a change delivered by a merged pull request, its own branch advanced into the base, walks after the merge', () => {
+  const { facts, report } = advancedChange();
+  assert.equal(facts.postMerge, true);
+  assert.deepEqual(report.stages.filter((s) => s.state === 'stale').map((s) => s.id), []);
+  assert.deepEqual(outcome(report), { next: 'retro', reasonCode: 'no-file' });
+});
+
+test('coordinator-loop-fixes AC-18 T128 flow-check: the own branch not advanced, with a commit of its own after the reviewed head, judges staleness as today', () => {
+  const { facts, report } = advancedChange({ advance: false, own: true });
+  assert.equal(facts.postMerge, false);
+  assert.equal(stageOf(report, 'evidence').state, 'passed');
+  assert.deepEqual([stageOf(report, 'review').state, stageOf(report, 'review').reasonCode], ['stale', 'stale-code']);
+});
+
+test('coordinator-loop-fixes AC-18 T129 flow-check: an advanced branch of a change not delivered, or in plan mode, does not switch', () => {
+  assert.equal(advancedChange({ left: ['1.2'] }).facts.postMerge, false, 'a task left unticked on the base');
+  assert.equal(advancedChange({ ship: 'plan' }).facts.postMerge, false, 'plan mode');
 });

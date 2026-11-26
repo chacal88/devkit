@@ -1,0 +1,48 @@
+devkit-run: feat
+devkit-end: feat waiting-for-owner
+{
+  "version": 1,
+  "change": "feat",
+  "script": "devkit-lite",
+  "root": "<scratch>/proj/.claude/worktrees/feat",
+  "branch": "feat",
+  "filesLanguage": "en",
+  "kind": "end",
+  "stage": "delivery",
+  "stageTitle": "Delivery",
+  "role": "commit-and-pr",
+  "skills": [
+    "commit-message-guidelines"
+  ],
+  "model": "haiku",
+  "end": {
+    "state": "waiting-for-owner",
+    "why": "waiting-review-dispute"
+  },
+  "params": {
+    "id": "feat"
+  },
+  "detail": {
+    "resolution": true
+  },
+  "reply": "The code review of feat still disagrees after its last round: the disputed points need your decision, or your word for one more round.",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🚀",
+  "state": {
+    "state": "waiting-for-owner",
+    "reason": {
+      "code": "waiting-review-dispute",
+      "text": "your decision on the disputed review points"
+    },
+    "stage": "delivery",
+    "stageTitle": "Delivery",
+    "phase": null,
+    "stageIcon": "🚀",
+    "stateIcon": "🙋",
+    "title": "🙋 🚀 feat"
+  },
+  "sessionTitle": "🙋 🚀 feat"
+}

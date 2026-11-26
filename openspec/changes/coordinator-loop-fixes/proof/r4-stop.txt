@@ -1,0 +1,6 @@
+end lines naming feat in the R1 transcript: 4
+end lines naming feat after the change: 0
+unchanged exit: 0
+unchanged stderr: 
+changed exit: 2
+changed stderr: devkit guard: the change feat has the stage implementation ready (devkit-core:tdd-implementer); run it, or end the run as blocked and say why. The next action comes from: node <worktree>/plugins/openspec/hooks/change-loop.mjs next --change feat --lang pt-BR

@@ -36,6 +36,11 @@ Note (remote-worker, 2026-11-22): a change session on another machine is held by
 by the pack installed on that machine ([ADR 0020](0020-a-change-can-run-on-another-machine.md)).
 Decisions 1 to 3 are unchanged.
 
+Note (coordinator-loop-fixes, 2026-11-24): the stop lock lets the session end its turn after a recorded
+end only when that end's `devkit-end:` line names the run's change, and the ends a session declares
+outside the stage gates are those of [ADR 0032](0032-the-loop-declares-the-decisions-outside-the-stage-gates.md).
+Decisions 1 to 3 are unchanged.
+
 ADR 0010 decision 8 answers ADR 0006's "side door" objection with "the change coordinator has no
 edit tool and product code is still written only by the implementer role under the same hooks",
 and the locks table of docs/coordination-design.md says the lock comes "from the role's

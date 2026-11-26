@@ -1,0 +1,3 @@
+gate exit after the run: 0
+commits since the build: 0
+uncommitted files outside the change folder: 1

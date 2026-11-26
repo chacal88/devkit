@@ -608,19 +608,23 @@ test('conduct: a change PR in conflict only in release files is resolve-release-
   assert.equal(headOf(b), c.deliver ? headOf(b) : '', 'nothing was touched');
 });
 
-test('conduct: a conflict that also has README.md is blocked, and an independent change in the round is still dispatched', () => {
+test('conduct: a conflict that also has README.md is resolve-base-conflict, and an independent change in the round is still dispatched', () => {
   const { t } = conflictRepo(['CHANGELOG.md', 'README.md']);
   const c = t.addWt('c');
   planFiles(c, 'c');
   const res = t.state();
-  assert.equal(byId(res, 'b').state, 'blocked: item 5 (conflict in README.md)');
-  assert.equal(byId(res, 'b').next.actor, 'stop');
-  assert.deepEqual(res.dispatch, ['c']);
+  const b = byId(res, 'b');
+  assert.deepEqual(planStep(b), ['resolve-base-conflict', 'subagent']);
+  assert.equal(b.next.agent, TDD);
+  assert.deepEqual([b.next.paths, b.next.others], [['CHANGELOG.md', 'README.md'], ['README.md']]);
+  assert.equal(b.state, 'ready to run: resolve-base-conflict');
+  assert.deepEqual(res.dispatch, ['b', 'c']);
 });
 
 // Invariant (release-merge-leftovers AC-3): under the two-PR delivery model the release-merge override merges the
 // base branch (the repository's default branch, ADR 0018 decision 2), never the test branch, and a conflict outside
-// the release files stays blocked. Layer: conduct-check's releaseConflict over deliver-check's two-prs item 5.
+// the release files is the resolve-base-conflict hand-off on the base branch (coordinator-loop-fixes D-5). Layer:
+// conduct-check's releaseConflict over deliver-check's two-prs item 5.
 // Suite: conduct-check.test.mjs (loaded by guard.test.mjs).
 const TWO_PRS_CONFIG = `schema: devkit-lite\n${TWO_PRS}`;
 function twoPrsConflict(conflicts) {
@@ -651,12 +655,16 @@ test('conduct: under two-prs, a change PR in conflict only in release files is r
   assert.equal(c.deliver.next.conflict, true);
 });
 
-test('conduct: under two-prs, a conflict that also has README.md is blocked (release-merge-leftovers AC-3)', () => {
+test('conduct: under two-prs, a conflict that also has README.md is resolve-base-conflict on the base branch (release-merge-leftovers AC-3)', () => {
   const { t, b } = twoPrsConflict(['CHANGELOG.md', 'README.md']);
   const c = byId(t.state(), 'b');
   assert.ok(listedBases(t, b).includes('develop'), 'the two-prs model is in force');
-  assert.deepEqual(planStep(c), ['blocked', 'stop']);
-  assert.equal(c.state, 'blocked: item 5 (conflict in README.md)');
+  assert.deepEqual(planStep(c), ['resolve-base-conflict', 'subagent']);
+  assert.equal(c.next.agent, TDD);
+  assert.deepEqual(c.next.paths, ['CHANGELOG.md', 'README.md']);
+  assert.deepEqual(c.next.others, ['README.md']);
+  assert.equal(c.next.base, 'main', 'the base branch, never the test branch develop');
+  assert.equal(c.state, 'ready to run: resolve-base-conflict');
 });
 
 test('conduct: git merge-tree exit 0 (GitHub is stale) keeps what deliver-check says in pr mode', () => {
@@ -732,7 +740,7 @@ function archiveRepo({ config = CONFIG, files = {}, id = 'b', archiveFiles = {} 
   return { t, wt, id };
 }
 
-test('conduct: an archive PR in conflict only in release files is resolve-release-conflict; a README conflict is blocked (P3b)', () => {
+test('conduct: an archive PR in conflict only in release files is resolve-release-conflict; a README conflict is resolve-base-conflict (P3b)', () => {
   let { t, wt } = archiveRepo({ archiveFiles: { 'CHANGELOG.md': '# c\narchive edit\n' } });
   t.commitOrigin({ 'CHANGELOG.md': '# c\norigin edit\n' }, 'origin edits the changelog');
   archiveGh(t, wt, 'b', [ARCHIVE_PR({ headRefOid: headOf(wt), mergeable: 'CONFLICTING' })]);
@@ -747,7 +755,8 @@ test('conduct: an archive PR in conflict only in release files is resolve-releas
   t.commitOrigin({ 'CHANGELOG.md': '# c\norigin edit\n', 'README.md': 'origin\n' }, 'origin edits both');
   archiveGh(t, wt, 'b', [ARCHIVE_PR({ headRefOid: headOf(wt), mergeable: 'CONFLICTING' })]);
   c = byId(t.state(), 'b');
-  assert.equal(c.state, 'blocked: archive (archive-pr): conflict in README.md');
+  assert.deepEqual(planStep(c), ['resolve-base-conflict', 'subagent']);
+  assert.deepEqual([c.next.paths, c.next.others, c.next.archive], [['CHANGELOG.md', 'README.md'], ['README.md'], true]);
 });
 
 // The state after the release merge, not pushed yet: the branch holds origin/main merged in and the CHANGELOG
@@ -1470,14 +1479,14 @@ test('conduct pin: a change PR whose only conflicts are release files and the CI
   assert.deepEqual(left.filter((f) => f.startsWith('devkit-pin-')), [], 'the state read leaves no devkit-pin-* folder');
 });
 
-test('conduct pin: both sides editing one paragraph of docs/openspec-flow.md is blocked (AC-2)', () => {
+test('conduct pin: both sides editing one paragraph of docs/openspec-flow.md is resolve-base-conflict (AC-2)', () => {
   const { t } = pinConflictRepo({ change: pinDoc('0.10.1', { top: 'TOP B' }), origin: pinDoc('0.11.0', { top: 'TOP A' }) });
   const c = byId(t.state(), 'b');
-  assert.equal(c.state, `blocked: item 5 (conflict in ${PIN_DOC})`);
-  assert.equal(c.next.actor, 'stop');
+  assert.deepEqual(planStep(c), ['resolve-base-conflict', 'subagent']);
+  assert.deepEqual([c.next.paths, c.next.others], [['CHANGELOG.md', PIN_DOC], [PIN_DOC]]);
 });
 
-test('conduct pin: an archive PR conflicting in the CI pin only is resolve-release-conflict, beyond the pin it is blocked (AC-3)', () => {
+test('conduct pin: an archive PR conflicting in the CI pin only is resolve-release-conflict, beyond the pin it is resolve-base-conflict (AC-3)', () => {
   const retro = `# Retro: b\n\n## Proposed updates\n\n### \`${PIN_DOC}\` (process-friction)\nSummary of ${PIN_DOC}.\n- before: old\n+ after: new\n- Answer: approved\n- Applied: yes\n`;
   const retroPath = 'openspec/changes/archive/2026-11-09-b/retro.md';
   const conflict = (mine, theirs) => {
@@ -1490,7 +1499,8 @@ test('conduct pin: an archive PR conflicting in the CI pin only is resolve-relea
   assert.deepEqual(planStep(pinOnly), ['resolve-release-conflict', 'subagent']);
   assert.ok(pinOnly.next.paths.includes(PIN_DOC));
   const beyond = conflict(pinDoc('0.10.1', { top: 'TOP B' }), pinDoc('0.11.0', { top: 'TOP A' }));
-  assert.equal(beyond.state, `blocked: archive (archive-pr): conflict in ${PIN_DOC}`);
+  assert.deepEqual(planStep(beyond), ['resolve-base-conflict', 'subagent']);
+  assert.deepEqual([beyond.next.others, beyond.next.archive], [[PIN_DOC], true]);
 });
 
 // ---- field-fixes 10: the plan audit is read from its first Verdict line (spec verdict-files, design D-3)
@@ -1610,4 +1620,75 @@ test('upfront AC-11 adr: an unresolvable base gives no step', () => {
   const report = { summary: 's', met: [], next: { step: 'wait-checks', reason: 'r' } };
   const out = deliveryRow(ctx, row, { state: {}, report });
   assert.notEqual(out.next.step, 'renumber-adr');
+});
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: a conflict outside the release files (D-5)
+// Invariant: a change's pull request, and an archive's that never left a train, conflicting with the base outside the release
+// files is the declared hand-off `resolve-base-conflict` to the implementer (every conflicting path in `paths`, the others in
+// `others`); a conflict in release files only stays `resolve-release-conflict`; an archive or a change that left a train keeps its
+// own step. Layer: conduct-check's releaseConflict over deliver-check's report, on real git (`git merge-tree`). Suite: conduct-check.
+
+test('coordinator-loop-fixes AC-13 T45 a pull request conflicting outside the release files is resolve-base-conflict for the implementer', () => {
+  const { t } = conflictRepo(['README.md']);
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['resolve-base-conflict', 'subagent']);
+  assert.equal(c.next.agent, TDD);
+  assert.deepEqual([c.next.paths, c.next.others, c.next.base, c.next.number, c.next.archive], [['README.md'], ['README.md'], 'main', 12, false]);
+});
+
+// Invariant: `conductor-task` is the main session's step: conduct-check maps it to the actor `main`, so its row is runnable and
+// keeps deliver-check's reason, never "unknown step". Layer: conduct-check's actorOf and deliveryStep. Suite: conduct-check.
+test('coordinator-loop-fixes AC-9 T146 conductor-task is the main session\'s step: actor main, a runnable row with deliver-check\'s reason', () => {
+  assert.deepEqual(actorOf('conductor-task'), { actor: 'main' });
+  const reason = 'phase 2 has tasks the conducting session does: 2.1, 2.3';
+  const got = deliveryStep({ id: 'x' }, REPORT({ step: 'conductor-task', reason, phase: 2, tasks: ['2.1', '2.3'] }));
+  assert.deepEqual([got.next.step, got.next.actor, got.next.reason, got.state], ['conductor-task', 'main', reason, 'ready to run: conductor-task']);
+  assert.doesNotMatch(got.state, /^blocked/);
+  assert.deepEqual(got.next.tasks, ['2.1', '2.3'], 'deliver-check\'s fields pass through');
+});
+
+test('coordinator-loop-fixes AC-13 T46 a conflict in release files and in another file lists both in paths and the other alone in others', () => {
+  const { t } = conflictRepo(['CHANGELOG.md', '.claude-plugin/marketplace.json', 'README.md']);
+  const c = byId(t.state(), 'b');
+  assert.equal(c.next.step, 'resolve-base-conflict');
+  assert.deepEqual(c.next.paths, ['.claude-plugin/marketplace.json', 'CHANGELOG.md', 'README.md']);
+  assert.deepEqual(c.next.others, ['README.md']);
+});
+
+test('coordinator-loop-fixes AC-13 T47 a conflict in release files only is still resolve-release-conflict', () => {
+  const { t } = conflictRepo(['CHANGELOG.md']);
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['resolve-release-conflict', 'subagent']);
+  assert.equal(Object.hasOwn(c.next, 'others'), false);
+});
+
+test('coordinator-loop-fixes AC-13 T48 an archive pull request that never left a train, conflicting outside the release files, is resolve-base-conflict', () => {
+  // The archive edits README.md as an applied retro proposal names it (else deliver-check stops it at apply-proposals first).
+  const retro = '# Retro: b\n\n## Proposed updates\n\n### `README.md` (process-friction)\nSummary of README.md.\n- before: old\n+ after: new\n- Answer: approved\n- Applied: yes\n';
+  const { t, wt } = archiveRepo({ files: { 'README.md': 'r\n' }, archiveFiles: { 'README.md': 'archive\n', 'openspec/changes/archive/2026-11-09-b/retro.md': retro } });
+  t.commitOrigin({ 'README.md': 'origin\n' }, 'origin edits the readme');
+  archiveGh(t, wt, 'b', [ARCHIVE_PR({ headRefOid: headOf(wt), mergeable: 'CONFLICTING' })]);
+  const c = byId(t.state(), 'b');
+  assert.equal(c.deliver.next.step, 'stop-archive', 'deliver-check alone stops the archive');
+  assert.deepEqual(planStep(c), ['resolve-base-conflict', 'subagent']);
+  assert.deepEqual([c.next.paths, c.next.others, c.next.archive, c.next.number, c.next.base], [['README.md'], ['README.md'], true, 13, 'main']);
+});
+
+test('coordinator-loop-fixes AC-13 T117 an archive that left a train keeps its blocked stop-archive for a conflict outside the release files', () => {
+  const { t, wt } = archiveRepo({ files: { 'README.md': 'r\n' }, archiveFiles: { 'README.md': 'archive\n' } });
+  t.commitOrigin({ 'README.md': 'origin\n' }, 'origin edits the readme');
+  const state = { id: 'b', branch: 'chore/archive-b', ship: 'pr', archive: { pr: { number: 13, state: 'OPEN', headRefOid: headOf(wt) } } };
+  const next = { step: 'rejoin-archive', reason: 'archive of b left train 4', number: 13, branch: 'chore/archive-b', base: 'main', paths: [], train: 4 };
+  const row = deliveryRow({ root: t.main, ref: 'origin/main', base: 'main' }, { id: 'b', worktree: wt }, { state, report: { summary: 'in progress', met: 8, next } });
+  assert.deepEqual([row.next.step, row.next.archiveStep, row.next.actor], ['stop-archive', 'train-left', 'stop']);
+  assert.deepEqual(row.next.paths, ['README.md']);
+  assert.match(row.state, /^blocked: archive of b left train 4 and conflicts with main in README\.md/);
+});
+
+test('coordinator-loop-fixes AC-13 T118 a change that left a train keeps rejoin-train with the base, whatever it conflicts in', () => {
+  const { b } = conflictRepo(['CHANGELOG.md', 'README.md']);
+  const state = { id: 'b', branch: 'b', ship: 'pr', pr: { number: 12, state: 'OPEN', headRefOid: headOf(b) } };
+  const next = { step: 'rejoin-train', reason: 'train 4 left b (it conflicts with the train)', number: 40, train: 4, why: 'conflict', paths: ['README.md'], failure: null };
+  const row = deliveryRow({ ref: 'origin/main', base: 'main' }, { id: 'b', worktree: b }, { state, report: { summary: 'in progress', met: 8, next } });
+  assert.deepEqual([row.next.step, row.next.base, row.next.actor, row.next.agent], ['rejoin-train', 'main', 'subagent', TDD]);
 });

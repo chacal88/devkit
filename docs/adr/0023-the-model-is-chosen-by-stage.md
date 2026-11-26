@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Status: Accepted by: the owner, on 2026-11-23, in the approval of the plan of change stage-models (openspec/changes/stage-models/approval.md)
+- Amended by ADR 0033 (0033-a-changes-own-settings-live-in-an-x-devkit-block.md)
 - Date: 2026-11-23
 - Change: stage-models
 - Amends: ADR 0014 (0014-each-roadmap-change-runs-in-a-session-of-its-own.md), decision 1, what the
@@ -72,6 +73,14 @@ opt-in reaches a session's own model and the retry's mapping, never a stage suba
 call takes no suffix. So the Consequences' mitigation "one retry a model up" reaches only an
 agent that cannot finish; a stage agent that obeys the hook and records `result=failed` takes the
 fix path, bounded by the stage's ceiling. No decision's text changes.
+
+Note (coordinator-loop-fixes, 2026-11-24): decision 1's override in a change's `.openspec.yaml`
+is written in an `x-devkit:` block, not a `devkit:` block, as
+[ADR 0033](0033-a-changes-own-settings-live-in-an-x-devkit-block.md) decides, because
+`openspec validate <id> --type change --strict` refuses any top-level key it does not know and
+accepts one that starts with `x-`; the `budget` key of the same file moves with it, and a
+`devkit:` block written there before is still read when the file has no `x-devkit:` block.
+Decision 1 is otherwise unchanged.
 
 ## Consequences
 

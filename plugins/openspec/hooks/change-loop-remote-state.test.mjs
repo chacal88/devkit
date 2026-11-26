@@ -374,18 +374,25 @@ test('jira-entry docs: the flow document, the design document and ADR 0010 recor
   assert.match(adr, /^- Status: accepted$/m, 'its status does not change');
 });
 
+// Invariant: Round 20b, after Round 20, holds the `jira-entry-live` line after `jira-entry`. Layer: the roadmap document, read by
+// `parseRoadmap`. Suite: change-loop-remote-state. The line is found whatever its tick, and the assertions run on the live roadmap
+// and on a copy with that line ticked, so the archive that ticks it leaves the test green (coordinator-loop-fixes D-23).
+const JIRA_LIVE = /^- \[[ xX]\] jira-entry-live \(after: jira-entry\)/;
 test('jira-entry AC-10 the roadmap has the live-proof follow-up after jira-entry', () => {
-  const text = readRepo('openspec', 'roadmap.md');
-  const lines = text.split('\n');
-  const at = lines.findIndex((l) => l.startsWith('## Round 20b: live proof of the Jira entry'));
-  assert.ok(at > lines.findIndex((l) => l.startsWith('## Round 20: the Jira entry')), 'the block follows round 20');
-  const line = lines.find((l) => l.startsWith('- [ ] jira-entry-live (after: jira-entry)'));
-  assert.ok(line, 'the unticked live-proof line');
-  assert.match(line, /disposable test task the owner names/);
-  const rounds = guardModule.readRoadmap(REPO_ROOT);
-  const round = rounds.find((r) => r.title.startsWith('Round 20b'));
-  assert.ok(round, 'readRoadmap reads the round');
-  assert.deepEqual(round.items.map((i) => ({ id: i.id, done: i.done, after: i.after })), [{ id: 'jira-entry-live', done: false, after: ['jira-entry'] }]);
+  const live = readRepo('openspec', 'roadmap.md');
+  assert.ok(live.split('\n').some((l) => JIRA_LIVE.test(l)), 'the live-proof line');
+  const ticked = live.split('\n').map((l) => (JIRA_LIVE.test(l) ? l.replace(/^- \[[ xX]\]/, '- [x]') : l)).join('\n');
+  for (const [name, text] of [['the live roadmap', live], ['a copy with the line ticked', ticked]]) {
+    const lines = text.split('\n');
+    const at = lines.findIndex((l) => l.startsWith('## Round 20b: live proof of the Jira entry'));
+    assert.ok(at > lines.findIndex((l) => l.startsWith('## Round 20: the Jira entry')), `${name}: the block follows round 20`);
+    const line = lines.find((l) => JIRA_LIVE.test(l));
+    assert.ok(line, `${name}: the live-proof line`);
+    assert.match(line, /disposable test task the owner names/, name);
+    const round = guardModule.parseRoadmap(text).find((r) => r.title.startsWith('Round 20b'));
+    assert.ok(round, `${name}: parseRoadmap reads the round`);
+    assert.deepEqual(round.items.map((i) => ({ id: i.id, after: i.after })), [{ id: 'jira-entry-live', after: ['jira-entry'] }], name);
+  }
 });
 
 // ---------------------------------------------------------------- the token budget (change-budget)
