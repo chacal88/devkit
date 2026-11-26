@@ -9,10 +9,12 @@ plain reply in the person's language, and resumes from the files alone.
 
 ### Requirement: The devkit command reads its verb
 `/devkit` SHALL read the first word of its arguments as the verb and the rest as the request. Only
-the verbs `change`, `roadmap`, `status`, `project` and `train` SHALL run anything (`roadmap` and
-`status` as the roadmap-coordination capability says, `project` as the project-definition capability
-says, `train` as the delivery-train capability says); every other verb SHALL answer in one plain
-sentence and create or run nothing.
+the verbs `change`, `roadmap`, `status`, `setup`, `project` and `train` SHALL run anything (`roadmap`
+and `status` as the roadmap-coordination capability says, `project` as the project-definition
+capability says, `train` as the delivery-train capability says, `setup` as the project-setup
+capability says); every other verb SHALL answer in one plain sentence and create or run nothing.
+`setup` outside a git repository SHALL answer in one plain sentence that it runs inside one, and run
+nothing.
 
 #### Scenario: A verb of a later round
 - **WHEN** the person types `/devkit help`
@@ -34,9 +36,17 @@ sentence and create or run nothing.
 - **WHEN** the person types `/devkit train now`
 - **THEN** the reply says in one sentence that `/devkit train` takes no words after it, and nothing is created or run
 
+#### Scenario: The setup verb
+- **WHEN** the person types `/devkit setup` in any folder of a git repository, set up for devkit or not, whatever its driver (`compozy` included) and the values of its settings, with an `openspec/config.yaml` that is absent or can be read
+- **THEN** the command's script answers the `setup` mode, creates nothing itself, and the session carries on as the project-setup capability says, on every driver
+
+#### Scenario: The setup verb outside a git repository
+- **WHEN** the person types `/devkit setup` in a folder that is in no git repository
+- **THEN** the command's script answers the `setup-no-repo` mode, whose reply says in one sentence that `/devkit setup` runs inside a git repository, and nothing is created or run
+
 #### Scenario: No verb or an unknown verb
-- **WHEN** the person types `/devkit` alone or `/devkit` with a word that is not a verb
-- **THEN** the reply says in one sentence that `/devkit change`, `/devkit roadmap`, `/devkit status`, `/devkit project` and `/devkit train` exist and what each is for, and nothing is created or run
+- **WHEN** the person types `/devkit` alone or `/devkit` with a word that is not a verb, `/devkit setups` included
+- **THEN** the reply says in one sentence that `/devkit change`, `/devkit roadmap`, `/devkit status`, `/devkit setup`, `/devkit project` and `/devkit train` exist and what each is for, and nothing is created or run
 
 #### Scenario: A usage error
 - **WHEN** the command's script meets an unknown option, a missing argument or an unreadable `openspec/config.yaml`
@@ -44,11 +54,11 @@ sentence and create or run nothing.
 
 ### Requirement: The command runs only in a project set up for devkit
 `/devkit change` SHALL run nothing in a folder without `openspec/`, or whose project schema is not
-`devkit` or `devkit-lite`, and SHALL say so in one plain sentence.
+`devkit` or `devkit-lite`, and SHALL say so in one plain sentence that names `/devkit setup`.
 
 #### Scenario: A project not set up
 - **WHEN** `/devkit change add an export` is typed in a project whose `openspec/config.yaml` selects another schema
-- **THEN** the reply says the project is not set up for devkit and names the setup command, and nothing is created
+- **THEN** the reply says the project is not set up for devkit and names `/devkit setup`, and nothing is created
 
 ### Requirement: The project's driver setting decides whether the command runs
 The command SHALL read `devkit.driver` from the project's `openspec/config.yaml`, `claude` when the
