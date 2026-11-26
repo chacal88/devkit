@@ -588,7 +588,7 @@ change's records by their slugs. Every gate runs at most three test files at onc
 as a background command of the tool, judged by its exit code. End every task with `git status
 --short`.
 
-- [ ] 11.1 (spec-reviewer F11; D-33) Check that the shared block's base has not moved since the plan
+- [x] 11.1 (spec-reviewer F11; D-33) Check that the shared block's base has not moved since the plan
   was written: the `change-coordination` block "From the implementation on, the step inside the stage
   goes to its role" of this change is coordinator-loop-fixes' block at `98ffb17` plus this change's
   lines. Done when `git diff --quiet 98ffb172675d7d320587e3c7d2ca8f51ae6ec410 HEAD --
@@ -599,7 +599,7 @@ as a background command of the tool, judged by its exit code. End every task wit
   no plan file is edited by this task. `98ffb17` stays the base after the readiness reviews of
   attempts 8 and 9, whose revisions changed only this change's lines of the block, never the two
   files compared.
-- [ ] 11.1a (readiness attempt 9, B-3, option (a); adr-reviewer F13; D-34, "The note in the record";
+- [x] 11.1a (readiness attempt 9, B-3, option (a); adr-reviewer F13; D-34, "The note in the record";
   F-12) Once the owner has approved this plan, and before 11.2, the coordinating session has the
   adr-author add to the record of `ADR [release-at-merge-step-record]` (the one file of `git ls-files
   docs/adr` whose name ends `-release-at-merge-step-record.md`) one dated note, as the first
@@ -617,7 +617,7 @@ as a background command of the tool, judged by its exit code. End every task wit
   lines added and 0 removed, `git grep -c -F "ADR [" --` that file and `git grep -c -E "ADR [0-9]{4}"
   --` that file print the counts they printed before the task (2 and 17 at `98ffb17`), and `python3
   scripts/check.py` passes (AC-4, AC-14).
-- [ ] 11.2 (adr-reviewer F11, spec-reviewer F12, test-coverage nit F25; D-31) Write the D-35 tests of
+- [x] 11.2 (adr-reviewer F11, spec-reviewer F12, test-coverage nit F25; D-31) Write the D-35 tests of
   D-31: in `plugins/openspec/hooks/deliver-check.test.mjs` "release-note AC-4 row N5: the
   assign-release that stands in place of the conflict stop carries conflict true, and the one for a
   branch behind carries none"; in `plugins/openspec/hooks/release-merge.test.mjs` "release-note AC-4
@@ -638,7 +638,7 @@ as a background command of the tool, judged by its exit code. End every task wit
   base's side of a release line in a merge of the base for a change with a release note". Run them;
   append the run to `proof/red-11.txt`. Done when each exists by its D-35 name, the red ones fail and
   the guard passes.
-- [ ] 11.3 (adr-reviewer F11, spec-reviewer F12; D-31, "Where the routing changes", items 1 to 3)
+- [x] 11.3 (adr-reviewer F11, spec-reviewer F12; D-31, "Where the routing changes", items 1 to 3)
   Apply D-31 in code (the one-line list's conduct test of 11.2 passes only at 11.8, after the
   token-level give-back; until then its `resolve-base-conflict` part passes and its last `assign-release`
   exits 2): in `plugins/openspec/hooks/deliver-check.mjs` `nextStep`'s `assign(reason,
@@ -655,7 +655,7 @@ as a background command of the tool, judged by its exit code. End every task wit
   `AC-5` and `AC-7` test of `release-merge.test.mjs` and `release-note.test.mjs`, the joins of
   `delivery-train.test.mjs` and `delivery-train-after.test.mjs`, the N5 and N6 tests of
   `deliver-check.test.mjs` and the boundary tests of `merge-setup.test.mjs`.
-- [ ] 11.4 (adr-reviewer F11, spec-reviewer F12; D-31, "The texts, word for word") Write D-31's texts,
+- [x] 11.4 (adr-reviewer F11, spec-reviewer F12; D-31, "The texts, word for word") Write D-31's texts,
   each found by its text: in `plugins/openspec/skills/ship-change/SKILL.md` the `assign-release` row,
   the `resolve-base-conflict` row and the `app` bullet; in `plugins/openspec/skills/devkit/SKILL.md`
   the `session` bullet's `assign-release` sentence; in `docs/openspec-flow.md` the "**Release-file

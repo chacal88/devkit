@@ -17,7 +17,7 @@ import {
   UsageError, gitFacts, makeGh, listWorktrees, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes, ADR_DIRS, changeAdrs,
   namesReleaseTag, noteMoved, RELEASE_NOTE,
 } from './deliver-check.mjs';
-import { PIN_FILE, classifyConflict, resolveRoadmapTicks } from './release-merge.mjs';
+import { PIN_FILE, classifyConflict, assignBlockingAt, resolveRoadmapTicks } from './release-merge.mjs';
 
 // The worktree list lives in deliver-check.mjs (delivery-models D-11) and stays importable from here.
 export { listWorktrees };
@@ -414,7 +414,8 @@ function adrClash(ctx, row, noted = false) {
 }
 
 // Override 1: a PR in conflict. Release files only: resolve-release-conflict; anything else: resolve-base-conflict
-// (coordinator-loop-fixes D-5). A conflict git cannot classify, and a head that is not in local history, stay blocked.
+// (coordinator-loop-fixes D-5). A conflict git cannot classify, and a head that is not in local history, stay blocked. A change with a
+// release note gets assignConflict below in its place, which classifies by the release step's own rule (release-at-merge D-31).
 function releaseConflict(ctx, row, state, report) {
   const n = report.next;
   const onChange = n.step === 'blocked' && n.item === 5 && n.conflict === true;
@@ -452,6 +453,37 @@ function releaseConflict(ctx, row, state, report) {
   });
 }
 
+// Override 1 for a change with a release note (release-at-merge D-31): on every `assign-release` (in place of the conflict stop, with
+// `conflict: true`, or for a branch behind or a base that moved), the merge of `ctx.ref` is classified by the release step's own rule
+// (`assignBlockingAt`): a conflict its masked merge resolves keeps `assign-release`; any other path is `resolve-base-conflict` for the
+// implementer, with `noted`. A merge made here and not pushed while GitHub reports the conflict is pushed plainly first; with the conflict
+// reported, a conflict git cannot classify, and a clean merge whose PR head is not in local history, stop as releaseConflict stops.
+function assignConflict(ctx, row, state, report) {
+  const n = report.next;
+  if (n.step !== 'assign-release') return null;
+  const reported = n.conflict === true;
+  const pr = openPrOf(state);
+  if (reported && unpushedMerge(row.worktree, ctx.ref, pr)) {
+    return step('push', `the merge of ${ctx.ref} is not pushed yet; PR #${pr.number} still has ${pr.headRefOid.slice(0, 7)}`, {
+      number: pr.number, branch: state.branch, command: ['git', 'push', 'origin', state.branch],
+    });
+  }
+  const stop = (message) => ({ ...step('blocked', message), blockedState: `blocked: ${message}` });
+  const found = conflictedPaths(row.worktree, ctx.ref);
+  if (found.error) return reported ? stop('item 5 (cannot classify the conflict: git merge-tree --write-tree needs git 2.38)') : null;
+  if (found.clean) {
+    if (reported && pr?.headRefOid && !gitOk(row.worktree, ['merge-base', '--is-ancestor', pr.headRefOid, 'HEAD'])) {
+      return stop(`item 5 (PR #${pr.number} head ${pr.headRefOid.slice(0, 7)} is not in local history)`);
+    }
+    return null;
+  }
+  const others = assignBlockingAt(row.worktree, { target: ctx.ref, conflicts: found.paths, id: row.id, file: state.release?.file ?? null });
+  if (!others.length) return null;
+  return step('resolve-base-conflict', `the PR conflicts with ${ctx.base} outside the release lines the release step writes: ${others.join(', ')}`, {
+    number: pr?.number ?? null, paths: [...found.paths].sort(), others, base: ctx.base, archive: false, noted: true,
+  });
+}
+
 // Override 4: an archive that left a train for a conflict (delivery-train D-2). Once its train ended, the archive merges the base
 // when that conflicts only in release files, the CI pin and roadmap ticks (`rejoin-archive`, a session step that runs
 // `release-merge.mjs --base <base> --roadmap-ticks` in the archive's worktree and is followed by a plain push); a merge made
@@ -478,7 +510,8 @@ export function trainRejoin(ctx, row, state, report) {
 
 // deliver-check's report as a conduct row, after the overrides that need git (D9): the release-file conflict and the archive that
 // left a train, except that auto-merge is switched off before anything else. A change with a release note gets no release-file
-// conflict override: its conflicts are the release step's (`assign-release`, release-at-merge D-10).
+// conflict override: its conflicts are the release step's (`assign-release`, release-at-merge D-10), except one the step's masked merge
+// does not resolve, which assignConflict hands to `resolve-base-conflict` (release-at-merge D-31).
 export function deliveryRow(ctx, row, d) {
   const plain = deliveryStep(row, d.report);
   const info = { delivered: { summary: d.report.summary, met: d.report.met, next: d.report.next } };
@@ -488,7 +521,7 @@ export function deliveryRow(ctx, row, d) {
     return { next, state: stateOf(next, { summary: d.report.summary }), ...info };
   }
   const noted = Boolean(d.state?.release?.noted);
-  const override = adrClash(ctx, row, noted) ?? (noted ? null : releaseConflict(ctx, row, d.state, d.report)) ?? trainRejoin(ctx, row, d.state, d.report);
+  const override = adrClash(ctx, row, noted) ?? (noted ? assignConflict(ctx, row, d.state, d.report) : releaseConflict(ctx, row, d.state, d.report)) ?? trainRejoin(ctx, row, d.state, d.report);
   if (!override) return { ...plain, ...info };
   const next = { ...override, ...actorOf(override.step) };
   return { next, state: stateOf(next, { summary: d.report.summary }), ...info };

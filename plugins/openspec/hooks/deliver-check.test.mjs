@@ -2836,6 +2836,20 @@ test('release-note AC-4 row N5: a pull request in conflict with the base is give
   assert.deepEqual([stop.step, stop.item, stop.conflict], ['blocked', 5, true]);
 });
 
+// Review round 3 (D-31): the conductor reads `conflict` to apply the checks that need GitHub's report.
+test('release-note AC-4 row N5: the assign-release that stands in place of the conflict stop carries conflict true, and the one for a branch behind carries none', () => {
+  const t = noteReady();
+  stepCommit(t.root);
+  setPrHead(t, { mergeable: 'CONFLICTING' });
+  const n = relNext(t);
+  assert.deepEqual([n.step, n.conflict], ['assign-release', true]);
+  assert.deepEqual(n.command, STEP_COMMAND);
+  setPrHead(t, { mergeStateStatus: 'BEHIND' });
+  const behind = relNext(t);
+  assert.equal(behind.step, 'assign-release');
+  assert.equal('conflict' in behind, false, 'a branch only behind carries no conflict key');
+});
+
 // ---- N7: no base to compute from
 test('release-note AC-2 row N7: without origin/<base> the release is never judged and the reason names the fetch', () => {
   const t = noteShip({ origin: false });

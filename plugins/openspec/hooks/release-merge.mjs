@@ -319,6 +319,75 @@ function landedNumber(reader, rev, slug) {
   return null;
 }
 
+// The records `adrs` (each { folder, slug, ... }) that `side` holds numbered: the one `<NNNN>-<slug>.md` of each folder, with its `number`
+// and `path` (release-at-merge D-31: shared by the step and the conductor's override).
+export function ownRecords(reader, side, adrs) {
+  return adrs.flatMap((a) => {
+    const numbered = reader.dir(side, a.folder).filter((n) => new RegExp(`^\\d{4}-${escapeRe(a.slug)}\\.md$`).test(n));
+    return numbered.length === 1 ? [{ ...a, number: numbered[0].slice(0, 4), path: `${a.folder}/${numbered[0]}` }] : [];
+  });
+}
+
+// The step's classification of a merge of `target` into `side` (step 2 of numberRelease, D-31): each text the side numbered is merged with
+// its numbers masked into `masked`, or is `blocking` when that merge conflicts; then, of `conflicts`, a release file keeps the target's
+// side (`keepTarget`) unless it is docs/catalog.md with no generator or a manifest edited beyond its versions, the file `file` is merged
+// with its version masked, the roadmap is merged only with `merging` (`roadmapMerged`), and any other path is blocking. It writes nothing
+// in the repository: it reads revisions and merges texts in a temporary folder it removes.
+export function assignBlocking(root, { side, target, mergeBase, conflicts, own, file, merging = false }) {
+  const hasGen = existsSync(join(root, 'scripts', 'gen-catalog.py'));
+  const targetPin = pinPackVersion(root, target);
+  const unassign = (path, text) => maskCitations(text, path, own);
+  const masked = new Map();
+  const blocking = [];
+  const ownPaths = new Set(own.map((a) => a.path));
+  const pinMask = (path, text) => (path === PIN_FILE && targetPin !== null ? setPins(text, MASK) : text);
+  for (const path of listPaths(root, ['diff', '--name-only', '--no-renames', mergeBase, side])) {
+    if (path.startsWith('openspec/changes/') || RELEASE_FILE.test(path) || path === file || ownPaths.has(path)) continue;
+    const mine = show(root, side, path);
+    if (mine === null || (unassign(path, mine) === mine && !(path === PIN_FILE && targetPin !== null && conflicts.includes(path)))) continue;
+    const merged = mergeTexts(pinMask(path, show(root, mergeBase, path) ?? ''), pinMask(path, unassign(path, mine)), pinMask(path, show(root, target, path) ?? ''), 'devkit-release-');
+    if (merged === null) blocking.push(path);
+    else masked.set(path, merged);
+  }
+  const keepTarget = [];
+  let roadmapMerged = null;
+  for (const path of conflicts) {
+    if (masked.has(path) || blocking.includes(path)) continue;
+    if (RELEASE_FILE.test(path)) {
+      // A release file keeps the target's side; a manifest the side also edited beyond its versions is a conflict of other lines.
+      if (path === CATALOG && !hasGen) blocking.push(path);
+      else if (MANIFEST.test(path) && manifestEditsBeyondVersion(show(root, mergeBase, path), show(root, side, path) ?? '{}').length) blocking.push(path);
+      else keepTarget.push(path);
+    } else if (path === file) {
+      const theirs = show(root, target, path);
+      const version = JSON.parse(theirs ?? '{}').version;
+      const merged = typeof version === 'string' && show(root, mergeBase, path) !== null
+        ? mergeTexts(withReleaseVersion(show(root, mergeBase, path), version), withReleaseVersion(show(root, side, path), version), theirs, 'devkit-release-')
+        : null;
+      if (merged === null) blocking.push(path);
+      else masked.set(path, merged);
+    } else if (path === ROADMAP_FILE && merging) {
+      try { roadmapMerged = resolveRoadmapTicks({ mergeBase: show(root, mergeBase, path), change: show(root, side, path), base: show(root, target, path) }); } catch (e) {
+        if (!(e instanceof ReleaseError)) throw e;
+        blocking.push(path);
+      }
+    } else blocking.push(path);
+  }
+  return { blocking, masked, keepTarget, roadmapMerged };
+}
+
+// The paths of `conflicts` (a merge of `target` into the working tree's HEAD) the step's own merge would refuse, sorted and de-duplicated:
+// the conductor's classification of a noted change's conflict (D-31). `id` is the noted change, `file` the release file the project names.
+export function assignBlockingAt(root, { target, conflicts, id, file }) {
+  const mergeBase = gitOut(root, ['merge-base', 'HEAD', target]);
+  const adrs = changeAdrs(root, null, id).map((from) => {
+    const folder = from.slice(0, from.lastIndexOf('/'));
+    return { from, folder, slug: from.slice(folder.length + 1).replace(/\.md$/, '') };
+  });
+  const own = ownRecords(repoReader(root), 'HEAD', adrs);
+  return [...new Set(assignBlocking(root, { side: 'HEAD', target, mergeBase, conflicts, own, file }).blocking)].sort();
+}
+
 // The numbering core of the step and the join (D-6, D-7). With `merging` (the join) HEAD is `target`, the train's tip, and `side` the head
 // joined into it; otherwise HEAD is `side` and `target` is origin/<base>, merged when the branch is behind it. `id` is the noted change,
 // `file` the release file the project names, `label` how a message names the target. The release lines keep no number the side wrote: the
@@ -358,50 +427,12 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
   }
   try {
     // Step 2: what the side numbered is given back. Its own numbered records, and the texts that hold their numbers, are merged unnumbered.
-    const own = state.adrs.flatMap((a) => {
-      const numbered = reader.dir(side, a.folder).filter((n) => new RegExp(`^\\d{4}-${escapeRe(a.slug)}\\.md$`).test(n));
-      return numbered.length === 1 ? [{ ...a, number: numbered[0].slice(0, 4), path: `${a.folder}/${numbered[0]}` }] : [];
-    });
+    const own = ownRecords(reader, side, state.adrs);
     // The ADR part of D-5's mask on the real path (D-18): the side's ADR numbers back to their citations, nothing else, and only in a file
     // that holds citations: the step never numbered a test literal or a binary file, so it does not give one back.
     const unassign = (path, text) => maskCitations(text, path, own);
-    const masked = new Map();
-    const blocking = [];
     if (needsMerge) {
-      const ownPaths = new Set(own.map((a) => a.path));
-      const pinMask = (path, text) => (path === PIN_FILE && targetPin !== null ? setPins(text, MASK) : text);
-      for (const path of listPaths(root, ['diff', '--name-only', '--no-renames', mergeBase, side])) {
-        if (path.startsWith('openspec/changes/') || RELEASE_FILE.test(path) || path === file || ownPaths.has(path)) continue;
-        const mine = show(root, side, path);
-        if (mine === null || (unassign(path, mine) === mine && !(path === PIN_FILE && targetPin !== null && conflicts.includes(path)))) continue;
-        const merged = mergeTexts(pinMask(path, show(root, mergeBase, path) ?? ''), pinMask(path, unassign(path, mine)), pinMask(path, show(root, target, path) ?? ''), 'devkit-release-');
-        if (merged === null) blocking.push(path);
-        else masked.set(path, merged);
-      }
-      const keepTarget = [];
-      let roadmapMerged = null;
-      for (const path of conflicts) {
-        if (masked.has(path) || blocking.includes(path)) continue;
-        if (RELEASE_FILE.test(path)) {
-          // A release file keeps the target's side; a manifest the side also edited beyond its versions is a conflict of other lines.
-          if (path === CATALOG && !hasGen) blocking.push(path);
-          else if (MANIFEST.test(path) && manifestEditsBeyondVersion(show(root, mergeBase, path), show(root, side, path) ?? '{}').length) blocking.push(path);
-          else keepTarget.push(path);
-        } else if (path === file) {
-          const theirs = show(root, target, path);
-          const version = JSON.parse(theirs ?? '{}').version;
-          const merged = typeof version === 'string' && show(root, mergeBase, path) !== null
-            ? mergeTexts(withReleaseVersion(show(root, mergeBase, path), version), withReleaseVersion(show(root, side, path), version), theirs, 'devkit-release-')
-            : null;
-          if (merged === null) blocking.push(path);
-          else masked.set(path, merged);
-        } else if (path === ROADMAP_FILE && merging) {
-          try { roadmapMerged = resolveRoadmapTicks({ mergeBase: show(root, mergeBase, path), change: show(root, side, path), base: show(root, target, path) }); } catch (e) {
-            if (!(e instanceof ReleaseError)) throw e;
-            blocking.push(path);
-          }
-        } else blocking.push(path);
-      }
+      const { blocking, masked, keepTarget, roadmapMerged } = assignBlocking(root, { side, target, mergeBase, conflicts, own, file, merging });
       if (blocking.length) return refuse({ conflicts: [...new Set([...conflicts, ...blocking])] });
       const keep = merging ? '--ours' : '--theirs';
       for (const path of keepTarget) {

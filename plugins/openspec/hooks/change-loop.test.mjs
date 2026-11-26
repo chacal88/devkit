@@ -2512,6 +2512,35 @@ test('release-note AC-4 fetch: a base that moved on the remote hands assign-rele
   assert.equal(collectState(d.wt, 'feat', { env: d.env }).release.state.current, false, 'the fetched base released over the step\'s lines');
 });
 
+// Review round 3 (D-31): the same shape, the branch and the remote also editing README.md; the clone's origin/main is put before both
+// remote commits, so the conflict outside the release files is on the remote only. Once fetched, the conductor's override classifies it by
+// the release step's rule and hands the merge to the implementer.
+test('release-note AC-4 fetch: a base that moved on the remote with a conflict outside the release files hands resolve-base-conflict to the implementer for a noted change', () => {
+  const d = deliveredChange({
+    config: `${MERGE_CONFIG}devkit:\n  release_tag: package.json\n`,
+    files: { ...RELEASE, ...MERGE_FILES, 'package.json': CONSUMER_PKG('1.0.0'), 'CHANGELOG.md': CONSUMER_CL() },
+    conflicts: ['README.md'], mergeable: 'CONFLICTING', checks: [check('build', 'pass')],
+  });
+  put(d.wt, {
+    'openspec/changes/feat/release.md': 'packs: []\nrelease: minor\n\n## the change\n\n- feat\n',
+    'package.json': CONSUMER_PKG('1.1.0'), 'CHANGELOG.md': CONSUMER_CL('## 1.1.0 — the change\n\n- feat\n'),
+  });
+  commitAll(d.wt, 'chore(release): assign the release of feat');
+  d.t.commitOrigin({ 'package.json': CONSUMER_PKG('1.1.0'), 'CHANGELOG.md': CONSUMER_CL('## 1.1.0 — other\n\n- other\n') }, 'another change released');
+  d.gh.set('pr-view', { stdout: prJson('feat', { headRefOid: git(d.wt, 'rev-parse', 'HEAD'), mergeable: 'CONFLICTING' }) });
+  presetMerge(d.gh);
+  const remote = git(d.t.originDir, 'rev-parse', 'main');
+  const stale = git(d.t.originDir, 'rev-parse', `${remote}^^`);
+  git(d.t.main, 'update-ref', 'refs/remotes/origin/main', stale);
+  const r = next(d.t.main, [], d.env);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const { action } = parsed(r);
+  assert.equal(git(d.t.main, 'rev-parse', 'origin/main'), remote, 'next moved origin/main to the remote\'s commit');
+  assert.deepEqual([action.kind, action.step, action.agent], ['agent', 'resolve-base-conflict', TDD], JSON.stringify(action));
+  assert.equal(action.detail.noted, true);
+  assert.deepEqual(action.detail.others, ['README.md']);
+});
+
 test('fresh-base-check 2: a fetch that fails decides from the local copy, records it and says it in one line, in both languages', () => {
   const d = staleMergeFixture();
   git(d.t.main, 'remote', 'set-url', 'origin', MISSING(d.t));

@@ -870,6 +870,35 @@ test('release-note AC-4 assign: a conflict in src/a.ts exits 2 naming it and the
   asItWas(root, oldHead);
 });
 
+// Review round 3 (D-31): the conductor classifies a noted change's conflict by the step's own rule, read from the merge GitHub would make.
+const treeConflicts = (root) => {
+  const r = spawnSync('git', ['-C', root, 'merge-tree', '--write-tree', '--name-only', '--no-messages', 'origin/main', 'HEAD'], { encoding: 'utf8', env: ENV });
+  return r.stdout.split('\n').slice(1).filter(Boolean);
+};
+test('release-note AC-4 assign: assignBlockingAt names the conflicting paths outside the step\'s release lines, and the step refuses the same merge naming them', () => {
+  const { root } = notedRepo({ files: { 'src/a.ts': 'mine\n' } });
+  assert.equal(assign(root).code, 0);
+  mainReleases(root, 'feat', { 'src/a.ts': 'theirs\n' });
+  const paths = treeConflicts(root);
+  assert.ok(paths.includes('src/a.ts') && paths.includes('CHANGELOG.md'), JSON.stringify(paths));
+  assert.equal(typeof R.assignBlockingAt, 'function', 'release-merge.mjs exports assignBlockingAt');
+  assert.deepEqual(R.assignBlockingAt(root, { target: 'origin/main', conflicts: paths, id: 'feat', file: PIN_PACK }), ['src/a.ts']);
+  const oldHead = sha(root);
+  const r = assign(root);
+  assert.equal(r.code, 2, r.stderr + r.stdout);
+  assert.ok(r.out.conflicts.includes('src/a.ts'), JSON.stringify(r.out));
+  asItWas(root, oldHead);
+
+  const only = notedRepo();
+  assert.equal(assign(only.root).code, 0);
+  mainReleases(only.root, 'feat');
+  const released = treeConflicts(only.root);
+  assert.ok(released.length > 0, 'the base\'s release conflicts with the step\'s lines');
+  assert.deepEqual(R.assignBlockingAt(only.root, { target: 'origin/main', conflicts: released, id: 'feat', file: PIN_PACK }), []);
+  const ok = assign(only.root);
+  assert.equal(ok.code, 0, ok.stderr + ok.stdout);
+});
+
 test('release-note AC-4 assign: a version edited by hand exits 2 naming the release line', () => {
   const { root } = notedRepo({ files: { [PIN_PACK]: pluginJson(PIN_PACK_NAME, '1.0.5') } });
   const oldHead = sha(root);

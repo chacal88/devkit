@@ -2851,11 +2851,13 @@ export function nextStep(state) {
   const trainGoOn = Boolean(train) && ((it(5).status === 'blocked' && five.conflict === true)
     || (it(5).status === 'open' && five.behind === true && !five.ahead && !five.uncommitted.length));
   // N5 (D-8): with a note the release step takes the place of the conflict stop and of the update of a branch behind its base.
-  const assign = (reason) => step('assign-release', reason, {
+  // `conflict: true` marks the one in place of the conflict stop: the conductor reads it for the checks that need GitHub's report (D-31).
+  const assign = (reason, extra = {}) => step('assign-release', reason, {
     number: state.pr.number, base: rel.base, branch: state.branch,
     command: ['node', fileURLToPath(new URL('./release-merge.mjs', import.meta.url)), '--assign', '--base', rel.base, '--json'],
+    ...extra,
   });
-  if (noted && it(5).status === 'blocked' && five.conflict === true) return assign(it(5).reason);
+  if (noted && it(5).status === 'blocked' && five.conflict === true) return assign(it(5).reason, { conflict: true });
   if (it(5).status === 'blocked' && !trainGoOn) return step('blocked', it(5).reason, { item: 5, ...(five.conflict ? { conflict: true } : {}) });
   const behind = merge && !train && it(5).status === 'open' && five.behind && !five.ahead && !five.uncommitted.length;
   if (noted && behind) return assign(it(5).reason);

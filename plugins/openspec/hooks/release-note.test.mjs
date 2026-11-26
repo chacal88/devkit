@@ -880,6 +880,18 @@ test('release-note AC-1 texts: the planner says a pack is a plugin manifest of t
   assert.match(bullet, /no such pack[^.]*`packs: \[\]`/, 'a project with no pack writes packs: []');
 });
 
+// Review round 3 (D-31): the resolve-base-conflict hand-off of a noted change asks the implementer to take the base's side of a release
+// line, which its Never bullet forbids editing; the bullet says that merge is not such an edit, in the agent and its generated kit copy.
+test('release-note AC-14 texts: the implementer takes the base\'s side of a release line in a merge of the base for a change with a release note', () => {
+  const sentence = 'Taking the base\'s side of such a line in a merge of the base, or keeping beside the base\'s entries the change\'s own citations as the branch holds them (the `resolve-base-conflict` hand-off of such a change), writes no number of the change and is not such an edit.';
+  for (const parts of [['plugins', 'core', 'agents', 'tdd-implementer.md'], ['plugins', 'compozy', 'kit', 'templates', 'agents', 'tdd-implementer', 'AGENT.md']]) {
+    const bullet = sectionOf(repoText(...parts), '## Never').split('\n').find((l) => l.startsWith('- In a change that has `release.md`')) ?? '';
+    assert.ok(bullet.length > 0, `${parts.join('/')} has the release.md bullet`);
+    assert.ok(bullet.includes(`the delivery writes them once, at the merge. ${sentence}`), `${parts.join('/')}: the bullet holds the sentence after the merge clause`);
+    assert.ok(bullet.includes('keeping beside the base\'s entries the change\'s own citations as the branch holds them'), `${parts.join('/')} names the one-line list`);
+  }
+});
+
 test('release-note AC-14 texts: the agents, the documents and the records follow the release note and the unnumbered ADR', async (t) => {
   await t.test('agents: the planner, the ADR author and reviewer, the implementer and the readiness review', () => {
     const planner = repoText('plugins', 'core', 'agents', 'change-planner.md');

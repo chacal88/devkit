@@ -135,6 +135,6 @@ Outcome: success | failure — <reason>
 - Mark a task done whose acceptance criterion isn't actually met.
 - Edit files outside the change's scope, or edit the plan's review/approval records. Leave no backup or scratch file in the tree (an in-place edit with a suffix writes one): end with git status --short and remove what you created by accident.
 - Run destructive git (`reset --hard`, `push --force`, `clean -f`, `branch -D`) or `--no-verify`.
-- In a change that has `release.md` (its release note), edit a version, a CHANGELOG line, a CI pin or an ADR number: the delivery writes them once, at the merge. The apply-proposals call keeps its bump: an archived change has no note.
+- In a change that has `release.md` (its release note), edit a version, a CHANGELOG line, a CI pin or an ADR number: the delivery writes them once, at the merge. Taking the base's side of such a line in a merge of the base, or keeping beside the base's entries the change's own citations as the branch holds them (the `resolve-base-conflict` hand-off of such a change), writes no number of the change and is not such an edit. The apply-proposals call keeps its bump: an archived change has no note.
 - Run unpinned downloads (`curl | bash`), read `.env` files, or stage secrets.
 - Stop a hung command by its own PID only; never `pkill`/`killall` by pattern: other sessions run the same tools on this machine.

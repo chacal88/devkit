@@ -1,0 +1,294 @@
+Task 11.2: the D-35 tests of D-31, run on the code as phase 11 finds it (03d6fa7 plus the tests): the nine red ones fail; the guard "release-note AC-4 conduct: a noted change in conflict in the release files and the CI pins of the flow page keeps assign-release" passes
+$ TMPDIR=/var/tmp/devkit-release-at-merge node scripts/test-suite.mjs --concurrency=3 '--test-name-pattern=(carries conflict true|assignBlockingAt names|conflict outside the release files gets resolve-base-conflict|committed and not pushed, while GitHub|behind its base, whose merge would conflict|CI pins of the flow page keeps assign-release|extended the one-line list holding its own citation|base that moved on the remote with a conflict outside|lists conflicts and no error the session runs next again|takes the base.s side of a release line in a merge)' plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/release-note.test.mjs
+start plugins/openspec/hooks/change-loop.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/conduct-check.test.mjs
+=== plugins/openspec/hooks/change-loop.test.mjs
+✖ release-note AC-4 fetch: a base that moved on the remote with a conflict outside the release files hands resolve-base-conflict to the implementer for a noted change (2805.944765ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2947.731696
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2518:1
+✖ release-note AC-4 fetch: a base that moved on the remote with a conflict outside the release files hands resolve-base-conflict to the implementer for a noted change (2805.944765ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"change":"feat","script":"devkit-lite","root":"/var/tmp/devkit-release-at-merge/devkit-suite-3kUbhT/10/devkit-deliver-4DTjV3/.claude/worktrees/feat","branch":"feat","filesLanguage":"en","kind":"session","stage":"delivery","stageTitle":"Delivery","role":"commit-and-pr","skills":["commit-message-guidelines"],"model":"haiku","step":"assign-release","detail":{"step":"assign-release","reason":"PR #12 has merge conflicts with main","number":12,"base":"main","branch":"feat","command":["node","/home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.mjs","--assign","--base","main","--json"]},"progressKey":"delivery/assign-release@831ed36e560a","baseFetch":{"ok":true,"base":"main"},"icon":"🚀","state":{"state":"running","reason":null,"stage":"delivery","stageTitle":"Delivery","phase":null,"stageIcon":"🚀","stateIcon":null,"title":"🚀 feat"},"sessionTitle":"🚀 feat"}
+  + actual - expected
+  
+    [
+  +   'session',
+  +   'assign-release',
+  +   undefined
+  -   'agent',
+  -   'resolve-base-conflict',
+  -   'devkit-core:tdd-implementer'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/change-loop.test.mjs:2539:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'session', 'assign-release', undefined ],
+    expected: [ 'agent', 'resolve-base-conflict', 'devkit-core:tdd-implementer' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/change-loop.test.mjs: FAIL 3.0s
+start plugins/openspec/hooks/deliver-check-cli.test.mjs
+=== plugins/openspec/hooks/deliver-check-cli.test.mjs
+✖ release-note AC-4 format: after an assign-release exit 2 that lists conflicts and no error the session runs next again, and resolve-base-conflict takes the base's side of every release line for next.noted (5.674386ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 187.584463
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check-cli.test.mjs:724:1
+✖ release-note AC-4 format: after an assign-release exit 2 that lists conflicts and no error the session runs next again, and resolve-base-conflict takes the base's side of every release line for next.noted (5.674386ms)
+  AssertionError [ERR_ASSERTION]: the assign-release row holds: unless the JSON lists `conflicts` and holds no `error`
+      at holds (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check-cli.test.mjs:729:79)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check-cli.test.mjs:730:3)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/deliver-check-cli.test.mjs: FAIL 0.3s
+start plugins/openspec/hooks/release-merge.test.mjs
+=== plugins/openspec/hooks/release-merge.test.mjs
+✖ release-note AC-4 assign: assignBlockingAt names the conflicting paths outside the step's release lines, and the step refuses the same merge naming them (466.046405ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 607.940467
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-merge.test.mjs:878:1
+✖ release-note AC-4 assign: assignBlockingAt names the conflicting paths outside the step's release lines, and the step refuses the same merge naming them (466.046405ms)
+  AssertionError [ERR_ASSERTION]: release-merge.mjs exports assignBlockingAt
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:884:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-merge.test.mjs: FAIL 0.7s
+start plugins/openspec/hooks/release-note.test.mjs
+=== plugins/openspec/hooks/release-note.test.mjs
+✖ release-note AC-14 texts: the implementer takes the base's side of a release line in a merge of the base for a change with a release note (3.466206ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 145.924417
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-note.test.mjs:885:1
+✖ release-note AC-14 texts: the implementer takes the base's side of a release line in a merge of the base for a change with a release note (3.466206ms)
+  AssertionError [ERR_ASSERTION]: plugins/core/agents/tdd-implementer.md: the bullet holds the sentence after the merge clause
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:890:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-note.test.mjs: FAIL 0.2s
+=== plugins/openspec/hooks/conduct-check.test.mjs
+✖ release-note AC-4 conduct: a noted change in conflict outside the release files gets resolve-base-conflict for the implementer, with noted, the base, every conflicting path and the others (884.991786ms)
+✖ release-note AC-4 conduct: a noted change whose merge of the base is committed and not pushed, while GitHub still reports the conflict, gets a plain push (691.137562ms)
+✖ release-note AC-4 conduct: a noted change behind its base, whose merge would conflict outside the release files, gets resolve-base-conflict before the step runs (952.322615ms)
+✔ release-note AC-4 conduct: a noted change in conflict in the release files and the CI pins of the flow page keeps assign-release (945.284489ms)
+✖ release-note AC-4 conduct: a noted change whose base extended the one-line list holding its own citation gets resolve-base-conflict naming that file, and after the merge keeping both entries and its push, assign-release numbers the branch above the base (1453.740897ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 1
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5053.542776
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:1711:1
+✖ release-note AC-4 conduct: a noted change in conflict outside the release files gets resolve-base-conflict for the implementer, with noted, the base, every conflicting path and the others (884.991786ms)
+  AssertionError [ERR_ASSERTION]: PR #12 has merge conflicts with main
+  + actual - expected
+  
+    [
+  +   'assign-release',
+  +   'main'
+  -   'resolve-base-conflict',
+  -   'subagent'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/conduct-check.test.mjs:1714:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'assign-release', 'main' ],
+    expected: [ 'resolve-base-conflict', 'subagent' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:1720:1
+✖ release-note AC-4 conduct: a noted change whose merge of the base is committed and not pushed, while GitHub still reports the conflict, gets a plain push (691.137562ms)
+  AssertionError [ERR_ASSERTION]: PR #12 has merge conflicts with main
+  + actual - expected
+  
+    [
+  +   'assign-release',
+  +   'main'
+  -   'push',
+  -   'subagent'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/conduct-check.test.mjs:1726:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'assign-release', 'main' ],
+    expected: [ 'push', 'subagent' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:1732:1
+✖ release-note AC-4 conduct: a noted change behind its base, whose merge would conflict outside the release files, gets resolve-base-conflict before the step runs (952.322615ms)
+  AssertionError [ERR_ASSERTION]: main moved since the release of b was assigned; assign it again
+  + actual - expected
+  
+    [
+  +   'assign-release',
+  +   'main'
+  -   'resolve-base-conflict',
+  -   'subagent'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/conduct-check.test.mjs:1738:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'assign-release', 'main' ],
+    expected: [ 'resolve-base-conflict', 'subagent' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:1756:1
+✖ release-note AC-4 conduct: a noted change whose base extended the one-line list holding its own citation gets resolve-base-conflict naming that file, and after the merge keeping both entries and its push, assign-release numbers the branch above the base (1453.740897ms)
+  AssertionError [ERR_ASSERTION]: PR #12 has merge conflicts with main
+  + actual - expected
+  
+    [
+  +   'assign-release',
+  +   'main'
+  -   'resolve-base-conflict',
+  -   'subagent'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/conduct-check.test.mjs:1759:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'assign-release', 'main' ],
+    expected: [ 'resolve-base-conflict', 'subagent' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/conduct-check.test.mjs: FAIL 5.1s
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✖ release-note AC-4 row N5: the assign-release that stands in place of the conflict stop carries conflict true, and the one for a branch behind carries none (5416.205293ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5561.28438
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2840:1
+✖ release-note AC-4 row N5: the assign-release that stands in place of the conflict stop carries conflict true, and the one for a branch behind carries none (5416.205293ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'assign-release',
+  +   undefined
+  -   true
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2845:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'assign-release', undefined ],
+    expected: [ 'assign-release', true ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/deliver-check.test.mjs: FAIL 5.6s
+FAIL 3.0s plugins/openspec/hooks/change-loop.test.mjs
+FAIL 5.1s plugins/openspec/hooks/conduct-check.test.mjs
+FAIL 0.3s plugins/openspec/hooks/deliver-check-cli.test.mjs
+FAIL 5.6s plugins/openspec/hooks/deliver-check.test.mjs
+FAIL 0.7s plugins/openspec/hooks/release-merge.test.mjs
+FAIL 0.2s plugins/openspec/hooks/release-note.test.mjs
+suite: 6 files, 10 tests, 1 pass, 9 fail, 5.6s, concurrency 3
+exit 1
