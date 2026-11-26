@@ -4675,3 +4675,1425 @@ holds: the loop then leaves the plan stages (end The plan of plan-d is written a
 holds: in N the readiness stage stays passed (passed passed)
 holds: in N change-loop next hands no plan stage (end The plan of plan-d is written and reviewed. Read it and tell me whether you approve it; I go on as soon as you answer.)
 ```
+
+## S-13 K: the real tdd-implementer on resolve-base-conflict for a noted change, a code conflict and a one-line list (task 11.11; AC-4, AC-15)
+
+Run after review round 3 (D-31, D-36), on project K built anew by `seed`. The base first gains `src/a.ts` and the one-line list of records `docs/context.yaml` (the shape of `openspec/config.yaml`'s `ADRs:` line). In each variant this worktree's `change-loop.mjs next` hands `resolve-base-conflict` with `noted: true`; the real `devkit-core:tdd-implementer` runs on the brief `next` gives and the row's dispatch sentence; then the session runs the rows the loop hands after it.
+
+The first run of this case found one defect in an agent text, fixed test-first before both variants below were run again from a new K: in (a) the real implementer merged and committed as the row says (every other part of the done-condition held) but returned prose with no `Outcome:` line, since its Returns section spoke only of a phase and `resolve-base-conflict` has none. The section now says a hand-off of the delivery with no phase returns the same block, its `Outcome:` line last (test "release-note AC-14 texts: a delivery hand-off with no phase returns the implementer's block with its Outcome line last" in `release-note.test.mjs`; the CompozyOS copy regenerated). The same first run passed (b) whole. The merges of the base here are the loop's `merge-check` first, then the plain `push`, which the loop hands to `devkit-core:commit-and-pr` and the session runs as its command.
+
+```text
+(in $CASES/K/main)
+$ git push -q origin main
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/K/main)
+$ git show --stat '--format=%h %s' HEAD
+1c27aac chore: src/a.ts and the list of records
+
+ docs/context.yaml | 1 +
+ src/a.ts          | 1 +
+ 2 files changed, 2 insertions(+)
+[exit 0]
+```
+
+### (a) A conflict in `src/a.ts` and in the release files
+
+`code-a` (`devkit-lite`, its plan carrying the stage headers) notes `release: minor` and names `docs/adr/code-a.md`; it is driven to its release step and takes its release:
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ node $DEV/deliver-check.mjs code-a --json   -> 1/8, next: implement (phase 1 has unticked tasks: 1.1)
+    did: wrote src/code-a-1.ts; ticked 1.1
+$ node $DEV/deliver-check.mjs code-a --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
+    did: ran `node -e 0` (exit 0); ticked 1.2
+$ node $DEV/deliver-check.mjs code-a --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/code-a-1.ts)
+    did: git commit: cf9d836
+$ node $DEV/deliver-check.mjs code-a --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
+    did: wrote evidence.md at cf9d836; git commit: b583ce8
+$ node $DEV/deliver-check.mjs code-a --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at b583ce8; git commit: 0153c10
+$ node $DEV/deliver-check.mjs code-a --json   -> 4/8, next: open-pr (no pull request yet)
+    did: git push -u origin code-a; gh pr create -> https://github.invalid/o/devkit/pull/11
+$ node $DEV/deliver-check.mjs code-a --json   -> 8/8, next: assign-release (the release of code-a is not assigned yet; assign it before the merge)
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ git fetch origin main
+From $CASES/K/origin
+ * branch            main       -> FETCH_HEAD
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ node $DEV/release-merge.mjs --assign --base main --json
+{
+  "resolved": true,
+  "oldHead": "fcab51755852bc6de37baf925efa66896b329d9f",
+  "newHead": "ea434a24b293682b054e48b6090b409d690bc50f",
+  "versions": {
+    "packs": {},
+    "release": "1.5.0"
+  },
+  "files": [
+    "package.json",
+    "CHANGELOG.md"
+  ],
+  "change": "code-a",
+  "adrs": [
+    {
+      "from": "docs/adr/code-a.md",
+      "to": "docs/adr/0002-code-a.md"
+    }
+  ],
+  "citations": [
+    "docs/code-a.md"
+  ],
+  "mode": "assign"
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ git push origin code-a
+To $CASES/K/origin.git
+   fcab517..ea434a2  code-a -> code-a
+[exit 0]
+```
+
+The sibling `sib-a` notes `release: patch`, names `docs/adr/sib-a.md` and lands on the same base:
+
+```text
+(in $CASES/K/main/.claude/worktrees/sib-a)
+$ node $DEV/deliver-check.mjs sib-a --json   -> 1/8, next: implement (phase 1 has unticked tasks: 1.1)
+    did: wrote src/sib-a-1.ts; ticked 1.1
+$ node $DEV/deliver-check.mjs sib-a --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
+    did: ran `node -e 0` (exit 0); ticked 1.2
+$ node $DEV/deliver-check.mjs sib-a --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/sib-a-1.ts)
+    did: git commit: 2dfff59
+$ node $DEV/deliver-check.mjs sib-a --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
+    did: wrote evidence.md at 2dfff59; git commit: 3f2c638
+$ node $DEV/deliver-check.mjs sib-a --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 3f2c638; git commit: cd0bb10
+$ node $DEV/deliver-check.mjs sib-a --json   -> 4/8, next: open-pr (no pull request yet)
+    did: git push -u origin sib-a; gh pr create -> https://github.invalid/o/devkit/pull/12
+$ node $DEV/deliver-check.mjs sib-a --json   -> 8/8, next: assign-release (the release of sib-a is not assigned yet; assign it before the merge)
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/sib-a)
+$ git fetch origin main
+From $CASES/K/origin
+ * branch            main       -> FETCH_HEAD
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/sib-a)
+$ node $DEV/release-merge.mjs --assign --base main --json
+{
+  "resolved": true,
+  "oldHead": "5b2168d9ff32fa9ba1104931c2a0006b25f7bc1e",
+  "newHead": "8950e20bce2414a54535d94718b8e3b4e9ddb102",
+  "versions": {
+    "packs": {},
+    "release": "1.4.1"
+  },
+  "files": [
+    "package.json",
+    "CHANGELOG.md"
+  ],
+  "change": "sib-a",
+  "adrs": [
+    {
+      "from": "docs/adr/sib-a.md",
+      "to": "docs/adr/0002-sib-a.md"
+    }
+  ],
+  "citations": [],
+  "mode": "assign"
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/sib-a)
+$ git push origin sib-a
+To $CASES/K/origin.git
+   5b2168d..8950e20  sib-a -> sib-a
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/sib-a)
+$ gh pr merge 12 --auto --squash --match-head-commit 8950e20bce2414a54535d94718b8e3b4e9ddb102
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/K/main)
+$ gh __merge 12   # the stub: GitHub merges the pull request once its rules pass
+ccc36221ef87309c5abfacb6f41ae59f5fb6568d
+[exit 0]
+```
+
+```text
+(in $CASES/K/main)
+$ git log --oneline --graph -4 origin/main
+* ccc3622 Merge pull request #12 from sib-a
+* 1c27aac chore: src/a.ts and the list of records
+* 35a9833 seed: the project at its first release
+[exit 0]
+```
+
+`code-a`'s loop:
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ node $DEV/change-loop.mjs next --change code-a --lang en
+devkit-run: code-a
+{
+  "version": 1,
+  "change": "code-a",
+  "script": "devkit-lite",
+  "root": "$CASES/K/main/.claude/worktrees/code-a",
+  "branch": "code-a",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "implementation",
+  "stageTitle": "Implementation",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "model": "sonnet",
+  "agent": "devkit-core:tdd-implementer",
+  "step": "resolve-base-conflict",
+  "detail": {
+    "step": "resolve-base-conflict",
+    "reason": "the PR conflicts with main outside the release lines the release step writes: src/a.ts",
+    "number": 11,
+    "paths": [
+      "CHANGELOG.md",
+      "package.json",
+      "src/a.ts"
+    ],
+    "others": [
+      "src/a.ts"
+    ],
+    "base": "main",
+    "archive": false,
+    "noted": true
+  },
+  "brief": "Change code-a (devkit-lite script), stage implementation: step resolve-base-conflict {\"step\":\"resolve-base-conflict\",\"reason\":\"the PR conflicts with main outside the release lines the release step writes: src/a.ts\",\"number\":11,\"paths\":[\"CHANGELOG.md\",\"package.json\",\"src/a.ts\"],\"others\":[\"src/a.ts\"],\"base\":\"main\",\"archive\":false,\"noted\":true}. Work only in $CASES/K/main/.claude/worktrees/code-a on branch code-a; every file path is absolute under it; start every Bash command with cd $CASES/K/main/.claude/worktrees/code-a && ; do not fetch. Write the change's files in English.",
+  "progressKey": "implementation/resolve-base-conflict@00b5eaa20b7e",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🛠️",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "implementation",
+    "stageTitle": "Implementation",
+    "phase": null,
+    "stageIcon": "🛠️",
+    "stateIcon": null,
+    "title": "🛠️ code-a"
+  },
+  "sessionTitle": "🛠️ code-a"
+}
+[exit 0]
+```
+
+Conductor: the conducting session's part. As the `devkit` skill's Loop says for a delivery step, it appends to the brief the dispatch sentence of the `resolve-base-conflict` row of this worktree's `ship-change` skill, read from the file:
+
+```text
+Merge `origin/<next.base>` into the branch, never rebase; resolve each conflict of `next.paths` keeping what both sides meant, and the release files among them by the rule of `resolve-release-conflict` (the base's version plus the branch's own bump, the branch's changelog entry above the base's newest, the catalog regenerated), or, with `next.noted` (a change with a release note), by taking the base's side of every release line in conflict (the versions, the `CHANGELOG.md` entries, the CI pins, `docs/catalog.md`), by keeping, on a line where the base's entries meet the change's own citations (such as a one-line list of records both sides extended), the entries of both sides with the branch's text as the branch holds it, numbers included, and by writing no version and no ADR number, since `assign-release` gives back and numbers the branch after the merge; run the project's test command; commit the merge; never push.
+```
+
+The real agent, run in `$CASES/K/main/.claude/worktrees/code-a` (the prompt on standard input; 0.5 min):
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ TMPDIR=$CASES/tmp DEVKIT_HOOK_LOG=$CASES/runs/S-13-a.hooks.jsonl claude -p --model sonnet --permission-mode bypassPermissions --plugin-dir $WT/plugins/core --plugin-dir $WT/plugins/openspec --output-format stream-json --verbose < prompt.txt
+[exit 0]
+```
+
+The prompt (`prompt.txt`), the brief being the `brief` field of the `next` above, verbatim:
+
+```text
+This session is the conducting session of the devkit change `code-a` in a scratch project. It hands one stage to its agent, as the `devkit` skill's Loop does for an `agent` action; the loop's `next` gave this action: stage `implementation`, agent `devkit-core:tdd-implementer`, model `sonnet`.
+
+Make exactly one Agent call: subagent_type `devkit-core:tdd-implementer`, model `sonnet`, and as its prompt this brief, verbatim:
+
+Change code-a (devkit-lite script), stage implementation: step resolve-base-conflict {"step":"resolve-base-conflict","reason":"the PR conflicts with main outside the release lines the release step writes: src/a.ts","number":11,"paths":["CHANGELOG.md","package.json","src/a.ts"],"others":["src/a.ts"],"base":"main","archive":false,"noted":true}. Work only in $CASES/K/main/.claude/worktrees/code-a on branch code-a; every file path is absolute under it; start every Bash command with cd $CASES/K/main/.claude/worktrees/code-a && ; do not fetch. Write the change's files in English.
+
+Merge `origin/<next.base>` into the branch, never rebase; resolve each conflict of `next.paths` keeping what both sides meant, and the release files among them by the rule of `resolve-release-conflict` (the base's version plus the branch's own bump, the branch's changelog entry above the base's newest, the catalog regenerated), or, with `next.noted` (a change with a release note), by taking the base's side of every release line in conflict (the versions, the `CHANGELOG.md` entries, the CI pins, `docs/catalog.md`), by keeping, on a line where the base's entries meet the change's own citations (such as a one-line list of records both sides extended), the entries of both sides with the branch's text as the branch holds it, numbers included, and by writing no version and no ADR number, since `assign-release` gives back and numbers the branch after the merge; run the project's test command; commit the merge; never push.
+
+Do nothing else: run no command, read or write no file yourself, and make no other Agent call. When the agent returns, reply with its final message, verbatim.
+```
+
+From the run's stream-json output (kept in the scratch folder while the proof ran):
+
+```text
+session: 7b3d94bf-bf4e-4b10-9ee4-dc064a465004; conducting model: claude-sonnet-5-5; permission mode: bypassPermissions
+plugin devkit-core 0.18.0 from $WT/plugins/core
+plugin devkit-openspec 0.50.0 from $WT/plugins/openspec
+Agent calls of the conducting session: 1
+Agent call: subagent_type=devkit-core:tdd-implementer model=sonnet prompt-is-the-brief=yes
+the agent's model: claude-sonnet-5-5
+the agent's task: completed (task notification)
+last result: success is_error=false turns=1 cost_usd=0.26502180000000003
+```
+
+The tools the agent called, in order:
+
+```text
+Bash git status --short && git branch --show-current && git merge origin/main --no-edit; git status --short; git diff --name-only --diff-filter=U
+Bash git diff CHANGELOG.md package.json src/a.ts; ls; cat package.json | head -30
+Bash cat openspec/changes/code-a/tasks.md openspec/changes/sib-a/tasks.md; ls src; cat src/sib-a-1.ts; ls src/*test* 2>/dev/null; git log --oneline -3 origin/main -- src/a.ts
+Bash cat src/app.ts src/code-a-1.ts; git show origin/main:src/a.ts; git show 1c27aac --stat | head
+Bash printf 'export const a = 2; // sib-a\nexport const code_a = 1; // code-a\n' > src/a.ts git show origin/main:CHANGELOG.md > CHANGELOG.md git show origin/main:package.json > package.json git add CHANGELOG.md package.j
+Bash ls -a; node -e 0 && echo ok; git commit -q -m "merge: origin/main into code-a Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>" && git log --oneline -2; git status --short
+```
+
+The agent's final message (its last text; the conducting session ran it as a background agent):
+
+```text
+## Implementation: code-a, step resolve-base-conflict
+
+Surfaces touched: `CHANGELOG.md`, `package.json`, `src/a.ts`
+Tasks: none
+
+### Diff
+Merged `origin/main` into `code-a` as commit 6184f2c. I did not rebase or push. All three conflicts are resolved, and `git status` is clean.
+- `$CASES/K/main/.claude/worktrees/code-a/CHANGELOG.md`: took the base's side, so the entry is `1.4.1 — sib-a lands`. The branch's `1.5.0` entry is dropped, since `assign-release` numbers the branch after the merge.
+- `$CASES/K/main/.claude/worktrees/code-a/package.json`: took the base's side, version `1.4.1`.
+- `$CASES/K/main/.claude/worktrees/code-a/src/a.ts`: both sides defined the same constant `a` with different values, so I kept both.
+  - The base keeps `export const a = 2; // sib-a`.
+  - The branch's constant is renamed to `export const code_a = 1; // code-a`.
+  - Nothing imports `a`, so the rename breaks no caller.
+  - **Please confirm:** this renames the branch's constant. If code-a needs `a = 1`, the two changes conflict in meaning and someone has to decide which one wins.
+- `docs/context.yaml` merged without a conflict.
+
+### Bugs fixed along the way
+none
+
+### Validation
+Command: `node -e 0`. This is the Gate command from `tasks.md`, because the project has no test script in `package.json`.
+Result: green. No conflict markers are left in the tree.
+
+### Phase gate
+Not applicable to this step.
+
+Outcome: success
+```
+
+The live hook decisions of the run (`DEVKIT_HOOK_LOG` of the worktree's `guard.mjs`; mode, agent, decision, why, count). The run's transcript holds no typed `/devkit change` command, so the stop and hand-off locks read no run (`no-run`); the planner's stop is judged by the `guard.mjs subagent-stop` calls of the case, with the run transcript they name:
+
+```text
+agent devkit-core:tdd-implementer allow (no-run) x1
+stop session allow (no-run) x2
+subagent-stop devkit-core:tdd-implementer allow (no-run) x1
+```
+
+What the agent left:
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ git log --oneline --graph -5
+*   6184f2c merge: origin/main into code-a
+|\  
+| * ccc3622 Merge pull request #12 from sib-a
+* | ea434a2 chore(release): assign the release of code-a
+* | fcab517 docs(code-a): change files
+* | 0153c10 docs(code-a): reviews
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ git show --stat '--format=%h %s%nparents: %P' HEAD
+6184f2c merge: origin/main into code-a
+parents: ea434a24b293682b054e48b6090b409d690bc50f ccc36221ef87309c5abfacb6f41ae59f5fb6568d
+
+ CHANGELOG.md                                             |  4 ++--
+ docs/adr/0002-sib-a.md                                   |  6 ++++++
+ openspec/changes/sib-a/.openspec.yaml                    |  1 +
+ openspec/changes/sib-a/approval.md                       |  8 ++++++++
+ openspec/changes/sib-a/decisions.md                      |  3 +++
+ openspec/changes/sib-a/evidence.md                       | 13 +++++++++++++
+ openspec/changes/sib-a/proposal.md                       |  9 +++++++++
+ openspec/changes/sib-a/readiness.md                      |  3 +++
+ openspec/changes/sib-a/release.md                        |  6 ++++++
+ openspec/changes/sib-a/reviews/code-quality-reviewer.md  |  6 ++++++
+ openspec/changes/sib-a/reviews/test-coverage-reviewer.md |  6 ++++++
+ openspec/changes/sib-a/tasks.md                          |  6 ++++++
+ package.json                                             |  2 +-
+ src/a.ts                                                 |  3 ++-
+ src/sib-a-1.ts                                           |  1 +
+ 15 files changed, 73 insertions(+), 4 deletions(-)
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ git status --short
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ git diff origin/main HEAD -- CHANGELOG.md   # against the base
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ git diff origin/main HEAD -- package.json   # against the base
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ git diff origin/main HEAD -- src/a.ts   # against the base
+diff --git a/src/a.ts b/src/a.ts
+index 9454837..dfd3073 100644
+--- a/src/a.ts
++++ b/src/a.ts
+@@ -1 +1,2 @@
+ export const a = 2; // sib-a
++export const code_a = 1; // code-a
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ cat CHANGELOG.md package.json src/a.ts
+# Changelog
+
+## 1.4.1 — sib-a lands
+
+- sib-a does its part
+
+## 1.4.0 — the last release
+
+- the app as it was
+{
+  "name": "app",
+  "version": "1.4.1",
+  "private": true
+}
+export const a = 2; // sib-a
+export const code_a = 1; // code-a
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ ls docs/adr
+0001-start.md
+0002-code-a.md
+0002-sib-a.md
+[exit 0]
+```
+
+The session's rows after the agent: the records the merge staled written again (the scripted session part), then the loop:
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ node $DEV/deliver-check.mjs code-a --json   -> 4/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
+    did: wrote evidence.md at 6184f2c; git commit: 19a376f
+$ node $DEV/deliver-check.mjs code-a --json   -> 6/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 19a376f; git commit: c3d6b2d
+$ node $DEV/deliver-check.mjs code-a --json   -> 7/8, next: assign-release (PR #11 has merge conflicts with main)
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ node $DEV/change-loop.mjs next --change code-a --lang en
+devkit-run: code-a
+{
+  "version": 1,
+  "change": "code-a",
+  "script": "devkit-lite",
+  "root": "$CASES/K/main/.claude/worktrees/code-a",
+  "branch": "code-a",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "evidence",
+  "stageTitle": "Demonstration",
+  "role": "pr-verifier",
+  "skills": [],
+  "model": "sonnet",
+  "step": "merge-check",
+  "detail": {
+    "command": [
+      "node",
+      "$DEV/change-loop.mjs",
+      "merge-check",
+      "code-a",
+      "--lang",
+      "en"
+    ],
+    "merge": "6184f2cf323fa9a64a344080e028ce353cf5e3e7",
+    "base": "main"
+  },
+  "progressKey": "evidence/merge-check@3688a30b3d80",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🔍",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "evidence",
+    "stageTitle": "Demonstration",
+    "phase": null,
+    "stageIcon": "🔍",
+    "stateIcon": null,
+    "title": "🔍 code-a"
+  },
+  "sessionTitle": "🔍 code-a"
+}
+[exit 0]
+```
+
+The loop checks the merge of the base first (`merge-check`, post-merge-validate), run as handed:
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ node $DEV/change-loop.mjs merge-check code-a --lang en
+{
+  "version": 1,
+  "change": "code-a",
+  "base": "main",
+  "merge": "6184f2cf323fa9a64a344080e028ce353cf5e3e7",
+  "result": "green",
+  "reds": 0,
+  "errors": null,
+  "error": null
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ node $DEV/change-loop.mjs next --change code-a --lang en
+devkit-run: code-a
+{
+  "version": 1,
+  "change": "code-a",
+  "script": "devkit-lite",
+  "root": "$CASES/K/main/.claude/worktrees/code-a",
+  "branch": "code-a",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "delivery",
+  "stageTitle": "Delivery",
+  "role": "commit-and-pr",
+  "skills": [
+    "commit-message-guidelines"
+  ],
+  "model": "haiku",
+  "agent": "devkit-core:commit-and-pr",
+  "step": "push",
+  "detail": {
+    "step": "push",
+    "reason": "the merge of origin/main is not pushed yet; PR #11 still has ea434a2",
+    "number": 11,
+    "branch": "code-a",
+    "command": [
+      "git",
+      "push",
+      "origin",
+      "code-a"
+    ]
+  },
+  "brief": "Change code-a (devkit-lite script), stage delivery: step push {\"step\":\"push\",\"reason\":\"the merge of origin/main is not pushed yet; PR #11 still has ea434a2\",\"number\":11,\"branch\":\"code-a\",\"command\":[\"git\",\"push\",\"origin\",\"code-a\"]}. Work only in $CASES/K/main/.claude/worktrees/code-a on branch code-a; every file path is absolute under it; start every Bash command with cd $CASES/K/main/.claude/worktrees/code-a && ; do not fetch. Write the change's files in English. Attribution: the session handing this off appends below this brief, verbatim, the lines it ends its own commit messages and pull-request descriptions with, as the block `Attribution (from the caller):` with one `Commit trailer: <line>` per commit line and one `PR footer: <line>` per pull-request line, or the line `Attribution (from the caller): none` when it ends them with none.",
+  "progressKey": "delivery/push@3688a30b3d80",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🚀",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "delivery",
+    "stageTitle": "Delivery",
+    "phase": null,
+    "stageIcon": "🚀",
+    "stateIcon": null,
+    "title": "🚀 code-a"
+  },
+  "sessionTitle": "🚀 code-a"
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ git push origin code-a
+To $CASES/K/origin.git
+   ea434a2..c3d6b2d  code-a -> code-a
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ node $DEV/change-loop.mjs next --change code-a --lang en
+devkit-run: code-a
+{
+  "version": 1,
+  "change": "code-a",
+  "script": "devkit-lite",
+  "root": "$CASES/K/main/.claude/worktrees/code-a",
+  "branch": "code-a",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "delivery",
+  "stageTitle": "Delivery",
+  "role": "commit-and-pr",
+  "skills": [
+    "commit-message-guidelines"
+  ],
+  "model": "haiku",
+  "step": "assign-release",
+  "detail": {
+    "step": "assign-release",
+    "reason": "the release of code-a is not assigned yet; assign it before the merge",
+    "number": 11,
+    "base": "main",
+    "branch": "code-a",
+    "command": [
+      "node",
+      "$DEV/release-merge.mjs",
+      "--assign",
+      "--base",
+      "main",
+      "--json"
+    ]
+  },
+  "progressKey": "delivery/assign-release@3688a30b3d80",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🚀",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "delivery",
+    "stageTitle": "Delivery",
+    "phase": null,
+    "stageIcon": "🚀",
+    "stateIcon": null,
+    "title": "🚀 code-a"
+  },
+  "sessionTitle": "🚀 code-a"
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ git fetch origin main
+From $CASES/K/origin
+ * branch            main       -> FETCH_HEAD
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ node $DEV/release-merge.mjs --assign --base main --json
+{
+  "resolved": true,
+  "oldHead": "c3d6b2da97c50c2672feeaa436a46a563fe692b1",
+  "newHead": "493c257fe3ca949cb1f67d27bf8423490f5951f2",
+  "versions": {
+    "packs": {},
+    "release": "1.5.0"
+  },
+  "files": [
+    "package.json",
+    "CHANGELOG.md"
+  ],
+  "change": "code-a",
+  "adrs": [
+    {
+      "from": "docs/adr/code-a.md",
+      "to": "docs/adr/0003-code-a.md"
+    }
+  ],
+  "citations": [
+    "docs/code-a.md"
+  ],
+  "mode": "assign"
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ git push origin code-a
+To $CASES/K/origin.git
+   c3d6b2d..493c257  code-a -> code-a
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ git log -1 --format=%B
+chore(release): assign the release of code-a
+
+Release-change: code-a
+Release-line: package.json
+Release-line: CHANGELOG.md
+Release-adr: docs/adr/code-a.md -> docs/adr/0003-code-a.md
+Release-citation: docs/code-a.md
+
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/code-a)
+$ ls docs/adr
+0001-start.md
+0002-sib-a.md
+0003-code-a.md
+[exit 0]
+```
+
+Done-condition of S-13 (a) (task 11.11):
+
+```text
+holds: (a) the claude -p run exited 0 with one Agent call
+holds: (a) it returns Outcome: success (Outcome: success)
+holds: (a) a merge commit whose parents are the old head ea434a2 and origin/main ccc3622 (6184f2c)
+holds: (a) no conflict marker at HEAD
+holds: (a) the base's side of every release line in conflict: CHANGELOG.md, package.json as origin/main has them
+holds: (a) no version the agent wrote (package.json 1.4.1)
+holds: (a) no ADR number the agent wrote (files with a number in neither parent: none; new records: none)
+holds: (a) nothing pushed by the agent (origin's code-a is still ea434a2)
+holds: (a) then next hands push (agent devkit-core:commit-and-pr push)
+holds: (a) then assign-release, whose step exits 0 (session assign-release)
+```
+
+### (b) A conflict on the one-line list holding the change's own citation, and in the release files
+
+`list-b` (`devkit-lite`, its plan carrying the stage headers) notes `release: minor` and names `docs/adr/list-b.md`; it is driven to its release step and takes its release:
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ node $DEV/deliver-check.mjs list-b --json   -> 1/8, next: implement (phase 1 has unticked tasks: 1.1)
+    did: wrote src/list-b-1.ts; ticked 1.1
+$ node $DEV/deliver-check.mjs list-b --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
+    did: ran `node -e 0` (exit 0); ticked 1.2
+$ node $DEV/deliver-check.mjs list-b --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/list-b-1.ts)
+    did: git commit: f8653d3
+$ node $DEV/deliver-check.mjs list-b --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
+    did: wrote evidence.md at f8653d3; git commit: b65ea46
+$ node $DEV/deliver-check.mjs list-b --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at b65ea46; git commit: 072a002
+$ node $DEV/deliver-check.mjs list-b --json   -> 4/8, next: open-pr (no pull request yet)
+    did: git push -u origin list-b; gh pr create -> https://github.invalid/o/devkit/pull/13
+$ node $DEV/deliver-check.mjs list-b --json   -> 8/8, next: assign-release (the release of list-b is not assigned yet; assign it before the merge)
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ git fetch origin main
+From $CASES/K/origin
+ * branch            main       -> FETCH_HEAD
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ node $DEV/release-merge.mjs --assign --base main --json
+{
+  "resolved": true,
+  "oldHead": "c7ac17fbab6fbe1745d8f8ecbb7c6b0ffa46af2c",
+  "newHead": "20cc7b198280bae6a5540acde086c7920b0dea62",
+  "versions": {
+    "packs": {},
+    "release": "1.5.0"
+  },
+  "files": [
+    "package.json",
+    "CHANGELOG.md"
+  ],
+  "change": "list-b",
+  "adrs": [
+    {
+      "from": "docs/adr/list-b.md",
+      "to": "docs/adr/0003-list-b.md"
+    }
+  ],
+  "citations": [
+    "docs/context.yaml"
+  ],
+  "mode": "assign"
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ git push origin list-b
+To $CASES/K/origin.git
+   c7ac17f..20cc7b1  list-b -> list-b
+[exit 0]
+```
+
+The sibling `sib-b` notes `release: patch`, names `docs/adr/sib-b.md` and lands on the same base:
+
+```text
+(in $CASES/K/main/.claude/worktrees/sib-b)
+$ node $DEV/deliver-check.mjs sib-b --json   -> 1/8, next: implement (phase 1 has unticked tasks: 1.1)
+    did: wrote src/sib-b-1.ts; ticked 1.1
+$ node $DEV/deliver-check.mjs sib-b --json   -> 1/8, next: gate (phase 1 is implemented; run its gate 1.2)
+    did: ran `node -e 0` (exit 0); ticked 1.2
+$ node $DEV/deliver-check.mjs sib-b --json   -> 1/8, next: commit (uncommitted changes outside openspec/: src/sib-b-1.ts)
+    did: git commit: df42203
+$ node $DEV/deliver-check.mjs sib-b --json   -> 1/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
+    did: wrote evidence.md at df42203; git commit: cffcc36
+$ node $DEV/deliver-check.mjs sib-b --json   -> 3/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at cffcc36; git commit: 1874f61
+$ node $DEV/deliver-check.mjs sib-b --json   -> 4/8, next: open-pr (no pull request yet)
+    did: git push -u origin sib-b; gh pr create -> https://github.invalid/o/devkit/pull/14
+$ node $DEV/deliver-check.mjs sib-b --json   -> 8/8, next: assign-release (the release of sib-b is not assigned yet; assign it before the merge)
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/sib-b)
+$ git fetch origin main
+From $CASES/K/origin
+ * branch            main       -> FETCH_HEAD
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/sib-b)
+$ node $DEV/release-merge.mjs --assign --base main --json
+{
+  "resolved": true,
+  "oldHead": "621fb767b8cc0e2c429e9fef598a94798bdf60cd",
+  "newHead": "1228fea1268467a05a54721ed41f36b942d8d559",
+  "versions": {
+    "packs": {},
+    "release": "1.4.2"
+  },
+  "files": [
+    "package.json",
+    "CHANGELOG.md"
+  ],
+  "change": "sib-b",
+  "adrs": [
+    {
+      "from": "docs/adr/sib-b.md",
+      "to": "docs/adr/0003-sib-b.md"
+    }
+  ],
+  "citations": [
+    "docs/context.yaml"
+  ],
+  "mode": "assign"
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/sib-b)
+$ git push origin sib-b
+To $CASES/K/origin.git
+   621fb76..1228fea  sib-b -> sib-b
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/sib-b)
+$ gh pr merge 14 --auto --squash --match-head-commit 1228fea1268467a05a54721ed41f36b942d8d559
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/K/main)
+$ gh __merge 14   # the stub: GitHub merges the pull request once its rules pass
+d48307afa057f7239218dd47cb3e86c5edb9669b
+[exit 0]
+```
+
+```text
+(in $CASES/K/main)
+$ git log --oneline --graph -4 origin/main
+* d48307a Merge pull request #14 from sib-b
+* ccc3622 Merge pull request #12 from sib-a
+* 1c27aac chore: src/a.ts and the list of records
+* 35a9833 seed: the project at its first release
+[exit 0]
+```
+
+`list-b`'s loop:
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ node $DEV/change-loop.mjs next --change list-b --lang en
+devkit-run: list-b
+{
+  "version": 1,
+  "change": "list-b",
+  "script": "devkit-lite",
+  "root": "$CASES/K/main/.claude/worktrees/list-b",
+  "branch": "list-b",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "implementation",
+  "stageTitle": "Implementation",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "model": "sonnet",
+  "agent": "devkit-core:tdd-implementer",
+  "step": "resolve-base-conflict",
+  "detail": {
+    "step": "resolve-base-conflict",
+    "reason": "the PR conflicts with main outside the release lines the release step writes: docs/context.yaml",
+    "number": 13,
+    "paths": [
+      "CHANGELOG.md",
+      "docs/context.yaml",
+      "package.json"
+    ],
+    "others": [
+      "docs/context.yaml"
+    ],
+    "base": "main",
+    "archive": false,
+    "noted": true
+  },
+  "brief": "Change list-b (devkit-lite script), stage implementation: step resolve-base-conflict {\"step\":\"resolve-base-conflict\",\"reason\":\"the PR conflicts with main outside the release lines the release step writes: docs/context.yaml\",\"number\":13,\"paths\":[\"CHANGELOG.md\",\"docs/context.yaml\",\"package.json\"],\"others\":[\"docs/context.yaml\"],\"base\":\"main\",\"archive\":false,\"noted\":true}. Work only in $CASES/K/main/.claude/worktrees/list-b on branch list-b; every file path is absolute under it; start every Bash command with cd $CASES/K/main/.claude/worktrees/list-b && ; do not fetch. Write the change's files in English.",
+  "progressKey": "implementation/resolve-base-conflict@6c9d366dfa48",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🛠️",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "implementation",
+    "stageTitle": "Implementation",
+    "phase": null,
+    "stageIcon": "🛠️",
+    "stateIcon": null,
+    "title": "🛠️ list-b"
+  },
+  "sessionTitle": "🛠️ list-b"
+}
+[exit 0]
+```
+
+Conductor: the conducting session's part. As the `devkit` skill's Loop says for a delivery step, it appends to the brief the dispatch sentence of the `resolve-base-conflict` row of this worktree's `ship-change` skill, read from the file:
+
+```text
+Merge `origin/<next.base>` into the branch, never rebase; resolve each conflict of `next.paths` keeping what both sides meant, and the release files among them by the rule of `resolve-release-conflict` (the base's version plus the branch's own bump, the branch's changelog entry above the base's newest, the catalog regenerated), or, with `next.noted` (a change with a release note), by taking the base's side of every release line in conflict (the versions, the `CHANGELOG.md` entries, the CI pins, `docs/catalog.md`), by keeping, on a line where the base's entries meet the change's own citations (such as a one-line list of records both sides extended), the entries of both sides with the branch's text as the branch holds it, numbers included, and by writing no version and no ADR number, since `assign-release` gives back and numbers the branch after the merge; run the project's test command; commit the merge; never push.
+```
+
+The real agent, run in `$CASES/K/main/.claude/worktrees/list-b` (the prompt on standard input; 0.4 min):
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ TMPDIR=$CASES/tmp DEVKIT_HOOK_LOG=$CASES/runs/S-13-b.hooks.jsonl claude -p --model sonnet --permission-mode bypassPermissions --plugin-dir $WT/plugins/core --plugin-dir $WT/plugins/openspec --output-format stream-json --verbose < prompt.txt
+[exit 0]
+```
+
+The prompt (`prompt.txt`), the brief being the `brief` field of the `next` above, verbatim:
+
+```text
+This session is the conducting session of the devkit change `list-b` in a scratch project. It hands one stage to its agent, as the `devkit` skill's Loop does for an `agent` action; the loop's `next` gave this action: stage `implementation`, agent `devkit-core:tdd-implementer`, model `sonnet`.
+
+Make exactly one Agent call: subagent_type `devkit-core:tdd-implementer`, model `sonnet`, and as its prompt this brief, verbatim:
+
+Change list-b (devkit-lite script), stage implementation: step resolve-base-conflict {"step":"resolve-base-conflict","reason":"the PR conflicts with main outside the release lines the release step writes: docs/context.yaml","number":13,"paths":["CHANGELOG.md","docs/context.yaml","package.json"],"others":["docs/context.yaml"],"base":"main","archive":false,"noted":true}. Work only in $CASES/K/main/.claude/worktrees/list-b on branch list-b; every file path is absolute under it; start every Bash command with cd $CASES/K/main/.claude/worktrees/list-b && ; do not fetch. Write the change's files in English.
+
+Merge `origin/<next.base>` into the branch, never rebase; resolve each conflict of `next.paths` keeping what both sides meant, and the release files among them by the rule of `resolve-release-conflict` (the base's version plus the branch's own bump, the branch's changelog entry above the base's newest, the catalog regenerated), or, with `next.noted` (a change with a release note), by taking the base's side of every release line in conflict (the versions, the `CHANGELOG.md` entries, the CI pins, `docs/catalog.md`), by keeping, on a line where the base's entries meet the change's own citations (such as a one-line list of records both sides extended), the entries of both sides with the branch's text as the branch holds it, numbers included, and by writing no version and no ADR number, since `assign-release` gives back and numbers the branch after the merge; run the project's test command; commit the merge; never push.
+
+Do nothing else: run no command, read or write no file yourself, and make no other Agent call. When the agent returns, reply with its final message, verbatim.
+```
+
+From the run's stream-json output (kept in the scratch folder while the proof ran):
+
+```text
+session: 51cecb97-1597-4c89-a064-5f6b1bea8a04; conducting model: claude-sonnet-5-5; permission mode: bypassPermissions
+plugin devkit-core 0.18.0 from $WT/plugins/core
+plugin devkit-openspec 0.50.0 from $WT/plugins/openspec
+Agent calls of the conducting session: 1
+Agent call: subagent_type=devkit-core:tdd-implementer model=sonnet prompt-is-the-brief=yes
+the agent's model: claude-sonnet-5-5
+the agent's task: completed (task notification)
+last result: success is_error=false turns=1 cost_usd=0.25636030000000004
+```
+
+The tools the agent called, in order:
+
+```text
+Bash git status --short && git merge origin/main --no-edit 2>&1 | tail -20; git status --short
+Bash git diff; cat package.json | head -5; ls; cat openspec/changes/list-b/release.md
+Bash git checkout --theirs CHANGELOG.md package.json && printf ' ADRs: docs/adr/ (0001 start; ADR 0003 the rule; ADR 0003 other)\n' > docs/context.yaml && git add CHANGELOG.md package.json docs/context.yaml && grep -rn '
+Bash git commit -q -m "Merge origin/main into list-b Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>" && git status --short && git log --oneline -3
+```
+
+The agent's final message (its last text; the conducting session ran it as a background agent):
+
+```text
+## Implementation — list-b, step resolve-base-conflict
+
+Surfaces touched: release files (`CHANGELOG.md`, `package.json`) and `docs/context.yaml`
+Tasks: none
+
+### Diff
+Merge commit `d58fcb0` merges `origin/main` into `list-b`. Nothing was rebased or pushed.
+- `$CASES/K/main/.claude/worktrees/list-b/CHANGELOG.md`: took the base's side, so the top entry is `1.4.2 — sib-b lands`. The branch's `1.5.0` entry is dropped.
+- `$CASES/K/main/.claude/worktrees/list-b/package.json`: took the base's side, version `1.4.2`. I wrote no version.
+- `$CASES/K/main/.claude/worktrees/list-b/docs/context.yaml`: kept both sides' entries on the one line. It now reads `ADRs: docs/adr/ (0001 start; ADR 0003 the rule; ADR 0003 other)`. The branch's text is unchanged, number included.
+
+### Bugs fixed along the way
+none
+
+### Validation
+Command: none run. The repo has no test script (`package.json` has no `"test"` key) and no Makefile, so there was no test command to run.
+Result: no conflict markers remain, and `git status` is clean after the commit.
+
+### Notes for assign-release
+- `docs/adr/` now holds both `0003-list-b.md` and `0003-sib-b.md`. I did not renumber either. `assign-release` has to renumber the branch's ADR and update the citation in `docs/context.yaml`.
+- `package.json` is at `1.4.2`, and `openspec/changes/list-b/release.md` says `release: minor`. `assign-release` has to give the branch its version back and re-add the `list-b` changelog entry.
+
+Outcome: success — base merged, conflicts resolved per the noted-change rule, merge committed, nothing pushed.
+```
+
+The live hook decisions of the run (`DEVKIT_HOOK_LOG` of the worktree's `guard.mjs`; mode, agent, decision, why, count). The run's transcript holds no typed `/devkit change` command, so the stop and hand-off locks read no run (`no-run`); the planner's stop is judged by the `guard.mjs subagent-stop` calls of the case, with the run transcript they name:
+
+```text
+agent devkit-core:tdd-implementer allow (no-run) x1
+stop session allow (no-run) x2
+subagent-stop devkit-core:tdd-implementer allow (no-run) x1
+```
+
+What the agent left:
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ git log --oneline --graph -5
+*   d58fcb0 Merge origin/main into list-b
+|\  
+| * d48307a Merge pull request #14 from sib-b
+* | 20cc7b1 chore(release): assign the release of list-b
+* | c7ac17f docs(list-b): change files
+* | 072a002 docs(list-b): reviews
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ git show --stat '--format=%h %s%nparents: %P' HEAD
+d58fcb0 Merge origin/main into list-b
+parents: 20cc7b198280bae6a5540acde086c7920b0dea62 d48307afa057f7239218dd47cb3e86c5edb9669b
+
+ CHANGELOG.md                                             |  4 ++--
+ docs/adr/0003-sib-b.md                                   |  6 ++++++
+ docs/context.yaml                                        |  2 +-
+ openspec/changes/sib-b/.openspec.yaml                    |  1 +
+ openspec/changes/sib-b/approval.md                       |  8 ++++++++
+ openspec/changes/sib-b/decisions.md                      |  3 +++
+ openspec/changes/sib-b/evidence.md                       | 13 +++++++++++++
+ openspec/changes/sib-b/proposal.md                       |  9 +++++++++
+ openspec/changes/sib-b/readiness.md                      |  3 +++
+ openspec/changes/sib-b/release.md                        |  6 ++++++
+ openspec/changes/sib-b/reviews/code-quality-reviewer.md  |  6 ++++++
+ openspec/changes/sib-b/reviews/test-coverage-reviewer.md |  6 ++++++
+ openspec/changes/sib-b/tasks.md                          |  6 ++++++
+ package.json                                             |  2 +-
+ src/sib-b-1.ts                                           |  1 +
+ 15 files changed, 72 insertions(+), 4 deletions(-)
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ git status --short
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ git diff origin/main HEAD -- CHANGELOG.md   # against the base
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ git diff origin/main HEAD -- docs/context.yaml   # against the base
+diff --git a/docs/context.yaml b/docs/context.yaml
+index b624407..bc02d19 100644
+--- a/docs/context.yaml
++++ b/docs/context.yaml
+@@ -1 +1 @@
+-  ADRs: docs/adr/ (0001 start; ADR 0003 other)
++  ADRs: docs/adr/ (0001 start; ADR 0003 the rule; ADR 0003 other)
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ git diff origin/main HEAD -- package.json   # against the base
+(no output)
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ cat CHANGELOG.md docs/context.yaml package.json
+# Changelog
+
+## 1.4.2 — sib-b lands
+
+- sib-b does its part
+
+## 1.4.1 — sib-a lands
+
+- sib-a does its part
+
+## 1.4.0 — the last release
+
+- the app as it was
+  ADRs: docs/adr/ (0001 start; ADR 0003 the rule; ADR 0003 other)
+{
+  "name": "app",
+  "version": "1.4.2",
+  "private": true
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ ls docs/adr
+0001-start.md
+0002-sib-a.md
+0003-list-b.md
+0003-sib-b.md
+[exit 0]
+```
+
+The session's rows after the agent: the records the merge staled written again (the scripted session part), then the loop:
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ node $DEV/deliver-check.mjs list-b --json   -> 4/8, next: verify (evidence.md is missing, stale or lacks a gate or criterion row)
+    did: wrote evidence.md at d58fcb0; git commit: 1896650
+$ node $DEV/deliver-check.mjs list-b --json   -> 6/8, next: review (review needed from code-quality-reviewer, test-coverage-reviewer)
+    did: wrote approved reviews of code-quality-reviewer, test-coverage-reviewer at 1896650; git commit: 0a7d08f
+$ node $DEV/deliver-check.mjs list-b --json   -> 7/8, next: assign-release (PR #13 has merge conflicts with main)
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ node $DEV/change-loop.mjs next --change list-b --lang en
+devkit-run: list-b
+{
+  "version": 1,
+  "change": "list-b",
+  "script": "devkit-lite",
+  "root": "$CASES/K/main/.claude/worktrees/list-b",
+  "branch": "list-b",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "evidence",
+  "stageTitle": "Demonstration",
+  "role": "pr-verifier",
+  "skills": [],
+  "model": "sonnet",
+  "step": "merge-check",
+  "detail": {
+    "command": [
+      "node",
+      "$DEV/change-loop.mjs",
+      "merge-check",
+      "list-b",
+      "--lang",
+      "en"
+    ],
+    "merge": "d58fcb0f4395df22d022d0c43a110c1a90a6ea3e",
+    "base": "main"
+  },
+  "progressKey": "evidence/merge-check@e400e8b19a0d",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🔍",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "evidence",
+    "stageTitle": "Demonstration",
+    "phase": null,
+    "stageIcon": "🔍",
+    "stateIcon": null,
+    "title": "🔍 list-b"
+  },
+  "sessionTitle": "🔍 list-b"
+}
+[exit 0]
+```
+
+The loop checks the merge of the base first (`merge-check`, post-merge-validate), run as handed:
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ node $DEV/change-loop.mjs merge-check list-b --lang en
+{
+  "version": 1,
+  "change": "list-b",
+  "base": "main",
+  "merge": "d58fcb0f4395df22d022d0c43a110c1a90a6ea3e",
+  "result": "green",
+  "reds": 0,
+  "errors": null,
+  "error": null
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ node $DEV/change-loop.mjs next --change list-b --lang en
+devkit-run: list-b
+{
+  "version": 1,
+  "change": "list-b",
+  "script": "devkit-lite",
+  "root": "$CASES/K/main/.claude/worktrees/list-b",
+  "branch": "list-b",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "delivery",
+  "stageTitle": "Delivery",
+  "role": "commit-and-pr",
+  "skills": [
+    "commit-message-guidelines"
+  ],
+  "model": "haiku",
+  "agent": "devkit-core:commit-and-pr",
+  "step": "push",
+  "detail": {
+    "step": "push",
+    "reason": "the merge of origin/main is not pushed yet; PR #13 still has 20cc7b1",
+    "number": 13,
+    "branch": "list-b",
+    "command": [
+      "git",
+      "push",
+      "origin",
+      "list-b"
+    ]
+  },
+  "brief": "Change list-b (devkit-lite script), stage delivery: step push {\"step\":\"push\",\"reason\":\"the merge of origin/main is not pushed yet; PR #13 still has 20cc7b1\",\"number\":13,\"branch\":\"list-b\",\"command\":[\"git\",\"push\",\"origin\",\"list-b\"]}. Work only in $CASES/K/main/.claude/worktrees/list-b on branch list-b; every file path is absolute under it; start every Bash command with cd $CASES/K/main/.claude/worktrees/list-b && ; do not fetch. Write the change's files in English. Attribution: the session handing this off appends below this brief, verbatim, the lines it ends its own commit messages and pull-request descriptions with, as the block `Attribution (from the caller):` with one `Commit trailer: <line>` per commit line and one `PR footer: <line>` per pull-request line, or the line `Attribution (from the caller): none` when it ends them with none.",
+  "progressKey": "delivery/push@e400e8b19a0d",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🚀",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "delivery",
+    "stageTitle": "Delivery",
+    "phase": null,
+    "stageIcon": "🚀",
+    "stateIcon": null,
+    "title": "🚀 list-b"
+  },
+  "sessionTitle": "🚀 list-b"
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ git push origin list-b
+To $CASES/K/origin.git
+   20cc7b1..0a7d08f  list-b -> list-b
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ node $DEV/change-loop.mjs next --change list-b --lang en
+devkit-run: list-b
+{
+  "version": 1,
+  "change": "list-b",
+  "script": "devkit-lite",
+  "root": "$CASES/K/main/.claude/worktrees/list-b",
+  "branch": "list-b",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "delivery",
+  "stageTitle": "Delivery",
+  "role": "commit-and-pr",
+  "skills": [
+    "commit-message-guidelines"
+  ],
+  "model": "haiku",
+  "step": "assign-release",
+  "detail": {
+    "step": "assign-release",
+    "reason": "the release of list-b is not assigned yet; assign it before the merge",
+    "number": 13,
+    "base": "main",
+    "branch": "list-b",
+    "command": [
+      "node",
+      "$DEV/release-merge.mjs",
+      "--assign",
+      "--base",
+      "main",
+      "--json"
+    ]
+  },
+  "progressKey": "delivery/assign-release@e400e8b19a0d",
+  "baseFetch": {
+    "ok": true,
+    "base": "main"
+  },
+  "icon": "🚀",
+  "state": {
+    "state": "running",
+    "reason": null,
+    "stage": "delivery",
+    "stageTitle": "Delivery",
+    "phase": null,
+    "stageIcon": "🚀",
+    "stateIcon": null,
+    "title": "🚀 list-b"
+  },
+  "sessionTitle": "🚀 list-b"
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ git fetch origin main
+From $CASES/K/origin
+ * branch            main       -> FETCH_HEAD
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ node $DEV/release-merge.mjs --assign --base main --json
+{
+  "resolved": true,
+  "oldHead": "0a7d08f57e6ac754beaf8aa59da0c1d79cf7d1d9",
+  "newHead": "82563957f79312bab6ff3d9bb793c5c31c29f39b",
+  "versions": {
+    "packs": {},
+    "release": "1.5.0"
+  },
+  "files": [
+    "package.json",
+    "CHANGELOG.md"
+  ],
+  "change": "list-b",
+  "adrs": [
+    {
+      "from": "docs/adr/list-b.md",
+      "to": "docs/adr/0004-list-b.md"
+    }
+  ],
+  "citations": [
+    "docs/context.yaml"
+  ],
+  "mode": "assign"
+}
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ git push origin list-b
+To $CASES/K/origin.git
+   0a7d08f..8256395  list-b -> list-b
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ git log -1 --format=%B
+chore(release): assign the release of list-b
+
+Release-change: list-b
+Release-line: package.json
+Release-line: CHANGELOG.md
+Release-adr: docs/adr/list-b.md -> docs/adr/0004-list-b.md
+Release-citation: docs/context.yaml
+
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ ls docs/adr
+0001-start.md
+0002-sib-a.md
+0003-sib-b.md
+0004-list-b.md
+[exit 0]
+```
+
+```text
+(in $CASES/K/main/.claude/worktrees/list-b)
+$ cat docs/context.yaml
+  ADRs: docs/adr/ (0001 start; ADR 0004 the rule; ADR 0003 other)
+[exit 0]
+```
+
+Done-condition of S-13 (b) (task 11.11):
+
+```text
+holds: (b) the claude -p run exited 0 with one Agent call
+holds: (b) it returns Outcome: success (Outcome: success — base merged, conflicts resolved per the noted-change rule, merge committed, nothing pushed.)
+holds: (b) a merge commit whose parents are the old head 20cc7b1 and origin/main d48307a (d58fcb0)
+holds: (b) no conflict marker at HEAD
+holds: (b) the base's side of every release line in conflict: CHANGELOG.md, package.json as origin/main has them
+holds: (b) no version the agent wrote (package.json 1.4.2)
+holds: (b) no ADR number the agent wrote (files with a number in neither parent: none; new records: none)
+holds: (b) the list's line holds the base's entry (ADR 0003 other) and the change's entry as the branch held it (ADR 0003 the rule): ADRs: docs/adr/ (0001 start; ADR 0003 the rule; ADR 0003 other)
+holds: (b) nothing pushed by the agent (origin's list-b is still 20cc7b1)
+holds: (b) then next hands push (agent devkit-core:commit-and-pr push)
+holds: (b) then assign-release, whose step exits 0, the record numbered above the base's and the line holding both entries (session assign-release)
+```

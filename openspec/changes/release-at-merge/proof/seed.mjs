@@ -305,6 +305,38 @@ export function openChange(p, id, { schema = 'devkit', note = null, adrs = [], f
   return { id, wt, branch: id };
 }
 
+// A stage file's header line, as the loop's flow check reads it.
+export const stageHead = (stage, commit, result = 'passed', attempt = 1) => `<!-- devkit-stage ${stage} result=${result} attempt=${attempt} commit=${commit} -->\n`;
+
+// A spec delta that `openspec validate` reads (the loop's merge check validates the change at the merge of the base).
+export const specText = (id) => `## ADDED Requirements\n\n### Requirement: ${id} does its thing\nThe project SHALL do what ${id} adds.\n\n#### Scenario: ${id} runs\n- **WHEN** ${id} runs\n- **THEN** it does its thing\n`;
+
+// A `devkit-lite` change opened by openChange whose plan files carry the stage headers (requirements, proposal, specs and tasks, each
+// passed at the commit the change was cut from), so this worktree's `change-loop.mjs next` walks it to its delivery (phase 11, D-36).
+export function openLoopChange(p, id, { files = {}, ...opts } = {}) {
+  git(p.main, 'fetch', '-q', 'origin');
+  const c0 = git(p.main, 'rev-parse', 'origin/main');
+  const d = `openspec/changes/${id}`;
+  return openChange(p, id, {
+    schema: 'devkit-lite', ...opts,
+    files: {
+      [`${d}/requirements.md`]: `${stageHead('requirements', c0)}# Requirements: ${id}\n\n- AC-1: ${id} does its thing\n`,
+      [`${d}/proposal.md`]: `${stageHead('proposal', c0)}${proposalText(id)}`,
+      [`${d}/specs/s/spec.md`]: `${stageHead('specs', c0)}${specText(id)}`,
+      [`${d}/tasks.md`]: `${stageHead('tasks', c0)}${TASKS(id)}`,
+      ...files,
+    },
+  });
+}
+
+// This worktree's `change-loop.mjs next` for the change, run in its worktree and recorded whole: the action it prints.
+export function loopNext(p, c, rec) {
+  const r = sh(c.wt, node('change-loop.mjs', 'next', '--change', c.id, '--lang', 'en'), { env: p.env, rec, expect: null });
+  const i = r.out.indexOf('{');
+  if (i < 0) throw new Error(`change-loop next ${c.id}: ${r.err || r.out}`);
+  return JSON.parse(r.out.slice(i));
+}
+
 // approval.md as the ship-change row writes it, with the hashes of the readiness verdict and of release.md (when there is one).
 export function writeApproval(wt, id, commit, { attempt = 1, release = 'auto' } = {}) {
   const dir = join(wt, 'openspec', 'changes', id);

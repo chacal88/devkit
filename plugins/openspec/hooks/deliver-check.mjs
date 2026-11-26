@@ -2215,7 +2215,8 @@ export function maskRelease(text, path, map = { adrs: [], file: null }) {
 // two texts mask equal; an ADR added under its number whose text masks equal to the form of the same record that left (its unnumbered
 // path, or its former number when the step ran again after the base numbered another record); that form deleted when the numbered one is
 // added. Each side is masked with the records it holds (`ctx.adrsAt` of that revision), so a renumbered record reads as itself on both sides
-// and a citation moved to another record's number does not. `ctx` is { file, adrsAt(rev) }, which `releaseEdit` memoizes per revision.
+// and a citation moved to another record's number does not; a number two records hold at `before` cites either (sharedNumberMatch). `ctx`
+// is { file, adrsAt(rev) }, which `releaseEdit` memoizes per revision.
 export function releaseOnlyEdit(root, before, after, path, ctx = releaseContext(root)) {
   if (!before || !after) return false;
   if (path === CHANGELOG || path === 'docs/catalog.md') return true;
@@ -2225,7 +2226,7 @@ export function releaseOnlyEdit(root, before, after, path, ctx = releaseContext(
   const masked = (side, p) => { const text = reader.file(side.rev, p); return text === null ? null : maskRelease(text, p, side.map); };
   const wasText = masked(was, path);
   const nowText = masked(now, path);
-  if (wasText !== null && nowText !== null) return wasText === nowText;
+  if (wasText !== null && nowText !== null) return wasText === nowText || sharedNumberMatch(reader.file(before, path), path, was.map, nowText);
   const folder = path.slice(0, path.lastIndexOf('/'));
   if (!ADR_DIRS.includes(folder)) return false;
   const name = path.slice(folder.length + 1);
@@ -2240,6 +2241,24 @@ export function releaseOnlyEdit(root, before, after, path, ctx = releaseContext(
   }
   if (wasText !== null && nowText === null) return forms(now).filter((p) => p !== path && numbered(p) && reader.file(before, p) === null).length === 1;
   return false;
+}
+
+// Whether `nowText` (masked) is `raw` masked where `map.adrs` holds two or more records with one number (a merge by hand of a base that
+// took the number the step wrote, release-at-merge D-34): there each `ADR <NNNN>` of that number cites any record that holds it, so it
+// reads as whichever of them `nowText` names at that place. Found by the real-run proof (task 11.10, P-14 (d)).
+function sharedNumberMatch(raw, path, map, nowText) {
+  const slugsOf = new Map();
+  for (const { number, slug } of map.adrs) slugsOf.set(number, [...(slugsOf.get(number) ?? []), slug]);
+  const shared = [...slugsOf].filter(([, slugs]) => slugs.length > 1);
+  if (!shared.length || !holdsCitationText(path, raw)) return false;
+  const alts = [];
+  let text = raw;
+  for (const [number, slugs] of shared) {
+    text = text.replace(new RegExp(`(?<![A-Za-z0-9])ADR ${number}(?![0-9])`, 'g'), () => `\u0001${alts.push(slugs) - 1}\u0001`);
+  }
+  const parts = maskRelease(text, path, map).split(/\u0001(\d+)\u0001/);
+  const pattern = parts.map((p, i) => (i % 2 ? `ADR \\[(?:${alts[Number(p)].map(esc).join('|')})\\]` : esc(p))).join('');
+  return new RegExp(`^${pattern}$`).test(nowText);
 }
 
 function releaseContext(root, file = null) {

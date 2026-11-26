@@ -1,4 +1,4 @@
-// The conducting session's part of the release-at-merge proof (design D-16, S-1 to S-12; tasks 7.1 to 7.7 and 9.15): this worktree's real agents,
+// The conducting session's part of the release-at-merge proof (design D-16 and D-36, S-1 to S-13; tasks 7.1 to 7.7, 9.15 and 11.11): this worktree's real agents,
 // each run with `claude --plugin-dir <worktree>/plugins/core --plugin-dir <worktree>/plugins/openspec -p` on the brief this worktree's
 // `change-loop.mjs next` gives, in the scratch projects K, K0 and N, each change opened with this worktree's `change-loop.mjs open`.
 // Each case writes its commands, the files it seeded and the real outputs to one fragment; `assemble` joins them into agents-run.md.
@@ -7,6 +7,7 @@
 //   TMPDIR=/var/tmp/devkit-release-at-merge node openspec/changes/release-at-merge/proof/agents.mjs S-1 S-2    # cases, in that order
 //   TMPDIR=/var/tmp/devkit-release-at-merge node openspec/changes/release-at-merge/proof/agents.mjs assemble   # proof/agents-run.md
 //   TMPDIR=/var/tmp/devkit-release-at-merge node openspec/changes/release-at-merge/proof/agents.mjs append=S-12 # one case added to its end
+//   TMPDIR=/var/tmp/devkit-release-at-merge node openspec/changes/release-at-merge/proof/agents.mjs seed S-13 append=S-13
 //
 // A case whose done-condition does not hold records it and exits 1. Remove $TMPDIR/devkit-proof-release-at-merge after the run.
 
@@ -15,6 +16,7 @@ import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSyn
 import { join } from 'node:path';
 import {
   PROOF, CASES, WT, DEV, Record, sh, git, put, read, commitAll, seedProject, consumerFiles, hash12, node, short, BLANK,
+  openChange, openLoopChange, drive,
 } from './seed.mjs';
 
 const RECORDS = join(CASES, 'records');
@@ -783,6 +785,147 @@ function s12() {
   k.done('S-12 (task 9.15)');
 }
 
+// ---------------------------------------------------------------- the implementer on a noted change's conflict (S-13, task 11.11; D-31, D-36)
+
+// The dispatch sentence of the `ship-change` row of `step` (this worktree's skill), which the conducting session appends to the brief of
+// a delivery step (the `devkit` skill's Loop): the row's text after "Dispatch `<agent>`: ".
+function dispatchOf(step) {
+  const row = read(WT, 'plugins/openspec/skills/ship-change/SKILL.md').split('\n').find((l) => l.startsWith(`| \`${step}\` |`));
+  const m = row && /Dispatch `[^`]+`: (.*?) \|\s*$/.exec(row);
+  if (!m) throw new Error(`no dispatch sentence for ${step} in ship-change`);
+  return m[1];
+}
+const PROMPT_WITH = (a, sentence) => PROMPT({ ...a, brief: `${a.brief}\n\n${sentence}` });
+const K_NOTE = (id, kind) => `packs: []\nrelease: ${kind}\n\n## ${id} lands\n\n- ${id} does its part\n`;
+const kList = (entries) => `  ADRs: docs/adr/ (0001 start${entries})\n`;
+// The session's part of `assign-release` (the ship-change row): fetch the base, run the command, push plainly on exit 0.
+function assignRow(p, c, d, rec, expect = [0]) {
+  sh(c.wt, ['git', 'fetch', 'origin', d.base], { env: p.env, rec });
+  const r = sh(c.wt, d.command, { env: p.env, rec, expect });
+  if (r.code === 0) sh(c.wt, ['git', 'push', 'origin', d.branch], { env: p.env, rec });
+  return { code: r.code, out: JSON.parse(r.out) };
+}
+// The tokens of ADR numbers in a text: `ADR <NNNN>` and `<NNNN>-<slug>.md`.
+const numbersIn = (text) => new Set([...(text ?? '').matchAll(/\bADR (\d{4})\b|\b(\d{4})-[a-z0-9-]+\.md\b/g)].map((m) => m[1] ?? m[2]));
+const fileAt = (c, rev, f) => { const r = sh(c.wt, ['git', 'show', `${rev}:${f}`], { expect: null }); return r.code === 0 ? r.out : null; };
+
+// One variant: `feat` noted (release `minor`) and assigned once, `sib` noted (release `patch`) landing on the base after it; `next` hands
+// resolve-base-conflict, the real implementer runs on its brief and the row's sentence; then the session's rows to the step.
+function s13Variant(p, rec, v, { feat, sib, list }) {
+  const k = new Checks(rec);
+  rec.text(`### (${v}) ${list ? 'A conflict on the one-line list holding the change\'s own citation, and in the release files' : 'A conflict in `src/a.ts` and in the release files'}`);
+  const c = openLoopChange(p, feat.id, { note: K_NOTE(feat.id, 'minor'), adrs: [feat.id], files: feat.files });
+  rec.text(`\`${feat.id}\` (\`devkit-lite\`, its plan carrying the stage headers) notes \`release: minor\` and names \`docs/adr/${feat.id}.md\`; it is driven to its release step and takes its release:`);
+  const r1 = drive(p, c, rec);
+  if (r1.next.step !== 'assign-release') throw new Error(`S-13 (${v}): ${feat.id} before its release: ${r1.next.step}`);
+  const first = assignRow(p, c, r1.next, rec);
+  rec.text(`The sibling \`${sib.id}\` notes \`release: patch\`, names \`docs/adr/${sib.id}.md\` and lands on the same base:`);
+  const s = openChange(p, sib.id, { note: K_NOTE(sib.id, 'patch'), adrs: [sib.id], files: sib.files });
+  const s1 = drive(p, s, rec);
+  if (s1.next.step !== 'assign-release') throw new Error(`S-13 (${v}): ${sib.id} before its release: ${s1.next.step}`);
+  assignRow(p, s, s1.next, rec);
+  const s2 = JSON.parse(sh(s.wt, node('deliver-check.mjs', s.id, '--json'), { env: p.env, expect: null }).out).next;
+  sh(s.wt, ['gh', 'pr', 'merge', String(s2.number), '--auto', `--${s2.method}`, '--match-head-commit', s2.head], { env: p.env, rec });
+  sh(p.main, ['gh', '__merge', String(s2.number)], { env: p.env, rec, label: `gh __merge ${s2.number}   # the stub: GitHub merges the pull request once its rules pass` });
+  sh(p.main, ['git', 'fetch', '-q', 'origin'], { env: p.env });
+  sh(p.main, ['git', 'log', '--oneline', '--graph', '-4', 'origin/main'], { rec });
+  rec.text(`\`${feat.id}\`'s loop:`);
+  const { action } = next(p, c, rec);
+  if (action.kind !== 'agent' || action.step !== 'resolve-base-conflict' || action.agent !== 'devkit-core:tdd-implementer') throw new Error(`S-13 (${v}): next is not resolve-base-conflict for the implementer: ${action.kind} ${action.step} ${action.agent}`);
+  const old = git(c.wt, 'rev-parse', 'HEAD');
+  const base = git(c.wt, 'rev-parse', 'origin/main');
+  const pushed0 = git(p.origin, 'rev-parse', `refs/heads/${c.id}`);
+  const sentence = dispatchOf('resolve-base-conflict');
+  rec.text('Conductor: the conducting session\'s part. As the `devkit` skill\'s Loop says for a delivery step, it appends to the brief the dispatch sentence of the `resolve-base-conflict` row of this worktree\'s `ship-change` skill, read from the file:');
+  rec.block(sentence);
+  const run = runAgent(c, { ...action, brief: `${action.brief}\n\n${sentence}` }, rec, `S-13-${v}`);
+  rec.text('What the agent left:');
+  sh(c.wt, ['git', 'log', '--oneline', '--graph', '-5'], { rec });
+  sh(c.wt, ['git', 'show', '--stat', '--format=%h %s%nparents: %P', 'HEAD'], { rec });
+  sh(c.wt, ['git', 'status', '--short'], { rec });
+  const paths = action.detail.paths ?? [];
+  for (const f of paths) sh(c.wt, ['git', 'diff', 'origin/main', 'HEAD', '--', f], { rec, label: `git diff origin/main HEAD -- ${f}   # against the base` });
+  sh(c.wt, ['cat', ...paths.filter((f) => existsSync(join(c.wt, f)))], { rec });
+  sh(c.wt, ['ls', 'docs/adr'], { rec });
+
+  const merges = git(c.wt, 'rev-list', '--merges', `${old}..HEAD`).split('\n').filter(Boolean);
+  const merge = merges.find((m) => git(c.wt, 'rev-list', '--parents', '-n', '1', m).split(' ').slice(1).join(' ') === `${old} ${base}`) ?? null;
+  const outcome = run.final.split('\n').reverse().find((l) => /Outcome:/.test(l)) ?? '';
+  const releaseFiles = paths.filter((f) => ['package.json', 'CHANGELOG.md'].includes(f));
+  const changed = git(c.wt, 'diff', '--name-only', old, 'HEAD').split('\n').filter(Boolean);
+  const own = changed.filter((f) => existsSync(join(c.wt, f)) && [...numbersIn(read(c.wt, f))].some((n) => !numbersIn(fileAt(c, old, f)).has(n) && !numbersIn(fileAt(c, base, f)).has(n)));
+  const adrs = (rev) => new Set(git(c.wt, 'ls-tree', '--name-only', rev, 'docs/adr/').split('\n').filter(Boolean));
+  const newAdr = [...adrs('HEAD')].filter((f) => !adrs(old).has(f) && !adrs(base).has(f));
+  k.that(run.code === 0 && run.calls === 1, `(${v}) the claude -p run exited 0 with one Agent call`);
+  k.that(/Outcome:\s*\**\s*success/i.test(outcome), `(${v}) it returns Outcome: success (${outcome.trim()})`);
+  k.that(merge !== null, `(${v}) a merge commit whose parents are the old head ${old.slice(0, 7)} and origin/main ${base.slice(0, 7)} (${merge?.slice(0, 7) ?? 'none'})`);
+  k.that(sh(c.wt, ['git', 'grep', '-n', '-E', '^(<<<<<<<|>>>>>>>)( |$)', 'HEAD'], { expect: [0, 1] }).out === '', `(${v}) no conflict marker at HEAD`);
+  k.that(releaseFiles.length > 0 && releaseFiles.every((f) => fileAt(c, 'HEAD', f) === fileAt(c, base, f)), `(${v}) the base's side of every release line in conflict: ${releaseFiles.join(', ')} as origin/main has them`);
+  k.that(JSON.parse(read(c.wt, 'package.json')).version === JSON.parse(fileAt(c, base, 'package.json')).version, `(${v}) no version the agent wrote (package.json ${JSON.parse(read(c.wt, 'package.json')).version})`);
+  k.that(own.length === 0 && newAdr.length === 0, `(${v}) no ADR number the agent wrote (files with a number in neither parent: ${own.join(', ') || 'none'}; new records: ${newAdr.join(', ') || 'none'})`);
+  if (list) {
+    const line = read(c.wt, 'docs/context.yaml');
+    const mine = /ADR \d{4} the rule/.exec(fileAt(c, old, 'docs/context.yaml'))?.[0];
+    const theirs = /ADR \d{4} other/.exec(fileAt(c, base, 'docs/context.yaml'))?.[0];
+    k.that(Boolean(mine && theirs && line.includes(mine) && line.includes(theirs)) && line.split('\n').filter(Boolean).length === 1, `(${v}) the list's line holds the base's entry (${theirs}) and the change's entry as the branch held it (${mine}): ${line.trim()}`);
+  }
+  k.that(git(p.origin, 'rev-parse', `refs/heads/${c.id}`) === pushed0, `(${v}) nothing pushed by the agent (origin's ${c.id} is still ${pushed0.slice(0, 7)})`);
+  rec.text('The session\'s rows after the agent: the records the merge staled written again (the scripted session part), then the loop:');
+  drive(p, c, rec, { until: ['assign-release', 'enable-auto-merge', 'push', 'blocked'] });
+  let { action: push } = next(p, c, rec);
+  if (push.kind === 'session' && push.step === 'merge-check') {
+    rec.text('The loop checks the merge of the base first (`merge-check`, post-merge-validate), run as handed:');
+    sh(c.wt, push.detail.command, { env: p.env, rec });
+    ({ action: push } = next(p, c, rec));
+  }
+  // The push is commit-and-pr's (conduct-check's actorOf); the session's scripted part runs its command, a plain push.
+  const pushOk = push.step === 'push' && JSON.stringify(push.detail?.command) === JSON.stringify(['git', 'push', 'origin', c.id]);
+  k.that(pushOk, `(${v}) then next hands push (${push.kind} ${push.agent ?? ''} ${push.step ?? push.end?.why ?? ''})`);
+  if (pushOk) sh(c.wt, push.detail.command, { env: p.env, rec });
+  const { action: assign } = next(p, c, rec);
+  let stepOk = false;
+  if (assign.kind === 'session' && assign.step === 'assign-release') {
+    const r = assignRow(p, c, assign.detail, rec, null);
+    sh(c.wt, ['git', 'log', '-1', '--format=%B'], { rec });
+    sh(c.wt, ['ls', 'docs/adr'], { rec });
+    const number = String(Number(/(\d{4})-/.exec(first.out.adrs[0].to)[1]) + 1).padStart(4, '0');
+    stepOk = r.code === 0;
+    if (list) {
+      sh(c.wt, ['cat', 'docs/context.yaml'], { rec });
+      const line = read(c.wt, 'docs/context.yaml');
+      stepOk = stepOk && existsSync(join(c.wt, `docs/adr/${number}-${c.id}.md`)) && line.includes(`ADR ${number} the rule`) && /ADR \d{4} other/.test(line);
+    }
+  }
+  k.that(stepOk, `(${v}) then assign-release, whose step exits 0${list ? ', the record numbered above the base\'s and the line holding both entries' : ''} (${assign.kind} ${assign.step ?? assign.end?.why ?? ''})`);
+  k.done(`S-13 (${v}) (task 11.11)`);
+}
+
+function s13() {
+  const rec = begin('S-13', '## S-13 K: the real tdd-implementer on resolve-base-conflict for a noted change, a code conflict and a one-line list (task 11.11; AC-4, AC-15)');
+  rec.text('Run after review round 3 (D-31, D-36), on project K built anew by `seed`. The base first gains `src/a.ts` and the one-line list of records `docs/context.yaml` (the shape of `openspec/config.yaml`\'s `ADRs:` line). In each variant this worktree\'s `change-loop.mjs next` hands `resolve-base-conflict` with `noted: true`; the real `devkit-core:tdd-implementer` runs on the brief `next` gives and the row\'s dispatch sentence; then the session runs the rows the loop hands after it.');
+  rec.text('The first run of this case found one defect in an agent text, fixed test-first before both variants below were run again from a new K: '
+    + 'in (a) the real implementer merged and committed as the row says (every other part of the done-condition held) but returned prose with no '
+    + '`Outcome:` line, since its Returns section spoke only of a phase and `resolve-base-conflict` has none. The section now says a hand-off of the '
+    + 'delivery with no phase returns the same block, its `Outcome:` line last (test "release-note AC-14 texts: a delivery hand-off with no phase '
+    + 'returns the implementer\'s block with its Outcome line last" in `release-note.test.mjs`; the CompozyOS copy regenerated). The same first run '
+    + 'passed (b) whole. The merges of the base here are the loop\'s `merge-check` first, then the plain `push`, which the loop hands to '
+    + '`devkit-core:commit-and-pr` and the session runs as its command.');
+  const p = attach('K');
+  put(p.main, { 'src/a.ts': 'export const a = 0;\n', 'docs/context.yaml': kList('') });
+  commitAll(p.main, 'chore: src/a.ts and the list of records');
+  sh(p.main, ['git', 'push', '-q', 'origin', 'main'], { env: p.env, rec });
+  sh(p.main, ['git', 'show', '--stat', '--format=%h %s', 'HEAD'], { rec });
+  s13Variant(p, rec, 'a', {
+    feat: { id: 'code-a', files: { 'src/a.ts': 'export const a = 1; // code-a\n', 'docs/code-a.md': '# code-a\n\nThe rule is ADR [code-a].\n' } },
+    sib: { id: 'sib-a', files: { 'src/a.ts': 'export const a = 2; // sib-a\n' } },
+  });
+  s13Variant(p, rec, 'b', {
+    feat: { id: 'list-b', files: { 'docs/context.yaml': kList('; ADR [list-b] the rule') } },
+    sib: { id: 'sib-b', files: { 'docs/context.yaml': kList('; ADR [sib-b] other') } },
+    list: true,
+  });
+}
+
 // ---------------------------------------------------------------- assemble
 
 const HEADER = `# Real-run proof: the conducting session's part, the real agents on every variant (tasks 7.1 to 7.7)
@@ -824,14 +967,14 @@ transcripts hold no typed command and the live hook let every stop through as \`
 `;
 
 function assemble() {
-  const order = ['0-seed', ...Array.from({ length: 12 }, (_, i) => `S-${i + 1}`)];
+  const order = ['0-seed', ...Array.from({ length: 13 }, (_, i) => `S-${i + 1}`)];
   const parts = order.map((n) => join(RECORDS, `${n}.md`)).filter((f) => existsSync(f)).map((f) => readFileSync(f, 'utf8').replace(/\n+$/, '\n'));
   writeFileSync(OUT, `${HEADER}\n${parts.join('\n')}`);
 }
 
 // ---------------------------------------------------------------- main
 
-const CASE_FNS = { 'S-1': s1, 'S-2': s2, 'S-3': s3, 'S-4': s4, 'S-5': s5, 'S-6': s6, 'S-7': s7, 'S-8': s8, 'S-9': s9, 'S-10': s10, 'S-11': s11, 'S-12': s12 };
+const CASE_FNS = { 'S-1': s1, 'S-2': s2, 'S-3': s3, 'S-4': s4, 'S-5': s5, 'S-6': s6, 'S-7': s7, 'S-8': s8, 'S-9': s9, 'S-10': s10, 'S-11': s11, 'S-12': s12, 'S-13': s13 };
 for (const arg of process.argv.slice(2)) {
   if (arg === 'seed') seed();
   else if (arg === 'assemble') assemble();

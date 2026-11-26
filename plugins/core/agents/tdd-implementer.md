@@ -99,6 +99,7 @@ Outcome: success | failure — <reason>
 
 - `success`: all phase tasks checked, each cycle closed green, suite green, quality bars met.
 - `failure`: didn't converge, or an escalation fired. The `Outcome:` line is always last.
+- A hand-off of the delivery with no phase (`resolve-base-conflict`, `resolve-release-conflict`, `renumber-adr`) returns the same block, its heading naming the step in place of the phase and its `Tasks:` line `none`; its `Outcome:` line is last too.
 
 ## Escalate (return `failure` with the reason; don't force it)
 

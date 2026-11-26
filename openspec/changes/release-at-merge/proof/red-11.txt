@@ -542,3 +542,73 @@ test at plugins/openspec/hooks/release-merge.test.mjs:1201:1
 FAIL 5.3s plugins/openspec/hooks/release-merge.test.mjs
 suite: 1 files, 5 tests, 2 pass, 3 fail, 5.3s, concurrency 3
 exit 1
+
+Task 11.10, a defect found by its real run (P-14 (d)): the new staleness test and its guard, run on the code as the run found it (817b1f3 plus the tests): the test fails (the step's commit stales the records written at the merge by hand, touches docs/context.yaml); the guard passes
+$ env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test '--test-name-pattern=two records numbered 0002' plugins/openspec/hooks/deliver-check.test.mjs
+✖ release-note AC-4 staleness: the step run on a merge by hand holding two records numbered 0002, the base citing its own in the step's form on the line of the change's, leaves the records current (1379.589522ms)
+✔ release-note AC-5 staleness: a citation a person changes on a merge by hand holding two records numbered 0002 still stales the records (521.711929ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2023.129413
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:3057:1
+✖ release-note AC-4 staleness: the step run on a merge by hand holding two records numbered 0002, the base citing its own in the step's form on the line of the change's, leaves the records current (1379.589522ms)
+  AssertionError [ERR_ASSERTION]: evidence.md is stale (0a874f5 is behind 20456f6, which touches docs/context.yaml)
+  + actual - expected
+  
+    [
+  +   'stale',
+  +   'stale',
+  +   'open'
+  -   'current',
+  -   'current',
+  -   'met'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:3064:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'stale', 'stale', 'open' ],
+    expected: [ 'current', 'current', 'met' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+Task 11.11, a defect found by its real run (S-13 (a)): the new text test, run on the agent text as the run found it: it fails (the Returns section has no bullet for a hand-off with no phase)
+$ env TMPDIR=/var/tmp node --test '--test-name-pattern=a delivery hand-off with no phase' plugins/openspec/hooks/release-note.test.mjs
+✖ release-note AC-14 texts: a delivery hand-off with no phase returns the implementer's block with its Outcome line last (2.74257ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 111.364427
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-note.test.mjs:898:1
+✖ release-note AC-14 texts: a delivery hand-off with no phase returns the implementer's block with its Outcome line last (2.74257ms)
+  AssertionError [ERR_ASSERTION]: plugins/core/agents/tdd-implementer.md: the Returns section holds the hand-off bullet
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:904:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

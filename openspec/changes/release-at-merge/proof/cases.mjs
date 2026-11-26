@@ -1,4 +1,4 @@
-// The cases of the release-at-merge real-run proof (design D-16, P-1 to P-13; tasks 6.1 to 6.6 and 9.14). Each case builds its projects with
+// The cases of the release-at-merge real-run proof (design D-16 and D-36, P-1 to P-16; tasks 6.1 to 6.6, 9.14 and 11.10). Each case builds its projects with
 // seed.mjs, runs this worktree's own CLIs (plugins/openspec/hooks/*.mjs) and the session's commands for each step, and records every
 // command with its output in real-run.md.
 //
@@ -12,7 +12,11 @@ import { join } from 'node:path';
 import {
   PROOF, CASES, WT, DEV, Record, sh, git, put, read, commitAll, seedProject, openChange, writeApproval, drive, human, report, node,
   marketFiles, TRAIN_CONFIG, RELEASE_FILE, GUIDE0, flowPage, hash12, manifest, marketplace, catalog, CHANGELOG0, consumerFiles,
+  openLoopChange, loopNext, stageHead, proposalText, TASKS, specText,
 } from './seed.mjs';
+
+// This worktree's delivery checker, for the plan digest the owner's approval records (P-16).
+const DC = await import(join(DEV, 'deliver-check.mjs'));
 
 const wanted = process.argv.slice(2);
 const all = wanted.length === 0;
@@ -56,7 +60,7 @@ const assert = (ok, what) => { if (!ok) throw new Error(`check failed: ${what}`)
 // ---------------------------------------------------------------- the seed (6.1)
 
 function seed() {
-  rec.text(`# Real-run proof: release-at-merge (tasks 6.1 to 6.6, and 9.14 after review round 1)
+  rec.text(`# Real-run proof: release-at-merge (tasks 6.1 to 6.6, 9.14 after review round 1, and 11.10 after review round 3)
 
 Every case below ran for real, on ${new Date().toISOString().slice(0, 10)}, against this worktree's own scripts (\`$DEV\` is
 \`plugins/openspec/hooks\` of the worktree \`$WT\`; never the installed plugin), in scratch repositories under a private \`TMPDIR\`
@@ -93,6 +97,23 @@ After review round 1 the whole script ran again with P-13 (task 9.14), and its f
   page already says a \`CHANGELOG.md\` entry the record wrote is not given back. The give-back now skips \`CHANGELOG.md\`, whose whole
   text the step writes from the note on the base (test "release-note AC-4 assign: a merge by hand that takes the base's CHANGELOG.md,
   where the step had cited the ADR by its number, is numbered again" in \`release-merge.test.mjs\`).
+
+After review round 3 the whole script ran again with P-14 to P-16 (task 11.10, D-36). Their changes that the loop walks
+(\`openLoopChange\` of \`seed.mjs\`) are \`devkit-lite\` changes whose plan files carry the stage headers and a spec delta
+\`openspec validate\` reads, and every step from the release on is the one this worktree's \`change-loop.mjs next\` hands. Two steps
+the loop hands there are not named in D-36's table and are run as handed: \`merge-check\` (the merge of the base on the branch checked
+with \`openspec validate\` before the delivery goes on), and the plain \`push\`, which the loop hands to \`devkit-core:commit-and-pr\`
+and the case runs as its command. The first run of P-14 (d), whose sibling's step wrote the base's entry on the one-line list in the
+step's form with the number the change's step had written (\`ADR 0002 other\` beside \`ADR 0002 the rule\`), found one defect in
+\`deliver-check.mjs\`, fixed test-first before this run:
+
+- After the merge by hand keeping both entries, the step gave the change's number back and numbered it 0003 (exit 0), but the
+  evidence and the reviews written at the merge read stale (\`touches docs/context.yaml\`): \`releaseOnlyEdit\` masks the merge's
+  text with the records the merge holds, two of them numbered 0002, so both \`ADR 0002\` read as the first of them and the base's entry
+  did not match the step's commit, where it reads as its own record. A number two records hold at one revision now cites either of
+  them there (tests "release-note AC-4 staleness: the step run on a merge by hand holding two records numbered 0002, ..." and its guard
+  "release-note AC-5 staleness: a citation a person changes on a merge by hand holding two records numbered 0002 still stales the
+  records" in \`deliver-check.test.mjs\`).
 
 ## How the seed is built
 
@@ -845,9 +866,338 @@ ADR 0002); then \`sib\` takes the same numbers on the same base and lands.`);
   rec.flush();
 }
 
+// ---------------------------------------------------------------- P-14 (11.10): the loop routes a noted change's conflict with the base (D-31)
+
+// The one-line list of records of docs/context.yaml, in the shape of openspec/config.yaml's `ADRs:` line.
+const adrsLine = (entries) => `  ADRs: docs/adr/ (0001 start${entries})\n`;
+// What the loop handed, checked: its kind and step (or agent), with the action in the error when it is not.
+function expectAction(a, kind, step, what) {
+  const got = a.kind === 'agent' ? `${a.kind} ${a.step ?? a.detail?.step} ${a.agent}` : `${a.kind} ${a.step ?? a.detail?.step ?? a.end?.state}`;
+  if (a.kind !== kind || (a.step ?? a.detail?.step ?? a.end?.state) !== step) throw new Error(`${what}: expected ${kind} ${step}, got ${got}: ${JSON.stringify(a.detail ?? a.end ?? {})}`);
+}
+// The session's part of a `session` action whose detail is a plain command (the push), run in the change's worktree.
+const runCommand = (p, c, a) => sh(c.wt, a.detail.command, { env: p.env, rec });
+
+// The loop's next action past its `merge-check` (post-merge-validate: a merge of the base on the branch is checked with `openspec
+// validate` before the delivery goes on), which the session runs as it is handed: its command, then `next` again.
+function pastMergeCheck(p, c) {
+  let a = loopNext(p, c, rec);
+  if ((a.step ?? a.detail?.step) === 'merge-check') {
+    runCommand(p, c, a);
+    a = loopNext(p, c, rec);
+  }
+  return a;
+}
+const thenAutoMerge = (p, c, what) => expectAction(pastMergeCheck(p, c), 'session', 'enable-auto-merge', what);
+
+// A merge-mode project with `src/a.ts` (and the one-line list with `list`), where `feat` (a `devkit-lite` change whose plan carries the
+// stage headers, so the loop walks it) notes devkit-openspec `minor` and devkit-core `patch`, names `docs/adr/feat.md` and writes `files`;
+// it is driven to its release step and assigned once (devkit-openspec 1.1.0, ADR 0002). Then `sib` (with `sibFiles`, and its record
+// `docs/adr/sib.md` unless `sibAdr` is false) takes the same pack's next version on the same base and lands, unless `sibFiles` is null.
+function assignedThenSibling(name, { files = {}, sibFiles = {}, sibAdr = true, list = false } = {}) {
+  const p = seedProject(name, { files: { ...marketFiles(), 'src/a.ts': 'export const a = 0;\n', ...(list ? { 'docs/context.yaml': adrsLine('') } : {}) } });
+  const feat = openLoopChange(p, 'feat', { note: FEAT_NOTE, adrs: ['feat'], files: { 'src/a.ts': 'export const a = 1; // feat\n', ...files } });
+  rec.text('`feat` is driven to its release step and takes its release (devkit-openspec 1.1.0, devkit-core 1.0.1, ADR 0002):');
+  const r1 = drive(p, feat, rec);
+  expectStep(r1.next, 'assign-release', 'feat before its release');
+  const a1 = JSON.parse(assignRelease(p, feat, r1.next).out);
+  assert(a1.adrs[0]?.to === 'docs/adr/0002-feat.md' && a1.versions.packs['devkit-openspec'] === '1.1.0', 'feat numbered 0002 and 1.1.0');
+  expectStep(nextOf(p, feat), 'enable-auto-merge', 'feat after its release');
+  if (sibFiles !== null) {
+    rec.text(`The sibling \`sib\` notes devkit-openspec \`minor\`${sibAdr ? ', names `docs/adr/sib.md`' : ''} and writes ${Object.keys(sibFiles).map((f) => `\`${f}\``).join(', ') || 'no other file'}; it takes devkit-openspec 1.1.0${sibAdr ? ' and ADR 0002' : ''} on the same base and lands:`);
+    const sib = openChange(p, 'sib', { note: patchNote('sib', 'devkit-openspec', 'minor'), adrs: sibAdr ? ['sib'] : [], files: sibFiles });
+    const s1 = drive(p, sib, rec);
+    expectStep(s1.next, 'assign-release', 'sib before its release');
+    assignRelease(p, sib, s1.next);
+    autoMerge(p, sib, nextOf(p, sib));
+    sh(p.main, ['git', 'fetch', '-q', 'origin'], { env: p.env });
+    sh(p.main, ['git', 'log', '--oneline', '--graph', '-4', 'origin/main'], { rec });
+  }
+  return { p, feat };
+}
+// A merge of origin/main by hand, as the `resolve-base-conflict` row says for a change with a release note (scripted here; S-13 runs
+// the real implementer): the base's side of every release line, `resolved` written, committed with no push.
+function mergeLikeTheRow(p, c, resolved) {
+  const old = git(c.wt, 'rev-parse', 'HEAD');
+  sh(c.wt, ['git', 'merge', '--no-ff', '--no-commit', 'origin/main'], { env: p.env, rec, expect: [1] });
+  sh(c.wt, ['git', 'diff', '--name-only', '--diff-filter=U'], { rec, label: 'git diff --name-only --diff-filter=U   # the files in conflict' });
+  sh(c.wt, ['git', 'checkout', 'origin/main', '--', ...RELEASE_PATHS], { rec });
+  put(c.wt, resolved);
+  sh(c.wt, ['git', 'add', '-A'], { rec });
+  sh(c.wt, ['git', 'commit', '-q', '--no-edit'], { env: p.env, rec });
+  sh(c.wt, ['git', 'show', '--stat', '--format=%h %s%n%P', 'HEAD'], { rec });
+  assert(git(c.wt, 'rev-parse', 'HEAD^1') === old && git(c.wt, 'rev-parse', 'HEAD^2') === git(c.wt, 'rev-parse', 'origin/main'), 'the merge\'s parents are the old head and origin/main');
+  assert(!/^(<<<<<<<|>>>>>>>)/m.test(sh(c.wt, ['git', 'grep', '-n', '-e', '<<<<<<<', '-e', '>>>>>>>'], { expect: [0, 1] }).out), 'no conflict marker');
+  return old;
+}
+// After the merge: the records the merge staled written again, then the loop's `push`, the push, and the loop's `assign-release`, run.
+function pushThenAssign(p, c, old, what) {
+  rec.text('The merge changed files of the change, so the session records the evidence and the reviews again (ADR 0025), with no push:');
+  const r = drive(p, c, rec, { until: ['assign-release', 'enable-auto-merge', 'push', 'blocked'] });
+  rec.text(`The loop checks the merge of the base (\`merge-check\`, run as handed); GitHub still reports the pull request in conflict at the old head (${old.slice(0, 7)}), so the loop then hands the plain push to \`devkit-core:commit-and-pr\` (run here as its command):`);
+  const push = pastMergeCheck(p, c);
+  expectAction(push, 'agent', 'push', `${what}: after the merge`);
+  assert(push.agent === 'devkit-core:commit-and-pr', `the push goes to commit-and-pr: ${push.agent}`);
+  assert(JSON.stringify(push.detail.command) === JSON.stringify(['git', 'push', 'origin', c.branch]), 'a plain push');
+  runCommand(p, c, push);
+  rec.text('After the push the release state is not current (the merge base moved), so the loop hands `assign-release`; the session runs its row:');
+  const assign = loopNext(p, c, rec);
+  expectAction(assign, 'session', 'assign-release', `${what}: after the push`);
+  const out = JSON.parse(assignRelease(p, c, assign.detail).out);
+  recordOf(c);
+  return { r, out };
+}
+
+function p14() {
+  rec.text(`## P-14 the loop routes a noted change's conflict with the base: release files only, outside them, behind, and a one-line list
+
+AC-4, AC-5, AC-15 (review round 3, D-31, D-36). Each variant is a merge-mode project with the key, where \`feat\` is a noted change
+assigned once (devkit-openspec 1.1.0, devkit-core 1.0.1, ADR 0002) and the base then moves. From there each step is the one this
+worktree's \`change-loop.mjs next\` hands, run in \`feat\`'s worktree: it fetches the base, reads the delivery checker and the
+conductor's override, and prints the action; the session runs it as its \`ship-change\` row says (the implementer's merge is
+scripted here, and S-13 of \`agents-run.md\` runs the real implementer on (b) and (d)).
+
+### (a) The base releases, in conflict with the branch in the release files only`);
+  {
+    const { p, feat } = assignedThenSibling('p14a', { sibFiles: { 'docs/sib.md': '# The sibling\n\nThe fix is ADR [sib].\n' } });
+    rec.text('The pull request of `feat` now conflicts with `main` in release files only; the step\'s masked merge resolves them, so the loop hands `assign-release` (with `conflict: true`) to the session:');
+    const a = loopNext(p, feat, rec);
+    expectAction(a, 'session', 'assign-release', 'P-14 (a)');
+    assert(a.detail.conflict === true, 'conflict: true');
+    const out = JSON.parse(assignRelease(p, feat, a.detail).out);
+    assert(out.adrs[0]?.to === 'docs/adr/0003-feat.md' && out.versions.packs['devkit-openspec'] === '1.2.0', `feat numbered above sib: ${JSON.stringify(out.adrs)}`);
+    rec.text('The step exited 0 and the session pushed; the loop then hands `enable-auto-merge`:');
+    thenAutoMerge(p, feat, 'P-14 (a) after the step');
+  }
+
+  rec.text('### (b) The base releases and edits `src/a.ts`, which the branch edits too');
+  {
+    const { p, feat } = assignedThenSibling('p14b', { sibFiles: { 'docs/sib.md': '# The sibling\n\nThe fix is ADR [sib].\n', 'src/a.ts': 'export const a = 2; // sib\n' } });
+    rec.text('The conflict lies outside the release lines (`src/a.ts`), which the step\'s masked merge does not resolve, so the loop hands `resolve-base-conflict` to the implementer, with `noted: true`:');
+    const a = loopNext(p, feat, rec);
+    expectAction(a, 'agent', 'resolve-base-conflict', 'P-14 (b)');
+    assert(a.agent === 'devkit-core:tdd-implementer' && a.detail.noted === true && a.detail.others.includes('src/a.ts'), `the hand-off: ${JSON.stringify(a.detail)}`);
+    rec.text('The merge the row says (scripted): `src/a.ts` resolved, the base\'s side of every release line taken, committed, not pushed:');
+    const old = mergeLikeTheRow(p, feat, { 'src/a.ts': 'export const a = 3; // feat and sib\n' });
+    const { out } = pushThenAssign(p, feat, old, 'P-14 (b)');
+    assert(out.adrs[0]?.from === 'docs/adr/feat.md' && out.adrs[0]?.to === 'docs/adr/0003-feat.md' && out.versions.packs['devkit-openspec'] === '1.2.0', `feat numbered above the base: ${JSON.stringify(out)}`);
+    sh(feat.wt, ['ls', 'docs/adr'], { rec });
+    sh(feat.wt, ['cat', RELEASE_FILE, 'src/a.ts'], { rec });
+    rec.text('The step exited 0, numbering the branch above the base from its record, and the session pushed; the loop then hands `enable-auto-merge`:');
+    thenAutoMerge(p, feat, 'P-14 (b) after the step');
+  }
+
+  rec.text('### (c) The loop hands `assign-release` for a branch behind; the base then gains a conflict in `src/a.ts` before the step runs');
+  {
+    const { p, feat } = assignedThenSibling('p14c', { sibFiles: null });
+    rec.text('The base moves by a commit that touches no file of `feat`, so the branch is only behind:');
+    put(p.main, { 'docs/notes.md': '# Notes\n\nA note of the base.\n' });
+    commitAll(p.main, 'docs: a note of the base');
+    sh(p.main, ['git', 'push', 'origin', 'main'], { env: p.env, rec });
+    const a = loopNext(p, feat, rec);
+    expectAction(a, 'session', 'assign-release', 'P-14 (c) behind');
+    assert(!('conflict' in a.detail), 'no conflict: the branch is behind');
+    rec.text('Before the session runs the row, another clone pushes a commit to `main` on the remote that edits `src/a.ts`:');
+    const other = join(p.dir, 'other');
+    sh(p.dir, ['git', 'clone', '-q', p.origin, other], { env: p.env, rec });
+    put(other, { 'src/a.ts': 'export const a = 4; // the base\n' });
+    sh(other, ['git', 'commit', '-q', '-am', 'fix: the base edits src/a.ts'], { env: p.env, rec });
+    sh(other, ['git', 'push', '-q', 'origin', 'main'], { env: p.env, rec });
+    rec.text('The session\'s row: the fetch, then the step, which meets the conflict outside its lines and exits 2 listing it, with no `error`:');
+    const head0 = git(feat.wt, 'rev-parse', 'HEAD');
+    const refused = JSON.parse(assignRelease(p, feat, a.detail, { expect: [2] }).out);
+    assert((refused.conflicts ?? []).includes('src/a.ts') && !refused.error, `exit 2 listing src/a.ts with no error: ${JSON.stringify(refused)}`);
+    assert(git(feat.wt, 'rev-parse', 'HEAD') === head0 && git(feat.wt, 'status', '--porcelain') === '', 'the branch is as it was');
+    rec.text('So the session runs `next` again, which fetches the base and hands `resolve-base-conflict`:');
+    const again = loopNext(p, feat, rec);
+    expectAction(again, 'agent', 'resolve-base-conflict', 'P-14 (c) after the exit 2');
+    assert(again.detail.noted === true && again.detail.others.includes('src/a.ts'), `the hand-off: ${JSON.stringify(again.detail)}`);
+  }
+
+  rec.text('### (d) The base lands a record and extends the one-line list holding the change\'s own citation');
+  {
+    const { p, feat } = assignedThenSibling('p14d', {
+      list: true, files: { 'docs/context.yaml': adrsLine('; ADR [feat] the rule') }, sibFiles: { 'docs/context.yaml': adrsLine('; ADR [sib] other') },
+    });
+    sh(feat.wt, ['cat', 'docs/context.yaml'], { rec, label: 'cat docs/context.yaml   # the branch: the citation the step wrote' });
+    sh(feat.wt, ['git', 'show', 'origin/main:docs/context.yaml'], { rec, label: 'git show origin/main:docs/context.yaml   # the base: its own entry' });
+    rec.text('Both sides extended the one line, which no mask resolves, so the loop hands `resolve-base-conflict` naming that file:');
+    const a = loopNext(p, feat, rec);
+    expectAction(a, 'agent', 'resolve-base-conflict', 'P-14 (d)');
+    assert(a.detail.noted === true && JSON.stringify(a.detail.others) === JSON.stringify(['docs/context.yaml']), `others: ${JSON.stringify(a.detail)}`);
+    rec.text('The merge the row says (scripted): both entries kept on the line, the branch\'s as the branch holds it, the base\'s side of every release line taken:');
+    const old = mergeLikeTheRow(p, feat, { 'docs/context.yaml': adrsLine('; ADR 0002 the rule; ADR 0002 other') });
+    const { out } = pushThenAssign(p, feat, old, 'P-14 (d)');
+    assert(out.adrs[0]?.to === 'docs/adr/0003-feat.md', `feat numbered above the base: ${JSON.stringify(out.adrs)}`);
+    const line = read(feat.wt, 'docs/context.yaml');
+    assert(line === adrsLine('; ADR 0003 the rule; ADR 0002 other'), `the line holds both entries: ${line}`);
+    sh(feat.wt, ['cat', 'docs/context.yaml'], { rec });
+    sh(feat.wt, ['ls', 'docs/adr'], { rec });
+    rec.text('The step exited 0: the line holds both entries, the change\'s with its new number; the loop then hands `enable-auto-merge`:');
+    thenAutoMerge(p, feat, 'P-14 (d) after the step');
+  }
+  rec.flush();
+}
+
+// ---------------------------------------------------------------- P-15 (11.10): the token-level give-back of D-34, through the step
+
+function p15Variant(name, baseEntry, merged) {
+  const p = seedProject(name, { files: { ...marketFiles(), 'docs/context.yaml': adrsLine('') } });
+  const feat = openChange(p, 'feat', { note: patchNote('feat', 'devkit-openspec', 'minor'), adrs: ['feat'], files: { 'docs/context.yaml': adrsLine('; ADR [feat] the rule') } });
+  const r1 = drive(p, feat, rec);
+  expectStep(r1.next, 'assign-release', 'feat before its release');
+  const a1 = JSON.parse(assignRelease(p, feat, r1.next).out);
+  assert(a1.adrs[0]?.to === 'docs/adr/0002-feat.md', 'feat numbered 0002');
+  rec.text(`\`feat\` took devkit-openspec 1.1.0 and ADR 0002. The base then lands another change by the old rule: devkit-openspec 1.1.0, \`docs/adr/0002-other.md\`, and its entry \`${baseEntry.slice(2)}\` on the list:`);
+  put(p.main, {
+    [RELEASE_FILE]: manifest('devkit-openspec', '1.1.0'),
+    '.claude-plugin/marketplace.json': marketplace('1.1.0', { 'devkit-openspec': '1.1.0', 'devkit-core': '1.0.0' }),
+    'CHANGELOG.md': CHANGELOG0.replace('## 1.0.0', '## 1.1.0 — other lands\n\n- **devkit-openspec** 1.1.0: other does its part\n\n## 1.0.0'),
+    'docs/catalog.md': catalog({ 'devkit-core': '1.0.0', 'devkit-openspec': '1.1.0' }),
+    'docs/openspec-flow.md': flowPage('1.1.0'),
+    'docs/adr/0002-other.md': '# ADR 0002: other\n\n- Status: accepted\n',
+    'docs/context.yaml': adrsLine(baseEntry),
+  });
+  commitAll(p.main, 'chore(release): other 1.1.0');
+  sh(p.main, ['git', 'push', 'origin', 'main'], { env: p.env, rec });
+  sh(feat.wt, ['cat', 'docs/context.yaml'], { rec, label: 'cat docs/context.yaml   # the branch' });
+  sh(feat.wt, ['git', 'fetch', 'origin', 'main'], { env: p.env, rec });
+  sh(feat.wt, ['git', 'show', 'origin/main:docs/context.yaml'], { rec, label: 'git show origin/main:docs/context.yaml   # the base' });
+  const step = { base: 'main', branch: 'feat', command: node('release-merge.mjs', '--assign', '--base', 'main', '--json') };
+  rec.text('The step meets the line both sides extended and exits 2 listing it, with no `error`:');
+  const refused = JSON.parse(assignRelease(p, feat, step, { expect: [2] }).out);
+  assert((refused.conflicts ?? []).includes('docs/context.yaml') && !refused.error, `exit 2 listing docs/context.yaml: ${JSON.stringify(refused)}`);
+  rec.text(`The merge by hand: the base's side of every release line, and the line written \`${merged.trim()}\`:`);
+  mergeLikeTheRow(p, feat, { 'docs/context.yaml': adrsLine(merged) });
+  return { p, feat, step };
+}
+
+function p15() {
+  rec.text(`## P-15 the give-back at the token level after a merge by hand of a one-line list
+
+AC-4, AC-5, AC-15 (review round 3, D-34, D-36). Each variant: \`feat\` (merge mode, a noted change) cites its record on the one-line
+list \`  ADRs: docs/adr/ (0001 start; ADR [feat] the rule)\` of \`docs/context.yaml\` and is assigned once (ADR 0002); the base lands its
+own record 0002 and extends the same line; the step refuses the merge, a person merges by hand, and \`release-merge.mjs --assign\` runs
+again on that merge. No number is given back by hand.
+
+### (a) The base's entry in the list's own form`);
+  {
+    const { p, feat, step } = p15Variant('p15a', '; 0002 other', '; ADR 0002 the rule; 0002 other');
+    const old = git(feat.wt, 'rev-parse', 'HEAD');
+    const out = JSON.parse(assignRelease(p, feat, step).out);
+    assert(out.adrs[0]?.to === 'docs/adr/0003-feat.md' && git(feat.wt, 'rev-parse', 'HEAD^') === old, `numbered above the base at once: ${JSON.stringify(out.adrs)}`);
+    assert(read(feat.wt, 'docs/context.yaml') === adrsLine('; ADR 0003 the rule; 0002 other'), 'the line keeps the base\'s entry');
+    recordOf(feat);
+    sh(feat.wt, ['cat', 'docs/context.yaml'], { rec });
+    sh(feat.wt, ['ls', 'docs/adr'], { rec });
+    rec.text('The state reads assigned and current:');
+    const st = showRelease(p, feat);
+    assert(st.kind === 'assigned' && st.current === true, `the state: ${JSON.stringify(st)}`);
+  }
+  rec.text('### (b) The base\'s entry in the step\'s form, with the step\'s old number');
+  {
+    const { p, feat, step } = p15Variant('p15b', '; ADR 0002 other', '; ADR 0002 the rule; ADR 0002 other');
+    const out = JSON.parse(assignRelease(p, feat, step).out);
+    assert(out.adrs[0]?.to === 'docs/adr/0003-feat.md', `numbered above the base: ${JSON.stringify(out.adrs)}`);
+    assert(read(feat.wt, 'docs/context.yaml') === adrsLine('; ADR 0003 the rule; ADR 0002 other'), 'the base\'s entry keeps its number');
+    sh(feat.wt, ['cat', 'docs/context.yaml'], { rec });
+  }
+  rec.text('### (c) The merge by hand dropped the change\'s entry, where the base cites its own record with that number');
+  {
+    const { p, feat, step } = p15Variant('p15c', '; ADR 0002 other', '; ADR 0002 other');
+    const head0 = git(feat.wt, 'rev-parse', 'HEAD');
+    const out = JSON.parse(assignRelease(p, feat, step, { expect: [2] }).out);
+    assert(out.error === 'cannot give back the numbers the step wrote in docs/context.yaml', `exit 2 naming the file: ${JSON.stringify(out)}`);
+    assert(git(feat.wt, 'rev-parse', 'HEAD') === head0 && git(feat.wt, 'status', '--porcelain') === '', 'the head and the tree as they were');
+    sh(feat.wt, ['git', 'status', '--short', '--branch'], { rec, label: 'git status --short --branch   # the head and the tree as they were' });
+    sh(feat.wt, ['ls', 'docs/adr'], { rec });
+  }
+  rec.flush();
+}
+
+// ---------------------------------------------------------------- P-16 (11.10): a noted plan revised after the start (D-32)
+
+// A `devkit` change whose plan files carry every stage header up to the readiness review (passed), with its note, and the owner's
+// approval recording the readiness's hash, the plan's digest and the note's hash (as the `stop-plan-approval` row writes it); then
+// its work started: task 1.1 ticked and its code committed.
+function startedPlan(p, id) {
+  git(p.main, 'fetch', '-q', 'origin');
+  const c0 = git(p.main, 'rev-parse', 'origin/main');
+  const d = `openspec/changes/${id}`;
+  const c = openChange(p, id, { note: patchNote(id, 'devkit-openspec', 'minor'), approve: false, files: {
+    [`${d}/requirements.md`]: `${stageHead('requirements', c0)}# Requirements: ${id}\n\n- AC-1: ${id} does its thing\n`,
+    [`${d}/decisions.md`]: `${stageHead('decisions', c0, 'not-applicable')}# Decisions and ADRs\n\nNo record.\n`,
+    [`${d}/proposal.md`]: `${stageHead('proposal', c0)}${proposalText(id)}`,
+    [`${d}/specs/s/spec.md`]: `${stageHead('specs', c0)}${specText(id)}`,
+    [`${d}/design.md`]: `${stageHead('design', c0)}# Design of ${id}\n\nOne file, src/${id}.ts.\n`,
+    [`${d}/tasks.md`]: `${stageHead('tasks', c0)}${TASKS(id)}`,
+  } });
+  const h = git(c.wt, 'rev-parse', 'HEAD');
+  put(c.wt, { [`${d}/readiness.md`]: `${stageHead('readiness', h)}# Readiness review: ${id}\n\n## 1. Decision\n- Status: APPROVED\n` });
+  const dir = join(c.wt, d);
+  put(c.wt, { [`${d}/approval.md`]: [`${stageHead('approval', h).trim()}`, `# Plan approval: ${id}`, '', '- Status: APPROVED', `- Readiness: ${hash12(join(dir, 'readiness.md'))}`,
+    `- Plan: ${DC.planDigest(dir)}`, `- Release note: ${hash12(join(dir, 'release.md'))}`, '- Date: 2026-11-26', '- Owner\'s words: "`Aprovo`"', ''].join('\n') });
+  commitAll(c.wt, `docs(${id}): the owner approves the plan`);
+  put(c.wt, { [`src/${id}-1.ts`]: `export const ${id} = 1;\n`, [`${d}/tasks.md`]: read(c.wt, `${d}/tasks.md`).replace('- [ ] 1.1 ', '- [x] 1.1 ') });
+  commitAll(c.wt, `feat(${id}): task 1.1`);
+  sh(c.wt, ['cat', `${d}/approval.md`], { rec });
+  sh(c.wt, ['git', 'log', '--oneline', '-3'], { rec });
+  return c;
+}
+// The flow checker's readiness stage and `next`, recorded.
+function readinessOf(p, c) {
+  const r = sh(c.wt, node('flow-check.mjs', c.id, '--json'), { env: p.env, expect: null });
+  const j = JSON.parse(r.out);
+  const s = (j.stages ?? []).find((x) => x.id === 'readiness') ?? {};
+  rec.block(`(in ${c.wt})\n$ node $DEV/flow-check.mjs ${c.id} --json   (its readiness stage and "next")\n${JSON.stringify({ readiness: { state: s.state, reasonCode: s.reasonCode }, next: j.next ? { stage: j.next.stage, reasonCode: j.next.reasonCode } : null }, null, 2)}\n[exit ${r.code}]`);
+  return s;
+}
+
+function p16() {
+  rec.text(`## P-16 a started noted plan revised with its note goes back to the readiness review; the note alone asks the approval
+
+AC-12, AC-16, AC-15 (review round 3, D-32, D-36). Project \`p16\` (the seed, merge mode). Changes \`plan\` and \`twin\` are \`devkit\` changes
+with every plan stage passed, each approved by the owner with the readiness's hash, the plan's digest and the note's hash, and each
+started (task 1.1 ticked, its code committed).
+
+### \`plan\`: \`design.md\` and \`release.md\` revised`);
+  const p = seedProject('p16');
+  const c = startedPlan(p, 'plan');
+  const d = 'openspec/changes/plan';
+  put(c.wt, {
+    [`${d}/design.md`]: read(c.wt, `${d}/design.md`).replace('One file', 'Two files'),
+    [`${d}/release.md`]: patchNote('plan', 'devkit-openspec', 'major'),
+  });
+  sh(c.wt, ['git', 'commit', '-q', '-am', 'docs(plan): revise the design and the note'], { rec });
+  sh(c.wt, ['git', 'show', '--stat', '--format=%h %s', 'HEAD'], { rec });
+  const s1 = readinessOf(p, c);
+  assert(s1.state === 'stale' && s1.reasonCode === 'plan-revised', `readiness stale with plan-revised: ${JSON.stringify(s1)}`);
+  rec.text('The loop hands the readiness review (`plan-revised`):');
+  const a1 = loopNext(p, c, rec);
+  assert(a1.kind === 'agent' && a1.agent === 'devkit-core:plan-readiness-reviewer', `the readiness review: ${a1.kind} ${a1.agent}`);
+  rec.text('The readiness review runs again and passes (written as the reviewer writes it):');
+  put(c.wt, { [`${d}/readiness.md`]: `${stageHead('readiness', git(c.wt, 'rev-parse', 'HEAD'), 'passed', 2)}# Readiness review: plan\n\n## 1. Decision\n- Status: APPROVED\n` });
+  sh(c.wt, ['git', 'commit', '-q', '-am', 'docs(plan): the readiness review, again'], { rec });
+  rec.text('The loop now waits for the owner\'s approval of both, with `readiness`, `plan` and `release`:');
+  const a2 = loopNext(p, c, rec);
+  assert(a2.kind === 'end' && a2.end?.state === 'waiting-for-owner' && a2.detail?.readiness && a2.detail?.plan && a2.detail?.release, `the approval asked again: ${JSON.stringify({ end: a2.end, detail: a2.detail })}`);
+  assert(a2.detail.release === hash12(join(c.wt, d, 'release.md')) && a2.detail.plan === DC.planDigest(join(c.wt, d)), 'the new hashes');
+
+  rec.text('### `twin`: only `release.md` revised');
+  const t = startedPlan(p, 'twin');
+  put(t.wt, { 'openspec/changes/twin/release.md': patchNote('twin', 'devkit-openspec', 'major') });
+  sh(t.wt, ['git', 'commit', '-q', '-am', 'docs(twin): revise the note'], { rec });
+  const s2 = readinessOf(p, t);
+  assert(s2.state === 'passed', `the twin's readiness stays passed: ${JSON.stringify(s2)}`);
+  rec.text('The loop waits for the owner\'s approval directly (row A1), with no readiness review:');
+  const a3 = loopNext(p, t, rec);
+  assert(a3.kind === 'end' && a3.end?.state === 'waiting-for-owner' && a3.detail?.release === hash12(join(t.wt, 'openspec/changes/twin/release.md')), `the approval asked directly: ${JSON.stringify({ kind: a3.kind, agent: a3.agent, end: a3.end, detail: a3.detail })}`);
+  rec.flush();
+}
+
 // ---------------------------------------------------------------- the run
 
-const CASE_LIST = [['seed', seed], ['P-1', p1], ['P-2', p2], ['P-3', p3], ['P-4', p4], ['P-5', p5], ['P-6', p6], ['P-7', p7], ['P-8', p8], ['P-9', p9], ['P-10', p10], ['P-11', p11], ['P-12', p12], ['P-13', p13]];
+const CASE_LIST = [['seed', seed], ['P-1', p1], ['P-2', p2], ['P-3', p3], ['P-4', p4], ['P-5', p5], ['P-6', p6], ['P-7', p7], ['P-8', p8], ['P-9', p9], ['P-10', p10], ['P-11', p11], ['P-12', p12], ['P-13', p13], ['P-14', p14], ['P-15', p15], ['P-16', p16]];
 for (const [name, fn] of CASE_LIST) {
   if (!all && name !== 'seed' && !wanted.includes(name)) continue;
   try { fn(); } catch (e) {

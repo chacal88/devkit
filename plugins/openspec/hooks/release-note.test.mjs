@@ -892,6 +892,19 @@ test('release-note AC-14 texts: the implementer takes the base\'s side of a rele
   }
 });
 
+// Found by the real-run proof (task 11.11, S-13 (a)): the real implementer, handed resolve-base-conflict (a step with no phase), merged
+// and committed as the row says but returned prose with no `Outcome:` line, which the loop and the conductor read. The Returns section
+// says a delivery hand-off with no phase returns the same block, its Outcome line last, in the agent and its generated kit copy.
+test('release-note AC-14 texts: a delivery hand-off with no phase returns the implementer\'s block with its Outcome line last', () => {
+  const sentence = '- A hand-off of the delivery with no phase (`resolve-base-conflict`, `resolve-release-conflict`, `renumber-adr`) returns the same block, its heading naming the step in place of the phase and its `Tasks:` line `none`; its `Outcome:` line is last too.';
+  for (const parts of [['plugins', 'core', 'agents', 'tdd-implementer.md'], ['plugins', 'compozy', 'kit', 'templates', 'agents', 'tdd-implementer', 'AGENT.md']]) {
+    // From its heading to the next one, `## Escalate`: the block's own heading line is inside a code fence.
+    const text = repoText(...parts);
+    const returns = text.slice(text.indexOf('\n## Returns\n'), text.indexOf('\n## Escalate'));
+    assert.ok(returns.split('\n').includes(sentence), `${parts.join('/')}: the Returns section holds the hand-off bullet`);
+  }
+});
+
 test('release-note AC-14 texts: the agents, the documents and the records follow the release note and the unnumbered ADR', async (t) => {
   await t.test('agents: the planner, the ADR author and reviewer, the implementer and the readiness review', () => {
     const planner = repoText('plugins', 'core', 'agents', 'change-planner.md');

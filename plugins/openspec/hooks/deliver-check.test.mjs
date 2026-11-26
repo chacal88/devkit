@@ -3034,6 +3034,43 @@ test('release-note AC-4 staleness: the step run again after the base numbered an
   assert.deepEqual([after.tasks, after.acceptance, after.reviews.status], ['current', 'current', 'met'], tasksItem(root, 'feat', relFacts(root)).reason);
 });
 
+// Found by the real-run proof (task 11.10, P-14 (d)): the change cites its record on a one-line list, the step numbers it 0002, the base
+// lands its own record 0002 and cites it on the same line in the step's form, and a person merges by hand keeping both entries. The merge
+// holds two records numbered 0002, so each `ADR 0002` there cites either of them; the step's commit that gives the change's back and numbers
+// it 0003 is a release edit, and the records written at the merge stay current.
+const LIST = (entries) => `  ADRs: docs/adr/ (0001 start${entries})\n`;
+function listMergedByHand(merged) {
+  const root = noteRepo({ files: { ...releaseLayout(), 'docs/context.yaml': LIST('') }, extra: { 'docs/context.yaml': LIST('; ADR [feat] the rule') } });
+  const step = () => spawnSync(STEP_COMMAND[0], STEP_COMMAND.slice(1), { cwd: root, encoding: 'utf8', env: { ...GIT_ENV, ...CI_ENV } });
+  const first = step();
+  assert.equal(first.status, 0, first.stderr + first.stdout);
+  const other = '# Changelog\n\n## 1.1.0 — other\n\n- **devkit-openspec**: other\n\n## 1.0.0 — first\n\n- **devkit-openspec**: start\n';
+  baseReleases(root, { ...releaseLayout({ openspec: '1.1.0', market: '1.1.0', changelog: other }), 'docs/adr/0002-other.md': '# ADR 0002: other\n', 'docs/context.yaml': LIST('; ADR 0002 other') });
+  spawnSync('git', ['-C', root, 'merge', '--no-ff', '--no-commit', 'main'], { encoding: 'utf8', env: GIT_ENV });
+  git(root, 'checkout', 'main', '--', ...Object.keys(releaseLayout()).filter((f) => !f.startsWith('docs/adr/')));
+  put(root, { 'docs/context.yaml': LIST(merged) });
+  commitAll(root, 'merge main by hand');
+  ciProve(root, 'feat');
+  return { root, step };
+}
+
+test('release-note AC-4 staleness: the step run on a merge by hand holding two records numbered 0002, the base citing its own in the step\'s form on the line of the change\'s, leaves the records current', () => {
+  const { root, step } = listMergedByHand('; ADR 0002 the rule; ADR 0002 other');
+  assert.deepEqual([recordsOf(root).tasks, recordsOf(root).acceptance, recordsOf(root).reviews.status], ['current', 'current', 'met']);
+  const again = step();
+  assert.equal(again.status, 0, again.stderr + again.stdout);
+  assert.equal(readFileSync(join(root, 'docs/context.yaml'), 'utf8'), LIST('; ADR 0003 the rule; ADR 0002 other'));
+  const after = recordsOf(root);
+  assert.deepEqual([after.tasks, after.acceptance, after.reviews.status], ['current', 'current', 'met'], tasksItem(root, 'feat', relFacts(root)).reason);
+});
+
+test('release-note AC-5 staleness: a citation a person changes on a merge by hand holding two records numbered 0002 still stales the records', () => {
+  const { root } = listMergedByHand('; ADR 0002 the rule; ADR 0002 other');
+  put(root, { 'docs/context.yaml': LIST('; ADR 0002 the rule; ADR 0001 other') });
+  commitAll(root, 'a person cites another record');
+  assert.match(tasksItem(root, 'feat', relFacts(root)).reason, /touches docs\/context\.yaml/);
+});
+
 // Review round 1 (test-coverage F3): in a consumer project the release lines are the file devkit.release_tag names and CHANGELOG.md, so the
 // release mask must cover that file for the step's commit to be a release edit.
 const CONSUMER_CONFIG = 'schema: devkit-lite\ndevkit:\n  release_tag: package.json\n';

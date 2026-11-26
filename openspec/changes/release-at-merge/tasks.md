@@ -730,7 +730,7 @@ as a background command of the tool, judged by its exit code. End every task wit
   "release-give-back-tokens" openspec/roadmap.md` prints 0, `git diff --quiet HEAD --
   openspec/roadmap.md` exits 0, and `python3 scripts/check.py` passes (AC-4, AC-5, AC-14).
 - [x] 11.9 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/change-loop-declared.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/merge-setup.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/release-tags.test.mjs && python3 scripts/check.py && node plugins/compozy/kit/scripts/gen-agents.mjs --check && openspec validate release-at-merge --strict` green; covers AC-4, AC-5, AC-12, AC-14 and AC-16 for the routing (a one-line list both sides extended included), the readiness after a revision with the note, and the token-level give-back.
-- [ ] 11.10 (D-36; AC-15) Add P-14, P-15 and P-16 of D-36 to
+- [x] 11.10 (D-36; AC-15) Add P-14, P-15 and P-16 of D-36 to
   `openspec/changes/release-at-merge/proof/cases.mjs` and run the whole script under a private
   `TMPDIR` (`TMPDIR=/var/tmp/devkit-release-at-merge`, never `/tmp`), `node
   openspec/changes/release-at-merge/proof/cases.mjs` with no case named, so it writes
@@ -746,7 +746,7 @@ as a background command of the tool, judged by its exit code. End every task wit
   base's entry of the same number kept, (c) exit 2 naming the file with the tree as it was; in P-16 the readiness review handed
   with `plan-revised`, then the approval asked with `readiness`, `plan` and `release`, and the twin's
   approval asked with no readiness review (AC-4, AC-5, AC-12, AC-15).
-- [ ] 11.11 Conductor: run S-13 of D-36 with the real implementer, both its variants: add S-13 to
+- [x] 11.11 Conductor: run S-13 of D-36 with the real implementer, both its variants: add S-13 to
   `openspec/changes/release-at-merge/proof/agents.mjs`, seed project K under
   `TMPDIR=/var/tmp/devkit-release-at-merge`, and run `node
   openspec/changes/release-at-merge/proof/agents.mjs append=S-13`, the agent run with `claude
@@ -759,7 +759,7 @@ as a background command of the tool, judged by its exit code. End every task wit
   line in conflict, no version and no ADR number the agent wrote, in (b) the list's line holding the
   base's entry and the change's entry as the branch held it, nothing pushed by the agent, then `push`,
   then `assign-release` with exit 0 (AC-4, AC-15).
-- [ ] 11.12 Gate: `python3 scripts/check.py && openspec validate release-at-merge --strict && grep -q "^## P-14 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## P-15 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## P-16 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## S-13 " openspec/changes/release-at-merge/proof/agents-run.md` green, the scratch folders removed; covers AC-15 for phase 11's cases and the real implementer.
+- [x] 11.12 Gate: `python3 scripts/check.py && openspec validate release-at-merge --strict && grep -q "^## P-14 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## P-15 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## P-16 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## S-13 " openspec/changes/release-at-merge/proof/agents-run.md` green, the scratch folders removed; covers AC-15 for phase 11's cases and the real implementer.
 - [ ] 11.13 Gate: `node scripts/test-suite.mjs --concurrency=3 && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/kit/scripts/gen-agents.mjs --check && claude plugin validate . && openspec validate release-at-merge --strict` green at the final head, the whole suite run once as a background command with no other suite on the machine; the train's suite proves it again (AC-14).
 
 ## Workflow follow-up
