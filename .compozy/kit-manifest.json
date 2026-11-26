@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "pack": "0.6.0",
+  "pack": "0.6.1",
   "inputs": {
     "__TIMEZONE__": "America/Sao_Paulo",
     "__SCREEN_MAP__": "",
@@ -26,7 +26,7 @@
     "agents/screen-designer/AGENT.md": "sha256:2863af2719ed844a0aeb388c48cf31006d8b61a2323ffbd00e12cbbe00da0230",
     "agents/security-reviewer/AGENT.md": "sha256:97fe10f00344478fa59eb91b00e30f583d7a48efdab0f18066ef6f4d6ac72c42",
     "agents/spec-reviewer/AGENT.md": "sha256:82e3f5c2666f9ce5afc560c11ef0d3babd7556454f3221facec8f9da4680a503",
-    "agents/tdd-implementer/AGENT.md": "sha256:f3335bf74b131afabd8df73fd3b6e485e01f0541c9e810fcd1f6731bdff38aa3",
+    "agents/tdd-implementer/AGENT.md": "sha256:fc5e96efb1150334bc1e721f75c3a7b213ac1908e0014bc499c936b7c87945a8",
     "agents/test-coverage-reviewer/AGENT.md": "sha256:05231de00666c7a548fb002ee5714c98dc66d4884c7a499ee7e09540008d73a3",
     "agents/test-runner/AGENT.md": "sha256:cc67ac107a978016e78e5120ce53ef51212a87300a6f204b400182f326a9d563",
     "bin/devkit-kit": "sha256:ddeaaccab9b989f408ed2a9004b9d6b637c14ee43a0fe1ef6c359805f8a945de",
