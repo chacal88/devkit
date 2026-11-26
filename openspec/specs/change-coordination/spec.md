@@ -202,8 +202,8 @@ role the script's stage declaration names; it SHALL NOT choose the order itself.
 
 ### Requirement: From the implementation on, the step inside the stage goes to its role
 From the implementation to the archive, the loop SHALL take the stage from the stage checker and the
-step inside it from the delivery checker, with the override the retired `/conduct` applied and `/devkit change` keeps (a release-file
-conflict), and hand each step to the role declared for its stage; the stage
+step inside it from the delivery checker, with the override the retired `/conduct` applied and `/devkit change` keeps (a conflict with the
+base, in the release files or outside them), and hand each step to the role declared for its stage; the stage
 checker's blocked ends SHALL win. The unit tests and the E2E tests, which the delivery checker does
 not know, SHALL be taken from the stage checker alone.
 
@@ -236,8 +236,12 @@ not know, SHALL be taken from the stage checker alone.
 - **THEN** none of them is `push-rebased` and no command they carry holds `--force` or `--force-with-lease`
 
 #### Scenario: A conflict in any other file
-- **WHEN** the pull request conflicts with its base in a file that is not a release file
-- **THEN** the run ends blocked, saying the pull request has a problem the session cannot fix alone
+- **WHEN** the change's pull request, or the archive's pull request of an archive that never left a delivery train, conflicts with its base in a file that is not a release file, with or without release files among the conflicting paths
+- **THEN** the next action hands `resolve-base-conflict` to the implementer's agent with the base and every conflicting path, and the run does not end blocked for it
+
+#### Scenario: A conflict git cannot classify
+- **WHEN** the pull request conflicts and `git merge-tree --write-tree` cannot run (git older than 2.38)
+- **THEN** the run ends blocked, saying the conflict cannot be classified, as before
 
 #### Scenario: GitHub reports a conflict the base merges cleanly
 - **WHEN** GitHub reports a conflict, the base merges cleanly with the local head, the local head is the pull request's head, and the project merges automatically
@@ -253,7 +257,11 @@ not know, SHALL be taken from the stage checker alone.
 
 #### Scenario: A phase gate
 - **WHEN** the step is `gate`
-- **THEN** the next action is a session step carrying the gate's command and task; a green run ticks the task and a red run ends the run blocked, saying the phase's tests failed
+- **THEN** the next action is a session step carrying the gate's command and task; a green run ticks the task, and a red run is declared by the session, which hands one fix to the implementer the first time and ends the run blocked, saying the phase's tests failed, the second time
+
+#### Scenario: A task the conducting session does
+- **WHEN** the step is `conductor-task`
+- **THEN** the next action is a session step naming the phase and the tasks the session does itself, and no hand-off to the implementer carries them
 
 #### Scenario: A pull-request or archive step of the session
 - **WHEN** the step is `edit-pr-body`, `enable-auto-merge`, `disable-auto-merge`, `update-branch`, `answer`, `retro`, `archive` or `tick-roadmap`
@@ -395,11 +403,22 @@ the text of the role's skills.
 ### Requirement: The session waits on GitHub with no time limit
 When a run ends waiting on GitHub, the session SHALL start a background wait that holds no state but
 the first decision, has no limit of its own, and ends with the new action as soon as the decision
-changes; the reply SHALL say the session is waiting and that calling the command again is safe.
+changes; the reply SHALL say the session is waiting and that calling the command again is safe. When
+the host's own instructions give the session a pull-request monitor and tell it not to poll, the
+session SHALL start no wait and SHALL end the turn; the turn the host's event or the owner's next
+message starts SHALL run the loop again.
 
 #### Scenario: The reply that starts the wait
 - **WHEN** a run ends waiting on GitHub
 - **THEN** its reply says the session keeps waiting with no time limit and that calling `/devkit change` again is safe
+
+#### Scenario: A host with its own pull-request monitor
+- **WHEN** a run ends waiting on GitHub and the host's instructions give the session a pull-request monitor and tell it not to poll the checks
+- **THEN** the session starts no background wait, says the reply and that the host's monitor holds the wait, and ends the turn; the turn the host's event starts runs the loop's next action and goes on
+
+#### Scenario: A host with no monitor of its own
+- **WHEN** a run ends waiting on GitHub and the host gives the session no pull-request monitor
+- **THEN** the session starts the background wait as before
 
 #### Scenario: GitHub has not answered
 - **WHEN** the decision is still the same wait on the checks or the merge at every poll
@@ -481,11 +500,12 @@ panel's buttons and every document SHALL name `/devkit change` in its place.
 
 ### Requirement: A change archived on the default branch is not unfinished
 The command SHALL NOT list as unfinished a change whose archived folder
-(`openspec/changes/archive/<date>-<id>/`) is on the default branch, read from GitHub, else from the
-remote-tracking default branch, else from the main checkout, whatever old checkout still holds its
-active folder, sits on its branch or its archive branch, except a new change reusing the id (next
-requirement). It SHALL still list a change on its archive branch whose archive is not on the
-default branch yet.
+(`openspec/changes/archive/<date>-<id>/`) is on the default branch, read as the union of every source
+that can be read (GitHub's default branch, the remote-tracking default branch, the local default
+branch and the main checkout's working tree; a source that cannot be read adds nothing), whatever old
+checkout still holds its active folder, sits on its branch or its archive branch, except a new change
+reusing the id (next requirement). It SHALL still list a change on its archive branch whose archive is
+not on the default branch yet.
 
 #### Scenario: An old worktree holds the active folder
 - **WHEN** `foo` is archived on the default branch and a worktree on another branch still holds the old copy of `openspec/changes/foo/`
@@ -635,34 +655,47 @@ command like any unknown setting value.
 - **THEN** `/devkit change` replies that the coverage target has an unknown value, names the accepted values, and nothing is created or run
 
 ### Requirement: A run can carry a token budget
-`/devkit change` SHALL read an optional cap, a whole number of tokens, from `budget:` in the
-`devkit:` block of the change's `.openspec.yaml`, else from `budget:` in the `devkit:` block of
-`openspec/config.yaml` as the change's own checkout holds it. With neither, or with an empty value,
-the run SHALL have no cap, and every output of the loop SHALL be what it is without the setting.
+`/devkit change` SHALL read an optional cap, a whole number of tokens, from `budget:` in the settings
+block of the change's `.openspec.yaml` (its `x-devkit:` block, or its `devkit:` block when the file has
+no `x-devkit:` block), else from `budget:` in the `devkit:` block of `openspec/config.yaml` as the
+change's own checkout holds it. With neither, or with an empty value, the run SHALL have no cap, and
+every output of the loop SHALL be what it is without the setting.
 
 #### Scenario: The project's cap
-- **WHEN** `openspec/config.yaml` has `budget: 2000000` in its `devkit:` block and the change's `.openspec.yaml` has no `devkit:` block
+- **WHEN** `openspec/config.yaml` has `budget: 2000000` in its `devkit:` block and the change's `.openspec.yaml` has no `x-devkit:` or `devkit:` block
 - **THEN** the cap of the change's run is 2000000 tokens
 
 #### Scenario: The change's cap wins for that change only
-- **WHEN** `openspec/config.yaml` has `budget: 2000000` in its `devkit:` block, change `a`'s `.openspec.yaml` has a `devkit:` block with `budget: 500000`, and change `b`'s has none
+- **WHEN** `openspec/config.yaml` has `budget: 2000000` in its `devkit:` block, change `a`'s `.openspec.yaml` has an `x-devkit:` block with `budget: 500000`, and change `b`'s has none
 - **THEN** the cap of `a`'s run is 500000 tokens and the cap of `b`'s run is 2000000 tokens
 
 #### Scenario: No budget anywhere
-- **WHEN** neither file has a `budget:` key in a `devkit:` block
+- **WHEN** neither file has a `budget:` key in its settings block
 - **THEN** every output of `change-loop.mjs` is the same as before the setting existed, and no transcript is read for a count
 
 #### Scenario: An empty value
-- **WHEN** a `devkit:` block holds `budget:` with no value
+- **WHEN** a settings block holds `budget:` with no value
 - **THEN** that file sets no cap, as if the key were absent
 
 #### Scenario: A key outside the devkit block
-- **WHEN** the change's `.openspec.yaml` holds a top-level `budget: 100` and no `devkit:` block
+- **WHEN** the change's `.openspec.yaml` holds a top-level `budget: 100` and no `x-devkit:` or `devkit:` block
 - **THEN** that line sets no cap, and the project's value, or no cap, applies
 
 #### Scenario: A quoted value, a comment and an unclosed quote
-- **WHEN** a `devkit:` block holds `budget: "2000000"  # two million`, or `budget: "2000000` with no closing quote
+- **WHEN** a settings block holds `budget: "2000000"  # two million`, or `budget: "2000000` with no closing quote
 - **THEN** the cap is 2000000 tokens, as the other settings of the block read a value
+
+#### Scenario: The change's block passes the strict validation
+- **WHEN** a change's `.openspec.yaml` holds an `x-devkit:` block with `budget: 2000000` and `openspec validate <id> --type change --strict` is run on the change
+- **THEN** the validation reports no unknown key for the file, and the cap of the change's run is 2000000 tokens
+
+#### Scenario: A devkit block written before the x-devkit block
+- **WHEN** a change's `.openspec.yaml` holds a `devkit:` block with `budget: 500000` and no `x-devkit:` block
+- **THEN** the cap of the change's run is 500000 tokens, as before
+
+#### Scenario: Both blocks in the change's file
+- **WHEN** a change's `.openspec.yaml` holds an `x-devkit:` block with `budget: 500000` and a `devkit:` block with `budget: 100`
+- **THEN** the cap of the change's run is 500000 tokens, read from the `x-devkit:` block alone
 
 ### Requirement: An invalid budget is refused before any stage runs
 A `budget:` value that is not a whole number greater than zero, in either file, SHALL be refused with
@@ -755,12 +788,12 @@ cap. The grill and every end SHALL be unchanged.
 
 ### Requirement: The budget stop says how to go on
 The reply of a budget stop SHALL state, in the person's language, the tokens spent, the cap, the
-absolute path of the change's `.openspec.yaml` and the key `budget` of its `devkit:` block as the
+absolute path of the change's `.openspec.yaml` and the key `budget` of its `x-devkit:` block as the
 place to raise the cap, and that typing `/devkit change` again goes on.
 
 #### Scenario: In English
 - **WHEN** the run of `feat` stops at a cap of 2000000 with 2100000 tokens spent and the person's language is `en`
-- **THEN** the reply names `feat`, 2100000, 2000000, the absolute path of `feat`'s `.openspec.yaml`, `budget` in the `devkit` block and `/devkit change`
+- **THEN** the reply names `feat`, 2100000, 2000000, the absolute path of `feat`'s `.openspec.yaml`, `budget` in the `x-devkit` block and `/devkit change`
 
 #### Scenario: In Brazilian Portuguese
 - **WHEN** the same stop happens and the person's language is `pt-BR`
@@ -1415,7 +1448,7 @@ loop SHALL add no exception to the plan gate for it.
 
 #### Scenario: The same answer as an ordinary plan edit
 - **WHEN** a change with a ticked task, an approved readiness and a current owner approval has its spec delta edited as a merge-defect fix, and the same change has its design edited instead
-- **THEN** the stage checker gives the same states for readiness and approval in both cases, the approval stays current in both, and neither asks for a new review or a new approval
+- **THEN** the stage checker gives the same states for readiness and approval in both cases: with an approval that records no plan digest neither asks again, and with one both make the readiness stale and ask the owner again
 
 ### Requirement: The loop fetches the base branch before it judges a delivery step
 When the change command's `next` decides a step of a change in its delivery part, it SHALL first
@@ -1527,3 +1560,117 @@ before the archive. No test stage the stage checker names SHALL replace that ste
 #### Scenario: A partial merge
 - **WHEN** the delivery checker answers `stop-branch` for a pull request merged with tasks left and every required check green
 - **THEN** the run ends blocked with the reason `wrong-branch`, as before this change
+
+### Requirement: The session declares a pause or a decision outside the gates
+When the owner asks for a pause, or the session meets a decision only the owner can take that no
+stage gate holds, the session SHALL declare it through the loop's `reply` with the key
+`waiting-pause` or `waiting-owner-decision`. Both end in the state waiting for the owner; no other
+end state SHALL be added, and a change's derived state and title SHALL read them as every other wait.
+
+#### Scenario: The owner asks for a pause
+- **WHEN** the session runs `change-loop.mjs reply waiting-pause --param id=<id>`
+- **THEN** the first output line is `devkit-end: <id> waiting-for-owner`, the reply in the person's language follows, and the exit code is 0
+
+#### Scenario: A decision outside the gates
+- **WHEN** the session runs `change-loop.mjs reply waiting-owner-decision --param id=<id> --param decision=<the decision in plain words>`
+- **THEN** the first output line is `devkit-end: <id> waiting-for-owner`, the reply holds the decision's words, and the exit code is 0
+
+#### Scenario: A declared wait in a roadmap run
+- **WHEN** a roadmap run's session declares `waiting-pause` for a change with `roadmap-loop.mjs reply`
+- **THEN** the run file records the change's end as waiting for the owner at the gate of a pause, and the change's state reads waiting for the owner
+
+#### Scenario: A key that records goes through declare
+- **WHEN** the session runs `change-loop.mjs reply gate-red` or `change-loop.mjs reply review-round`
+- **THEN** the command exits 3 naming `declare`, and nothing is recorded
+
+### Requirement: A red gate gets one declared fix before the run stops
+When a phase gate runs red, the session SHALL declare it with `change-loop.mjs declare <id> gate-red
+--param phase=<n>`, which records the red gate. At the first red gate of that phase the command SHALL
+give a hand-off of the step `fix-gate` to the implementer's agent; at a later red gate of the same
+phase it SHALL end the run blocked, saying the phase's tests failed.
+
+#### Scenario: The first red gate of a phase
+- **WHEN** the next action is the gate of phase 2, its command exits non-zero, and the record holds no red gate of phase 2
+- **THEN** `declare gate-red --param phase=2` prints `devkit-run: <id>` and a hand-off of `fix-gate` to `devkit-core:tdd-implementer` naming the gate's task and command, records the red gate, and prints no `devkit-end:` line
+
+#### Scenario: The second red gate of the phase
+- **WHEN** the record holds one red gate of phase 2 and the gate of phase 2 runs red again
+- **THEN** `declare gate-red --param phase=2` prints `devkit-end: <id> blocked` and the reply that phase 2's tests failed, and exits 2
+
+#### Scenario: The gate after the fix
+- **WHEN** the fix was handed and the loop's next action is asked
+- **THEN** it is the gate of that phase again, never `fix-gate`
+
+#### Scenario: A red gate of another phase
+- **WHEN** the record holds one red gate of phase 1 and the gate of phase 2 runs red for the first time
+- **THEN** the command gives the `fix-gate` hand-off for phase 2
+
+#### Scenario: Declared away from the gate
+- **WHEN** the loop's next action is not the gate of the phase named
+- **THEN** the command exits 3 and records nothing
+
+### Requirement: The owner authorizes one more review round after the limit
+At a review's deadlock, one more round SHALL run only when the owner's own typed message asks for
+it and the main session records it with `change-loop.mjs declare <id> review-round --stdin
+words`. Each record SHALL name the review in dispute and hand exactly one more
+round of it; the loop SHALL leave the deadlock by its own steps, with no header edited by hand. The
+code review's deadlock is the blocked end of its stage's ceiling, or `stop-review-deadlock`.
+
+#### Scenario: The owner authorizes a third round
+- **WHEN** the run ended blocked at the code review's ceiling after round 2 and the session records the owner's words with `declare review-round`
+- **THEN** the command prints `devkit-run: <id>` and exits 0, and the next actions fix the rejected findings and hand the review as round 3 of 3
+
+#### Scenario: The owner's words are recorded as typed
+- **WHEN** the owner's words hold a backtick, `$(...)`, an apostrophe or a double quote and the session passes them on standard input through the quoted heredoc `<<'DEVKIT_ARGS'`
+- **THEN** `declared.json` holds the first 200 characters of the words, byte for byte, without the heredoc's final line break, and no command in them runs
+
+#### Scenario: No authorization
+- **WHEN** the code review failed its round 2 and nothing was recorded
+- **THEN** the run ends blocked at the code review's ceiling, as before, and the session says that one more round needs the owner's own word
+
+#### Scenario: The authorized round failed too
+- **WHEN** one round was authorized and the code review failed its round 3
+- **THEN** the run ends blocked at the code review's ceiling again, and only a new message of the owner authorizes a fourth round
+
+#### Scenario: No words of the owner
+- **WHEN** the session runs `declare review-round` without the owner's words
+- **THEN** the command exits 3 and records nothing
+
+#### Scenario: Not at the deadlock
+- **WHEN** the session runs `declare review-round` while the next action is neither a review's deadlock nor the blocked end of the code review's ceiling (a step, or the ceiling of the plan readiness)
+- **THEN** the command exits 3 and records nothing
+
+#### Scenario: Declared twice for one deadlock
+- **WHEN** the session runs `declare review-round` a second time before the authorized round ran
+- **THEN** the command exits 3 and records nothing, because the next action is no longer a deadlock
+
+#### Scenario: The resolution's deadlock
+- **WHEN** the run waits at the deadlock of a conflict resolution's review after round 2 and the session records the owner's words with `declare review-round`
+- **THEN** the record names the resolution's review, and the next actions fix the resolution and hand its review as round 3 of 3, while the code review's limit and its stage's ceiling stay 2
+
+### Requirement: A conflict outside the release files goes to the implementer
+The step `resolve-base-conflict` SHALL hand the implementer the base and the conflicting paths, to
+merge `origin/<base>`, resolve every conflict, run the project's test command and commit the merge,
+never pushing or rebasing; the loop SHALL then hand the evidence, the review and a plain push. It
+SHALL not replace `stop-archive` or `rejoin-train`, and SHALL not be given in a project with a
+delivery train.
+
+#### Scenario: The resolution is pushed plainly
+- **WHEN** the implementer committed the merge and the pull request's head is an ancestor of the new head
+- **THEN** the next actions are the evidence and the review, and then `push` (or `open-archive-pr` on an archive branch) with `git push origin <branch>`
+
+#### Scenario: The implementer cannot resolve it
+- **WHEN** the implementer returns a failure for `resolve-base-conflict` and the session runs `next` with that action's progress key
+- **THEN** the loop hands the step once more on the next model up, and after a second failure ends the run blocked, saying the stage could not finish its work, as for any stage agent; the session declares no end of its own
+
+#### Scenario: An archive that left a delivery train
+- **WHEN** an archive left a delivery train and its pull request conflicts with the base in a file that is neither a release file, the CI pin nor a roadmap tick
+- **THEN** the run ends blocked as `stop-archive`, naming the conflicting paths, as before, and `resolve-base-conflict` is not given
+
+#### Scenario: A change that left a delivery train
+- **WHEN** a change left a delivery train and its pull request conflicts with the base
+- **THEN** the next action is its own step `rejoin-train`, as before, and `resolve-base-conflict` is not given
+
+#### Scenario: A project with a delivery train
+- **WHEN** the project sets `devkit.delivery.train` and a change's pull request conflicts with the base outside the release files
+- **THEN** the change goes on toward boarding the train as before, and `resolve-base-conflict` is not given

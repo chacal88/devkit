@@ -174,10 +174,14 @@ changes `tasks.md`), nor in the walk after a merged pull request.
 - **THEN** the plan readiness is reported stale, naming the mock-up, and it is the next stage
 
 ### Requirement: Attempt ceilings and no progress stop the run
-A failed stage whose failures in a row reach its declared ceiling SHALL end the run as blocked with
-that reason, naming the attempt, the failures in a row and the ceiling. Given the previous run's
-progress key, the checker SHALL end the run as blocked when the same stage comes back and nothing
-in the working tree or history changed.
+A failed stage whose failures in a row reach its ceiling SHALL end the run as blocked with that
+reason, naming the attempt, the failures in a row and the ceiling. A stage's ceiling SHALL be the one
+the flow version the change follows declares, except the code review stage (`review`, role
+`review-bench`), whose ceiling SHALL be that declared ceiling plus the number of code-review rounds
+the session recorded as authorized by the owner in the change's record of declared steps. A round
+authorized for a conflict resolution's review, a record that cannot be read, and any other stage or
+review stage SHALL NOT change a ceiling. Given the previous run's progress key, the checker SHALL end
+the run as blocked when the same stage comes back and nothing in the working tree or history changed.
 
 #### Scenario: The ceiling is reached
 - **WHEN** the review's header says `result=failed attempt=2`, its file was committed with `result=failed` at attempt 1, and its ceiling is 2
@@ -190,6 +194,38 @@ in the working tree or history changed.
 #### Scenario: The same stage comes back with nothing changed
 - **WHEN** the checker is run with `--after` set to the progress key it printed last and nothing changed
 - **THEN** the run ends blocked, naming the stage that came back
+
+#### Scenario: One round authorized for the code review
+- **WHEN** the review's header says `result=failed attempt=2` with two failures in a row, its declared ceiling is 2, and one code-review round is recorded as authorized
+- **THEN** the run does not end; the checker offers the review's fix stage with the ceiling 3, or the review again once a commit made its header stale
+
+#### Scenario: The authorized round failed too
+- **WHEN** the review's header says `result=failed attempt=3` with three failures in a row, its declared ceiling is 2, and one code-review round is recorded as authorized
+- **THEN** the run ends blocked, naming the review, its three failures in a row and its ceiling 3
+
+#### Scenario: A pass before the failures
+- **WHEN** the review's file was committed with `result=passed`, then with `result=failed attempt=1`, its header now says `result=failed attempt=2`, its declared ceiling is 2, and one code-review round is recorded as authorized
+- **THEN** its two failures in a row are below the ceiling 3 and the checker offers the review's fix stage
+
+#### Scenario: Two rounds authorized
+- **WHEN** two code-review rounds are recorded as authorized and the review's header says `result=failed attempt=3` with three failures in a row
+- **THEN** the run does not end; at `result=failed attempt=4` with four failures in a row it ends blocked with the ceiling 4
+
+#### Scenario: A round authorized for the resolution's review only
+- **WHEN** only a round for a conflict resolution's review is recorded and the review's header says `result=failed attempt=2` with two failures in a row and a declared ceiling of 2
+- **THEN** the run ends blocked, naming the review and its ceiling 2
+
+#### Scenario: Other stages keep their ceiling
+- **WHEN** one code-review round is recorded as authorized and the plan readiness or the evidence says `result=failed attempt=3` with three failures in a row and a declared ceiling of 3
+- **THEN** the run ends blocked at that stage's ceiling 3
+
+#### Scenario: A review stage of another role
+- **WHEN** a script's `review` stage has a role other than `review-bench` (the ADR review of a project), its header says `result=failed attempt=2` with two failures in a row, its ceiling is 2, and a code-review round is recorded as authorized
+- **THEN** the run ends blocked at the ceiling 2
+
+#### Scenario: The flow version's own ceiling is the base
+- **WHEN** a change follows a flow version whose code review ceiling is 1, one code-review round is recorded as authorized, and the review's header says `result=failed attempt=1`
+- **THEN** the run does not end, and at `result=failed attempt=2` with two failures in a row it ends blocked with the ceiling 2
 
 ### Requirement: Every run ends in one of four states or names the next stage
 Each checker run SHALL give either one next stage with its role and the reason, or one end state
@@ -276,9 +312,11 @@ and every task of its `tasks.md` on the default branch is ticked.
 - **THEN** the run ends blocked, naming the pull request
 
 ### Requirement: After a merge the walk resumes at the retro
-Off the change's own branch (a default branch, the archive branch or no branch), in the `pr` and
-`merge` modes, a merged pull request of a delivered change (its own pull request, every task
-ticked on the default branch) SHALL switch the checker to the walk after the merge, which reports
+Off the change's own branch (a default branch, the archive branch or no branch), or on its own
+branch when that branch's head is contained in `origin/<base>` (the branch was advanced into the
+base after the merge), in the `pr` and `merge` modes, a merged pull request of a delivered change
+(its own pull request, every task ticked on the default branch) SHALL switch the checker to the
+walk after the merge, which reports
 every stage before the delivery from its header alone, with no staleness check and no task count,
 passes the delivery and offers the retro. A merged pull request of a change that is not delivered
 SHALL NOT switch it.
@@ -290,6 +328,18 @@ SHALL NOT switch it.
 #### Scenario: A pull request that only links the evidence
 - **WHEN** the checkout is on the default branch and the only merged pull request naming the change links its evidence without changing a file of the change's folder
 - **THEN** the checker does not switch to the walk after the merge and offers no retro
+
+#### Scenario: The own branch advanced into the base after a delivery
+- **WHEN** the change was delivered by its merged pull request, its own branch was fast-forwarded to `origin/main`, and `origin/main` holds a commit touching `src/a.ts` after the reviewed head
+- **THEN** no stage is reported stale, no review or evidence is asked again, and the next stage is the retro
+
+#### Scenario: The own branch still ahead of the base
+- **WHEN** the change was delivered and its own branch holds a commit touching `src/a.ts` that the base does not hold, after the reviewed head
+- **THEN** the checker does not switch to the walk after the merge, and the stages that commit makes stale are reported stale, as before
+
+#### Scenario: Advanced but not delivered
+- **WHEN** the change's own branch was advanced into the base and a task is still unticked on the default branch
+- **THEN** the checker does not switch to the walk after the merge
 
 ### Requirement: The readout is plain text in Portuguese or English
 The checker SHALL print, for a change, each stage with its situation, then the next stage, who runs
@@ -716,3 +766,50 @@ numbers. With no passed header visible, the count SHALL be at least `attempt`.
 #### Scenario: The readout says the failures in a row
 - **WHEN** the checker prints a failed stage, a fix offered after a failure, or a blocked end at the ceiling, in English or in pt-BR
 - **THEN** the stage's line and the reason say the attempt and the failures in a row against the ceiling, in the chosen language
+
+### Requirement: A plan revised after the work started goes back to its gates
+The owner's approval SHALL record a digest of the plan files (`proposal.md`, `design.md`, `tasks.md`
+with every checkbox read as empty, and every `.md` file under `specs/`). Once a task is ticked, a digest
+that differs from the recorded one SHALL make the plan readiness stale until it runs again, and then
+the approval, so the owner approves the revised plan. An approval that records no digest SHALL be read
+as before.
+
+#### Scenario: A design edited after the first tick
+- **WHEN** a task is ticked, `approval.md` records the plan's digest and the readiness it approved, and `design.md` is edited
+- **THEN** the plan readiness is reported stale because the plan changed after the approval, and it is the next stage
+
+#### Scenario: The readiness ran again
+- **WHEN** after that edit the readiness review wrote `readiness.md` again with `- Status: APPROVED`
+- **THEN** the next action waits for the owner's approval again, carrying the new readiness hash and the new plan digest
+
+#### Scenario: A tick is no plan edit
+- **WHEN** a task is ticked after the approval and no plan file changed otherwise
+- **THEN** the plan readiness and the approval stay passed and the implementation goes on
+
+#### Scenario: Evidence and reviews are no plan edit
+- **WHEN** `evidence.md`, `review.md` or a file under `reviews/` is written after the approval
+- **THEN** the plan readiness and the approval stay passed
+
+#### Scenario: A new task is a plan edit
+- **WHEN** a task line is added to `tasks.md` after the first tick
+- **THEN** the plan readiness is reported stale
+
+#### Scenario: An approval with no digest
+- **WHEN** a task is ticked and `approval.md` records no plan digest
+- **THEN** no plan file makes the readiness or the approval stale, as before
+
+#### Scenario: The approval the CompozyOS driver records
+- **WHEN** the owner's approval is recorded by the CompozyOS driver's record step
+- **THEN** `approval.md` carries the plan's digest in its `- Plan:` line, as the approval the session writes does, and a plan file edited after a task is ticked sends that run back to its gates the same way
+
+#### Scenario: The short script
+- **WHEN** a `devkit-lite` change edits a plan file after a task is ticked
+- **THEN** nothing is reported stale and no approval is asked, as before
+
+#### Scenario: A merge-defect fix is a plan edit
+- **WHEN** a task is ticked, `approval.md` records the plan's digest, a merge of the base made the plan's strict validation red, and the planner's fix of that merge defect edits a spec delta
+- **THEN** the plan readiness is reported stale because the plan changed after the approval, exactly as for an edit of `design.md`, and after the readiness runs again the owner is asked to approve again
+
+#### Scenario: A merge-defect fix under an approval with no digest
+- **WHEN** the same fix is made and `approval.md` records no plan digest
+- **THEN** neither the plan readiness nor the approval is reported stale, and the check of the plan after the merge runs again
