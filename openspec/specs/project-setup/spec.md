@@ -13,7 +13,7 @@ already under way.
 The read-only run of `github-setup.mjs` SHALL print one line, naming the cause and what to do, when
 GitHub Actions is disabled for the repository, when GitHub refuses the rulesets for the
 repository's plan, and when the newest workflow runs all failed without any job starting a step.
-It SHALL write nothing without `--apply`, as before.
+It SHALL write nothing without `--apply`, as before. A blocked state SHALL make the run exit 1.
 
 #### Scenario: Actions disabled
 - **WHEN** the repository's Actions permissions answer `enabled: false`
@@ -30,6 +30,14 @@ It SHALL write nothing without `--apply`, as before.
 #### Scenario: Nothing written without apply
 - **WHEN** the plan runs without `--apply` in any of these states
 - **THEN** no `gh api -X` call is made and no file is written
+
+#### Scenario: A blocked state exits 1
+- **WHEN** the plan reports Actions disabled, the runs failed without starting, or the rulesets refused
+- **THEN** the run exits 1
+
+#### Scenario: Nothing blocked
+- **WHEN** no item and no check of the plan is blocked or in error
+- **THEN** the run exits 0
 
 ### Requirement: A GitHub state that cannot be read is named, not blocked
 When the repository's Actions permissions or its newest runs cannot be read, the plan of
