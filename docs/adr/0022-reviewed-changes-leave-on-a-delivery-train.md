@@ -1,7 +1,7 @@
 # ADR 0022: Reviewed changes leave on a delivery train, and the whole suite runs once per train
 
 - Status: accepted
-- Amended by ADR 0031 (0031-release-at-merge.md)
+- Amended by ADR [release-at-merge] (release-at-merge.md)
 - Date: 2026-11-23
 - Change: delivery-train
 - Amends: ADR 0002 (0002-merge-without-the-owner-opt-in.md), the Negative consequence "Strict up-to-date re-runs stale reviews after each base update (Accepted: cost, scoped re-review)" and the "Merge queue" row of its alternatives; ADR 0003 (0003-auto-merge-the-archive-pr.md), the Decision on how an archive pull request reaches the base branch in `merge` mode; ADR 0012 (0012-the-reviews-check-follows-the-change-script.md), decision 4, on what `devkit-reviews` recomputes at the pull request's head; ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md), decision 1, on what the models `trunk` and `trunk-auto` deliver through
@@ -9,7 +9,7 @@
 
 ## Context
 
-Note (release-at-merge, 2026-11-24): ADR 0031 amends decision 3's sentence "Each change branch keeps its own number, so its reviews stay current": a change with a release note (`openspec/changes/<id>/release.md`) carries no number at all on its branch, and the train's join numbers its release and its unnumbered ADR from the note; a change with no note keeps the sentence. The rejected alternative "Renumber releases on each change branch" stays rejected. The Decision is otherwise unchanged.
+Note (release-at-merge, 2026-11-24): ADR [release-at-merge] amends decision 3's sentence "Each change branch keeps its own number, so its reviews stay current": a change with a release note (`openspec/changes/<id>/release.md`) carries no number at all on its branch, and the train's join numbers its release and its unnumbered ADR from the note; a change with no note keeps the sentence. The rejected alternative "Renumber releases on each change branch" stays rejected. The Decision is otherwise unchanged.
 
 ADR 0002 made the `devkit` ruleset require the `check` and `devkit-reviews` checks with the strict
 up-to-date rule, and accepted the cost that every update of a branch from its base re-runs the
