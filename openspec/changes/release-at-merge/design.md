@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=6 commit=9b67c11f446bfd8f24407556df9c082589acd50f -->
+<!-- devkit-stage design result=passed attempt=8 commit=98ffb172675d7d320587e3c7d2ca8f51ae6ec410 -->
 # Design
 
 Change: `release-at-merge` · Date: 2026-11-24 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -32,6 +32,25 @@ change already edits are taken (D-30). "Findings of review round 2", after round
 finding its answer; phase 10 of `tasks.md` carries the work. The numbering is done (task 9.17): no
 plan file and no task writes a version or an ADR number, and if the base moves the delivery's
 `assign-release` step runs again.
+
+**Revised after review round 3** (`review.md`, FAIL at `e2efd38`, the round the owner authorized,
+escalated), at `98ffb17`. The round's open findings all come from the merge `7a92080` of
+coordinator-loop-fixes (now on `main`, merged into this branch, not archived) where it meets this
+change, and from the hand give-back `13e44cc`. Four fixes, each its own decision: a noted change whose
+pull request conflicts with the base outside its release lines goes to coordinator-loop-fixes'
+`resolve-base-conflict`, whose merge takes the base's side of every release line, and then to
+`assign-release` (D-31); the `plan-revised` rule reads the approval without the note, so a plan
+revised with its note goes back to the readiness review first (D-32); this change's MODIFIED block of
+the `change-coordination` requirement both changes modify is rebuilt on coordinator-loop-fixes' text,
+and every other MODIFIED block is checked against the other open changes (D-33); and the give-back
+works at the token level, so a citation the step wrote on a one-line list the base extended is given
+back and numbered again with no give-back by hand (D-34, revised after the readiness review of attempt
+8, B-1, which also settled the class of conflict that keeps `assign-release`, B-2, in D-31). D-35
+lists the tests, D-36 the real runs. "Findings
+of review round 3" gives every finding its answer; phase 11 of `tasks.md` carries the work. The
+numbering is still done (the step's run `6836ad2` over train 19): no plan file and no task writes a
+version or an ADR number, and if the base moves again before the delivery, the numbering step runs
+again, this worktree's `release-merge.mjs --assign`, with its record (D-17, D-20, D-36).
 
 ## Context
 
@@ -372,7 +391,10 @@ change's worktree; exit 0: `git push origin <next.branch>` (plain, never a force
 again; exit 2: stop `blocked: item 5 (<the JSON's error or conflicts>)`. The `devkit` skill's Loop
 bullet for `session` adds: an `assign-release` exit 2 is declared with `... reply blocked --param
 id=<id> --param why=pr-problem ...`, shown with the JSON's `error`, and ends the run. The new text
-avoids the word that test 16 of `change-loop-compozy.test.mjs` forbids in the skill.
+avoids the word that test 16 of `change-loop-compozy.test.mjs` forbids in the skill. (Revised at
+review round 3, D-31: `deliveryRow` gives a noted change the override `assignConflict` in place of
+`releaseConflict`, which hands a conflict outside the release lines to `resolve-base-conflict`, and an
+exit 2 that lists conflicts and names no error is followed by `next` again, not by the blocked end.)
 
 ### D-11 The planner's failure and who sees it
 
@@ -763,7 +785,9 @@ equals the record's and differs from the merge base's.
 (the pack manifests, the marketplace, `CHANGELOG.md`, `PIN_FILE`, the release file and each
 `Release-adr` `from` path); the record's `Release-citation` paths are given back together with the
 `Release-adr` entry they belong to when that entry's key is in `reassign`, and never become keys the
-state compares (readiness attempt 5, O2). Only the record's `Release-adr` and `Release-citation`
+state compares (readiness attempt 5, O2). The give-back merges whole lines, so a line the base also
+changed where the step wrote a number conflicts there; phase 11 then gives such a path back span by
+span (D-34). Only the record's `Release-adr` and `Release-citation`
 entries so selected go through the three-way give-back below. A `Release-line` key in `reassign` (a pack or
 marketplace version, `CHANGELOG.md`, the CI pins, the release file's `version`, kept from the
 branch's side of a merge by hand) is left to step 3, which writes every release line from
@@ -814,7 +838,9 @@ paragraph say what follows exit 2 for a conflict outside the release lines: the 
 conflict (the versions, the `CHANGELOG.md` entries, the CI pins), commits, and runs the loop again;
 the step then numbers the branch above the base from its record. The records go stale at that merge
 when it resolves a conflict in one of the change's own files (ADR 0025 decision 2); the step's commit
-after it stales nothing more.
+after it stales nothing more. (Revised at review round 3, D-31: the loop hands this merge to the
+implementer as `resolve-base-conflict` before the step runs, so a person makes it only when the run
+stopped.)
 
 **The record of the decision.** `ADR [release-at-merge]` decision 6 refuses "anything else" as
 edited by hand and derives the state "with no marker commit"; D-20 adds an outcome (a value the
@@ -951,7 +977,11 @@ a folder outside that layout names no setting. Callers that pass `release` keep 
 `release` among its fields) when the readiness hash matches and the note's does not;
 `acceptDecisions` refuses with the same words. The object of a change with no note keeps its four
 keys (T-13). The rule is the ADDED requirement "Every reader of the plan approval checks the release
-note", whose scenario "A folder outside a project's layout" pins the last case.
+note", whose scenario "A folder outside a project's layout" pins the last case. (Revised at review
+round 3, D-32: one reader leaves the note out on purpose, `flow-check.mjs`'s `approvalOk`, the
+precondition of coordinator-loop-fixes' `plan-revised`, which reads `approvalState(dir, { release:
+false }).ok`, so a plan revised with its note goes back to the readiness review first and the note
+is asked at the approval after it.)
 
 ### D-23 A `## ` line in the changelog body is refused (code-quality nit F5)
 
@@ -1285,6 +1315,567 @@ code-quality nit F10 (the merge `a47cec8` resolved two conflicts outside `opensp
 did not expect, on the coordinating session's word, where task 9.1 says to stop for the owner) is a
 process point with a correct result, flagged for the owner (F-11), with no task.
 
+### D-31 A noted change's conflict outside its release lines goes to `resolve-base-conflict`, then `assign-release` (review round 3: adr-reviewer F11, spec-reviewer F12, test-coverage nit F25)
+
+**The finding.** Since the merge `7a92080`, coordinator-loop-fixes hands `resolve-base-conflict` to a
+change whose pull request conflicts with the base outside the release files (its D-5; ADR 0032
+decision 5), but a change with a release note never reaches it: row N5 answers `assign-release` in
+place of the conflict stop, so the conductor's override, which acts on `blocked` item 5, never sees
+the conflict; `deliveryRow` skips `releaseConflict` for a noted change anyway (D-10); and `--assign`'s
+exit 2 then ends the run blocked (`why=pr-problem`) for a merge by hand. ADR 0032 decision 5 names
+every pull request. `ADR [release-at-merge-step-record]` decision 8's merge by hand (merge the base,
+resolve the files, take the base's side of every release line in conflict, commit, run the loop
+again) is the merge `resolve-base-conflict` makes once its brief takes the base's side of every
+release line, so both records hold when the loop hands that merge to the implementer. No record is
+edited for this routing (the dated note of D-34 records the give-back's span-level fallback, not
+the routing). A conflict the step's own masked merge resolves keeps going to
+`assign-release` directly.
+
+**Revised after the readiness review of attempt 8 (B-2).** The class that keeps `assign-release` is
+"a conflict the step's masked merge resolves", in the spec, the texts and the code alike: the
+release files the step keeps on the base's side, the CI pins and the release file it merges with
+their versions masked, and each text holding the change's own numbers whose merge with those
+numbers masked is clean. A text whose masked merge conflicts is blocking, a citation line of the
+change's own records among them: a one-line list both sides extended (the `ADRs:` line of
+`openspec/config.yaml` once the base lands a record) is a conflict of two entries on one line that
+no mask resolves (`git merge-file` of `(0001 first)` against `(0001 first; ADR [feat] the rule)`
+and `(0001 first; 0002 other)` exits 1, readiness attempt 8, section 4, run again for this
+revision). So it goes to `resolve-base-conflict`, whose merge keeps both entries with the branch's
+text as the branch holds it, and the `assign-release` that follows gives the step's numbers back at
+the token level (D-34) and exits 0, numbered above the base. There is one reading, and the full path
+has a scenario, a conduct test, a release-merge test, a scripted case (P-14 (d)) and a real
+implementer case (S-13 (b)).
+
+**Where the routing changes.**
+
+1. **N5's detail** (`plugins/openspec/hooks/deliver-check.mjs`, `nextStep`). The local `assign(reason)`
+   becomes `assign(reason, extra = {})`, spreading `extra` after `command`; the N5 return for a
+   conflict becomes `assign(it(5).reason, { conflict: true })`. The N5 return for a branch behind and
+   the N6 return are unchanged, with no `conflict` key. The conductor reads the field to apply the
+   two checks that need GitHub's report (below); the loop and the session pass it through.
+2. **The step's classification, shared** (`plugins/openspec/hooks/release-merge.mjs`). Three exports,
+   so the conductor and the step classify one conflict by one rule:
+   - `ownRecords(reader, side, adrs)`: `numberRelease`'s `own` (the `flatMap` over `reader.dir(side,
+     a.folder)` that finds the one `<NNNN>-<slug>.md` of each listed record), moved with its body
+     unchanged; `numberRelease` calls `ownRecords(reader, side, state.adrs)`.
+   - `assignBlocking(root, { side, target, mergeBase, conflicts, own, file, merging = false })`,
+     returning `{ blocking, masked, keepTarget, roadmapMerged }`: the classification of
+     `numberRelease`'s step 2, moved with its body unchanged (the loop over `git diff --name-only
+     --no-renames <mergeBase> <side>` that merges each text the side numbered with its numbers masked
+     into `masked`, or into `blocking` when that merge conflicts; then the loop over `conflicts`: a
+     release file keeps the target's side, `keepTarget`, unless it is `docs/catalog.md` with no
+     generator or a manifest edited beyond its versions; the file `file` is merged with its version
+     masked; the roadmap is merged only with `merging`; any other path is blocking). A path whose
+     masked merge is clean is in `masked` and never blocking; one whose masked merge conflicts is in
+     `blocking` even when it holds only the change's own citations and the base's entries (B-2
+     above). It reads
+     `hasGen` and `targetPin` itself from `root` and `target`, the way `numberRelease` reads them
+     (which keeps its own reads for step 3), and its `unassign` is `maskCitations(text, path, own)`.
+     It writes nothing in the repository: it reads revisions and merges texts in a temporary folder
+     it removes (`mergeTexts`). `numberRelease` replaces those lines with `const { blocking, masked,
+     keepTarget, roadmapMerged } = assignBlocking(root, { side, target, mergeBase, conflicts, own,
+     file, merging })` and keeps every other line, its refusal `refuse({ conflicts: [...new
+     Set([...conflicts, ...blocking])] })` and its rename-back loop (which keeps its own `unassign`)
+     included.
+   - `assignBlockingAt(root, { target, conflicts, id, file })`, returning the sorted, de-duplicated
+     `blocking` for the working tree's `HEAD`: `mergeBase` from `git merge-base HEAD <target>`; the
+     records from `changeAdrs(root, null, id)`, each `from` mapped to `{ from, folder, slug }` as
+     `computeRelease` derives them; `own` from `ownRecords(repoReader(root), 'HEAD', ...)`; then
+     `assignBlocking(root, { side: 'HEAD', target, mergeBase, conflicts, own, file }).blocking`.
+3. **The conductor's noted override** (`plugins/openspec/hooks/conduct-check.mjs`). It imports
+   `assignBlockingAt` beside `classifyConflict`. A new `assignConflict(ctx, row, state, report)`, and
+   `deliveryRow`'s override line becomes `adrClash(ctx, row, noted) ?? (noted ? assignConflict(ctx,
+   row, d.state, d.report) : releaseConflict(ctx, row, d.state, d.report)) ?? trainRejoin(ctx, row,
+   d.state, d.report)`. `assignConflict`, first match wins:
+   - `report.next.step` is not `assign-release`: null.
+   - `report.next.conflict === true` and `unpushedMerge(row.worktree, ctx.ref, pr)` (`pr` =
+     `openPrOf(state)`): `step('push', 'the merge of <ctx.ref> is not pushed yet; PR #<n> still has
+     <7 hex>', { number, branch: state.branch, command: ['git', 'push', 'origin', state.branch] })`, a
+     plain push, as `releaseConflict` gives for a change PR. So coordinator-loop-fixes' scenario "The
+     resolution is pushed plainly" (the evidence, the review, then `push`) holds for a noted change
+     too, and `assign-release` follows the push.
+   - `conflictedPaths(row.worktree, ctx.ref)` errs: with `conflict: true` the stop of
+     `releaseConflict` for item 5 (`item 5 (cannot classify the conflict: git merge-tree
+     --write-tree needs git 2.38)`, with `blockedState`); without it null (the step runs as before).
+   - Clean: with `conflict: true` and a pull request head that is not an ancestor of `HEAD`, the stop
+     of `releaseConflict` (`item 5 (PR #<n> head <7 hex> is not in local history)`); else null
+     (`assign-release` stays: the step merges the base itself, which is why a clean merge GitHub
+     reports in conflict gives no `update-branch` to a noted change).
+   - Conflicted: `others = assignBlockingAt(row.worktree, { target: ctx.ref, conflicts: found.paths,
+     id: row.id, file: state.release?.file ?? null })`. Empty: null (`assign-release` stays). Else
+     `step('resolve-base-conflict', 'the PR conflicts with <ctx.base> outside the release lines the
+     release step writes: <others joined by ", ">', { number: pr?.number ?? null, paths: <found.paths
+     sorted>, others, base: ctx.base, archive: false, noted: true })`.
+
+   It acts on every `assign-release`, N5 and N6 alike, so a branch GitHub reports only behind, whose
+   merge of the base the loop just fetched would conflict outside the release lines, gets
+   `resolve-base-conflict` before the step runs. The comments of `deliveryRow` ("A change with a
+   release note gets no release-file conflict override") and of `releaseConflict` gain the noted
+   case. `actorOf('resolve-base-conflict')` is unchanged (the implementer).
+4. **What follows, in the loop** (no code: the rows exist). The implementer merges and commits
+   without pushing; `verify` and `review` come first when the merge staled the records (ADR 0025
+   decision 2); GitHub still reports the conflict at the old head, so N5 answers `assign-release`
+   with `conflict: true` and `assignConflict` gives `push`; after the push the release state is not
+   current (the merge base moved), so N6 answers `assign-release`; `assignConflict` finds the merge
+   clean and keeps it; the step finds the base in the branch, gives back what its record names and
+   numbers the branch above the base (D-20), and the session pushes it plainly. For a one-line list
+   the base extended where the step wrote the change's numbers, `others` names that file, the
+   implementer's merge keeps both entries on the line with the branch's text as the branch holds it
+   (the numbers the step wrote included), and the give-back of that file, whose whole-text merge
+   conflicts on that line, gives the step's numbers back span by span (D-34): exit 0, the records
+   numbered above the base's, the line holding both entries with the new numbers.
+5. **The session's exit 2** (texts). The step can still meet a conflict outside its lines when the
+   base moved between `next`'s fetch and the step's own fetch. Its JSON then lists `conflicts` and
+   holds no `error`; the session runs `next` again, which fetches the base and hands
+   `resolve-base-conflict`. An exit 2 with an `error` (a hand edit, an unlanded citation, a number it
+   cannot give back) ends the run blocked as before. A second `assign-release` at the same progress
+   key ends the run as a step that made no progress (change-coordination, "The same step back with
+   nothing changed"), so the rule cannot loop.
+6. **The implementer's brief.** The `ship-change` row `resolve-base-conflict` is the dispatch
+   sentence (coordinator-loop-fixes D-5); with `next.noted` it takes the base's side of every release
+   line in conflict, keeps on a line where the base's entries meet the change's own citations the
+   entries of both sides with the branch's text as the branch holds it, and writes no number.
+   `plugins/core/agents/tdd-implementer.md`'s "Never" bullet
+   that forbids a release line in a noted change gains a sentence that such a merge is not that
+   edit, so the agent does not refuse the brief; the kit's copy is generated from it.
+
+**The spec.** In `change-coordination`: the ADDED requirement "The release assignment is a session
+step of the delivery" says what follows an exit 2 with an error and one that lists conflicts, with the
+scenario "The command meets a conflict the base brought after `next`"; the new ADDED requirement "The
+conductor classifies a noted change's conflict by the release step's rule" holds the routing, with
+the scenarios "A noted change in conflict outside the release files", "A noted change behind a
+base it conflicts with" and "A noted change whose base extended a one-line list holding its own
+citation" (B-2); the MODIFIED blocks "From the implementation on, ..." (D-33) and "The loop
+fetches the base branch before it judges a delivery step" (one clause and the scenario of a conflict
+outside the release lines) follow. In `change-delivery`: the scenario "The pull request in conflict
+with the base" of "With no train the release is assigned by one step before the merge" carries
+`conflict` true, and "The release step records what it wrote and numbers again after a merge by
+hand" gains the scenario of D-34.
+
+**The texts, word for word** (task 11.4; each found by its text, not by a line number):
+
+- `plugins/openspec/skills/ship-change/SKILL.md`, the whole `assign-release` row becomes:
+  ``| `assign-release` | `git fetch origin <next.base>`, then run `next.command` in the change's worktree: it merges the base, writes the release lines and the ADR numbers from `release.md` and commits them. Exit 0: `git push origin <next.branch>` (a plain push, never a force push), then continue the loop. Exit 2: stop as `blocked: item 5 (<the JSON's error>)`, unless the JSON lists `conflicts` and holds no `error`: that is a conflict outside the release lines the base brought after `next` judged it, so run `next` again, which hands `resolve-base-conflict`. When the conflicts lie outside the release lines, the way on is a merge by hand, which the loop hands to the implementer as `resolve-base-conflict`: merge `origin/<next.base>` by hand, resolve those files, take the base's side of every release line in conflict (the versions, the `CHANGELOG.md` entries, the CI pins), commit, and run the loop again; the step then numbers the branch above the base from its own record (the `Release-` trailers of its own commits, each line read from the newest one that wrote it). |``
+- the same file, the `resolve-base-conflict` row: after "the catalog regenerated)" insert ", or, with
+  `next.noted` (a change with a release note), by taking the base's side of every release line in
+  conflict (the versions, the `CHANGELOG.md` entries, the CI pins, `docs/catalog.md`), by keeping,
+  on a line where the base's entries meet the change's own citations (such as a one-line list of
+  records both sides extended), the entries of both sides with the branch's text as the branch
+  holds it, numbers included, and by writing no version and no ADR number, since `assign-release`
+  gives back and numbers the branch after the merge"; the rest of the row unchanged.
+- the same file, the `app` bullet of "## Hosts": "is the other exception: `next` answers its conflict
+  with the base with `assign-release` (row N5), and the session runs that row." becomes "is the other
+  exception: `next` answers its conflict with the base with `assign-release` (row N5), or with
+  `resolve-base-conflict` when the conflict lies outside the release lines, and the session runs that
+  row."
+- `plugins/openspec/skills/devkit/SKILL.md`, the Loop's `session` bullet: the sentence that starts "An
+  `assign-release` step whose command exits 2" and ends "and ends the run." becomes "An
+  `assign-release` step whose command exits 2 with an `error` in its JSON (a release line edited by
+  hand, an ADR cited before it landed, a number it cannot give back) is declared with `node
+  <skill-dir>/../../hooks/change-loop.mjs reply blocked --param id=<id> --param why=pr-problem --lang
+  ${user_config.language}`, shown with the JSON's `error` field, and ends the run; one whose JSON
+  lists `conflicts` and holds no `error` (a conflict outside the release lines that the base brought
+  after `next` judged it) runs `next` again, which hands `resolve-base-conflict`." It holds none of the
+  words `change-loop-compozy.test.mjs` "release-merge-conflict 16" forbids in the skill.
+- `docs/openspec-flow.md`, the bullet "**Release-file conflict.**": at its end, the sentence "For a
+  change with a release note, in a project that names `devkit.release_tag` and has no delivery train,
+  the delivery checker answers `assign-release` instead (row N5 of "The release note", with `conflict:
+  true` when GitHub reports the conflict), and the override classifies the merge of `origin/<base>` by
+  the release step's own rule (`assignBlockingAt` of `release-merge.mjs`): a conflict the step's
+  masked merge resolves (the release files, the CI pins, the file `devkit.release_tag` names, and a
+  text holding the change's own numbers whose merge with those numbers masked is clean) keeps
+  `assign-release`; any other path, a one-line list of records both sides extended among them,
+  gives `resolve-base-conflict` with `noted: true`, whose merge takes the base's side of every
+  release line in conflict, keeps the entries of both sides on such a list with the branch's text
+  as it holds it, and writes no number, then the plain push above, then `assign-release`, which
+  gives back and numbers the branch from its record; a branch only behind a base whose merge would
+  conflict outside those lines gets `resolve-base-conflict` too."
+- the same file, the `--assign --base <base>` bullet: "After exit 2 for a conflict outside the release
+  lines, the way on is a merge by hand: merge `origin/<base>`," becomes "After exit 2 for a conflict
+  outside the release lines, the way on is a merge by hand, which the loop hands to the implementer
+  as `resolve-base-conflict` once `next` sees the conflict (the session runs `next` again after such
+  an exit 2): merge `origin/<base>`,"; the rest of the sentence unchanged.
+- the same file, row N5 of "The release note": the cell "`assign-release` (`number`, `base`, `branch`,
+  `command`), in place of `update-branch` and of the conflict stop" becomes "`assign-release`
+  (`number`, `base`, `branch`, `command`, and `conflict: true` in place of the conflict stop), in place
+  of `update-branch` and of the conflict stop; the conductor hands a conflict outside the release
+  lines to `resolve-base-conflict` (see "Release-file conflict")".
+- the same file, the `assign-release` row of the merge-mode step table: "exit 2 stops as `blocked:
+  item 5`. It stands" becomes "exit 2 stops as `blocked: item 5`, except an exit 2 that lists
+  conflicts and names no error, after which `next` runs again and hands `resolve-base-conflict`. It
+  stands".
+- the same file, the troubleshooting row `blocked: item 5`: after "(`resolve-base-conflict`)" insert
+  "; for a change with a release note, `assign-release` merges itself what its masked merge resolves
+  and any other conflict goes to `resolve-base-conflict`, whose merge takes the base's side of every
+  release line".
+- `plugins/core/agents/tdd-implementer.md`, the "Never" bullet that starts "In a change that has
+  `release.md`": after "the delivery writes them once, at the merge." insert " Taking the base's side
+  of such a line in a merge of the base, or keeping beside the base's entries the change's own
+  citations as the branch holds them (the `resolve-base-conflict` hand-off of such a change), writes
+  no number of the change and is not such an edit."; then `node
+  plugins/compozy/kit/scripts/gen-agents.mjs` regenerates the kit's copy.
+
+A `grep` of the test files at `98ffb17` for the replaced phrases ("a conflict outside the release
+lines, an ADR cited", "exit 2 stops as", "(row N5), and the session runs that row", "Exit 2: stop
+as") finds two readers: "release-note AC-4 format: ship-change's assign-release row ... names the
+merge by hand" (`deliver-check-cli.test.mjs`), whose asserted parts the new row keeps in their order,
+and coordinator-loop-fixes T50 (`change-loop-declared.test.mjs`), whose asserted parts of the
+`resolve-base-conflict` row stay. No existing test changes for D-31.
+
+**Alternatives.** (a) Classify a noted change's conflict with `classifyConflict`, the old rule's:
+rejected, because it judges a manifest edited beyond its version as a release file the step refuses,
+and a citation line the step's masked merge resolves as a conflict outside the release files, so the
+conductor and the step would disagree (an `assign-release` the step refuses with conflicts, then the
+no-progress end; or a hand merge the step would have made itself). (b) Route only after the step's
+exit 2, the session handing `resolve-base-conflict` itself: rejected, the loop's next action is
+derived by the code that decides it, from the change's files, git and GitHub (ADR 0017 decision 1),
+not chosen by the session from a command's output. (c) A dated note narrowing ADR 0032 decision 5
+for noted changes: rejected, it keeps every noted change without the declared resolve step the
+record names, and the routing costs one override.
+
+### D-32 The `plan-revised` rule reads the approval without the note (review round 3: adr-reviewer F12, spec-reviewer F13, test-coverage F23 and nit F26)
+
+**The finding.** coordinator-loop-fixes' D-7 makes the readiness stale with `plan-revised` when the
+work started, the approval is ok and a plan file changed since the approval's `- Plan:` digest
+(`flow-check.mjs` `artifactState`, the test `facts.approvalOk && facts.planRevision?.changed`).
+`collectFlow` sets `approvalOk` from `approvalState(located.dir).ok`, and since D-22 that reads the note
+too. So for a started noted change whose plan files and `release.md` both changed after the approval,
+`approvalOk` is false, `plan-revised` never fires, and row A1 asks the owner to approve a revised plan
+no readiness review saw: against ADR 0032 decision 7 (a plan edited after the start sends the plan
+back to its gates) and against `ADR [release-at-merge]` decision 2, which asks only the approval again
+for an edit of the note.
+
+**The fix.** In `plugins/openspec/hooks/flow-check.mjs` `collectFlow`: `approvalOk:
+approvalState(located.dir, { release: false }).ok`, and the comment above the line gains "(D-32 of
+release-at-merge: whether the owner approved this readiness review; a note changed with the plan is
+asked at the approval after the readiness runs again)". It is the one reader that asks whether the
+current readiness was approved, not whether the whole approval still covers the change, so it leaves
+the note out. The paths: plan files and the note changed after the start: `plan-revised`, the
+readiness review runs again, its new hash makes the approval not ok, the readiness is no longer stale,
+and `nextStep` gives `stop-plan-approval` carrying `readiness`, `plan` and `release`; the owner
+approves both. Only the note changed: the plan digest is unchanged, no `plan-revised`, row A1 as
+before. A change with no note: `release: false` adds no key and changes nothing. The conductor's
+planning row, `accept-decisions` and the delivery checker keep reading the note (D-22).
+
+**The texts.** D-22 gains one sentence (above); the ADDED requirement "Every reader of the plan
+approval checks the release note" gains one sentence naming this reader as its one exception, and the
+new ADDED requirement "A plan revised with its note after the start goes back to the readiness
+review" (`change-delivery`) states the rule, with the scenarios "A plan and its note revised after
+the work started" and "Only the note revised after the work started".
+The flow page needs no edit: its "The release note" paragraph names the conductor's `approve` row and
+`accept-decisions` as readers, and no sentence of it says the stage walk's `plan-revised` reads the
+note. The test "release-note AC-12 row A1: a note changed after the approval asks the owner again,
+with no task ticked and with tasks ticked" asserts `plan` beside `release` (test-coverage nit F26).
+
+**Alternative.** A roadmap follow-up and the code as merged: rejected, the reviewers' blocking
+finding names a one-argument fix at one call site, and the gap sends a revised plan to the owner
+without its readiness review.
+
+### D-33 The shared `change-coordination` block, and the other MODIFIED blocks (review round 3: spec-reviewer F11)
+
+**The finding.** coordinator-loop-fixes and this change MODIFY the same requirement, "From the
+implementation on, the step inside the stage goes to its role", and each archive replaces the whole
+block. This change's block kept the text before coordinator-loop-fixes (the override "(a
+release-file conflict)", the scenario "A conflict in any other file" ending blocked, "A phase gate"
+ending blocked on a red run, no "A conflict git cannot classify", no "A task the conducting session
+does"), so archiving it after coordinator-loop-fixes would revert that change's requirement.
+
+**The block, rebuilt.** The block in `specs/change-coordination/spec.md` is coordinator-loop-fixes'
+block (`openspec/changes/coordinator-loop-fixes/specs/change-coordination/spec.md`, at `98ffb17`),
+copied verbatim, with only these lines of this change: the intro's last sentence (a noted change
+behind its base or in conflict with it, when every conflict of its merge with that base is one the
+release step's masked merge resolves, goes to `assign-release`; any other conflict, a branch behind
+a base whose merge conflicts elsewhere included, to `resolve-base-conflict`, then `assign-release`,
+D-31, worded so after the readiness reviews of attempt 8, B-2, and attempt 9, its first Low item);
+", and the change carries no release
+note" at the end of the WHEN of "A conflict only in release files", "A conflict in any other file"
+and "GitHub reports a conflict the base merges cleanly" (a noted change's conflict is classified by
+the step's own rule, D-31); and two scenarios after "GitHub reports a conflict the base merges
+cleanly": "A change with a release note in conflict only in its release lines" and "A change with a
+release note in conflict outside its release lines". The old scenario "A change with a release note
+in conflict with its base" (exit 2, then blocked) is gone. A requirement-by-requirement comparison of
+the two blocks at `98ffb17` shows those lines and nothing else (the B-2 rewording changes only
+this change's intro sentence and the WHEN of its first noted scenario, so coordinator-loop-fixes'
+text stays verbatim and `98ffb17` stays the base task 11.1 compares). coordinator-loop-fixes' block in turn
+differs from the canonical one only by its own lines, so the canonical text is carried through.
+If coordinator-loop-fixes is archived before task 11.1 runs, the block's base is the canonical
+requirement then, and task 11.1 stops for the plan to be rebuilt on it.
+
+**The archive order.** If coordinator-loop-fixes archives first, the canonical block becomes its
+text, and this change's archive replaces it with that same text plus this change's lines: both
+kept. If this change archives first, the canonical block holds both, and coordinator-loop-fixes'
+later archive would replace it with its own block and drop this change's lines; so, then, that
+change's session carries this change's lines into its block before its archive. The conducting
+session relays it to that session, as coordinator-loop-fixes D-7 did for post-merge-validate
+(`tasks.md`, "Workflow follow-up"). This change writes no file of coordinator-loop-fixes.
+
+**Every other MODIFIED block of this change.** Compared at `98ffb17` with the canonical requirement
+of the same name and with the MODIFIED blocks of every open change (coordinator-loop-fixes,
+project-setup, archive-release-pin):
+
+| Capability | Requirement | Other open change modifying it | Canonical text kept |
+|---|---|---|---|
+| change-coordination | A requirement a merged change contradicts reopens the grill | none | yes, only this change's lines added |
+| change-coordination | The loop fetches the base branch before it judges a delivery step | none | yes; this revision adds one clause and one scenario (D-31) |
+| change-delivery | An ADR number taken on the default branch is renumbered without the owner | none | yes |
+| change-delivery | A plain commit on the branch keeps its rule | none (coordinator-loop-fixes modifies "A change's own pull request") | yes |
+| change-stages | A plan stage is stale after a plan file changes, until the work starts | none (coordinator-loop-fixes modifies "Attempt ceilings and no progress stop the run" and "After a merge the walk resumes at the retro") | yes |
+| delivery-train | Release numbers follow the boarding order on the train only | none | yes |
+| reviews-check | The train's own commits change only releases, the roadmap and its record | none (archive-release-pin only ADDs reviews-check requirements) | yes |
+
+Two ADDED requirements of coordinator-loop-fixes meet this change's and now agree with them: "A
+conflict outside the release files goes to the implementer" (a noted change gets it, the evidence,
+the review and the plain push follow, then `assign-release`; D-31) and the `change-stages` "A plan
+revised after the work started goes back to its gates" (a plan revised with its note goes back to
+the readiness review; D-32). project-setup modifies two other `change-coordination` requirements
+("The devkit command reads its verb", "The command runs only in a project set up for devkit").
+
+### D-34 The give-back at the token level (review round 3: adr-reviewer F13, test-coverage F24, spec-reviewer nit F14; readiness attempt 8: B-1, B-2)
+
+**The limit.** D-20's give-back runs `git merge-file` over whole texts (the path at the record's
+commit, the working text, the record commit's text with its numbers masked). A line where the step
+wrote a number and that changed since in the working text conflicts. A one-line list of records is
+the common case of a base edit on that line: the `ADRs:` line of `openspec/config.yaml` holds every
+record, so every change that lands one appends to the very line where the step wrote this change's
+numbers. After a merge of such a base (by hand, or by the implementer's `resolve-base-conflict`,
+D-31), today's step exits 2 (`cannot give back the numbers the step wrote in
+openspec/config.yaml`) with the tree restored. `13e44cc` met it on this branch and gave the release
+back by hand, which is the alternative `ADR [release-at-merge-step-record]` rejected ("Keep refusing
+and document a manual recovery": the person hand-edits release lines, which `ADR [release-at-merge]`
+decision 1 forbids). The readiness review of attempt 8 (B-1) refused to write that recovery into the
+flow page; the coordinating session chose its option (b): the token-level give-back is built in this
+phase, no give-back by hand is documented anywhere, and the roadmap gains no line for it.
+
+**What the record already gives.** The step's record (`ADR [release-at-merge-step-record]` decisions
+1 to 5) names, per key, the commit that wrote it: each `Release-adr` rename with its commit, and each
+`Release-citation` path with the newest recorded commit that changed it (`stepRecord`, the per-key
+reading of the 2026-11-25 note). `numberRelease`'s give-back has, per path, `recorded` (the path's
+text at that commit; for a renamed record, its `to` path there), `working` (the path's text now)
+and `numbers` (the `{ number, slug }` of each record the give-back moves back, `back`). Nothing new
+is recorded and no trailer changes.
+
+**The spans the step wrote.** In `recorded`, the spans are the matches of the two written forms of
+each `{ number, slug }` of `numbers`, with the boundaries `maskCitations` applies: `ADR <number>`
+(`(?<![A-Za-z0-9])ADR <number>(?![0-9])`), given back as `ADR [<slug>]`, and the file form
+`<number>-<slug>.md` where `adrFileRe('<number>-<slug>', path)` matches it, given back as `<dir><slug>.md`
+(its folder part kept). These are exactly where `recorded` and `maskCitations(recorded, path,
+numbers)` differ, the text today's merge already uses as its third side. They are the spans the
+step's commits wrote: at a recorded commit each such number was this change's alone, because the step
+numbers above its target, which therefore held no record with it, so no other citation of that text
+holds it. A span is either in that commit's diff against its first parent (the commit wrote it,
+`ADR [<slug>]` -> `ADR <NNNN>` or `<slug>.md` -> `<NNNN>-<slug>.md`) or was kept there from an
+earlier step commit of the change, which the 2026-11-25 note counts as the step's own too.
+
+**Where they are found now.** In `plugins/openspec/hooks/release-merge.mjs`, a new pure export
+`givenBackBySpan({ recorded, working, base, path, numbers })`, returning the given-back text or
+null, and `numberRelease`'s `givenBack(commit, path, working)` keeps its first two lines and becomes
+`theirs === recorded ? working : (mergeTexts(recorded, working, theirs, 'devkit-release-') ??
+givenBackBySpan({ recorded, working, base: show(root, mergeBase, path) ?? '', path, numbers }))`. So
+every case today's whole-text merge gives back cleanly is given back as before (the existing tests
+of D-20 and D-26 keep their outcome), and only a path whose whole-text merge conflicts is given back
+span by span. `base` is the path's text at the merge base, which with no merge to make is the base's
+tip (`origin/<base>` is in the branch): it holds no span the step wrote, since the change has not
+landed. `givenBackBySpan`, for each span `s` of `recorded` (start `a`, end `b`, on the line of
+`recorded` from `ls` to `le`, the line break excluded):
+
+1. A window is `recorded.slice(x, y)` with `ls <= x <= a` and `b <= y <= le`. It occurs in a text at
+   an index `q` when the text holds the window there and the span inside it, at `q + (a - x)`, still
+   matches its written form's regex at that index in that text (the same boundaries as above).
+2. Left first: for `x` from `a` down to `ls` (with `y = b`), count the window's occurrences in
+   `working` (`nW`) and in `base` (`nB`); stop at the first `x` with `nW === 1` and `nB === 0`:
+   the span is located at `q + (a - x)` of that one occurrence. Stop the left growth without a
+   location when `nW` is 0 (a longer window cannot occur either).
+3. Then right, when the left growth located nothing: for `y` from `b + 1` up to `le` (with `x = a`),
+   the same test and the same stop.
+4. A span located by neither is unlocated. When any span of the path is unlocated, or two spans are
+   located at overlapping indexes, the function returns null, and the step refuses as today: exit 2,
+   `cannot give back the numbers the step wrote in <path>`, the branch at its old head with the tree
+   as it was (`refuse` restores `touched`).
+5. Otherwise each located span is replaced, from the last index to the first, by its given-back
+   form, and the text is returned. Every other character of `working` stays as it is, the base's
+   entries on the same line included.
+
+The window stays on the span's line, so a span costs at most one scan of `working` and one of
+`base` per character of its line, and only for a path whose whole-text merge conflicted.
+
+**A base's own record with the same number is never touched.** Take project-setup's ADR 0031
+against this change's earlier 0031 (`e633b9a`): after the base took 0031, the working text can hold
+`0031` for both. (1) Only spans of `recorded` are given back, and at the recorded commit 0031 was
+this change's alone; the base's citations of its own 0031 came after it. (2) Each span is located
+by a window of `recorded` that occurs exactly once in `working` and nowhere in `base`. A citation the
+base wrote of its own record is in `base` with the text around it, so a window that matches it there
+is never accepted: the window grows into the text only `recorded` has around the step's span (the
+words of this change's entry), or the step refuses. (3) In this repository the base's entries of the
+`ADRs:` line are written `0031 one setup verb ...`, without the `ADR ` the step writes, so they do not
+even match the step's written form; the test of the same form on the same line (D-35) covers a base
+that writes it anyway.
+
+**Worked on the one-line list** (the D-35 test). `recorded`: `  ADRs: docs/adr/ (0001 first; ADR 0002
+the rule)`; the merge keeps both entries: `working` `  ADRs: docs/adr/ (0001 first; ADR 0002 the rule;
+0002 other)`; `base` `  ADRs: docs/adr/ (0001 first; 0002 other)`. The whole-text merge conflicts on
+the line; the span `ADR 0002` occurs once in `working` and not in `base` (its `0002 other` lacks
+`ADR `), so it is located at once and given back: `(0001 first; ADR [feat] the rule; 0002 other)`;
+step 3 then writes `ADR 0003`. With the base's entry written `ADR 0002 other`, the span occurs twice
+in `working`; the left windows up to the line's start occur in `base` too (its line starts the same),
+so the left growth locates nothing; the right window `ADR 0002 t` occurs once in `working` and not in
+`base`: located. When the merge took the base's line and dropped the change's entry (`working` holds
+`(0001 first; ADR 0002 other)`, the base's own number), every left window occurs in `base` and the
+right window `ADR 0002 t` occurs nowhere: unlocated, exit 2, nothing written. On this repository's
+line 37, whose last entry ends `amends ADR <NNNN>)` (the first record's number) right where the base
+appends, the left window `s ADR <NNNN>` locates that span (a right window could not: the base's `;` follows it at once).
+
+**What changes for a line a person edited.** A person's words added beside a span the step wrote
+(`see ADR 0002` became `see ADR 0002 and its notes`) no longer block the give-back: the whole-text
+merge conflicts, the span is located, and the line reads `see ADR 0003 and its notes` after the
+step. A span the person changed itself (`see ADR 0002` became `see the record 0002`) is not found:
+exit 2 as before. The scenario "A line the step wrote, edited after its record" becomes the two
+scenarios "Words added beside a citation the step wrote" and "A citation the step wrote, changed
+after its record", and its test changes as D-35 says.
+
+**The records.** `ADR [release-at-merge-step-record]` decision 5 has each path given back "through a
+three-way merge of its text at the record's commit, the working text, and the record commit's text
+with the record's numbers masked, so only the tokens the step wrote go back to their unnumbered form
+and a citation the base brought with the same number stays as it is. A conflict there is exit 2
+naming the path ..., with the tree restored." The give-back keeps those three texts, merges them
+first as a whole exactly as before, and, where that merge conflicts, takes the same three texts span
+by span: the span and its window from the record's commit, its place in the working text, its
+masked form from the masked text; a span that cannot be placed once is the conflict, exit 2 with the
+tree restored. The base's text at the merge base only refuses more, never gives back more. Only the
+tokens the step wrote go back, a citation the base brought keeps its number, and a version, a
+changelog entry or a CI pin is still not given back (step 3 writes every release line from the
+base, D-20). No person and no task writes a release line (`ADR [release-at-merge]` decision 1), and
+the flow documents no give-back by hand. Decision 5's guarantees hold, but its mechanism and its
+failure rule change in three places (readiness attempt 9, B-3): a conflict of the whole-text merge
+is no longer exit 2, since the span-level search follows it and only a span it cannot find is; the
+path's text at the merge base becomes a third input of that search, beside the record commit's text
+and the working text; and words a person added beside a citation the step wrote now give back, so
+the Consequences' "Mitigated: exit 2 naming the path, the tree restored, decision 5" for "a line the
+person edited where the step had written" narrows to a citation the person changed or the merge
+dropped. `openspec/config.yaml`'s design rule asks for a record of a decision that changes an ADR,
+not a reading, and this record lands with this change, so it must describe the code it ships with.
+
+**The note in the record** (readiness attempt 9, B-3, its option (a); the owner accepts or refuses
+it with his approval of this plan). The adr-author adds one dated note to the step's record (the
+one file of `git ls-files docs/adr` whose name ends `-release-at-merge-step-record.md`, numbered
+0035 at `6836ad2`) as the first paragraph under its `## Context` heading, followed by one blank line,
+so it sits **above** the 2026-11-25 note, which becomes the second paragraph (newest first, as the
+notes of ADR 0004 stand), in the form that note and those of ADR 0022 and ADR 0025
+carry (`Note (release-at-merge, <date>): ...`), task 11.1a. Its text, word for word, `<date>` being
+the `- Date:` of the owner's approval of this revision in `approval.md` (`YYYY-MM-DD`), on one line:
+
+> Note (release-at-merge, <date>): after the readiness review of phase 11 of change release-at-merge the owner accepted, in his approval of the revised plan, the give-back of decision 5 at the unit of a span (D-34 of the change's design): the three-way merge of the path's text at the record's commit, the working text and the record commit's text with the record's numbers masked runs first, as decision 5 says, and when that whole-text merge conflicts, each number the step wrote in the path is given back on its own, found in the working text by the text around it at the record's commit, taken on its line to the left first and then to the right until it stands once in the working text and nowhere in the path's text at the merge base, which the step reads as a third input of that search and which can only refuse a give-back, never widen one. Exit 2 naming the path, with the tree restored, then means a span that cannot be found so (a citation changed after the record, or dropped by the merge where the base cites its own record with that number), not any conflict of the whole-text merge; only the tokens the step wrote still go back, and a citation the base brought with the same number keeps it. Words a person added beside a citation the step wrote now give back, so the Consequences' "Mitigated: exit 2" for a line the person edited where the step had written holds only for a citation the person changed or the merge dropped. The Decision is otherwise unchanged.
+
+The note cites no record by number and none by slug: a typed `ADR <NNNN>` is a number no step wrote,
+and an `ADR [<slug>]` of a numbered own record reads as still cited (`deliver-check.mjs`'s
+still-cited check), which turns the release state into `hand`. So no task writes a number (D-36),
+as task 10.1's note wrote none. No other line of the record
+changes: decision 5 and the Consequences sentence keep their text, and the note says how they read,
+as the 2026-11-25 note does for decisions 3 and 4. If the owner refuses the note, the plan goes back
+for option (b) of B-3 (a new unnumbered record amending decision 5, drafted by the adr-author and
+listed in `decisions.md`), and phase 11 does not start.
+
+**The texts.** In `docs/openspec-flow.md`'s `--assign --base <base>` bullet, the part from "each
+through `git merge-file` of the path's text at the recorded commit" to "the branch at its old head
+with a clean tree)." becomes, word for word: "each through `git merge-file` of the path's text at the
+recorded commit, the working text and that commit's text with the record's numbers masked; when that
+merge conflicts (a line the base or a person also changed, such as a one-line list of records the
+base added an entry to), each number the step wrote there is given back on its own, found in the
+working text by the text around it at the recorded commit, taken on its line to the left first and
+then to the right until it stands once in the working text and nowhere in the base's text, so only
+the tokens the step wrote go back and a citation the base brought with the same number keeps it; a
+number the step wrote that cannot be found so (changed after the record, or dropped by the merge
+where the base cites its own record with that number) cannot be given back (exit 2, `cannot give
+back the numbers the step wrote in <path>`, the branch at its old head with a clean tree)." The
+comment above `numberRelease`'s give-back gains, after the clause "a line edited where the step wrote a number
+conflicts and is refused." (split over two comment lines there), the sentence "When that merge conflicts, `givenBackBySpan` gives each
+number back on its own, found by the text around it at the recorded commit, and refuses only a number
+it cannot find once in the working text and nowhere in the merge base's text (D-34)." No other text changes
+for D-34, and `openspec/roadmap.md` is not edited by phase 11.
+
+**Alternatives.** (a) Write the give-back by hand into the flow page until a roadmap follow-up lands
+(the draft before this revision): rejected, it is the manual recovery `ADR [release-at-merge-step-record]`
+rejected and needs a release line written by a person (readiness attempt 8, B-1). (b) A new record
+amending decision 5 for an interim hand give-back (the attempt 8 report's option (a)): not taken,
+the coordinating session chose (b) of that report, the token-level give-back built here. A new
+unnumbered record amending decision 5 for the span-level give-back (the attempt 9 report's option
+(b)): not taken, since decision 5's guarantees hold and only its mechanism and failure rule narrow,
+which a dated note records as the 2026-11-25 note did, while a new record costs a `decisions.md`
+change and one more numbering run of the step before the delivery. (c) A token-level
+`git merge-file` (each token on its own line, then merged): rejected, `git merge-file` conflicts on
+two changes that touch, and on line 37 the base appends right after the step's last `ADR <NNNN>`. (d)
+Only the spans of the recorded commit's diff against its first parent: rejected, a number an earlier
+step commit wrote and a later one kept on the same path is not in the later diff, and it would stay
+numbered while its record went back to its slug. (e) Windows grown on both sides at once: rejected,
+the line 37 case needs the left context alone, since its right side changed at the very next
+character.
+
+### D-35 The tests of phase 11
+
+Each is named `release-note <AC-n> <area>: ...` (D-15). "Red" fails on the code as phase 11 finds it;
+"guard" pins behaviour the code already has and passes there, saying so in `proof/red-11.txt`;
+"changed" is an existing test changed as its row says, its invariant, layer and suite named in the
+commit message.
+
+| Fix | File | Test | Kind |
+|---|---|---|---|
+| D-31 | `deliver-check.test.mjs` | "release-note AC-4 row N5: the assign-release that stands in place of the conflict stop carries conflict true, and the one for a branch behind carries none" (beside the two N5 tests: `noteReady`, `stepCommit`, `setPrHead` with `mergeable: 'CONFLICTING'`, then with `mergeStateStatus: 'BEHIND'`) | red |
+| D-31 | `release-merge.test.mjs` | "release-note AC-4 assign: assignBlockingAt names the conflicting paths outside the step's release lines, and the step refuses the same merge naming them" (`notedRepo` with `src/a.ts`; `assign`; `mainReleases` editing `src/a.ts`; the paths of `git merge-tree --write-tree --name-only --no-messages origin/main HEAD`; `assignBlockingAt` gives `['src/a.ts']`, and `--assign` exits 2 with `src/a.ts` among its `conflicts`; a second repository whose base only releases gives `[]`, and `--assign` exits 0) | red |
+| D-31 | `conduct-check.test.mjs` | "release-note AC-4 conduct: a noted change in conflict outside the release files gets resolve-base-conflict for the implementer, with noted, the base, every conflicting path and the others" (`notedConflict` gains an option `also`, a list of paths, each written by the round as `r\n`, by the branch beside the step's commit as `b edits <path>\n` and by the base beside its release as `origin edits <path>\n`; its default `[]` builds the round it builds today; here `also: ['README.md']`; `planStep` is `['resolve-base-conflict', 'subagent']`, `paths` `['CHANGELOG.md', 'README.md']`, `others` `['README.md']`, `noted` true, and `c.deliver.next` is `assign-release` with `conflict` true) | red |
+| D-31 | `conduct-check.test.mjs` | "release-note AC-4 conduct: a noted change whose merge of the base is committed and not pushed, while GitHub still reports the conflict, gets a plain push" (the same round; in `b` a merge of `origin/main` resolving `README.md` and taking the base's release files, committed, then its records written again with `writeReviews(b, 'b', <the merge's sha>)` and committed, so the step the delivery checker answers is `assign-release`, not `verify`; the pull request still at the old head and `CONFLICTING`; `planStep` is `['push', ...]`, its command `['git', 'push', 'origin', 'b']`) | red |
+| D-31 | `conduct-check.test.mjs` | "release-note AC-4 conduct: a noted change behind its base, whose merge would conflict outside the release files, gets resolve-base-conflict before the step runs" (the pull request `MERGEABLE` and `BEHIND`, the same README conflict) | red |
+| D-31 | `conduct-check.test.mjs` | "release-note AC-4 conduct: a noted change in conflict in the release files and the CI pins of the flow page keeps assign-release" (the base releases a patch with the flow page's pins at its version while the step's commit wrote the minor's) | guard |
+| D-31 | `change-loop.test.mjs` | "release-note AC-4 fetch: a base that moved on the remote with a conflict outside the release files hands resolve-base-conflict to the implementer for a noted change" (beside "release-note AC-4 fetch: a base that moved on the remote hands assign-release ...": `staleMergeFixture` with `devkit.release_tag` and `release.md`, the remote commit conflicting in `README.md`; `next` moves the tracking ref and gives kind `agent`, step `resolve-base-conflict`, agent `devkit-core:tdd-implementer`, `detail.noted` true) | red |
+| D-31 | `deliver-check-cli.test.mjs` | "release-note AC-4 format: after an assign-release exit 2 that lists conflicts and no error the session runs next again, and resolve-base-conflict takes the base's side of every release line for next.noted" (the two `ship-change` rows and the `app` bullet, the `devkit` `session` bullet, and the five flow-page places of D-31, each by a phrase D-31's text holds) | red |
+| D-31 | `release-note.test.mjs` | "release-note AC-14 texts: the implementer takes the base's side of a release line in a merge of the base for a change with a release note" (`tdd-implementer.md`'s "Never" bullet and the kit's generated copy hold the new sentence) | red |
+| D-32 | `flow-check.test.mjs` | "release-note AC-12 stages: a started noted change whose plan files and release.md both changed after the approval is stale with plan-revised, and the note alone is not" (beside T57: `revisedChange` gains an option `{ noted = false }`; with it, `liveChange`'s config is `schema: devkit\n${REL_CONFIG}`, `release.md` is `NOTE_TEXT` and the approval records `- Release note: <releaseNoteHash>` before `- Date:`; edit `design.md` and `release.md` (`NOTE_TEXT` with `minor` made `major`), commit: the readiness is stale with `plan-revised` and is next; a second such change with only `release.md` edited: the readiness is `passed` and `approvalState(dir).ok` is false) | red (the first part), guard (the second) |
+| D-32 | `deliver-check.test.mjs` | the existing "release-note AC-12 row A1: a note changed after the approval asks the owner again, with no task ticked and with tasks ticked" gains, in its loop, `assert.equal(n.plan, DC.planDigest(join(t.root, 'openspec', 'changes', 'feat')), tasks)` (invariant: the approval stop of a noted change carries the plan's digest beside the note's hash, so the session records both; layer: `nextStep`'s `stop-plan-approval` row; suite: `deliver-check.test.mjs`) | changed, guard |
+| D-34 | `release-merge.test.mjs` | "release-note AC-4 assign: a citation the step wrote on a one-line list the base extended is given back at the token level after a merge by hand, and the step numbers the branch above the base" (beside the test of the citation changed after the record: `mergedByHand` gains an option `resolved = {}`, spread into the files `mergeByHand` writes after `src/a.ts` (its default writes what it writes today); `main` holds `docs/context.yaml` with the one line `  ADRs: docs/adr/ (0001 first)\n`, the change writes `  ADRs: docs/adr/ (0001 first; ADR [feat] the rule)\n`, the base writes `  ADRs: docs/adr/ (0001 first; 0002 other)\n` with its release, and the merge by hand resolves the line to `  ADRs: docs/adr/ (0001 first; ADR 0002 the rule; 0002 other)\n`; then `--assign`: exit 0, one plain commit on the merge, `docs/adr/0003-feat.md`, no `docs/adr/0002-feat.md` and no `docs/adr/feat.md`, `docs/adr/0002-other.md` as the base wrote it, the line `  ADRs: docs/adr/ (0001 first; ADR 0003 the rule; 0002 other)\n`, `docs/feat.md` citing 0003, the commit's record naming `Release-citation: docs/context.yaml`, `git status --porcelain` empty, and the state `assigned` and `current`) | red |
+| D-34 | `release-merge.test.mjs` | "release-note AC-4 assign: a citation the base wrote in the step's form with the step's old number, on the same one-line list, keeps its number when the step gives its own back" (the same, the base writing `  ADRs: docs/adr/ (0001 first; ADR 0002 other)\n` and the merge by hand resolving `  ADRs: docs/adr/ (0001 first; ADR 0002 the rule; ADR 0002 other)\n`; exit 0 and the line `  ADRs: docs/adr/ (0001 first; ADR 0003 the rule; ADR 0002 other)\n`) | red |
+| D-34 | `release-merge.test.mjs` | "release-note AC-4 assign: a citation the step wrote that the merge by hand dropped, where the base cites its own record with the same number, cannot be given back: exit 2 naming the path, the head and the tree as they were" (the same base line as the row above, the merge by hand resolving the base's line `  ADRs: docs/adr/ (0001 first; ADR 0002 other)\n`; exit 2, the JSON's `error` and stderr `cannot give back the numbers the step wrote in docs/context.yaml`, `asItWas`, `docs/adr/0002-feat.md` still there and no `docs/adr/feat.md`; today's whole-text merge refuses it too, and the test pins that the token-level give-back keeps the refusal) | guard |
+| D-34 | `release-merge.test.mjs` | "release-note AC-4 assign: words a person added beside a citation the step wrote are kept when the step gives the citation back" (`mergedByHand` with `docs/x.md` `see ADR [feat]\n`; a commit writes `see ADR 0002 and its notes\n`, the edit the existing test made; `--assign`: exit 0 and `docs/x.md` reads `see ADR 0003 and its notes\n`) | red |
+| D-34 | `release-merge.test.mjs` | the existing "release-note AC-4 assign: a line the step wrote, edited by a person after the record, is not given back: exit 2 naming the path, the head and the tree as they were" becomes "release-note AC-4 assign: a citation the step wrote, changed by a person after the record, is not given back: exit 2 naming the path, the head and the tree as they were"; its edit becomes `see the record 0002\n` (in place of `see ADR 0002 and its notes\n`, which the row above now gives back) and its commit message `a person changes the citation the step wrote`; every assertion stays (invariant: a number the step wrote that the working text no longer holds where its record put it is refused with the tree restored; layer: `numberRelease`'s give-back in `release-merge.mjs`; suite: `release-merge.test.mjs`) | changed, guard |
+| D-34 | `conduct-check.test.mjs` | "release-note AC-4 conduct: a noted change whose base extended the one-line list holding its own citation gets resolve-base-conflict naming that file, and after the merge keeping both entries and its push, assign-release numbers the branch above the base" (`notedConflict` gains a second option `record = false`; with it, the round's `main` also holds `docs/context.yaml` with `  ADRs: docs/adr/ (0001 start)\n`, the change `b` also writes `openspec/changes/b/decisions.md` (``# Decisions\n\n- ADR: `docs/adr/b.md`\n``), `docs/adr/b.md` (`# ADR [b]: the rule\n`) and `docs/context.yaml` with `  ADRs: docs/adr/ (0001 start; ADR [b] the rule)\n`, its step commit is the real step's run in `b` (`node <hooks>/release-merge.mjs --assign --base main --json`, exit 0, `docs/adr/0002-b.md`) in place of `stepCommit`, and the base's release also writes `docs/adr/0002-other.md` and `  ADRs: docs/adr/ (0001 start; 0002 other)\n`; then `planStep` is `['resolve-base-conflict', 'subagent']` with `others` `['docs/context.yaml']` and `noted` true; in `b`, `git merge --no-ff --no-commit origin/main`, every release file of `releaseLayout` checked out from `origin/main`, `docs/context.yaml` written `  ADRs: docs/adr/ (0001 start; ADR 0002 the rule; 0002 other)\n`, committed, and its records written again with `writeReviews(b, 'b', <the merge's sha>)` and committed, as `readyChange` writes them (the merge resolved an own file, so the records before it are stale, ADR 0025 decision 2); `b` pushed and `openPr` called again at its new head with `mergeable: 'MERGEABLE'`; the next step is `assign-release`; its `command` run in `b` exits 0, `docs/adr/0003-b.md` exists and `docs/context.yaml` reads `  ADRs: docs/adr/ (0001 start; ADR 0003 the rule; 0002 other)\n`) | red |
+
+Kept green and not edited: "release-note AC-4 conduct: a noted change in a release-only conflict gets
+assign-release for the main session, never resolve-release-conflict" (its second half hands the
+override a `blocked` report, which `assignConflict` leaves alone), coordinator-loop-fixes T45 to T50
+and T57 to T59, T93, T133, every `--assign` test of `release-merge.test.mjs` and `release-note.test.mjs`
+but the one D-34 changes (the classification moved with its body, and the give-back's whole-text
+merge runs first as before, so a path it gives back cleanly keeps its outcome; among them "a
+citation the base brought with the step's old number keeps its number when the step gives its own
+back" and "a number the step kept across a base merge is still its own after a later merge by
+hand"), "release-note AC-4 format: ship-change's assign-release row ...", "release-merge-conflict 16"
+(T-5) and the "release-note AC-14 texts" test. The D-31 `deliver-check-cli.test.mjs` test asserts,
+in the `resolve-base-conflict` row, the phrase "keeping, on a line where the base's entries meet the
+change's own citations", and the D-31 `release-note.test.mjs` test the phrase "keeping beside the
+base's entries the change's own citations as the branch holds them" in `tdd-implementer.md` and its
+kit copy (B-2).
+
+### D-36 The real runs of phase 11, and the numbering if the base moves
+
+Phase 11 changes what the implementer writes for a noted change (the `resolve-base-conflict` brief
+and its agent text), what the loop hands (D-31, D-32) and what the step gives back (D-34), so its
+proof covers each case the plan
+declares, the conducting session's own part included (CLAUDE.md):
+
+| Case | Script | What it proves |
+|---|---|---|
+| P-14 | `proof/cases.mjs` | in a single-merge project with the key, a noted change assigned once: (a) the base releases, conflicting in release files only: `change-loop.mjs next` hands `assign-release`, the step exits 0, the push follows; (b) the base releases and edits `src/a.ts`, which the branch edits: `next` hands `resolve-base-conflict` with `noted: true`; the merge the row says (scripted here, the real agent is S-13) is committed; `next` hands `push` while the `gh` stub still reports the conflict at the old head; after the push `next` hands `assign-release`, the step exits 0 numbering above the base with its record, and `enable-auto-merge` is next; (c) `next` hands `assign-release` for a branch behind, the base then gains a commit conflicting in `src/a.ts` on the remote, the session's row runs: the fetch, exit 2 listing `src/a.ts` with no `error`, then `next` again hands `resolve-base-conflict`; (d) the change's record numbered by its first step, cited `ADR <NNNN> the rule` on the one-line list `  ADRs: docs/adr/ (0001 start; ...)` of `docs/context.yaml` (the shape of `openspec/config.yaml` line 37), and the base then lands a record and appends its entry to that line with its release: `next` hands `resolve-base-conflict` with `noted: true` and `others` `['docs/context.yaml']` (B-2); the merge the row says (scripted here, the real agent is S-13 (b)) keeps both entries with the branch's text as it holds it and takes the base's release lines; `next` hands `push`; after it `assign-release`, whose step exits 0 with the record numbered above the base's and the line holding both entries, the change's with its new number; `enable-auto-merge` is next |
+| P-15 | `proof/cases.mjs` | the token-level give-back of D-34, through `release-merge.mjs --assign` after a merge by hand: (a) the one-line list the base extended: exit 0 at once, the record numbered above the base's, the line keeping the base's entry, the state assigned and current, no give-back by hand; (b) the base's entry written `ADR <NNNN> other` with the step's old number on the same line: exit 0, the base's entry keeping its number; (c) the merge by hand dropped the change's entry where the base cites its own record with that number: exit 2 naming the file, the head and the tree as they were |
+| P-16 | `proof/cases.mjs` | a started noted change whose approval records the plan's digest and the note's hash: `design.md` and `release.md` revised, `next` hands the readiness review (`plan-revised`); with a passed readiness written, `next` waits for the owner's approval again with `detail.readiness`, `detail.plan` and `detail.release`; a twin with only `release.md` revised waits for the approval directly (row A1), no readiness review |
+| S-13 | `proof/agents.mjs` | the real `devkit-core:tdd-implementer`, run with `claude --plugin-dir <worktree>/plugins/core --plugin-dir <worktree>/plugins/openspec -p` on the brief `change-loop.mjs next` gives, once per variant, in project K: (a) for P-14 (b)'s state (a conflict in `src/a.ts` and the release files), and (b) for P-14 (d)'s state (a conflict on the one-line list holding the change's own citation and in the release files). In each it returns `Outcome: success` (not a refusal naming a release line or an ADR number), commits a merge whose parents are the old head and `origin/main`, holds no conflict marker, takes the base's side of every release line in conflict, writes no version and no ADR number of its own, and does not push; in (b) the list's line holds the base's entry and the change's entry as the branch held it, its number included; then `next` hands `push`, and after it `assign-release`, whose step exits 0 (in (b) with the record numbered above the base's and the line holding both entries) |
+
+**The numbering if the base moves.** No task writes a version, a changelog line, a CI pin or an ADR
+number; task 11.1a's note in the step's record holds none and names that file by its slug, so a
+renumbering before it changes nothing in it (D-34, "The note in the record"). If `origin/main` moves again before the delivery, the coordinating session merges it through
+this worktree's step (`node plugins/openspec/hooks/release-merge.mjs --assign --base main --json`,
+D-17, D-20), which numbers the branch again from its record, and pushes plainly; after a merge it
+cannot make (a conflict its masked merge does not resolve, the `ADRs:` line of
+`openspec/config.yaml` when the base landed a record among them), the merge of D-31 comes first,
+keeping both entries on that line as the branch holds them, and the step run again gives its numbers
+back at the token level (D-34); no give-back by hand. The installed plugin does not hold this step yet, so the session never
+runs the installed `resolve-release-conflict` or `renumber-adr` for this change (D-17).
+
 ## Findings of review round 1
 
 Every finding of the five verdict files, with its decision and task, or the reason it gets none.
@@ -1390,6 +1981,50 @@ The praise findings need no answer. Every reviewer accepted the deviations evide
 2 except the per-key record, which D-28 answers; evidence's two open items are D-29 (the forced
 merge) and D-30 (the `app` host sentence).
 
+## Findings of review round 3
+
+Round 3 (`review.md` at `e2efd38`, authorized by the owner, numbered 2 by the round script) failed on
+three blocking findings, read from the code at the merged head and not sent to the finding verifiers;
+every finding is kept open there. Every finding of the three verdict files of round 3 that is not
+marked fixed, with its answer:
+
+| Reviewer | Finding | Severity | Answer |
+|---|---|---|---|
+| adr-reviewer | F11 a noted change in conflict outside the release files never gets `resolve-base-conflict` (ADR 0032 decision 5) | blocking | fixed: D-31; tasks 11.2 to 11.4, P-14 and S-13 (11.10, 11.11) |
+| adr-reviewer | F12 `approvalOk` reads the note, so `plan-revised` does not fire (ADR 0032 decision 7) | important | fixed: D-32; tasks 11.5, 11.6, P-16 (11.10) |
+| adr-reviewer | F13 the hand give-back `13e44cc` of a recorded step commit, its reason not reproduced | important | fixed: D-34 (the reason reproduced, and the give-back made token-level so the case it met exits 0 with no give-back by hand); tasks 11.7, 11.8, P-15 (11.10); the reading of decision 5 flagged (F-12) |
+| adr-reviewer | F14 the plan edit `4944c5b` after the start conforms only through ADR 0032's note | nit | no plan task: `evidence.md` is the verifier's, which names that note beside its line on the missing `- Plan:` line; this revision is approved by the owner again, and that approval records the plan's digest (the `stop-plan-approval` row since coordinator-loop-fixes), so later plan edits go stale |
+| adr-reviewer | F3, F4, F8 (carried) | nit | follow-ups, as in rounds 1 and 2 (D-25, D-29) |
+| spec-reviewer | F11 this change's MODIFIED block of "From the implementation on ..." collides with coordinator-loop-fixes' block | blocking | fixed: D-33, the block rebuilt on coordinator-loop-fixes' text; task 11.1 checks it is still that text; the archive order is a workflow follow-up |
+| spec-reviewer | F12 coordinator-loop-fixes' "A conflict outside the release files goes to the implementer" against this change's assign-release-then-blocked | important | fixed: D-31 (a noted change gets that step; the two requirements agree, D-33) |
+| spec-reviewer | F13 the combined plan-and-note revision resolved silently | important | fixed: D-32, the ADDED requirement "A plan revised with its note after the start goes back to the readiness review" and its two scenarios, named as the one exception of "Every reader of the plan approval checks the release note" |
+| spec-reviewer | F14 the evidence's three post-merge open items reached no follow-up | nit | fixed: the two interactions are D-31 and D-32; the give-back limit is fixed in this phase by D-34 |
+| test-coverage-reviewer | F23 the `approvalOk` seam, no test and no plan | blocking | fixed: D-32; the test beside T57 (task 11.5) |
+| test-coverage-reviewer | F24 the give-back of a one-line citation list, a claim with no reproduction | important | fixed: D-34's tests (task 11.7: the one-line list given back, the same number in the base's entry, the dropped entry refused) and its code (task 11.8) |
+| test-coverage-reviewer | F25 a noted change's conflict outside the release files pins neither outcome | nit | fixed: D-31's conduct and loop tests (task 11.2) |
+| test-coverage-reviewer | F26 no test asserts `plan` beside `release` in the A1 detail | nit | fixed: the A1 test asserts it (task 11.5) |
+| test-coverage-reviewer | F16 an owner's forced merge after the step's commit (carried) | important, planned | the roadmap line `forced-merge-release-edit` (D-29), as round 3 recorded; does not reject |
+| test-coverage-reviewer | F11, F12, F13, F18, F19 (carried) | nit | accepted follow-ups, as in rounds 1 and 2 |
+
+The praise findings need no answer.
+
+The readiness review of phase 11 (attempt 8, NEEDS-REVISION) and its answers:
+
+| Item | Finding | Answer |
+|---|---|---|
+| B-1 | the give-back by hand D-34 wrote into the flow page is the alternative `ADR [release-at-merge-step-record]` rejected | fixed by option (b), the coordinating session's choice: the token-level give-back is built in phase 11 (D-34, tasks 11.7 and 11.8, P-15), no give-back by hand is documented anywhere, the roadmap line `release-give-back-tokens` is dropped, and no record is drafted (F-12 states the reading of decision 5) |
+| B-2 | two readings for a conflict on a citation line of the change's own records the base also changed, and no declared outcome | fixed: one class, "a conflict the step's masked merge resolves", in the spec, D-31 and the texts; a masked merge that conflicts is blocking, so the one-line list goes to `resolve-base-conflict`, whose brief keeps both entries as the branch holds them, then `assign-release` exits 0 through D-34; the scenario "A noted change whose base extended a one-line list holding its own citation", the conduct test and the release-merge tests of D-35, P-14 (d) and S-13 (b) |
+| Optional | the phase 11 estimate puts the whole suite at about 20 minutes | taken: about 10 minutes, as measured in that review (592.7 s at concurrency 3) |
+| Optional | task 11.1's SHA after a new revision of the spec delta | taken: `98ffb17` stays, since the check compares coordinator-loop-fixes' delta and the canonical spec, which this revision does not touch; task 11.1 says so in one sentence |
+
+The readiness review of phase 11 (attempt 9, NEEDS-REVISION) and its answers:
+
+| Item | Finding | Answer |
+|---|---|---|
+| B-3 | D-34 changes the mechanism and the failure rule of `ADR [release-at-merge-step-record]` decision 5 and narrows one of its Consequences, and the plan deferred the record past implementation (F-12) | fixed by option (a), which the owner accepts or refuses with his approval of this plan: a dated note in the record's Context, above the 2026-11-25 note, its text word for word in D-34 ("The note in the record"), written by the adr-author at task 11.1a; F-12 rewritten as answered by that task |
+| Low | the MODIFIED intro of "From the implementation on, ..." puts a pull request behind its base in the `assign-release` class unconditionally | taken: the intro names a pull request behind its base or in conflict with it when every conflict of its merge with that base is one the step's masked merge resolves, and sends any other conflict, behind a conflicting base included, to `resolve-base-conflict` (D-33) |
+| Low | task 11.3's done condition includes the one-line list's conduct test, which passes only at 11.8 | taken: 11.3's done condition excludes it, and 11.8's names it |
+
 ## Flagged for the owner
 
 - F-1 (requirements Decision 2, `ADR [release-at-merge]` decision 2): comparing `release.md` "at the
@@ -1451,6 +2086,25 @@ merge) and D-30 (the `app` host sentence).
   session's word, where task 9.1 says another conflict outside `openspec/` stops the phase for the
   owner. Three reviewers checked that both sides are kept, so no task changes it; the owner confirms
   the resolution or asks for it again.
+- F-12 (after review round 3, D-34; adr-reviewer F13; revised after the readiness reviews of
+  attempt 8, B-1, and attempt 9, B-3): answered by task 11.1a. No give-back by hand is documented.
+  The give-back works at the token level (D-34): the whole-text three-way merge of `ADR
+  [release-at-merge-step-record]` decision 5 runs first, as before, and where it conflicts each span
+  the step wrote is found by the text around it, with the path's text at the merge base as a third
+  input of that search; exit 2 then means a span that cannot be found, and words added beside a
+  citation now give back. Decision 5's guarantees hold ("only the tokens the step wrote go back", "a
+  citation the base brought with the same number stays as it is"), but its failure rule and the
+  Consequences' "Mitigated: exit 2" for an edited line narrow, so the record gets a dated note, not a
+  reading (option (a) of the attempt 9 report): the adr-author writes it at task 11.1a, above the
+  2026-11-25 note in the record's Context, with the text D-34 gives word for word ("The note in the
+  record"). The owner's approval of this plan accepts the note; a refusal sends the plan back for a
+  new amending record (that report's option (b)) before phase 11 starts. The record's Consequences
+  sentence on the hand give-back of the dogfood commit with no record is history (`1ebf619`) and
+  stays as written.
+- F-13 (after review round 3, D-33): the shared `change-coordination` block keeps both changes' text
+  in either archive order only if, when this change archives first, coordinator-loop-fixes' session
+  carries this change's lines into its block before its own archive. This change cannot edit that
+  change's files; the conducting session relays it (`tasks.md`, "Workflow follow-up").
 
 ## Risks / Trade-offs
 
@@ -1660,3 +2314,91 @@ Dependencies: the owner's decision of 2026-11-25 ("1a e 2b"); `ADR [release-at-m
 (accepted, numbered at task 9.17); the canonical `change-delivery` requirement "The open items of a
 forced merge are named" and `gatesAtHead` (train 16, `forced-merge-path`, merged at `a47cec8`),
 unchanged; ADR 0028 (an owner's forced merge leads the change to the archive), unchanged.
+
+### Phase 11: fixes of review round 3
+
+Order: the check of the shared block (D-33) → the note in the step's record, by the adr-author on the
+owner's approval (D-34, task 11.1a) → the routing of a noted change's conflict (D-31: tests,
+then N5's detail, the shared classification and the conductor's override, then the texts and the
+agent) → the `plan-revised` reader (D-32: tests, then the call site) → the token-level give-back
+(D-34: its tests, then `givenBackBySpan` and the flow-page sentence) → the area gate → the real runs
+(P-14 to P-16, S-13) → the final gate.
+
+- **Hooks:** `plugins/openspec/hooks/deliver-check.mjs` (`nextStep`'s `assign` and the N5 return),
+  `release-merge.mjs` (`ownRecords`, `assignBlocking`, `assignBlockingAt`; `numberRelease` calls the
+  first two; `givenBackBySpan`, which `numberRelease`'s `givenBack` calls when its whole-text merge
+  conflicts, and the comment above the give-back), `conduct-check.mjs` (`assignConflict`, `deliveryRow`'s override line, the import, two
+  comments), `flow-check.mjs` (`collectFlow`'s `approvalOk` and its comment).
+- **Skills, agents and docs:** `plugins/openspec/skills/ship-change/SKILL.md` (the `assign-release`
+  and `resolve-base-conflict` rows, the `app` bullet), `plugins/openspec/skills/devkit/SKILL.md` (the
+  `session` bullet's sentence), `plugins/core/agents/tdd-implementer.md` (one sentence) and its
+  generated kit copy, `docs/openspec-flow.md` (five places of D-31, the give-back sentence of the
+  `--assign` bullet, D-34).
+- **Records:** the step's record (`docs/adr/<NNNN>-release-at-merge-step-record.md`, numbered 0035
+  at `6836ad2`) gains D-34's dated note from the adr-author, above its 2026-11-25 note (task 11.1a);
+  no other record changes.
+- **Repository:** nothing; `openspec/roadmap.md` is not edited (D-34).
+- **Tests:** D-35's table, in `deliver-check.test.mjs`, `release-merge.test.mjs`,
+  `conduct-check.test.mjs`, `change-loop.test.mjs`, `deliver-check-cli.test.mjs`,
+  `release-note.test.mjs` and `flow-check.test.mjs`.
+- **Proof:** `proof/cases.mjs` (P-14 to P-16; `proof/real-run.md` written anew), `proof/agents.mjs`
+  (S-13, appended to `proof/agents-run.md`), `proof/red-11.txt` created.
+
+Files to create: `openspec/changes/release-at-merge/proof/red-11.txt`. Files to modify: the files
+above. Files to delete: none. No task writes a version, a changelog line, a CI pin or an ADR number
+(D-36).
+
+Estimate for phase 11: optimistic 11 h, likely 17 h, pessimistic 26 h (the whole suite takes about
+10 minutes on an idle machine, 592.7 s at concurrency 3 in the readiness review of attempt 8, and
+P-14 to P-16 and S-13's two variants each build their projects anew).
+
+| Component | Hours | Type | Risk |
+|---|---|---|---|
+| The check of the shared block (D-33) | 0.25 | Documentation | LOW |
+| The dated note in the step's record, by the adr-author (D-34, B-3) | 0.25 | Documentation | LOW |
+| N5's detail, the shared classification, the conductor's override, their tests (D-31) | 4 | Core | MEDIUM |
+| The `ship-change`, `devkit`, flow-page and implementer texts, the kit, their test (D-31) | 1.5 | Documentation | LOW |
+| The `plan-revised` reader and its tests (D-32) | 1 | Core | LOW |
+| The token-level give-back's tests, `givenBackBySpan`, the flow-page sentence (D-34) | 3 | Core | MEDIUM |
+| The one-line list's conduct test and texts (D-31, B-2) | 0.5 | Testing | LOW |
+| P-14 to P-16, with P-14 (d) (D-36) | 3 | Testing | MEDIUM |
+| S-13 (a) and (b) with the real implementer (D-36) | 2.5 | Testing | MEDIUM |
+| The area gate and the final gate | 1.75 | Testing | MEDIUM |
+
+| Risk | Probability × impact | Mitigation |
+|---|---|---|
+| Moving step 2's classification out of `numberRelease` changes what the step does | LOW × HIGH | the body moves unchanged and `numberRelease` keeps every other line; the area gate runs every `--assign`, join and give-back test of `release-merge.test.mjs`, `release-note.test.mjs`, `delivery-train.test.mjs` and `delivery-train-after.test.mjs` |
+| The conductor and the step classify one conflict differently | LOW × MEDIUM | one function for both (`assignBlocking`); D-35's `assignBlockingAt` test runs the step on the same merge; a disagreement ends at the no-progress rule, never in a loop |
+| The note in the step's record carries a citation token or a number the step would read | LOW × MEDIUM | the note's text is fixed in D-34 and holds no `ADR [<slug>]` and no `ADR <NNNN>`; task 11.1a checks that the record's count of either form is unchanged and that the commit adds two lines and removes none |
+| An exit 2 for a conflict sends the session back to `next` forever | LOW × MEDIUM | `next` fetches the base the step fetched, so it hands `resolve-base-conflict`; a second `assign-release` at the same progress key ends the run (change-coordination, "The same step back with nothing changed") |
+| The real implementer refuses the noted brief under its release-line rule | MEDIUM × MEDIUM | the "Never" bullet's new sentence (D-31); S-13 runs the real agent and fails its done-condition on a refusal |
+| The merge-tree classification costs time on every `assign-release` | LOW × LOW | only for a noted change at that step; one `git merge-tree` and the masked merges of the paths the branch numbered, as `releaseConflict` already does for every conflicting change |
+| The token-level give-back gives back a span that is not the step's (a base's citation of the same number) | LOW × HIGH | a window is accepted only when it stands once in the working text and nowhere in the base's text; the D-35 tests of the same number in the base's entry and of the dropped entry pin both sides; an unlocated span refuses with the tree restored, never a guess |
+| The span-level path changes a give-back that works today | LOW × MEDIUM | it runs only when the whole-text merge conflicts, so every path that merge gives back keeps its outcome; the area gate runs every give-back test of `release-merge.test.mjs` and `release-note.test.mjs` |
+| The real implementer turns the step's numbers on the list back to `ADR [<slug>]` or renumbers them | MEDIUM × MEDIUM | the brief and the "Never" sentence say to keep the branch's text as it holds it; S-13 (b) runs the real agent and fails its done-condition otherwise; the step then refuses (exit 2), never writes a wrong number |
+| A long line makes the window search slow | LOW × LOW | the window stays on the span's line and runs only after a whole-text conflict: at most one scan of the working and base texts per character of that line |
+| coordinator-loop-fixes' block, or the canonical one, moves before the implementation | MEDIUM × MEDIUM | task 11.1's `git diff --quiet` against `98ffb17` stops the phase for the block to be rebuilt |
+| The base moves and the release must be numbered again | MEDIUM × MEDIUM | the coordinating session runs this worktree's step with its record (D-36); no task writes a number; the coordinator holds `main` at the release step (owner's memory: a re-merge costs one to two hours here) |
+| The phase's commits stale the evidence and the reviews | HIGH × LOW | expected: hook code changes after `e2efd38`; the verification and the review run again on the new head |
+
+Assumptions of phase 11: `git merge-tree --write-tree` reports the same conflicted paths as `git merge
+--no-commit` of the same two commits (both run the `ort` merge; coordinator-loop-fixes D-5 already
+classifies by it, git 2.38 or later); GitHub keeps reporting the old head of a pull request in
+conflict until the merge is pushed (`unpushedMerge`, coordinator-loop-fixes' scenario "A release
+merge that is not pushed yet"); the loop fetches the base before it judges a delivery step (the
+canonical `change-coordination` requirement of that name); the owner's approval of this revision
+records a `- Plan:` line (the `stop-plan-approval` row of `ship-change` since coordinator-loop-fixes);
+`proof/cases.mjs` and `proof/agents.mjs` keep their seed and their `append=` form (task 9.15); at a
+recorded commit of the step no text cites a number the step gave this change for another record
+(the step numbers above its target, `computeRelease`, so the target held no record with it; a text
+citing a record the repository does not hold yet would break this, and nothing checks it today); with no merge to make, the merge base is `origin/<base>`'s
+tip (`git merge-base` of a commit and its ancestor).
+
+Dependencies: coordinator-loop-fixes (on `main`, merged into this branch at `7a92080`, not archived):
+its D-5 (`resolve-base-conflict`, `releaseConflict`, `unpushedMerge`), its D-7 (`planDigest`,
+`planRevision`, `plan-revised`) and its `change-coordination` and `change-stages` deltas; ADR 0032
+decisions 5 and 7, with its note, unchanged; `ADR [release-at-merge]` decisions 1, 2 and 6 and `ADR
+[release-at-merge-step-record]` decisions 5 and 8, their text unchanged, decision 5 with the dated
+note of task 11.1a (D-34, F-12), which the owner's approval of this plan accepts; ADR 0017 decision 1 (the code that
+decides the loop's next action derives the change's state) and ADR 0025 decision 2 (a merge that
+resolves an own file stales), unchanged.

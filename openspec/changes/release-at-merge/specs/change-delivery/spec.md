@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=6 commit=9b67c11f446bfd8f24407556df9c082589acd50f -->
+<!-- devkit-stage specs result=passed attempt=8 commit=98ffb172675d7d320587e3c7d2ca8f51ae6ec410 -->
 # Spec Delta
 
 ## ADDED Requirements
@@ -150,7 +150,8 @@ for a change with no note SHALL be read as before.
 Every reader of the plan approval (the delivery checker, the conductor's planning row and the loop's
 acceptance of the decision records) SHALL apply the release note's hash as the delivery checker
 does, the project's `devkit.release_tag` read by the approval reader itself, so no caller can leave
-the note out.
+the note out. The stage checker's test of a plan revised after the start is the one exception (the
+next requirement).
 
 #### Scenario: The conductor and the acceptance of the records
 - **WHEN** `release.md` changed after the approval and no task is ticked
@@ -159,6 +160,20 @@ the note out.
 #### Scenario: A folder outside a project's layout
 - **WHEN** the approval reader is given a change folder that is not under `openspec/changes/` or `openspec/changes/archive/` of a project
 - **THEN** it reads no release setting and the approval it returns has no note keys
+
+### Requirement: A plan revised with its note after the start goes back to the readiness review
+The stage checker's test of whether the owner approved the current readiness review, which decides
+that a plan revised after the work started goes back to its gates, SHALL read the plan approval
+without the release note, so a plan revised together with its note goes back to the readiness review
+first, and the note is asked at the approval that follows it.
+
+#### Scenario: A plan and its note revised after the work started
+- **WHEN** a task is ticked, `approval.md` records the readiness hash, the plan's digest and the note's hash, and `design.md` and `release.md` both changed since
+- **THEN** the plan readiness is reported stale with the reason `plan-revised` and is the next stage, and once it passed again the next step is `stop-plan-approval` carrying the readiness hash, the plan's digest and the note's hash
+
+#### Scenario: Only the note revised after the work started
+- **WHEN** a task is ticked, `approval.md` records the readiness hash, the plan's digest and the note's hash, and only `release.md` changed since
+- **THEN** the plan readiness stays passed, and the next step is `stop-plan-approval` with the reason `release note changed after approval`
 
 ### Requirement: With no train the release is assigned by one step before the merge
 In a project that names `devkit.release_tag` and sets no delivery train, for a change with a release
@@ -181,7 +196,7 @@ the release computed from it. A train project SHALL never be answered `assign-re
 
 #### Scenario: The pull request in conflict with the base
 - **WHEN** a change with a note and no train has its pull request reported in conflict with the base, and that conflict is the only thing item 5 is blocked for
-- **THEN** the next step is `assign-release`, not `blocked` with the conflict
+- **THEN** the next step is `assign-release` with `conflict` true, not `blocked` with the conflict, and for a branch only behind the base it is `assign-release` with no `conflict`
 
 #### Scenario: A train project
 - **WHEN** the project sets `devkit.delivery.train`
@@ -212,9 +227,10 @@ branch at its old head, and the step SHALL exit 2 with the paths. In a project t
 
 ### Requirement: The release step records what it wrote and numbers again after a merge by hand
 The delivery step SHALL record in its own commit's message the change, the release files, the ADR
-renames and the citation paths it wrote. After a person merged the base by hand, the step SHALL give
-back the numbers its record names and number the branch above the base. When a line the step wrote
-was edited after the record, the step SHALL exit 2 naming the path and leave the branch as it was.
+renames and the citation paths it wrote. After the base was merged by hand, the step SHALL give back
+only the numbers its record names, each found by the text around it where a whole-text merge of the
+path conflicts, and number the branch above the base. When a number it wrote cannot be found once
+that way, the step SHALL exit 2 naming the path and leave the branch as it was.
 
 #### Scenario: The step after a merge by hand
 - **WHEN** the step numbered the branch `devkit-openspec` 1.1.0 and `docs/adr/0002-feat.md`, the base then released 1.1.0 with `docs/adr/0002-other.md` and changed `src/a.ts`, the step exited 2 naming `src/a.ts`, and a person merged the base by hand, resolving `src/a.ts` and taking the base's side of every release file
@@ -224,9 +240,25 @@ was edited after the record, the step SHALL exit 2 naming the path and leave the
 - **WHEN** the step commits
 - **THEN** the commit's subject is as before and its message ends with the trailers `Release-change: <id>`, one `Release-line:` per release file it wrote, one `Release-adr: <from> -> <to>` per record it renamed and one `Release-citation:` per path whose citations it rewrote
 
-#### Scenario: A line the step wrote, edited after its record
-- **WHEN** the branch was merged by hand as above, and a person then edited in `docs/x.md` the line where the step had written `ADR 0002` (`see ADR 0002` became `see ADR 0002 and its notes`)
+#### Scenario: Words added beside a citation the step wrote
+- **WHEN** the branch was merged by hand as above, and a person then added words in `docs/x.md` beside the citation the step had written (`see ADR 0002` became `see ADR 0002 and its notes`)
+- **THEN** the step exits 0, and `docs/x.md` reads `see ADR 0003 and its notes`
+
+#### Scenario: A citation the step wrote, changed after its record
+- **WHEN** the branch was merged by hand as above, and a person then changed in `docs/x.md` the citation the step had written (`see ADR 0002` became `see the record 0002`)
 - **THEN** the step exits 2 with `cannot give back the numbers the step wrote in docs/x.md`, writes nothing, and the branch's head and tree are as they were before the run
+
+#### Scenario: A citation on a one-line list the base extended
+- **WHEN** the step wrote `ADR 0002` on the one-line list `ADRs: docs/adr/ (0001 first; ADR 0002 the rule)` of `docs/context.yaml`, the base then added `; 0002 other` to that line and took `0002`, and the base was merged by hand keeping both entries on the line
+- **THEN** the step exits 0 with `docs/adr/0003-feat.md`, the line reads `ADRs: docs/adr/ (0001 first; ADR 0003 the rule; 0002 other)`, and the release reads assigned and current, with no give-back by hand
+
+#### Scenario: The base's entry with the same number on the same line
+- **WHEN** the same, but the base wrote its entry `; ADR 0002 other` and the merge by hand left the line `ADRs: docs/adr/ (0001 first; ADR 0002 the rule; ADR 0002 other)`
+- **THEN** the step exits 0, and the line reads `ADRs: docs/adr/ (0001 first; ADR 0003 the rule; ADR 0002 other)`
+
+#### Scenario: A citation the merge dropped where the base cites its own number
+- **WHEN** the same base entry `; ADR 0002 other`, and the merge by hand left the base's line `ADRs: docs/adr/ (0001 first; ADR 0002 other)`
+- **THEN** the step exits 2 with `cannot give back the numbers the step wrote in docs/context.yaml`, writes nothing, the branch's head and tree are as they were, and the base's `ADR 0002` is not touched
 
 ### Requirement: An unnumbered ADR is numbered at the delivery
 A change with a release note SHALL name each ADR it adds `<folder>/<slug>.md` and cite it

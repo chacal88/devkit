@@ -1,199 +1,166 @@
-<!-- devkit-stage readiness result=passed attempt=7 commit=9b67c11f446bfd8f24407556df9c082589acd50f -->
+<!-- devkit-stage readiness result=passed attempt=10 commit=98ffb172675d7d320587e3c7d2ca8f51ae6ec410 -->
 # Readiness review: release-at-merge
 
 ## 1. Decision
 - Status: APPROVED
 - Confidence: high
-- Ready to implement: yes
+- Ready to implement: yes, once the owner approves the plan (task 11.1a waits for that approval)
 
-This review covers the plan revised after review round 2. The revision is uncommitted on `9b67c11`
-and touches `proposal.md`, `design.md`, the `change-delivery` delta and `tasks.md`. I focused on:
-- phase 10 (`tasks.md:481-564`);
-- D-28 to D-30 (`design.md:1123-1290`);
-- the findings map of round 2 (`design.md:1360-1384`);
-- F-11 (`design.md:1448`).
+This review covers the plan revised after the readiness review of attempt 9. The revision is still
+uncommitted on `98ffb17`. It touches `proposal.md`, `design.md`, the `change-coordination` and
+`change-delivery` deltas and `tasks.md`. I re-checked B-3, the two Low items and every changed
+place:
+- D-34's "The records" (`design.md:1735-1755`) and "The note in the record" (`:1757-1775`);
+- D-36's numbering paragraph (`:1868-1877`);
+- the attempt 9 answer table (`:2020-2026`), F-12 (`:2089-2104`), and the phase 11 order and Records
+  bullet (`:2320-2339`);
+- the risk row of the note (`:2372`);
+- `proposal.md:24-31`;
+- tasks 11.1a and 11.3 (`tasks.md:602-657`), the phase intro (`:573-576`), the AC map (`:34`, `:44`)
+  and the workflow follow-up (`:785-789`).
 
-The plan matches the owner's decision of 2026-11-25 ("1a e 2b"), as the caller relayed it. Every
-round 2 finding in `review.md` has an answer:
-- the four important ones: adr-reviewer F7, spec-reviewer F8 and F9, and test-coverage-reviewer F16;
-- every nit.
+The caller gave no instruction about the verdict.
 
-No finding is mandatory. Three Medium items can be fixed during implementation or later, and three
-Low items are optional.
+**B-3 is closed.** The plan takes option (a) of attempt 9:
+- the record gets a dated note whose text is carried word for word (`design.md:1766`);
+- task 11.1a has the adr-author write it after the owner's approval and before any phase 11 code;
+- F-12 no longer defers the question to a later review, and a refusal sends the plan back for
+  option (b) before phase 11 starts (`design.md:1773-1775`, `:2101-2102`).
 
-Checks run:
-- `openspec validate release-at-merge --strict` (and `--type change --no-interactive`): valid, with
-  no errors or warnings.
-- `python3 scripts/check.py`: `all checks passed`.
-- Gate 10.5's whole command at `9b67c11`, with the plan edits uncommitted: every file passed and
-  `check.py` passed. The 12 test files ran with `--concurrency=3`, with no other suite on the
-  machine. No product file changed since `c87b837`, where gate 9.18 ran the whole suite green
-  (`git diff --name-only c87b837 HEAD` lists only files of this change's folder).
-- `openspec/config.yaml` `rules.readiness`: this file is written only by this agent. The caller
-  gave no instruction about the verdict.
+**Both Low items are closed.** The MODIFIED intro is now conditioned on the masked merge
+(`specs/change-coordination/spec.md:102-111`). Task 11.3's done condition excludes the one-line
+list's conduct test, and 11.8 checks it (`tasks.md:649-651`, `:721-723`).
+
+Checks run, all at `98ffb17` with the plan edits uncommitted:
+- `openspec validate release-at-merge --strict`, and the same with `--type change --no-interactive`:
+  `Change 'release-at-merge' is valid` both times.
+- Task 11.1's check, `git diff --quiet 98ffb17 HEAD --` on the two spec files: exit 0.
+- The shared block: I extracted "From the implementation on, the step inside the stage goes to its
+  role" from both deltas and ran `diff`. The only differences are this change's lines: the
+  conditioned intro sentence, ", and the change carries no release note" in two WHENs, the release
+  files WHEN, and the two noted scenarios.
+- No product file changed since attempt 9:
+  - `git diff --quiet 98ffb17 -- plugins docs scripts openspec/config.yaml openspec/specs openspec/roadmap.md CLAUDE.md`
+    exits 0;
+  - `decisions.md` and `approval.md` are unmodified.
+
+  So attempt 9's gate 11.9 run on `98ffb17` still stands (`suite: 15 files, 1997 tests, 1997 pass,
+  0 fail, 595.9s, concurrency 3`; `check.py` passed; `gen-agents --check` passed). No test was run
+  again. `bash /var/tmp/devkit-release-at-merge/wholesuite.sh` printed nothing at the start of this
+  review.
+- `openspec/config.yaml` rules: `rules.readiness` (this file is written only by this agent) and
+  `rules.design` (lines 53-55) were applied. The config is unchanged since `98ffb17`.
 
 ## 2. Scope validation
 Classification: correct
 
-Phase 10 changes no hook:
-- one record gets a dated note;
-- two `ship-change` sentences change;
-- four test names change;
-- one roadmap line is added.
-
-The scope narrows (2b) instead of growing. The forced-merge allowance is named as a non-goal
-(`proposal.md:122`) and moved to a roadmap line.
+The only addition is the dated note in the change's own record (`design.md:2337-2339`, "Records").
+B-3 required that note, and the change ships that record. Nothing else is added.
 
 ## 3. Proposal review
-- Low (L-1, Nice to have): AC-4 still says the step "leaves the evidence and the reviews current"
-  with no scope (`proposal.md:129`), while D-29 limits that to the normal delivery path. The new
-  non-goal covers it. Adding "(on the normal delivery path, D-29)" to AC-4 would make the two agree.
-- The proposal is longer than the two-page rule (attempt 5's O6, carried). The new paragraph is only
-  the summary of the owner's decision. No new finding.
+- `proposal.md:28-31` states the narrowing of decision 5 and the note, and says that the owner's
+  approval accepts it. F-12 sits under "Flagged for the owner" (`design.md:2028`, `:2089`), so the
+  owner sees the question at the approval.
+- Proposal length (two-page rule) is the carried O6. No new finding.
 
 ## 4. Design review
-I checked these claims against the code:
+I checked these new claims against the repository. The code rows of attempt 9 still hold, because no
+product file changed.
 
 | Claim | Check |
 |---|---|
-| `stepRecord` already reads each key from the newest recorded commit that wrote it (D-20, D-28) | `deliver-check.mjs:2277-2319`: every commit with `Release-change: <id>` is collected. `linePaths` skips keys already set (`:2299`). A key counts only when the commit changed it from `^1` (`:2305`, `:2310`, `:2315`). `adrs` holds `{from,to,commit}` and `citations` holds `{path,commit}` (`:2311`, `:2315`). `commit` is the newest (`:2318`). |
-| The defect 7 test proves the new scenario | `release-merge.test.mjs:1022-1063` asserts every part of the WHEN and the THEN: exit 2 naming `src/a.ts` (`:1047-1048`); exit 0 after the merge by hand (`:1052`); `1.2.0` (`:1054`); `0003-feat.md` and the base's `0002-other.md` (`:1055-1057`); the citation (`:1058`); `assigned` and current (`:1062`). `PIN_PACK` is devkit-openspec (`deliver-check.mjs:1653-1654`). The test fails before `46c3c2e` and passes after it in `proof/red-9.txt:842,920`. |
-| The note fits ADR 0032 and the form of ADR 0022 and 0025 | Both 0022 and 0025 have a one-line `Note (release-at-merge, 2026-11-24)` as the first paragraph under `## Context` (`0022:12`, `0025:13`). In `0032-release-at-merge-step-record.md`, `## Context` is at `:13`, followed by a blank line. Decision 3 reads "the newest commit" (`:59-61`) and decision 4 reads "the record" (`:64-70`). The note's date differs from the 0022 and 0025 notes, so 10.1's `git grep -c` counts 1. `ADR [release-at-merge` has no hit under `docs/adr` today. |
-| The flow page already states the per-line reading | `docs/openspec-flow.md:330` says "line by line, the value the newest of its own recorded commits that wrote that line gave it". `:502` holds the per-line parenthesis D-28 quotes. |
-| The forced merge reads gates through a GitHub compare with `isOpenspec` and `verdictAllowed` (D-29) | `gatesAtHead` at `deliver-check.mjs:926-966`: the first file not allowed makes the gate stale (`:948-949`). The canonical requirement and its scenarios are in `openspec/specs/change-delivery/spec.md:546-563`. The over-report is pinned by `deliver-check-archive.test.mjs` G6 (`:2503`) and G8 (`:2523`). |
-| The forced-merge path needs unticked tasks, and N6 comes before `enable-auto-merge` | `left.length > 0` at `deliver-check.mjs:1049`. N6 `assign` is at `:2822-2824`, and `enable-auto-merge` comes after it at `:2830`. |
-| The roadmap line parses and waits on this change | `parseRoadmap` reads `(after: release-at-merge)` (`guard.mjs:1466-1470`). `classifyLines` marks it `waiting` until the change is archived (`roadmap-loop.mjs:173-174`). `roadmapFacts` matches only the line's own id (`deliver-check.mjs:1714-1715`), so the archive ticks nothing. |
-| No ADR rejects the 2b scope | ADR 0031 decision 5 amends only ADR 0025 (`0031:77-90`). ADR 0028, the forced-merge record, is not amended, and D-29 says it stays unchanged. |
+| The step's record is the one `docs/adr` file ending `-release-at-merge-step-record.md`, numbered 0035 at `6836ad2` | `git log -- docs/adr/0035-release-at-merge-step-record.md`: the rename is in `6836ad2`. |
+| The 2026-11-25 note is the first paragraph under `## Context`, and the new note goes above it | `docs/adr/0035-release-at-merge-step-record.md:13` is `## Context`, `:15` the 2026-11-25 note. |
+| Newest first, as ADR 0004's notes stand | `docs/adr/0004-*.md:11,13,15`: 2026-11-24, 2026-11-23, 2026-11-20. |
+| The note holds no citation the step or the state would read | `design.md:1766` holds no `ADR`, no `[`, no four-digit number other than the date, and no `<NNNN>-<slug>.md`. The state reads the record through `adrValue` (`deliver-check.mjs:2279-2285`): the file's presence and `citedAt`'s `ADR [<slug>]` (`:2273-2276`). `citationsOf` reads only `ADR [x]` (`:2347`). So the note leaves the state `assigned` and `current`. |
+| A note added after a recorded step commit is a path the step has already met | `8b50758` (task 10.1's note) came after `923aab5`'s step on the first-parent line, and `e633b9a`'s step ran over it. |
+| Task 11.1a's before-counts | `git grep -c -F "ADR [" 98ffb17 --` gives 2 for the record, and `git grep -c -E "ADR [0-9]{4}"` gives 17. `"Note (release-at-merge, "` gives 1 today, so 2 after the task. A note line plus one blank line gives `2 added, 0 removed`. |
+| The note quotes the Consequence it narrows | `docs/adr/0035-release-at-merge-step-record.md:120-121`: "(Mitigated: exit 2 naming the path, the tree restored, decision 5)". |
+| A later give-back of the record path still merges the note cleanly | The note goes at line 15. The masked text differs from the recorded text only on lines holding a number (the title, `Amends:`, the body citations). Lines 9-14 hold none, so the whole-text merge does not touch the insertion. If it ever did, D-34's span search covers it. |
+| The note says what D-34 does | It says the whole-text merge runs first, a span search to the left and then the right follows, and the merge base's text only refuses. Exit 2 is kept for a span that cannot be found, and words added beside a citation now give back. This matches steps 1-5 (`design.md:1681-1696`). |
 
-- Low (L-2, Nice to have): D-29 (`design.md:1219`) and task 10.4 (`tasks.md:556`) both say "28p while
-  the file ends at 28o". The file actually ends with `## Round 28m` (`openspec/roadmap.md:213`); 28o
-  is the highest letter (`:210`), not the last heading. The rule "the next after the highest" still
-  gives `p`, so nobody is misled. Changing the parenthesis to "the highest is 28o" would make it
-  accurate.
+`openspec/config.yaml:53` asks that a decision that changes an ADR be recorded "as a proposal for a
+new ADR, not as a silent deviation". The deviation is no longer silent and no longer deferred: it
+has a dated note, the owner's approval decides it, and a refusal leads to a new record. This is the
+path attempt 9 offered as option (a). `:55` does not apply (attempt 9, section 4).
 
 ## 5. Specs review
-- The new scenario "A number the step kept across a later step commit" (`spec.md:86`) is testable and
-  proven by an existing test (section 4). The requirement now says "per line" (`:73-76`).
-- The added sentence and THEN clause about the forced merge (`spec.md:399-402`, `:414`) use SHALL.
-  They are verifiable through the canonical G6 and G8 tests, because `gatesAtHead` does not change.
-- Low (L-3, Nice to have): the WHEN of "A number the step never wrote" (`spec.md:91`) still says "the
-  step's recorded commit". "No recorded commit", as in the requirement's last sentence (`:76`), would
-  match the per-line reading the spec now states.
+- `change-coordination` MODIFIED "From the implementation on, ..." (lines 97-111):
+  - the intro sends "a pull request behind its base or in conflict with it, when every conflict of
+    its merge with that base is one the release step's masked merge resolves" to `assign-release`;
+  - it sends "any other conflict, a pull request behind a base whose merge would conflict elsewhere
+    included" to `resolve-base-conflict`.
+
+  This matches its scenarios and the ADDED requirement (line 56). Validation passes.
+- `change-delivery`: no new finding. The give-back requirement and its scenarios match D-34, as in
+  attempt 9.
 
 ## 6. Tasks review
-Each task 10.1 to 10.4 has a done condition you can run, and I checked each count against the files:
-- **10.2: 2 added, 2 removed.** The `assign-release` row is one line (`ship-change/SKILL.md:70`), and
-  "trailers of its last commit" appears there once. The `app` bullet is one line (`:124`), and its
-  anchor sentence appears once.
-- **10.2: the kept phrase.** "from its own record", which `deliver-check-cli.test.mjs:717` asserts,
-  is still in the row after the edit. No test asserts "Auto-fix".
-- **10.3: 3/3 and 1/1.** Each old test name is on one line (`release-note.test.mjs:488,498,796`;
-  `delivery-train.test.mjs:516`). Outside this change's folder, `git grep` finds the old names only
-  in those two test files.
-- **10.1: 2 added, 0 removed.** That is one note line plus one blank line.
-- **10.4: 3 added, 0 removed.** That is a blank line, the heading and the item. The file ends on an
-  item line, and the 1262-character line is shorter than the longest line already in the file.
-- **Gates.** Every file in 10.5 exists and passed today (section 1). 10.6 is the whole suite at the
-  final head. It is long, so the caller runs it.
-- **Coverage.** Every AC that phase 10 touches is mapped (`tasks.md:34,38,45`).
-
-Medium findings:
-- **M-1 (Fix during implementation).** Task 10.1 (`tasks.md:498-510`) has the adr-author write a note
-  into an accepted record. The agent's own Never list says "Edit the text of an accepted record"
-  (`plugins/core/agents/adr-author.md:45`), and so does `adr-authoring/SKILL.md:23`. The plan has a
-  precedent: 9.1a (`db68e70`) went the same way. But if the agent refuses, the plan gives no fallback,
-  and it forbids the implementer from writing the note. Smallest fix: the brief to the adr-author
-  quotes the owner's decision 1a and D-28 as the authority for this one note. If the agent still
-  answers `failure`, the coordinating session stops for the owner.
-- **M-2 (Fix during implementation; after phase 10, not part of it).** After phase 10 the review runs
-  again. The plan only says it runs "as the loop asks" (`design.md:1650`). Round 2 was the last round
-  (`review.md`, FAIL round 2/2). `review-change/SKILL.md:128` allows a further round only when the
-  owner approves one in his own message: it then runs as round 1 of a new cycle, quoting his words.
-  The loop will not stop at `stop-review-deadlock`, because the rejected verdicts go stale with phase
-  10's commits (`deliver-check.mjs:2678-2679` requires `r.current`). So the session running the review
-  must decide on its own whether "1a e 2b" is that approval. Smallest fix: one sentence in the phase
-  10 intro or the Workflow follow-up saying that the next review is the owner's further round (quoting
-  "1a e 2b") or that the coordinator asks the owner first.
-- **M-3 (Nice to have).** Task 10.5 says it covers "every test file that reads the `ship-change`
-  skill". Two other files read it too: `review-round.test.mjs:1072` and `change-loop.test.mjs:2592`.
-  They read only the `review`, `fix-review` and `update-branch` rows, which phase 10 does not touch,
-  and 10.6 runs them. The wording could say "every test file that reads the rows phase 10 edits".
+- 11.1a is ordered after the owner's approval and before 11.2. Its done condition is a set of
+  commands with stated outputs, and each before-count was verified above. It names the agent (the
+  adr-author, not the implementer) and the commit message. The AC map lists it under AC-4 and AC-14
+  (`tasks.md:34`, `:44`).
+- 11.3's done condition now excludes the one-line list's conduct test, and 11.8's names it. The two
+  agree with 11.3's opening.
+- Gate 11.9 is green on the base (section 1). The task paths are unchanged from attempt 9, and they
+  exist.
 
 ## 7. Omission detection
-No findings:
-- Rollback is a text revert.
-- Running a task twice is caught by its count checks.
-- Compatibility is unchanged, because no hook changes.
-- The release numbering: the note in 10.1 has no `ADR [<slug>]` and no ADR number. ADR 0032 is a
-  `Release-adr` path of `923aab5`, so a later renumbering runs `git mv` and rewrites only its tokens,
-  which an extra paragraph does not affect.
-- The test history rule (`config.yaml`): no new test reads git history.
+No findings. The refusal path of the note is defined (`design.md:1773-1775`). Validation, error
+ends, idempotency and rollback of the give-back are as in attempt 9.
 
 ## 8. Execution risks (top 5 failures)
-1. **The adr-author refuses 10.1** (M-1).
-   - Cause: its Never line.
-   - Impact: phase 10 stops after 10.1.
-   - Prevention: M-1's brief sentence.
-2. **The re-review starts with no stated round** (M-2).
-   - Cause: no rule names a third review.
-   - Impact: the session asks the owner again, or runs an unauthorized round.
-   - Prevention: M-2.
-3. **The base moves before the merge.**
-   - Cause: trains keep landing.
-   - Impact: `assign-release` runs again. The record now spans more than one commit, which the
-     per-line reading and the defect 7 test cover.
-   - Prevention: as planned (D-20, D-17).
-4. **The base appends a roadmap round with the same letter.**
-   - Cause: `openspec/roadmap.md` is a shared place to append.
-   - Impact: a conflict under `openspec/`.
-   - Prevention: as planned. 10.4 takes the next free letter, and the conflict is resolved by keeping
-     both rounds.
-5. **The ADR note gets wrapped over two lines.**
-   - Cause: the writer wraps prose.
-   - Impact: 10.1's numstat check (2/0) fails.
-   - Prevention: the check catches it. The note is one line, as in ADR 0022 and 0025.
+1. **The owner approves the plan without reading the note.**
+   - Cause: the note claims "the owner accepted, in his approval of the revised plan".
+   - Impact: the record would state an acceptance the owner did not consciously give.
+   - Prevention: F-12 is under "Flagged for the owner", `proposal.md:28-31` says it, and
+     `approval.md` records the owner's own words. This is acceptable.
+2. **The real implementer turns the step's numbers on the list back to slugs, or renumbers them.**
+   - Impact: the step exits 2 and the run blocks. Nothing is mis-numbered.
+   - Prevention: D-31's "Never" sentence and S-13 (b).
+3. **A span is given back to the wrong place.**
+   - Cause: a person writes the step's exact surrounding text for another record.
+   - Impact: one wrong number on one citation.
+   - Prevention: the base-text test and the D-35 guards. The residual risk is acceptable.
+4. **The base moves again before the delivery.**
+   - Impact: one merge, one push and one step run, an extra loop of one to two hours.
+   - Prevention: D-36. The note holds no number, so a renumbering leaves it as written.
+5. **coordinator-loop-fixes archives with its own block after this change.**
+   - Prevention: F-13's relay, a workflow follow-up. This is acceptable.
 
 ## 9. Mandatory fixes before implementation
-None.
+No findings.
 
 ## 10. Optional improvements (within scope)
-- [ ] M-1 (Medium, Fix during implementation). `tasks.md:498`: give 10.1 the authority line for the
-  adr-author and a fallback if it refuses.
-- [ ] M-2 (Medium, Fix during implementation). `tasks.md:481-497` or the Workflow follow-up: say how
-  the review after phase 10 is authorized (`review-change/SKILL.md:128`).
-- [ ] M-3 (Medium, Nice to have). `tasks.md:563`: make 10.5's coverage claim exact.
-- [ ] L-1 (Low). `proposal.md:129`: scope AC-4 to the normal delivery path.
-- [ ] L-2 (Low). `design.md:1219` and `tasks.md:556`: "the highest is 28o", not "ends at 28o".
-- [ ] L-3 (Low). `specs/change-delivery/spec.md:91`: "no recorded commit".
+- [ ] Low. `design.md:1869`: "task 11.1a's note in the step's record holds none and names that file
+  by its slug" reads as if the note names a file. It is task 11.1a that finds the file by its slug
+  ending. Suggested wording: "task 11.1a finds that file by its slug, and its note holds none".
 
 ## 11. Explicitly out of scope
-- [ ] The release-edit allowance for `gatesAtHead`, which becomes the roadmap line
-  `forced-merge-release-edit` (D-29).
-- [ ] Nits F18, F19 and architecture F8 from round 2, and the follow-ups carried from round 1
-  (`tasks.md:579-585`).
-- [ ] F-11: the owner confirms how the merge `a47cec8` was resolved. No task depends on it.
+- [ ] `CLAUDE.md`'s command table names `plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs`,
+  which does not exist. The plan rightly uses `plugins/compozy/kit/scripts/gen-agents.mjs`. That file
+  belongs to the repository, not to this change.
+- [ ] The carried round 1 and round 2 follow-ups and `forced-merge-release-edit`, unchanged.
 
 ## 12. Mandatory review questions
-1. **Is the problem objectively defined?** Yes. Each round 2 finding is mapped to an answer
-   (`design.md:1360-1384`).
-2. **Is the result measurable?** Yes. Every task has command-level counts, and I checked each count
-   against the current files.
-3. **Are error behaviors defined?** Yes for the code, which does not change. The adr-author refusal is
-   not handled (M-1).
-4. **Are edge cases covered?** Yes. They include a number kept across a later step commit, the
-   forced-merge over-report and a base that appends a roadmap round.
-5. **Are dependencies clear?** Yes: the owner's decision, ADR 0032, `gatesAtHead` and ADR 0028
-   unchanged.
-6. **Are contracts defined?** Yes. `stepRecord`'s return shape matches the code.
-7. **Can two developers interpret this differently?** Only at the re-review step after phase 10 (M-2).
-8. **Are any decisions implicit instead of written?** No. 1a and 2b are written as D-28 and D-29.
-9. **Do the tasks fully deliver the intended outcome?** Yes, with the follow-up on the roadmap.
-10. **What will be discovered too late if implementation starts now?** At worst, an adr-author refusal
-    at 10.1 or a question about the review round after phase 10.
+1. **Is the problem objectively defined?** Yes. Every round 3 finding and every item of attempts 8
+   and 9 is mapped (`design.md:1984-2026`).
+2. **Is the result measurable?** Yes. Each fix has named red and guard tests, and the note has a
+   count check.
+3. **Are error behaviors defined?** Yes, including the owner refusing the note.
+4. **Are edge cases covered?** Yes, as in attempt 9.
+5. **Are dependencies clear?** Yes: the owner's approval comes before 11.1a, then 11.2 follows.
+6. **Are contracts defined?** Yes. The note's text is given word for word.
+7. **Can two developers interpret this differently?** No.
+8. **Are any decisions implicit instead of written?** No. The change to decision 5 is now a note,
+   with its text in the plan.
+9. **Do the tasks fully deliver the intended outcome?** Yes: the code, the proof, and a record that
+   matches the code.
+10. **What will be discovered too late if implementation starts now?** Nothing known.
 
 ## 13. Final conclusion
-- **Can we start?** Yes. Phase 10 can be implemented as written.
-- **What must be fixed?** Nothing mandatory. M-1 and M-2 are best settled in the coordinating
-  session's briefs.
-- **Main risk if ignored:** the run stalls on the adr-author's Never line, or on whether the owner
-  allowed one more review round.
+- **Can we start?** Yes, after the owner approves the plan. His approval also accepts the note of
+  task 11.1a; if he refuses it, the plan goes back for option (b).
+- **What must be fixed?** Nothing. The one Low item is optional.
+- **Main risk if ignored?** None that blocks. The adr-reviewer still reviews the note in the next
+  review round, as it reviews every record.

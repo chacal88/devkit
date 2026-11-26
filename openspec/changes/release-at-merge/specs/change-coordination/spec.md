@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=5 commit=41dd40ed6cb3017dd2a8cc5c623ffa6d19934303 -->
+<!-- devkit-stage specs result=passed attempt=7 commit=98ffb172675d7d320587e3c7d2ca8f51ae6ec410 -->
 # Spec Delta
 
 ## ADDED Requirements
@@ -7,8 +7,9 @@
 When the delivery checker answers `assign-release`, the loop SHALL give a session step of the
 delivery stage whose detail carries the pull request number, the base branch, the branch and the
 command, done as the shipping skill's row says: fetch the base, run the command in the change's
-worktree, and on exit 0 push the branch with a plain push. A command that exits 2 SHALL end the run
-blocked with its message.
+worktree, and on exit 0 push the branch with a plain push. An exit 2 with an error SHALL end the run
+blocked with its message; an exit 2 that lists conflicts and names no error SHALL be followed by
+`next` again.
 
 #### Scenario: The step is handed
 - **WHEN** the delivery checker answers `assign-release` for change `feat`
@@ -17,6 +18,10 @@ blocked with its message.
 #### Scenario: The command refuses
 - **WHEN** the command exits 2 naming an ADR slug that has not landed
 - **THEN** the session declares the run blocked and shows the command's message
+
+#### Scenario: The command meets a conflict the base brought after `next`
+- **WHEN** the base gained a commit that conflicts with the change in `src/a.ts` after `next` handed `assign-release`, and the command exits 2 listing `src/a.ts` among its conflicts with no error
+- **THEN** the session runs `next` again, which hands `resolve-base-conflict` to the implementer's agent, and the run does not end blocked for it
 
 #### Scenario: The same step back with nothing changed
 - **WHEN** the step `assign-release` comes back with the same progress key after the session ran it
@@ -34,6 +39,26 @@ without a number; a numbered ADR such a change lists keeps the renumbering step.
 #### Scenario: A noted change whose number the base took
 - **WHEN** a change with a release note holds `docs/adr/0018-feat.md` from an earlier assignment and the base took `0018`
 - **THEN** the conductor gives no `renumber-adr` step
+
+### Requirement: The conductor classifies a noted change's conflict by the release step's rule
+When the conductor hands a change with a release note `assign-release`, it SHALL classify the merge
+of the base by the release step's own rule: a conflict the step's masked merge resolves keeps
+`assign-release`; any other conflict SHALL go to `resolve-base-conflict`, whose merge takes the
+base's side of every release line in conflict, keeps the change's own citations as the branch holds
+them beside the base's entries, and writes no number; `assign-release` SHALL follow once that merge
+is pushed.
+
+#### Scenario: A noted change in conflict outside the release files
+- **WHEN** a change with a release note, in a project that names `devkit.release_tag` and sets no delivery train, conflicts with its base in `README.md` and `CHANGELOG.md`
+- **THEN** the conductor answers `resolve-base-conflict` for the implementer, with the base, both paths in `paths`, `README.md` alone in `others` and `noted` set, and once the implementer's merge is pushed the next step is `assign-release`
+
+#### Scenario: A noted change behind a base it conflicts with
+- **WHEN** GitHub reports the branch of a change with a release note only behind its base, and the merge of the base would conflict in `README.md`
+- **THEN** the conductor answers `resolve-base-conflict`, not `assign-release`
+
+#### Scenario: A noted change whose base extended a one-line list holding its own citation
+- **WHEN** the release step numbered a change with a release note `docs/adr/0002-b.md` and wrote `ADR 0002 the rule` on the one-line list `ADRs: docs/adr/ (0001 start; ADR 0002 the rule)` of `docs/context.yaml`, and the base then released, took `0002` for `docs/adr/0002-other.md` and appended `; 0002 other` to that line
+- **THEN** the conductor answers `resolve-base-conflict` with `docs/context.yaml` in `others` and `noted` set, not `assign-release`; the implementer's merge keeps both entries on the line, the change's as the branch holds it; once that merge is pushed the next step is `assign-release`, whose command exits 0 with `docs/adr/0003-b.md` and the line `ADRs: docs/adr/ (0001 start; ADR 0003 the rule; 0002 other)`
 
 ### Requirement: The planner does not stop without the release note
 In a project that names `devkit.release_tag`, when the planner's stage agent stops while the change's
@@ -71,13 +96,18 @@ record is not reported unreadable and no step asks to accept it again.
 
 ### Requirement: From the implementation on, the step inside the stage goes to its role
 From the implementation to the archive, the loop SHALL take the stage from the stage checker and the
-step inside it from the delivery checker, with the override the retired `/conduct` applied and `/devkit change` keeps (a release-file
-conflict), and hand each step to the role declared for its stage; the stage
+step inside it from the delivery checker, with the override the retired `/conduct` applied and `/devkit change` keeps (a conflict with the
+base, in the release files or outside them), and hand each step to the role declared for its stage; the stage
 checker's blocked ends SHALL win. The unit tests and the E2E tests, which the delivery checker does
 not know, SHALL be taken from the stage checker alone. For a change with a release note in a project
-that names `devkit.release_tag` and sets no delivery train, a pull request in conflict with its base
-or behind it SHALL go to the session step `assign-release` instead of `resolve-release-conflict`,
-`update-branch` or the blocked end the scenarios below give a change with no release note.
+that names `devkit.release_tag` and sets no delivery train, a pull request behind its base or in
+conflict with it, when every conflict of its merge with that base is one the release step's masked
+merge resolves (none, or only in the release files, the CI pins, the file `devkit.release_tag`
+names, and a text holding the change's own numbers whose merge with those numbers masked is clean),
+SHALL go to the session step `assign-release` instead of `resolve-release-conflict` or
+`update-branch`; any other conflict, a pull request behind a base whose merge would conflict
+elsewhere included, SHALL go to `resolve-base-conflict` as for a change with no release note, its merge taking the base's side of
+every release line in conflict and writing no number, and `assign-release` SHALL follow it.
 
 #### Scenario: Implementation and fixes
 - **WHEN** the delivery checker's step is `implement`, `fix-review`, `fix-defect`, `fix-checks` or `apply-proposals`
@@ -108,16 +138,24 @@ or behind it SHALL go to the session step `assign-release` instead of `resolve-r
 - **THEN** none of them is `push-rebased` and no command they carry holds `--force` or `--force-with-lease`
 
 #### Scenario: A conflict in any other file
-- **WHEN** the pull request of a change with no release note conflicts with its base in a file that is not a release file
-- **THEN** the run ends blocked, saying the pull request has a problem the session cannot fix alone
+- **WHEN** the change's pull request, or the archive's pull request of an archive that never left a delivery train, conflicts with its base in a file that is not a release file, with or without release files among the conflicting paths, and the change carries no release note
+- **THEN** the next action hands `resolve-base-conflict` to the implementer's agent with the base and every conflicting path, and the run does not end blocked for it
+
+#### Scenario: A conflict git cannot classify
+- **WHEN** the pull request conflicts and `git merge-tree --write-tree` cannot run (git older than 2.38)
+- **THEN** the run ends blocked, saying the conflict cannot be classified, as before
 
 #### Scenario: GitHub reports a conflict the base merges cleanly
 - **WHEN** GitHub reports a conflict, the base merges cleanly with the local head, the local head is the pull request's head, the project merges automatically, and the change carries no release note
 - **THEN** the next action is the session step `update-branch`
 
-#### Scenario: A change with a release note in conflict with its base
-- **WHEN** a change with a release note, in a project that names `devkit.release_tag` and sets no delivery train, has its pull request in conflict with its base, in release files or in any other file
-- **THEN** the next action is the session step `assign-release`, and when its command then exits 2 naming the conflict the run ends blocked with that message
+#### Scenario: A change with a release note in conflict only in its release lines
+- **WHEN** a change with a release note, in a project that names `devkit.release_tag` and sets no delivery train, has its pull request in conflict with its base only where the release step's masked merge resolves the conflict, or GitHub reports a conflict the base merges cleanly with the local head
+- **THEN** the next action is the session step `assign-release`, not `resolve-release-conflict` and not `update-branch`
+
+#### Scenario: A change with a release note in conflict outside its release lines
+- **WHEN** such a change's pull request conflicts with its base in `src/a.ts`, with or without release files among the conflicting paths, or its branch is behind a base whose merge would conflict there
+- **THEN** the next action hands `resolve-base-conflict` to the implementer's agent with the base, every conflicting path, the ones outside the release lines and `noted`; its merge takes the base's side of every release line in conflict and writes no number, and once that merge is pushed the next step is `assign-release`
 
 #### Scenario: The demonstration
 - **WHEN** the step is `verify`
@@ -129,7 +167,11 @@ or behind it SHALL go to the session step `assign-release` instead of `resolve-r
 
 #### Scenario: A phase gate
 - **WHEN** the step is `gate`
-- **THEN** the next action is a session step carrying the gate's command and task; a green run ticks the task and a red run ends the run blocked, saying the phase's tests failed
+- **THEN** the next action is a session step carrying the gate's command and task; a green run ticks the task, and a red run is declared by the session, which hands one fix to the implementer the first time and ends the run blocked, saying the phase's tests failed, the second time
+
+#### Scenario: A task the conducting session does
+- **WHEN** the step is `conductor-task`
+- **THEN** the next action is a session step naming the phase and the tasks the session does itself, and no hand-off to the implementer carries them
 
 #### Scenario: A pull-request or archive step of the session
 - **WHEN** the step is `edit-pr-body`, `enable-auto-merge`, `disable-auto-merge`, `update-branch`, `answer`, `retro`, `archive` or `tick-roadmap`
@@ -193,7 +235,9 @@ delivery step, the release-conflict step and the archive steps among them, is ju
 remote's current base. The fetch SHALL write that one tracking ref and nothing else. For a change
 that carries a release note, in a project that names `devkit.release_tag` and sets no delivery
 train, the step judged from the fetched base SHALL be `assign-release` wherever the delivery checker
-answers it, in place of the release-conflict step and of the update of the branch.
+answers it, in place of the release-conflict step and of the update of the branch, unless the merge
+of the fetched base conflicts where the release step's masked merge does not resolve it, which goes
+to `resolve-base-conflict`.
 
 #### Scenario: A base that moved on the remote
 - **WHEN** the remote's `main` holds a commit that conflicts with the change in a release file, the local tracking ref of `main` is one commit behind, `next` runs for the change in delivery, and the change carries no release note
@@ -202,6 +246,10 @@ answers it, in place of the release-conflict step and of the update of the branc
 #### Scenario: A base that moved on the remote, for a change with a release note
 - **WHEN** the same remote commit and stale tracking ref meet a change with a release note, in a project that names `devkit.release_tag` and sets no delivery train
 - **THEN** the tracking ref moves to the remote's commit and the action is the session step `assign-release`, not the release-conflict step and not the update of the branch
+
+#### Scenario: A base that moved on the remote with a conflict outside the release lines, for a change with a release note
+- **WHEN** the remote's `main` holds a commit that conflicts with such a change in `README.md`, the local tracking ref of `main` is one commit behind, and `next` runs for the change in delivery
+- **THEN** the tracking ref moves to the remote's commit and the action hands `resolve-base-conflict` to the implementer's agent, not the session step `assign-release`
 
 #### Scenario: The same base without the fetch
 - **WHEN** the loop decides the same change from the stale tracking ref without fetching

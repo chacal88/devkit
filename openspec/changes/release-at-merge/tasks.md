@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=6 commit=9b67c11f446bfd8f24407556df9c082589acd50f -->
+<!-- devkit-stage tasks result=passed attempt=8 commit=98ffb172675d7d320587e3c7d2ca8f51ae6ec410 -->
 # Tasks
 
 Change: `release-at-merge` · Date: 2026-11-24 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -31,19 +31,19 @@ invariant, layer and suite in the commit message. Leave no backup or scratch fil
 | AC-1 | 2.1, 2.3, 2.5, 4.1, 4.3, 6.6, 7.2, 7.3, 7.5, 7.6, 9.11, 9.12 |
 | AC-2 | 2.1, 2.3, 2.5, 6.6, 7.6, 7.7, 9.5, 9.6 |
 | AC-3 | 3.1, 3.3, 6.3, 9.11 |
-| AC-4 | 2.1, 2.4, 2.5, 3.1, 3.2, 4.1, 4.2, 6.2, 8.1, 9.1, 9.5, 9.6, 9.11, 9.12, 9.14, 9.17, 10.1, 10.2, 10.3, 10.4, 10.5 |
-| AC-5 | 2.4, 3.1, 3.2, 3.3, 4.3, 6.2, 6.3, 7.1, 7.4, 7.6, 8.1, 9.2, 9.3, 9.5, 9.6, 9.14, 9.17 |
+| AC-4 | 2.1, 2.4, 2.5, 3.1, 3.2, 4.1, 4.2, 6.2, 8.1, 9.1, 9.5, 9.6, 9.11, 9.12, 9.14, 9.17, 10.1, 10.2, 10.3, 10.4, 10.5, 11.1a, 11.2, 11.3, 11.4, 11.7, 11.8, 11.9, 11.10, 11.11 |
+| AC-5 | 2.4, 3.1, 3.2, 3.3, 4.3, 6.2, 6.3, 7.1, 7.4, 7.6, 8.1, 9.2, 9.3, 9.5, 9.6, 9.14, 9.17, 11.7, 11.8, 11.10 |
 | AC-6 | 5.1, 5.2, 5.3, 6.6, 7.1, 8.1, 9.17 |
 | AC-7 | 2.1, 2.5, 3.1, 3.2, 3.3, 6.6, 9.2, 9.3, 10.3 |
 | AC-8 | 3.1, 3.2, 6.5, 9.11 |
 | AC-9 | 2.1, 2.2, 2.5, 3.1, 6.5, 7.4, 7.5, 9.11, 9.12, 9.14 |
 | AC-10 | 3.1, 3.3, 4.1, 4.2, 6.4, 7.4 |
 | AC-11 | 2.1, 2.5, 6.6 |
-| AC-12 | 1.2, 2.1, 2.5, 4.3, 6.6, 9.8, 9.9, 9.11 |
+| AC-12 | 1.2, 2.1, 2.5, 4.3, 6.6, 9.8, 9.9, 9.11, 11.5, 11.6, 11.9, 11.10 |
 | AC-13 | 4.1, 6.2, 6.3 |
-| AC-14 | 5.1, 5.4, 5.5, 5.6, 5.7, 7.6, 9.1a, 9.3, 9.6, 9.9, 9.12, 9.17, 10.1, 10.2, 10.6 |
-| AC-15 | 6.1 to 6.7, 7.1 to 7.8, 9.14, 9.15, 9.16 |
-| AC-16 | 9.8, 9.9, 9.10, 9.15, 9.16 |
+| AC-14 | 5.1, 5.4, 5.5, 5.6, 5.7, 7.6, 9.1a, 9.3, 9.6, 9.9, 9.12, 9.17, 10.1, 10.2, 10.6, 11.1, 11.1a, 11.4, 11.8, 11.13 |
+| AC-15 | 6.1 to 6.7, 7.1 to 7.8, 9.14, 9.15, 9.16, 11.10, 11.11, 11.12 |
+| AC-16 | 9.8, 9.9, 9.10, 9.15, 9.16, 11.5, 11.6 |
 
 ## 1. Setup
 
@@ -563,6 +563,205 @@ End every task with `git status --short`.
 - [x] 10.5 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/release-tags.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs && python3 scripts/check.py && openspec validate release-at-merge --strict` green; covers AC-4 (the per-line record and its scenario), AC-7 (the renamed citation tests) and AC-14 (the texts) on the files phase 10 touches and every test file that reads the `ship-change` skill.
 - [x] 10.6 Gate: `node scripts/test-suite.mjs --concurrency=3 && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/kit/scripts/gen-agents.mjs --check && claude plugin validate . && openspec validate release-at-merge --strict` green at the final head, the whole suite run once as a background command with no other suite on the machine; the train's suite proves it again (AC-14).
 
+## 11. Fixes of review round 3
+
+Review round 3 failed (`review.md` at `e2efd38`, the round the owner authorized, escalated): a noted
+change in conflict outside the release files never gets `resolve-base-conflict`, the `plan-revised`
+rule reads the note, this change's MODIFIED `change-coordination` block collides with
+coordinator-loop-fixes', and the give-back's limit on a one-line citation list was not reproduced.
+The decisions are D-31 to D-36 of `design.md`, and "Findings of review round 3" there maps every
+finding, and every item of the readiness review of attempt 8, to these tasks or to a written answer:
+the give-back works at the token level (D-34), the step's record gains a dated note saying so
+(task 11.1a, by the adr-author once the owner approves this plan, readiness attempt 9, B-3), no
+give-back by hand is documented, and a conflict the
+release step's masked merge does not resolve, a one-line list both sides extended among them, goes
+to `resolve-base-conflict` (D-31). Strict test first: each fix's test task comes before
+its code task, its red tests fail on the code as the phase finds it and its guard tests pass there
+and say so; each run is appended as printed to `openspec/changes/release-at-merge/proof/red-11.txt`
+under a line naming its task, and that run is the task's check, never a gate. An existing test
+changes only where D-35 says, its invariant, layer and suite named in the commit message. No task
+writes a version, a changelog line, a CI pin or an ADR number: the numbering is done (`6836ad2`, the
+step's run over train 19), and if the base moves again before the delivery the numbering step runs
+again, run by the coordinating session from this worktree (`node plugins/openspec/hooks/release-merge.mjs
+--assign --base main --json`, D-17, D-20, D-36), never by a task or by hand; a task names this
+change's records by their slugs. Every gate runs at most three test files at once (`--concurrency=3`)
+as a background command of the tool, judged by its exit code. End every task with `git status
+--short`.
+
+- [ ] 11.1 (spec-reviewer F11; D-33) Check that the shared block's base has not moved since the plan
+  was written: the `change-coordination` block "From the implementation on, the step inside the stage
+  goes to its role" of this change is coordinator-loop-fixes' block at `98ffb17` plus this change's
+  lines. Done when `git diff --quiet 98ffb172675d7d320587e3c7d2ca8f51ae6ec410 HEAD --
+  openspec/changes/coordinator-loop-fixes/specs/change-coordination/spec.md
+  openspec/specs/change-coordination/spec.md` exits 0 and `openspec validate release-at-merge
+  --strict` passes. When the diff exits 1 (coordinator-loop-fixes revised its block or was archived),
+  stop the phase for a plan revision that rebuilds the block on the text then current, as D-33 says;
+  no plan file is edited by this task. `98ffb17` stays the base after the readiness reviews of
+  attempts 8 and 9, whose revisions changed only this change's lines of the block, never the two
+  files compared.
+- [ ] 11.1a (readiness attempt 9, B-3, option (a); adr-reviewer F13; D-34, "The note in the record";
+  F-12) Once the owner has approved this plan, and before 11.2, the coordinating session has the
+  adr-author add to the record of `ADR [release-at-merge-step-record]` (the one file of `git ls-files
+  docs/adr` whose name ends `-release-at-merge-step-record.md`) one dated note, as the first
+  paragraph under its `## Context` heading and followed by one blank line, so it sits above the
+  2026-11-25 note, in that note's form, with D-34's text word for word (`<date>` the `- Date:` of
+  that approval in `approval.md`; it starts `Note (release-at-merge, <date>): after the readiness
+  review of phase 11 of change release-at-merge the owner accepted,` and ends `The Decision is
+  otherwise unchanged.`); no other line of the record changes, the note holds no `ADR [<slug>]` token
+  and no `ADR <NNNN>` citation, and the implementer does not write it. Committed alone as `docs(adr):
+  note the owner's span-level reading of the release step's give-back`. Done when `git grep -c -F
+  "after the readiness review of phase 11 of change release-at-merge" -- docs/adr` names that one
+  file with the count 1, `git grep -c -F "Note (release-at-merge, " --` that file prints 2, the first
+  non-blank line after `## Context` in it starts `Note (release-at-merge, <date>): after the readiness
+  review of phase 11`, `git show --numstat --format= HEAD -- docs/adr` lists that one file with 2
+  lines added and 0 removed, `git grep -c -F "ADR [" --` that file and `git grep -c -E "ADR [0-9]{4}"
+  --` that file print the counts they printed before the task (2 and 17 at `98ffb17`), and `python3
+  scripts/check.py` passes (AC-4, AC-14).
+- [ ] 11.2 (adr-reviewer F11, spec-reviewer F12, test-coverage nit F25; D-31) Write the D-35 tests of
+  D-31: in `plugins/openspec/hooks/deliver-check.test.mjs` "release-note AC-4 row N5: the
+  assign-release that stands in place of the conflict stop carries conflict true, and the one for a
+  branch behind carries none"; in `plugins/openspec/hooks/release-merge.test.mjs` "release-note AC-4
+  assign: assignBlockingAt names the conflicting paths outside the step's release lines, and the step
+  refuses the same merge naming them"; in `plugins/openspec/hooks/conduct-check.test.mjs` the four
+  `release-note AC-4 conduct` tests of D-35 (outside the release files, the merge not pushed, behind
+  with a conflict, and the guard of the release files with the CI pins) and the D-35 test of the
+  one-line list (D-34 row: "a noted change whose base extended the one-line list holding its own
+  citation gets resolve-base-conflict naming that file, ..."), with `notedConflict`'s options `also`
+  and `record` (their defaults build the round it builds today), and the records written again at
+  the merge by `writeReviews` as D-35 says; in
+  `plugins/openspec/hooks/change-loop.test.mjs` "release-note AC-4 fetch: a base that moved on the
+  remote with a conflict outside the release files hands resolve-base-conflict to the implementer for
+  a noted change"; in `plugins/openspec/hooks/deliver-check-cli.test.mjs` "release-note AC-4 format:
+  after an assign-release exit 2 that lists conflicts and no error the session runs next again, and
+  resolve-base-conflict takes the base's side of every release line for next.noted"; in
+  `plugins/openspec/hooks/release-note.test.mjs` "release-note AC-14 texts: the implementer takes the
+  base's side of a release line in a merge of the base for a change with a release note". Run them;
+  append the run to `proof/red-11.txt`. Done when each exists by its D-35 name, the red ones fail and
+  the guard passes.
+- [ ] 11.3 (adr-reviewer F11, spec-reviewer F12; D-31, "Where the routing changes", items 1 to 3)
+  Apply D-31 in code (the one-line list's conduct test of 11.2 passes only at 11.8, after the
+  token-level give-back; until then its `resolve-base-conflict` part passes and its last `assign-release`
+  exits 2): in `plugins/openspec/hooks/deliver-check.mjs` `nextStep`'s `assign(reason,
+  extra = {})` and the N5 conflict return with `{ conflict: true }`; in
+  `plugins/openspec/hooks/release-merge.mjs` the exports `ownRecords`, `assignBlocking` and
+  `assignBlockingAt`, `numberRelease` calling the first two with the moved bodies unchanged; in
+  `plugins/openspec/hooks/conduct-check.mjs` the import of `assignBlockingAt`, `assignConflict`,
+  `deliveryRow`'s override line and the two comments. Done when the 11.2 tests of
+  `deliver-check.test.mjs`, `release-merge.test.mjs`, `conduct-check.test.mjs` and
+  `change-loop.test.mjs` pass, except the one-line list's conduct test, which passes at 11.8 (its
+  done condition checks it), and these stay green: "release-note AC-4 conduct: a noted change in a
+  release-only conflict gets assign-release ..." and the other `release-note AC-4` and `AC-10` conduct
+  tests, coordinator-loop-fixes T45 to T48 (`conduct-check.test.mjs`), every `release-note AC-4`,
+  `AC-5` and `AC-7` test of `release-merge.test.mjs` and `release-note.test.mjs`, the joins of
+  `delivery-train.test.mjs` and `delivery-train-after.test.mjs`, the N5 and N6 tests of
+  `deliver-check.test.mjs` and the boundary tests of `merge-setup.test.mjs`.
+- [ ] 11.4 (adr-reviewer F11, spec-reviewer F12; D-31, "The texts, word for word") Write D-31's texts,
+  each found by its text: in `plugins/openspec/skills/ship-change/SKILL.md` the `assign-release` row,
+  the `resolve-base-conflict` row and the `app` bullet; in `plugins/openspec/skills/devkit/SKILL.md`
+  the `session` bullet's `assign-release` sentence; in `docs/openspec-flow.md` the "**Release-file
+  conflict.**" bullet, the `--assign --base <base>` bullet's recovery sentence, row N5, the
+  `assign-release` row of the step table and the `blocked: item 5` troubleshooting row; in
+  `plugins/core/agents/tdd-implementer.md` the "Never" bullet's sentence; then run `node
+  plugins/compozy/kit/scripts/gen-agents.mjs`. Done when the 11.2 tests of
+  `deliver-check-cli.test.mjs` and `release-note.test.mjs` pass, `node
+  plugins/compozy/kit/scripts/gen-agents.mjs --check` passes, `grep -c "a conflict outside the release
+  lines, an ADR cited" plugins/openspec/skills/devkit/SKILL.md` prints 0, `grep -c "keeping, on a line
+  where the base's entries meet the change's own citations" plugins/openspec/skills/ship-change/SKILL.md`
+  prints 1, `grep -c "the citations of the change's numbered records keeps" docs/openspec-flow.md`
+  prints 0, and these stay green:
+  "release-note AC-4 format: ship-change's assign-release row ... names the merge by hand" and T-2,
+  T-30, T-31 and T-32 (`deliver-check-cli.test.mjs`), coordinator-loop-fixes T50
+  (`change-loop-declared.test.mjs`), "release-merge-conflict 16" (T-5) and T-28
+  (`change-loop-compozy.test.mjs`), T-16 and T-36 (`guard.test.mjs`), T-39 (`release-tags.test.mjs`),
+  T-34 (`change-loop-remote-state.test.mjs`) and "release-note AC-14 texts: the agents, the documents
+  and the records follow the release note and the unnumbered ADR" (`release-note.test.mjs`).
+- [ ] 11.5 (adr-reviewer F12, spec-reviewer F13, test-coverage F23 and nit F26; D-32) Write the D-35
+  tests of D-32: in `plugins/openspec/hooks/flow-check.test.mjs`, beside T57, "release-note AC-12
+  stages: a started noted change whose plan files and release.md both changed after the approval is
+  stale with plan-revised, and the note alone is not", with `revisedChange`'s option `{ noted = false
+  }` (its default builds the change it builds today); in `plugins/openspec/hooks/deliver-check.test.mjs`
+  the `plan` assertion added to "release-note AC-12 row A1: a note changed after the approval asks the
+  owner again, with no task ticked and with tasks ticked" (D-35, "changed"). Run them; append the run
+  to `proof/red-11.txt`. Done when the new test exists by its D-35 name and fails on its first part,
+  its second part and the changed A1 test pass (guards), and the commit message names the A1 test's
+  invariant, layer and suite.
+- [ ] 11.6 (adr-reviewer F12, spec-reviewer F13, test-coverage F23; D-32) In
+  `plugins/openspec/hooks/flow-check.mjs` `collectFlow`, set `approvalOk` from
+  `approvalState(located.dir, { release: false }).ok` and add D-32's words to the comment above it.
+  Done when the 11.5 tests pass, and coordinator-loop-fixes T57, T58, T59, T93 and T133 and the four
+  `release-note AC-16 stages` tests (`flow-check.test.mjs`), the `release-note AC-12` tests of
+  `deliver-check.test.mjs`, `conduct-check.test.mjs` and `change-loop.test.mjs`, and coordinator-loop-
+  fixes' AC-8 tests of `change-loop-declared.test.mjs` stay green.
+- [ ] 11.7 (adr-reviewer F13, test-coverage F24; readiness attempt 8, B-1 and B-2; D-34, D-35) In
+  `plugins/openspec/hooks/release-merge.test.mjs`, beside "release-note AC-4 assign: a line the step
+  wrote, edited by a person after the record, ...", write the four new D-34 tests of D-35 ("... a
+  citation the step wrote on a one-line list the base extended is given back at the token level after
+  a merge by hand, and the step numbers the branch above the base", "... a citation the base wrote in
+  the step's form with the step's old number, on the same one-line list, keeps its number when the
+  step gives its own back", "... a citation the step wrote that the merge by hand dropped, where the
+  base cites its own record with the same number, cannot be given back: exit 2 naming the path, the
+  head and the tree as they were" and "... words a person added beside a citation the step wrote are
+  kept when the step gives the citation back"), with `mergedByHand`'s option `resolved = {}` (its
+  default writes what it writes today); change the existing test "... a line the step wrote, edited by
+  a person after the record, is not given back: ..." as its D-35 row says (its name, its edit `see
+  the record 0002\n`, its commit message; every assertion kept), naming its invariant, layer and suite
+  in the commit message. Run the five; append the run to `proof/red-11.txt`. Done when each exists by
+  its D-35 name, the three red ones fail on today's code (the two one-line list tests with exit 2 and
+  `cannot give back the numbers the step wrote in docs/context.yaml`, the words-added test with exit 2
+  naming `docs/x.md`) and the two guards pass (the dropped entry and the changed citation, each exit 2
+  with the tree as it was). When a red test passes, or a guard fails, on today's code, stop the phase
+  for a plan revision (D-34's reading is wrong); write no code of 11.8 before that.
+- [ ] 11.8 (adr-reviewer F13, spec-reviewer nit F14, test-coverage F24; readiness attempt 8, B-1; D-34,
+  "Where they are found now" and "The texts") In `plugins/openspec/hooks/release-merge.mjs`, add the
+  export `givenBackBySpan({ recorded, working, base, path, numbers })` as D-34's five steps say, make
+  `numberRelease`'s `givenBack` fall back to it when `mergeTexts` returns null (with `base` the path's
+  text at `mergeBase`, `''` when it has none), and add D-34's sentence to the comment above the
+  give-back; in `docs/openspec-flow.md`'s `--assign --base <base>` bullet, replace the part D-34 names
+  with D-34's text, word for word. No other line of either file changes, and `openspec/roadmap.md` is
+  not edited. Done when the 11.7 tests pass, the one-line list's conduct test of 11.2
+  (`conduct-check.test.mjs`, "release-note AC-4 conduct: a noted change whose base extended the
+  one-line list holding its own citation ...") passes with its last `assign-release` exiting 0, every
+  other `release-note AC-4`, `AC-5` and `AC-7` test of `release-merge.test.mjs` and
+  `release-note.test.mjs` stays green (among them "a citation the base brought with the step's old
+  number keeps its number when the step gives its own back" and "a number the step kept across a base
+  merge is still its own after a later merge by hand"), `grep -c "a line edited after the record where
+  the step had written a number cannot be given back" docs/openspec-flow.md` prints 0, `grep -c "each
+  number the step wrote there is given back on its own" docs/openspec-flow.md` prints 1, `grep -c
+  "release-give-back-tokens" openspec/roadmap.md` prints 0, `git diff --quiet HEAD --
+  openspec/roadmap.md` exits 0, and `python3 scripts/check.py` passes (AC-4, AC-5, AC-14).
+- [ ] 11.9 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/change-loop-declared.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/merge-setup.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/release-tags.test.mjs && python3 scripts/check.py && node plugins/compozy/kit/scripts/gen-agents.mjs --check && openspec validate release-at-merge --strict` green; covers AC-4, AC-5, AC-12, AC-14 and AC-16 for the routing (a one-line list both sides extended included), the readiness after a revision with the note, and the token-level give-back.
+- [ ] 11.10 (D-36; AC-15) Add P-14, P-15 and P-16 of D-36 to
+  `openspec/changes/release-at-merge/proof/cases.mjs` and run the whole script under a private
+  `TMPDIR` (`TMPDIR=/var/tmp/devkit-release-at-merge`, never `/tmp`), `node
+  openspec/changes/release-at-merge/proof/cases.mjs` with no case named, so it writes
+  `proof/real-run.md` anew; remove `$TMPDIR/devkit-proof-release-at-merge` after it. Done when it exits
+  0 and prints `P-1 done` to `P-16 done`, and `proof/real-run.md` shows: in P-14 (a) `assign-release`
+  and exit 0; in P-14 (b) `resolve-base-conflict` with `noted: true`, then `push`, then
+  `assign-release` with exit 0, the record numbered above the base's and `enable-auto-merge` next; in
+  P-14 (c) the step's exit 2 listing `src/a.ts` with no `error`, then `resolve-base-conflict` from
+  `next`; in P-14 (d) `resolve-base-conflict` with `noted: true` and `others` naming
+  `docs/context.yaml`, then `push`, then `assign-release` with exit 0, the record numbered above the
+  base's and the line holding both entries; in P-15 (a) exit 0 at once with the record numbered above
+  the base's, the line keeping the base's entry and the state assigned and current, (b) exit 0 with the
+  base's entry of the same number kept, (c) exit 2 naming the file with the tree as it was; in P-16 the readiness review handed
+  with `plan-revised`, then the approval asked with `readiness`, `plan` and `release`, and the twin's
+  approval asked with no readiness review (AC-4, AC-5, AC-12, AC-15).
+- [ ] 11.11 Conductor: run S-13 of D-36 with the real implementer, both its variants: add S-13 to
+  `openspec/changes/release-at-merge/proof/agents.mjs`, seed project K under
+  `TMPDIR=/var/tmp/devkit-release-at-merge`, and run `node
+  openspec/changes/release-at-merge/proof/agents.mjs append=S-13`, the agent run with `claude
+  --plugin-dir <worktree>/plugins/core --plugin-dir <worktree>/plugins/openspec -p` on the brief
+  `change-loop.mjs next` gives, appending to `proof/agents-run.md` under `## S-13 ` with a
+  `Done-condition` block per variant ((a) the code conflict of P-14 (b), (b) the one-line list of P-14
+  (d)); remove `$TMPDIR/devkit-proof-release-at-merge` after it. Done when each `Done-condition` block
+  holds every part of S-13's row in D-36 for its variant: `Outcome: success`, a merge commit whose
+  parents are the old head and `origin/main`, no conflict marker, the base's side of every release
+  line in conflict, no version and no ADR number the agent wrote, in (b) the list's line holding the
+  base's entry and the change's entry as the branch held it, nothing pushed by the agent, then `push`,
+  then `assign-release` with exit 0 (AC-4, AC-15).
+- [ ] 11.12 Gate: `python3 scripts/check.py && openspec validate release-at-merge --strict && grep -q "^## P-14 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## P-15 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## P-16 " openspec/changes/release-at-merge/proof/real-run.md && grep -q "^## S-13 " openspec/changes/release-at-merge/proof/agents-run.md` green, the scratch folders removed; covers AC-15 for phase 11's cases and the real implementer.
+- [ ] 11.13 Gate: `node scripts/test-suite.mjs --concurrency=3 && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/kit/scripts/gen-agents.mjs --check && claude plugin validate . && openspec validate release-at-merge --strict` green at the final head, the whole suite run once as a background command with no other suite on the machine; the train's suite proves it again (AC-14).
+
 ## Workflow follow-up
 
 - After the train that carries this change merges: `tag-release` pushes the devkit-openspec tag on
@@ -583,3 +782,15 @@ End every task with `git status --short`.
   returned by `releaseStateAt` so `numberRelease` does not read it twice (architecture nit F8); and
   the round 1 follow-ups above, carried. The owner confirms or not the resolution of the merge
   `a47cec8` (code-quality nit F10, design F-11).
+- After review round 3 (design, "Findings of review round 3"): the token-level give-back is built by
+  tasks 11.7 and 11.8 (D-34), no give-back by hand is documented and the roadmap gains no line for it;
+  `ADR [release-at-merge-step-record]` records the span-level give-back of decision 5 in the dated
+  note of task 11.1a, which the owner's approval of this plan accepts (F-12); the verifier names ADR
+  0032's note beside its line on the approval with no `- Plan:` line (adr-reviewer nit F14).
+- At the archive (D-33, F-13): when this change archives before coordinator-loop-fixes, the
+  conducting session tells that change's session to carry this change's lines of the
+  `change-coordination` requirement "From the implementation on, the step inside the stage goes to
+  its role" into its own MODIFIED block before its archive, so neither archive drops the other's
+  text; when coordinator-loop-fixes archives first, nothing is owed.
+- If `origin/main` moves before the delivery: the coordinating session merges it through this
+  worktree's step, which numbers the branch again from its record (D-36); no task writes a number.

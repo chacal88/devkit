@@ -1,5 +1,37 @@
-<!-- devkit-stage proposal result=passed attempt=6 commit=9b67c11f446bfd8f24407556df9c082589acd50f -->
+<!-- devkit-stage proposal result=passed attempt=8 commit=98ffb172675d7d320587e3c7d2ca8f51ae6ec410 -->
 # Proposal
+
+**Revised after review round 3 (FAIL, `review.md` at `e2efd38`, the round the owner authorized,
+escalated).** The round's findings come from where coordinator-loop-fixes, merged into this branch
+at `7a92080`, meets this change, and from the hand give-back `13e44cc`. `design.md` records the fixes
+as D-31 to D-36 and "Findings of review round 3", and `tasks.md` phase 11 carries the work, each fix
+test first. The owner approves this plan again; nothing is implemented before it.
+
+- **A noted change's conflict outside its release lines** (adr-reviewer F11, spec-reviewer F12): it
+  goes to coordinator-loop-fixes' `resolve-base-conflict`, as ADR 0032 decision 5 says, whose merge
+  takes the base's side of every release line (the merge by hand of `ADR
+  [release-at-merge-step-record]` decision 8), and then `assign-release` numbers the branch again; a
+  conflict the step's masked merge resolves keeps going to `assign-release`. The conductor
+  classifies the conflict by the step's own rule, so a one-line list of records both sides extended
+  goes to `resolve-base-conflict`, whose merge keeps both entries as the branch holds its own.
+- **A plan revised with its note after the start** (adr-reviewer F12, spec-reviewer F13,
+  test-coverage F23): the `plan-revised` rule reads the approval without the note, so the readiness
+  review runs again before the owner approves the plan and the note together.
+- **The shared `change-coordination` block** (spec-reviewer F11): this change's MODIFIED block of "From
+  the implementation on, the step inside the stage goes to its role" is rebuilt on
+  coordinator-loop-fixes' text, adding only this change's lines, and every other MODIFIED block was
+  checked against the other open changes.
+- **The give-back on a one-line citation list** (adr-reviewer F13, test-coverage F24; readiness
+  attempt 8, B-1): the step gives back its own numbers at the token level, each found by the text
+  around it, so a line the base also changed gives back and the step numbers the branch above the
+  base; a number it cannot find once is still refused with the tree restored, and no give-back by
+  hand is documented. Since this narrows the failure rule of `ADR [release-at-merge-step-record]`
+  decision 5 and one of its Consequences (readiness attempt 9, B-3), the adr-author adds a dated
+  note to that record's Context once the owner approves this plan, its text fixed in the design;
+  the owner's approval accepts the note.
+
+The numbering is done (`6836ad2`); no task writes a number, and if the base moves again before the
+delivery the numbering step runs again.
 
 **Revised after review round 2 (FAIL, `review.md` at `c1c875e`, round 2 of 2, escalated)** by the
 owner's own decision of 2026-11-25, "1a e 2b"; `design.md` records it as D-28 to D-30 and "Findings
@@ -126,7 +158,7 @@ request after the merge; GitHub Releases or other tag kinds; any consumer layout
 - AC-1 `release-note-file`: a change carries `openspec/changes/<id>/release.md` written with the plan; one function reads it and a malformed note is refused with a plain message naming the field (one test per field, negatives included).
 - AC-2 `no-hand-edit`: a branch of a change with a note, before the numbers are assigned, holds the release files exactly as the base has them; `deliver-check` refuses a branch whose release files are neither the base's nor what the step computes, saying "release lines edited by hand".
 - AC-3 `train-join-from-notes`: two boarded changes with notes that both bump the same pack, with neither branch touching a release line, join on one train with no conflict: the first boarded takes the next version, the second the one after, each CHANGELOG entry, the marketplace version, the catalog and the CI pin follow, and each change's head, evidence and reviews stay current.
-- AC-4 `assign-before-auto-merge`: with no train, `assign-release` runs last, before `enable-auto-merge`, commits only release files, leaves the evidence and the reviews current, and runs again after a merge of the base that moved the release, whether the step merged it or a person merged it by hand after the step refused a conflict outside the release lines (taking the base's side of every release line); two such changes in a row never conflict on a release line.
+- AC-4 `assign-before-auto-merge`: with no train, `assign-release` runs last, before `enable-auto-merge`, commits only release files, leaves the evidence and the reviews current, and runs again after a merge of the base that moved the release, whether the step merged it or the base was merged by hand after a conflict outside the release lines (taking the base's side of every release line), by the implementer's `resolve-base-conflict` the loop hands for such a conflict (added after review round 3) or by a person, a line holding the change's own citations that the base also changed included (added after the readiness review of phase 11); two such changes in a row never conflict on a release line.
 - AC-5 `adr-numbered-at-delivery`: a change that names its ADR `docs/adr/<slug>.md` and cites it `ADR [<slug>]` has it renamed to `docs/adr/<NNNN>-<slug>.md` (the next free number on the base) and every citation outside the change's folder rewritten (in every tracked text file but tests and fixtures; the `<slug>.md` form only where it names a file of an ADR folder), by the train's join or by `assign-release`, two records of one change taking the next numbers in the order `decisions.md` lists them; no file of the change's folder changes, so the readiness verdict, the plan approval, the reviews and the evidence stay current and the owner is not asked for the approval again.
 - AC-6 `adr-unnumbered-readers`: before the delivery every reader of ADRs listed in the assumptions accepts `docs/adr/<slug>.md`; on the base branch `scripts/check.py` refuses an ADR with no number, and a second file with one slug is refused; on any branch it refuses an unnumbered record no active change lists (added after review round 1, spec-reviewer F4).
 - AC-7 `adr-cross-citation`: `amends ADR [<slug>]` of another change's ADR resolves once that ADR has landed, and `assign-release` or the join refuses with a plain message naming the slug while it has not.
@@ -134,10 +166,10 @@ request after the merge; GitHub Releases or other tag kinds; any consumer layout
 - AC-9 `consumer-nothing-new`: a project with no `devkit.release_tag`, with no train, with no release file or with no `docs/adr` sees no new step, no new refusal and no new file; a test per case.
 - AC-10 `old-rule-kept`: a change with no note and a bump of its own (opened before this change) joins a train, merges alone and renumbers on a base update exactly as before, and a clashing ADR number still takes `renumber-adr`.
 - AC-11 `no-release-refused`: a change that touches the files of a pack, has no note and no bump of its own, is refused as "no release", and one with a note whose `packs:` list is empty passes.
-- AC-12 `note-after-approval`: a `release.md` that differs from the one at the commit recorded in `approval.md` is refused until the plan is approved again, by every reader of the approval (the delivery checker, the conductor's planning row and the acceptance of the decision records).
+- AC-12 `note-after-approval`: a `release.md` that differs from the one at the commit recorded in `approval.md` is refused until the plan is approved again, by every reader of the approval (the delivery checker, the conductor's planning row and the acceptance of the decision records); a plan revised together with its note after the work started goes back to the readiness review before that approval (added after review round 3).
 - AC-13 `tag-unchanged`: the release tag of ADR 0019 is asked and pushed for the merge that carries the numbers, with the same rules (a test through the train and one through a single merge).
 - AC-14 `rules-and-docs`: every text and test the assumptions list is changed with the rule, `python3 scripts/check.py`, `python3 scripts/gen-catalog.py --check` and `node plugins/compozy/kit/scripts/gen-agents.mjs --check` pass, and a new ADR records the decisions, amends ADR 0022 and ADR 0025, and builds on ADR 0003, ADR 0027 and ADR 0030 without amending them; a second, `ADR [release-at-merge-step-record]`, amends the first one's decision 6 (added after review round 1), and the `ADRs:` line of `openspec/config.yaml` lists both.
-- AC-15 `real-run-every-case`: the real-run proof covers every case the plan declares, each input variant and the conducting session's own part: the planner writing `release.md`, the adr-author drafting `docs/adr/<slug>.md`, a train of two noted changes, a single merge with a noted change, an old-rule change, a consumer project, and each refusal (hand edit, no release, note after approval, unlanded citation, duplicate slug); and, with the real agents, the adr-author in a project with no ADR folder and in one with no `devkit.release_tag`, the planner with a malformed note and without the setting, the readiness review flagging a missing note, a numbered ADR and a bump task, and the implementer refusing to edit a release line of a noted change; after review round 1 also a branch merged by hand after the step refused a code conflict, numbered again (P-13), and a note-only revision after a failed readiness review that runs the review again with the real agents (S-12); not one case plus prose tests.
+- AC-15 `real-run-every-case`: the real-run proof covers every case the plan declares, each input variant and the conducting session's own part: the planner writing `release.md`, the adr-author drafting `docs/adr/<slug>.md`, a train of two noted changes, a single merge with a noted change, an old-rule change, a consumer project, and each refusal (hand edit, no release, note after approval, unlanded citation, duplicate slug); and, with the real agents, the adr-author in a project with no ADR folder and in one with no `devkit.release_tag`, the planner with a malformed note and without the setting, the readiness review flagging a missing note, a numbered ADR and a bump task, and the implementer refusing to edit a release line of a noted change; after review round 1 also a branch merged by hand after the step refused a code conflict, numbered again (P-13), and a note-only revision after a failed readiness review that runs the review again with the real agents (S-12); after review round 3 also a noted change's conflict in its release lines only, outside them, met by the step after `next`, and on a one-line list of records the base extended (P-14), the token-level give-back on such a list, with the base's entry of the same number kept and a dropped entry refused (P-15), a plan revised with its note after the start (P-16), and the real implementer's merge for a noted change, in code and on such a list (S-13); not one case plus prose tests.
 - AC-16 `readiness-sees-the-note` (added after review round 1): in a project that names `devkit.release_tag`, a `release.md` newer than `readiness.md` makes the readiness review stale while no task is ticked, so a revision that changes only the note runs the review again (a failed review is offered again, not the same revision brief); without the setting nothing changes.
 
 AC-12 is met by recording the note's hash in `approval.md` (design D-9): the commit an approval
@@ -151,8 +183,8 @@ None.
 
 ### Modified Capabilities
 
-- `change-delivery`: the release note, the derived release state and its refusals, `assign-release`, the unnumbered ADR, the release edit that stales nothing; the renumbering requirement keeps to numbered ADRs.
-- `change-coordination`: `assign-release` as a session step, the planner's stop without a note, a listed record found after its numbering; "An ADR number taken" kept for changes with no note; after review round 1, the conflict scenarios and train 15's "A base that moved on the remote" scoped to changes with no note.
+- `change-delivery`: the release note, the derived release state and its refusals, `assign-release`, the unnumbered ADR, the release edit that stales nothing; the renumbering requirement keeps to numbered ADRs; after review round 3, a plan revised with its note after the start goes back to the readiness review, and the step gives back its own numbers at the token level, so a line the base also changed gives back.
+- `change-coordination`: `assign-release` as a session step, the planner's stop without a note, a listed record found after its numbering; "An ADR number taken" kept for changes with no note; after review round 1, the conflict scenarios and train 15's "A base that moved on the remote" scoped to changes with no note; after review round 3, the block "From the implementation on, ..." rebuilt on coordinator-loop-fixes' text, and a noted change's conflict that the step's masked merge does not resolve (a one-line list both sides extended among them) handed to `resolve-base-conflict`.
 - `delivery-train`: a join numbers a noted change from its note (flagged: beyond the two capabilities the brief named).
 - `reviews-check`: the train's own commits may number an unnumbered ADR (flagged likewise).
 - `change-stages`: the readiness review goes stale when the release note changes (added after review
@@ -167,7 +199,10 @@ None.
 - Repository: `scripts/check.py`, `docs/openspec-flow.md`, `CONTRIBUTING.md`, `openspec/config.yaml` (its `ADRs:` line lists both records), ADR 0022 and 0025 header lines and notes (ADR 0003, 0027 and 0030 unchanged); the two unnumbered records, numbered by the step.
 
 Exit criteria after review round 1: every gate of phase 9, its last the whole suite at the final
-head. After review round 2: every gate of phase 10, its last the whole suite at the final head. Dependencies: `archive-release-pin` has merged (train 4, in the plan base): the pin definition is in
+head. After review round 2: every gate of phase 10, its last the whole suite at the final head.
+After review round 3: every gate of phase 11, its last the whole suite at the final head (task
+11.13); dependency: coordinator-loop-fixes (on `main`, merged at `7a92080`, not archived), whose
+`resolve-base-conflict` and `plan-revised` this phase builds on. Dependencies: `archive-release-pin` has merged (train 4, in the plan base): the pin definition is in
 `deliver-check.mjs`, and the pin test reads devkit-openspec's version from its manifest, so this change
 edits no pin assertion and waits for nothing. The line between the two: ADR 0027 and ADR 0030 let the
 pin lines pass unnamed in the archive check; this change removes the rewrite from every branch (design
