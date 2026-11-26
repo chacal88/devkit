@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=3 commit=e2efd38e178c89039a803580ae3d19d8117463c5 -->
+<!-- devkit-stage review result=failed attempt=4 commit=442e69e1fcdfed53909e1d597685508a2e1fbb33 -->
 # Review: release-at-merge, round 1
 
 Path: agents · range `d6d7f6a984fd7ae9cbdf6c1b491ea5fbd0112bdd...4a6e858761c181c549b412025dae02aff354a646` · structural: PASS
@@ -102,6 +102,36 @@ None.
 - This is review round 3, authorized by the owner on 2026-11-25 ('1a e 2b' and the plan approval 'Aprovo'); the round script knows two rounds and numbers it 2.
 - Verify stage not run: every open blocking finding (adr-reviewer F11, spec-reviewer F11, test-coverage-reviewer F23) is read from the code at the merged head and matches the interactions the evidence lists, so no finding was sent to the 27 finding verifiers and every blocking and important finding is kept open (none refuted). The verifiersFailed count reflects that decision.
 - The open findings come from the merge of coordinator-loop-fixes (7a92080): the noted-change conflict outside the release files (assign-release versus resolve-base-conflict), approvalOk reading the note (plan-revised skipped), the two changes' MODIFIED blocks of one change-coordination requirement, and the unreproduced give-back limit on a one-line ADRs: list. They go to the owner.
+
+## Next
+Consensus deadlock after round 2: the owner decides.
+
+# Review: release-at-merge, round 4 (authorized by the owner; the script numbers it 2)
+
+Path: agents · range `e2efd38e178c89039a803580ae3d19d8117463c5..442e69e1fcdfed53909e1d597685508a2e1fbb33` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 442e69e |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 442e69e |
+| test-coverage-reviewer | rejected | 0 | 1 | 1 | 0 | 442e69e |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 442e69e |
+| architecture-reviewer | rejected | 0 | 1 | 1 | 0 | 442e69e |
+
+Consensus: FAIL (round 2/2)
+
+## Open findings
+- test-coverage-reviewer — [important] plugins/openspec/hooks/deliver-check.mjs (gatesAtHead) — [5] An owner's forced merge of a noted change lists evidence.md and the approved reviews as behind the step's commit, untested. Still open as a planned follow-up: openspec/roadmap.md:230 (round 28r) forced-merge-release-edit carries the code and the test beside the FMP G-rows. Does not reject.
+- architecture-reviewer — [important] plugins/openspec/hooks/release-merge.mjs:399 — friction: the `ADR <NNNN>` citation form (`(?<![A-Za-z0-9])ADR ${number}(?![0-9])`) now has three copies: maskCitations (deliver-check.mjs:2197), the new sharedNumberMatch (deliver-check.mjs:2257) and the new givenBackBySpan (release-merge.mjs:399), one in another module, while D-19 made the citation forms one helper's - why: leverage and single ownership: a change of the form's boundary rule now needs three edits, and the mask, the shared-number match and the span give-back can drift apart silently - direction: export the number form beside adrFileRe in deliver-check.mjs (a builder of the `ADR <number>` RegExp) and have the three callers read it.
+
+## Refuted by verification
+None.
+
+## Notes
+- This is review round 4, authorized by the owner on 2026-11-26 ('Aprovo a fase 11 e a rodada 4'); limited to the five reviewers that rejected or went stale; the round script knows two rounds and numbers it 2.
+- Verify stage run on the two open important findings (architecture-reviewer F9, test-coverage-reviewer F16): three verifiers each, none refuted, so both stay open.
+- architecture-reviewer F9: the ADR-number RegExp is built in three places (maskCitations, sharedNumberMatch, givenBackBySpan); a fix is one exported builder next to adrFileRe. test-coverage-reviewer F16: the owner's forced merge of a noted change lists evidence and reviews as behind the step's commit; the owner's 2b scoped it as specified behaviour and roadmap round 28r (forced-merge-release-edit) carries the fix and its test. The reviewer itself says it does not reject.
+- The remaining nits of the five reviewers are follow-ups. A fix of F9 changes product code and stales every approved verdict, so a further check needs the owner's word.
 
 ## Next
 Consensus deadlock after round 2: the owner decides.
