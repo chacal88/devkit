@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=4 commit=442e69e1fcdfed53909e1d597685508a2e1fbb33 -->
+<!-- devkit-stage review result=passed attempt=5 commit=5c8e13d071450156fc14f29f69997bbdd09216b0 -->
 # Review: release-at-merge, round 1
 
 Path: agents · range `d6d7f6a984fd7ae9cbdf6c1b491ea5fbd0112bdd...4a6e858761c181c549b412025dae02aff354a646` · structural: PASS
@@ -135,3 +135,32 @@ None.
 
 ## Next
 Consensus deadlock after round 2: the owner decides.
+
+# Review: release-at-merge, round 5 (authorized by the owner; the script numbers it 2)
+
+Path: agents · range `442e69e1fcdfed53909e1d597685508a2e1fbb33..5c8e13d071450156fc14f29f69997bbdd09216b0` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 5c8e13d |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 5c8e13d |
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 5c8e13d |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 5c8e13d |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 5c8e13d |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- This is review round 5, authorized by the owner on 2026-11-26 ('Sim, corrigir F9', his answer to: authorize a fix of F9 and a fifth check of the two rejecting reviewers); the round script numbers it 2.
+- architecture-reviewer (F9) and test-coverage-reviewer (F16) re-checked their open findings after commit 80ac753 (one exported builder adrNumberRe; test G15 pins decision 2b); adr-reviewer, spec-reviewer and code-quality-reviewer re-ran only because their approval went stale (stale refresh, no round consumed).
+- No finding was left open at blocking or important, so the verify stage had nothing to verify. The open nits (adr F3 F8; spec F15; code-quality F10 F13 F14 F15; test-coverage F11 F12 F13 F18 F19 F28 F29; architecture F3 F8 F10) are follow-ups; the forced-merge code fix is roadmap round 28r.
+- The whole suite passed at 80ac753 (44 files, 3854 tests, 0 fail, 2111.5s at load 11.65, not a clean timing); evidence.md attempt 7.
+
+## Next
+Ready to ship.
