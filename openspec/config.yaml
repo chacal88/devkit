@@ -40,7 +40,8 @@ context: |
   Existing tests: A plan that changes a message, a schema key or a doc string greps the test files for it, and every test that asserts it is a row of the plan's test table; the readiness review asks for the grep.
   Test history: A test never reads the repository's git history (CI checks out at depth 1); old content is held as a fixture or a constant.
   Live roadmap: A test never asserts the tick or the done state of a line of openspec/roadmap.md, which the line's own archive changes; it finds a line whatever its tick, and a line's old content is held as a fixture or a constant.
-  Gates: A phase gate the delivery train runs names the train's command (`node scripts/test-suite.mjs`, `python3 scripts/check.py`); a gate naming one test file needs a passing local row after every base merge, so a plan uses one only when that file must pass before the train.
+  Gates: A phase gate the delivery train runs names the train's command (`node scripts/test-suite.mjs`, `python3 scripts/check.py`); a gate naming one test file needs a passing local row after every base merge, so a plan uses one only when that file must pass before the train. A gate that selects tests by name runs `node scripts/test-suite.mjs --test-name-pattern="^<name>"` with no file argument, so a split that moves the tests keeps them selected (a pattern that matches nothing in a named file passes with no test run).
+  Base renames: After a merge of the base that renames or splits a file the change names, the spec deltas, the plan's test table and the real-run proof move to the new path before the review; a proof made on the old path is made again and its output committed.
   Conventions: conventional commits; docs and assets in English; bump the version of each changed pack in plugin.json and marketplace.json, plus a CHANGELOG line
 
 rules:
