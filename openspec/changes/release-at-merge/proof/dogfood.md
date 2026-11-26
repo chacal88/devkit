@@ -235,3 +235,79 @@ Release-citation: docs/openspec-flow.md
 Release-citation: openspec/config.yaml
 
 ```
+
+## After the stack: the step merges train 19 above project-setup and coordinator-loop-fixes
+
+On 2026-11-25 this change's numbers were given back by hand (13e44cc, the pattern of 1ebf619: the step's own give-back cannot merge the one-line `ADRs:` list of `openspec/config.yaml` with a base that added entries), origin/coordinator-loop-fixes 1a1a091 (with project-setup) was merged by hand (7a92080), three tests were aligned (49d7679), and the step ran from this worktree against origin/main 2ddaf16 (train 19):
+
+```
+TMPDIR=/var/tmp/devkit-release-at-merge node plugins/openspec/hooks/release-merge.mjs --assign --base main --json
+```
+
+Exit 0; one merge commit (6836ad2): devkit-openspec 0.50.0, devkit-core 0.18.0, devkit-compozy 0.6.1, marketplace 0.55.0, ADR 0034 and ADR 0035, above project-setup's ADR 0031 and coordinator-loop-fixes' ADR 0032 and 0033. JSON:
+
+```json
+{
+  "resolved": true,
+  "oldHead": "49d7679999b2822724c687f3ad291e78ff4e5a7b",
+  "newHead": "6836ad2710af82f86152ea9feb9a4b7b7104bb9e",
+  "versions": {
+    "packs": {
+      "devkit-openspec": "0.50.0",
+      "devkit-core": "0.18.0",
+      "devkit-compozy": "0.6.1"
+    },
+    "metadata": "0.55.0"
+  },
+  "files": [
+    "plugins/compozy/.claude-plugin/plugin.json",
+    "plugins/core/.claude-plugin/plugin.json",
+    "plugins/openspec/.claude-plugin/plugin.json",
+    ".claude-plugin/marketplace.json",
+    "CHANGELOG.md",
+    "docs/openspec-flow.md",
+    "docs/catalog.md"
+  ],
+  "change": "release-at-merge",
+  "adrs": [
+    {
+      "from": "docs/adr/release-at-merge.md",
+      "to": "docs/adr/0034-release-at-merge.md"
+    },
+    {
+      "from": "docs/adr/release-at-merge-step-record.md",
+      "to": "docs/adr/0035-release-at-merge-step-record.md"
+    }
+  ],
+  "citations": [
+    "CONTRIBUTING.md",
+    "docs/adr/0022-reviewed-changes-leave-on-a-delivery-train.md",
+    "docs/adr/0025-a-base-merge-stales-only-on-the-changes-own-files.md",
+    "docs/openspec-flow.md",
+    "openspec/config.yaml"
+  ],
+  "mode": "assign"
+}
+```
+
+`git log -1 --format=%B 6836ad2`:
+
+```
+chore(release): merge origin/main and assign the release of release-at-merge
+
+Release-change: release-at-merge
+Release-line: plugins/compozy/.claude-plugin/plugin.json
+Release-line: plugins/core/.claude-plugin/plugin.json
+Release-line: plugins/openspec/.claude-plugin/plugin.json
+Release-line: .claude-plugin/marketplace.json
+Release-line: CHANGELOG.md
+Release-line: docs/openspec-flow.md
+Release-adr: docs/adr/release-at-merge.md -> docs/adr/0034-release-at-merge.md
+Release-adr: docs/adr/release-at-merge-step-record.md -> docs/adr/0035-release-at-merge-step-record.md
+Release-citation: CONTRIBUTING.md
+Release-citation: docs/adr/0022-reviewed-changes-leave-on-a-delivery-train.md
+Release-citation: docs/adr/0025-a-base-merge-stales-only-on-the-changes-own-files.md
+Release-citation: docs/openspec-flow.md
+Release-citation: openspec/config.yaml
+
+```

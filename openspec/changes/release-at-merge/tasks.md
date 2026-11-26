@@ -184,7 +184,7 @@ invariant, layer and suite in the commit message. Leave no backup or scratch fil
 - [x] 5.4 Update `plugins/core/agents/change-planner.md`, `adr-author.md`, `adr-reviewer.md`,
   `tdd-implementer.md`, `plugins/core/skills/adr-authoring/SKILL.md` and
   `plugins/core/skills/plan-readiness-review/SKILL.md` as D-13 says, then run
-  `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs` and `python3 scripts/gen-catalog.py`.
+  `node plugins/compozy/kit/scripts/gen-agents.mjs` and `python3 scripts/gen-catalog.py`.
   Done when the AC-14 test's agent part passes, both `--check` runs pass, and these stay green: T-23,
   T-24, T-25 and T-26 (`change-loop-compozy.test.mjs`), T-29 (`flow-check.test.mjs`), T-38
   (`project-loop.test.mjs`) and T-40 (`change-loop.test.mjs`).
@@ -200,7 +200,7 @@ invariant, layer and suite in the commit message. Leave no backup or scratch fil
   0003, ADR 0027 or ADR 0030 (built on, not amended). Done when `python3 scripts/check.py` passes,
   `git diff --stat origin/main -- docs/adr/0003-auto-merge-the-archive-pr.md` is empty, and the T-1,
   T-41 and T-44 tests stay green.
-- [x] 5.7 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/release-tags.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/version-pin.test.mjs plugins/openspec/hooks/test-suite.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && claude plugin validate .` green; covers AC-6 and AC-14.
+- [x] 5.7 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/release-tags.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/version-pin.test.mjs plugins/openspec/hooks/test-suite.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/kit/scripts/gen-agents.mjs --check && claude plugin validate .` green; covers AC-6 and AC-14.
 
 ## 6. Real-run proof of every case
 
@@ -473,10 +473,10 @@ ls-files` check needs (readiness attempt 5, O4).
   first record's first), `git diff --stat HEAD^ -- openspec/changes/release-at-merge/` is empty,
   `git ls-files docs/adr` lists both records numbered, the second's number one more than the
   first's, and neither unnumbered, `python3 scripts/check.py`, `python3
-  scripts/gen-catalog.py --check` and `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs
+  scripts/gen-catalog.py --check` and `node plugins/compozy/kit/scripts/gen-agents.mjs
   --check` pass, and `node plugins/openspec/hooks/deliver-check.mjs release-at-merge --json` shows no
   row N1 to N7 (AC-4, AC-5, AC-6).
-- [x] 9.18 Gate: `node scripts/test-suite.mjs --concurrency=3 && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && claude plugin validate . && openspec validate release-at-merge --strict` green at the final head, the whole suite run once as a background command with no other suite on the machine; the train's suite proves it again.
+- [x] 9.18 Gate: `node scripts/test-suite.mjs --concurrency=3 && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/kit/scripts/gen-agents.mjs --check && claude plugin validate . && openspec validate release-at-merge --strict` green at the final head, the whole suite run once as a background command with no other suite on the machine; the train's suite proves it again.
 
 ## 10. Answers to review round 2
 
@@ -561,7 +561,7 @@ End every task with `git status --short`.
   heading, `git diff --numstat HEAD -- openspec/roadmap.md`, run before the task's commit, reports 3
   lines added and 0 removed, and `python3 scripts/check.py` passes (AC-4).
 - [x] 10.5 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/release-tags.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs && python3 scripts/check.py && openspec validate release-at-merge --strict` green; covers AC-4 (the per-line record and its scenario), AC-7 (the renamed citation tests) and AC-14 (the texts) on the files phase 10 touches and every test file that reads the `ship-change` skill.
-- [x] 10.6 Gate: `node scripts/test-suite.mjs --concurrency=3 && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && claude plugin validate . && openspec validate release-at-merge --strict` green at the final head, the whole suite run once as a background command with no other suite on the machine; the train's suite proves it again (AC-14).
+- [x] 10.6 Gate: `node scripts/test-suite.mjs --concurrency=3 && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/kit/scripts/gen-agents.mjs --check && claude plugin validate . && openspec validate release-at-merge --strict` green at the final head, the whole suite run once as a background command with no other suite on the machine; the train's suite proves it again (AC-14).
 
 ## Workflow follow-up
 
