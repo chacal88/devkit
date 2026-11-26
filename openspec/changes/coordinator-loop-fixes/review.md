@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=2 commit=9eaef847377372376ef25eb7a8f400d0e3ccf619 -->
+<!-- devkit-stage review result=passed attempt=3 commit=9c4fffed5a46c751787fcf1e08e410bcac3c70e4 -->
 # Review: coordinator-loop-fixes, round 1
 
 Path: agents · range `3ca2e47e35e95cf53cf745a23838909c88dcd5ce..HEAD` · structural: PASS
@@ -55,3 +55,31 @@ None.
 
 ## Next
 Consensus deadlock after round 2: the owner decides.
+
+# Review: coordinator-loop-fixes, round 3
+
+Path: agents · range `9eaef847377372376ef25eb7a8f400d0e3ccf619..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 1 | 1 | 9c4fffe |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 9c4fffe |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 9c4fffe |
+| security-reviewer | approved | 0 | 0 | 0 | 0 | 9c4fffe |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 9c4fffe |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 9c4fffe |
+
+Consensus: PASS (round 3/3)
+
+## Open findings
+None.
+
+## Refuted by verification
+- adr-reviewer — [important] openspec/changes/coordinator-loop-fixes/design.md, proposal.md, tasks.md (commit 0107079); openspec/changes/coordinator-loop-fixes/approval.md:1-7 — Commit 0107079 edits three plan files after readiness attempt 14 (at cccd21b) and after the owner's approval (ab2e0e8), which drifts from ADR 0032 (`docs/adr/0032-the-loop-declares-the-decisions-outside-the-stage-gates.md`) decision 7 and its review trigger (a plan edited after the start goes to delivery without a new approval); the edit is paths only (ADR 0031's moves) and the Note's third point keeps the tool silent because approval.md has no '- Plan:' line, so it does not violate the ADR. Fix: the owner records in their own words that this path-only edit rides the approval of ab2e0e8, or records the approval again with its '- Plan:' digest. · refuted: docs/adr/0032-the-loop-declares-the-decisions-outside-the-stage-gates.md:78-88 says decision 7's review trigger does not fire for an approval with no '- Plan:' line ('never goes stale'), and the plan the owner approved at ab2e0e8 says the same for this change's own approval (design.md:655-656 and 697), so the path-only edit 0107079 neither violates nor drifts from the ADR / docs/adr/0032-the-loop-declares-the-decisions-outside-the-stage-gates.md:78-88 says the decision-7 review trigger does not fire for an approval without a '- Plan:' line, approval.md has none, and the plan approved at ab2e0e8 accepts this case (design.md:697 'nothing above applies to it'; design.md:1700 'Accepted ... this change's own approval records none'); 0107079 only swaps moved paths (2 of 3)
+
+## Notes
+- Path agents: the round ran on a turn the owner did not type.
+- Round 3 authorized by the owner (declared.json, "Sim, libera").
+
+## Next
+Ready to ship.
