@@ -114,14 +114,14 @@ against main again (2026-11-24, `origin/main` c09860c)", says what each changed 
   `disable-auto-merge` and the change's own `rejoin-train` step before any override, then tries
   `adrClash` (the `renumber-adr` override), `releaseConflict` and `trainRejoin`, in that order;
   `SUBAGENT` and `MAIN` give each step its actor.
-- `plugins/compozy/skills/compozy-setup/`: the CompozyOS kit.
-  `plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs` writes
+- `plugins/compozy/kit/`: the CompozyOS kit.
+  `plugins/compozy/kit/scripts/gen-agents.mjs` writes
   `templates/agents/<role>/AGENT.md` for every role of `PACKS` from the Claude agent file
   `plugins/<pack>/agents/<role>.md` (the body unchanged), and CI runs it with `--check`;
-  `plugins/compozy/skills/compozy-setup/scripts/install-kit.mjs <project-root>` copies the templates into
+  `plugins/compozy/kit/scripts/install-kit.mjs <project-root>` copies the templates into
   the project's `.compozy/` and records their digests and the pack's version in `.compozy/kit-manifest.json`;
   this repository's own `.compozy/` is that install, and
-  `plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs` compares it byte for byte with the
+  `plugins/compozy/kit/scripts/adoption.test.mjs` compares it byte for byte with the
   templates. Two files this change edits are sources of the kit: `plugins/core/agents/tdd-implementer.md`
   and `plugins/core/agents/pr-verifier.md` (D-6, D-8, D-19).
 - `plugins/core/skills/review-change/scripts/review-round.workflow.js`: `validateArgs` accepts round 1
@@ -155,7 +155,7 @@ present (AC-16).
   `### A session per change`); the deadlock is answered in the change's own session.
 - Any change to `devkit-lite`'s stages or gates (AC-15).
 - The CompozyOS driver's loops (`devkit-change`, `devkit-review`, `devkit-roadmap` under
-  `plugins/compozy/skills/compozy-setup/templates/loops/`) and the `.compozy/loops/` copies: no
+  `plugins/compozy/kit/templates/loops/`) and the `.compozy/loops/` copies: no
   template of a loop changes. The driver therefore keeps its red-gate question to the owner (its
   `phase_gate` node asks when the gate is red; `declare` is the main session's command and a CompozyOS
   session has no main session to run it) and its review loop's two rounds (`devkit-review` builds the
@@ -1010,7 +1010,7 @@ plugins/*/skills/*/scripts/*.test.mjs`. Before each gate the implementer also ru
 | `CLI --json carries the items, phases and next, with version 1` (deliver-check-cli.test.mjs; added at the plan revision of task 3.8, when the test failed on the field D-6 adds) | invariant: the CLI's `--json` report is version 1 and carries the items, the phases and `next`, its first phase in the exact shape `readPhases` gives (`deepEqual` of `j.phases[0]`); layer: `deliver-check.mjs` `readPhases` through the CLI's `--json` report; suite: deliver-check-cli.test.mjs | updated: the expected phase gains `conductor: []` (D-6: `{ n: 1, title: 'First', open: ['1.1'], conductor: [], gate: { id: '1.2', done: false, command: 'node -e 0' } }`); `version` stays 1 and the rest of the test is unchanged | 3.2, 3.8 |
 | `evidence.md is written only by pr-verifier` (guard.test.mjs) | evidence's writer | kept | 4.3 |
 | `change-loop skill: the wait is started in the background on a GitHub wait` (change-loop-compozy.test.mjs) | the background wait | kept: the first paragraph is unchanged | 4.5 |
-| `project-settings: PACKS equals the plugin names in marketplace.json` (plugins/openspec/skills/openspec-setup/scripts/project-settings.test.mjs) | rule: `PACKS` names the marketplace's plugins | kept: D-9 moves `PACKS` above `AGENT` and changes no entry | 4.4 |
+| `project-settings: PACKS equals the plugin names in marketplace.json` (plugins/openspec/skills/devkit/scripts/project-settings.test.mjs) | rule: `PACKS` names the marketplace's plugins | kept: D-9 moves `PACKS` above `AGENT` and changes no entry | 4.4 |
 | `commit-attribution AC-1 T25 ...` (project-loop.test.mjs) | the negative with `?? '\u0000'` | updated (D-13) | 5.2 |
 | `commit-attribution AC-2 T31 ...` (deliver-check-archive.test.mjs) | the count of `Attribution below` | updated (D-13) | 5.3 |
 | roadmap tests with `tests-red` (roadmap-loop.test.mjs, roadmap-loop-followups.test.mjs, roadmap-loop-upfront.test.mjs, change-loop-remote-state.test.mjs; `grep -ln "tests-red" plugins/openspec/hooks/*.test.mjs`) | a declared blocked end of a red gate | kept: `roadmap-loop.mjs reply blocked` still records it; the reply tests of the rows above run in phase 1, which edits `replyCmd`; no phase edits a `tests-red` text or other roadmap code, so the others run in the whole suite of the gates 2.5 to 6.6 and of the delivery train | the gates' whole suite, the train |
@@ -1367,9 +1367,9 @@ agent files. What this change does for each, decided here:
 - **The kit.** The two agent files this change edits, `plugins/core/agents/tdd-implementer.md` (D-6) and
   `plugins/core/agents/pr-verifier.md` (D-8), are sources of `templates/agents/<role>/AGENT.md`. The
   task that edits each of them also regenerates the kit, in two commands and never by hand:
-  1. `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs` rewrites the two templates
+  1. `node plugins/compozy/kit/scripts/gen-agents.mjs` rewrites the two templates
      (`gen-agents.mjs --check` exits 0 afterwards);
-  2. `node plugins/compozy/skills/compozy-setup/scripts/install-kit.mjs .`, run in the worktree root,
+  2. `node plugins/compozy/kit/scripts/install-kit.mjs .`, run in the worktree root,
      refreshes `.compozy/agents/<role>/AGENT.md` (each file equals its recorded digest, so the state is
      `update`) and the digests of `.compozy/kit-manifest.json`; it writes nothing outside `.compozy/`.
   The two checks that prove it are `gen-agents.mjs --check` (the CI step "CompozyOS agents are up to
@@ -1740,7 +1740,7 @@ D-16 moves a helper into it, `docs/openspec-flow.md`,
 (its dated Note, D-12), `openspec/config.yaml`,
 `openspec/roadmap.md` (the `host-monitor-wake` line, D-10), `CHANGELOG.md`, the manifests of the three
 packs and the marketplace. Generated by the commands of D-19, never by hand: the two `AGENT.md` templates
-of `tdd-implementer` and `pr-verifier` under `plugins/compozy/skills/compozy-setup/templates/agents/`,
+of `tdd-implementer` and `pr-verifier` under `plugins/compozy/kit/templates/agents/`,
 their two copies under `.compozy/agents/` and `.compozy/kit-manifest.json`. Delete: none.
 
 **Estimate.** Optimistic 41 h, likely 53.5 h, pessimistic 70 h (the plan revision of task 6.4 adds 1.5 h, the
