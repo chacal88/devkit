@@ -2187,6 +2187,13 @@ export function adrFileRe(name, path = '') {
   return new RegExp(`${inAdrFolder ? `(?:${folder}|(?<![A-Za-z0-9_/-]))` : folder}${esc(name)}\\.md(?![A-Za-z0-9_-])`, 'g');
 }
 
+// The number form of a citation of the record numbered `number`: the global RegExp of `ADR <number>` not preceded by a letter or a digit
+// and not followed by a digit (`ADR 0034`, not `xADR 0034` or `ADR 00345`). The one builder of maskCitations, sharedNumberMatch and
+// release-merge's givenBackBySpan.
+export function adrNumberRe(number) {
+  return new RegExp(`(?<![A-Za-z0-9])ADR ${esc(number)}(?![0-9])`, 'g');
+}
+
 // The ADR part of maskRelease (D-5, D-18, D-19), on its own for the give-back of the step and the join: in a text of a file that holds
 // citations (holdsCitations, no NUL byte), `ADR <NNNN>` back to `ADR [<slug>]` and, where adrFileRe matches, `<NNNN>-<slug>.md` back to
 // `<slug>.md`, for each numbered record { number, slug } of `adrs`. Any other text is returned as it is.
@@ -2194,7 +2201,7 @@ export function maskCitations(text, path, adrs) {
   if (!holdsCitationText(path, text)) return text;
   let out = text;
   for (const { number, slug } of adrs) {
-    out = out.replace(new RegExp(`(?<![A-Za-z0-9])ADR ${number}(?![0-9])`, 'g'), `ADR [${slug}]`);
+    out = out.replace(adrNumberRe(number), `ADR [${slug}]`);
     out = out.replace(adrFileRe(`${number}-${slug}`, path), (_, dir = '') => `${dir}${slug}.md`);
   }
   return out;
@@ -2254,7 +2261,7 @@ function sharedNumberMatch(raw, path, map, nowText) {
   const alts = [];
   let text = raw;
   for (const [number, slugs] of shared) {
-    text = text.replace(new RegExp(`(?<![A-Za-z0-9])ADR ${number}(?![0-9])`, 'g'), () => `\u0001${alts.push(slugs) - 1}\u0001`);
+    text = text.replace(adrNumberRe(number), () => `\u0001${alts.push(slugs) - 1}\u0001`);
   }
   const parts = maskRelease(text, path, map).split(/\u0001(\d+)\u0001/);
   const pattern = parts.map((p, i) => (i % 2 ? `ADR \\[(?:${alts[Number(p)].map(esc).join('|')})\\]` : esc(p))).join('');

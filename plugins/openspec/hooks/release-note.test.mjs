@@ -411,6 +411,19 @@ test('release-note AC-5 mask: a link to another document renamed by hand is not 
   assert.equal(D.maskRelease('See (0002-roles.md).\n', 'docs/adr/0001-start.md', map), 'See (roles.md).\n', 'a bare form inside an ADR folder is masked');
 });
 
+// Review round 4 (architecture F9): maskCitations, sharedNumberMatch and givenBackBySpan read `ADR <number>` through one builder.
+test('release-note AC-5 mask: adrNumberRe matches ADR <number> as a whole token, global, and escapes the number', () => {
+  const re = D.adrNumberRe('0034');
+  assert.equal(re.flags, 'g');
+  assert.deepEqual('ADR 0034, (ADR 0034).'.match(re), ['ADR 0034', 'ADR 0034']);
+  assert.equal(D.adrNumberRe('0034').test('ADR 00345'), false, 'a longer number is not this one');
+  assert.equal(D.adrNumberRe('0034').test('xADR 0034'), false, 'a letter before ADR is no citation');
+  assert.equal(D.adrNumberRe('0034').test('7ADR 0034'), false, 'a digit before ADR is no citation');
+  assert.equal(D.adrNumberRe('0034').test('ADR 0034a'), true, 'only a digit after the number ends the match');
+  assert.equal(D.adrNumberRe('00.4').test('ADR 0034'), false, 'the number is read as text, not as a pattern');
+  assert.equal(D.adrNumberRe('00.4').test('ADR 00.4'), true);
+});
+
 test('release-note AC-5 rewrite: the step numbers the ADR, its title and both citation forms, and writes what the release lines of stepCommit hold', () => {
   const root = noteRepo({ extra: { 'docs/z.md': 'Read [the rule](adr/feat.md) and ADR [feat].\n' } });
   const oldHead = headOf(root);

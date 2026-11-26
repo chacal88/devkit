@@ -19,7 +19,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { RELEASE_FILE, pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, withoutVersions, PIN_FILE, PIN_PACK, PIN_PACK_NAME, ADR_DIRS, RELEASE_NOTE, ShipConfigError, parseReleaseNote, repoReader, computeRelease, changeAdrs, releaseStateAt, releaseTagOf, withReleaseVersion, CITATION_PATHSPEC, adrFileRe, maskCitations, stepRecord } from './deliver-check.mjs';
+import { RELEASE_FILE, pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, withoutVersions, PIN_FILE, PIN_PACK, PIN_PACK_NAME, ADR_DIRS, RELEASE_NOTE, ShipConfigError, parseReleaseNote, repoReader, computeRelease, changeAdrs, releaseStateAt, releaseTagOf, withReleaseVersion, CITATION_PATHSPEC, adrFileRe, adrNumberRe, maskCitations, stepRecord } from './deliver-check.mjs';
 // The pin definition (ADR 0027) and the helpers every consumer CI needs live in deliver-check.mjs, which it downloads alone (release-at-merge D-3a);
 // each name stays importable from here as the same object.
 export { pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, PIN_FILE, PIN_PACK, PIN_PACK_NAME };
@@ -396,7 +396,7 @@ export function assignBlockingAt(root, { target, conflicts, id, file }) {
 // text, or null when a span is found by no window or two spans are found at overlapping places.
 export function givenBackBySpan({ recorded, working, base, path, numbers }) {
   const forms = numbers.flatMap(({ number, slug }) => [
-    { re: new RegExp(`(?<![A-Za-z0-9])ADR ${number}(?![0-9])`, 'g'), back: () => `ADR [${slug}]` },
+    { re: adrNumberRe(number), back: () => `ADR [${slug}]` },
     { re: adrFileRe(`${number}-${slug}`, path), back: (m) => `${m[1] ?? ''}${slug}.md` },
   ]);
   const matchAt = (re, text, at) => {

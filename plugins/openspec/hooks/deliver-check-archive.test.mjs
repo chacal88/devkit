@@ -2589,6 +2589,32 @@ test(`${FMP}: G14 a fixed-in sha whose compare fails with anything but a 404 blo
   assert.deepEqual([nextStep(s).step, nextStep(s).reason], ['blocked', unreadReason(12, 'gh: boom')]);
 });
 
+// The owner's decision 2b of release-at-merge (review round 2, test-coverage F16): on an owner's forced merge the release-edit rule of
+// release-at-merge does not apply, so a noted change whose compare from the evidence commit lists only the files of the assign-release
+// step's commit names evidence.md and each approved review as open items (an over-report, never a pass), as the canonical requirement
+// "The open items of a forced merge are named" says. The roadmap follow-up `forced-merge-release-edit` gives gatesAtHead the release-edit
+// allowance and flips this expectation to no open gate.
+const STEP_FILES = ['.claude-plugin/marketplace.json', 'plugins/openspec/.claude-plugin/plugin.json', 'CHANGELOG.md', 'docs/adr/0035-feat.md', 'docs/openspec-flow.md'];
+test(`${FMP}: G15 forced-merge-release-edit: a noted change behind only the assign-release step's files names evidence.md and each approved review as open`, () => {
+  const t = gatesRepo({ evidence: STAGE('passed', GHEAD, OLD), reviews: approvedAt(OLD) });
+  t.gh.set(contentsKey('openspec/changes/feat/release.md', GHEAD), fileFx('packs: [openspec]\nrelease: minor\n\n## t\n\nbody\n'));
+  t.gh.set(compareKey(OLD, GHEAD), {
+    stdout: {
+      status: 'ahead',
+      files: STEP_FILES.map((filename) => (filename === 'docs/adr/0035-feat.md' ? { filename, status: 'renamed', previous_filename: 'docs/adr/feat.md' } : { filename, status: 'modified' })),
+      commits: [{ sha: GHEAD, commit: { message: 'chore(release): assign the release of feat\n\nRelease-change: feat\n' } }],
+    },
+  });
+  const why = `${OLD.slice(0, 7)} is behind the merged head, which changes ${STEP_FILES[0]}`;
+  const open = ['evidence.md', 'reviews/code-quality-reviewer.md', 'reviews/test-coverage-reviewer.md'];
+  assert.deepEqual(gatesOf(t), { gates: open.map((file) => ({ file, why })) });
+  presetSetup(t.gh);
+  t.gh.set('pr-view-12', rollupFx([OKRUN('check'), RUNOF('devkit-reviews', 'FAILURE')]));
+  const got = DC.forcedMerge(t.run, 'feat', { number: 12, url: 'https://github.com/o/r/pull/12', headRefOid: GHEAD }, { base: 'main', unticked: [] });
+  assert.deepEqual(got.forced.items.filter((i) => i.kind === 'gate').map((i) => i.file), open);
+  assert.equal(got.forced.count, 1 + open.length, 'the red devkit-reviews check and the three gate files');
+});
+
 test(`${FMP}: G9 gatesAtHead answers an error for a contents read that fails, a folder where a file is expected and a file where the folder is expected`, () => {
   const short = GHEAD.slice(0, 7);
   const base = () => gatesRepo({ reviews: approvedAt(GHEAD) });
