@@ -161,7 +161,7 @@ Not changes of this repository, and so not lines of this roadmap: in each projec
 - [ ] coordination-cleanup (after: coordination-panels, compozy-driver) — remove what the new coordination replaced: the old next-step scripts, the child-session code and the old panel, and finish the documentation (D-11)
 
 ## Round 26: project setup
-- [ ] project-setup (after: delivery-models) — one setup step writes the `devkit:` block, installs the schemas and the checker into the project and wires its driver (orchestrator-replan retro, item 3)
+- [x] project-setup (after: delivery-models) — one setup step writes the `devkit:` block, installs the schemas and the checker into the project and wires its driver (orchestrator-replan retro, item 3)
 
 ## Round 27: debts
 - [ ] lean-pr-template — a lean pull-request template with less text, built once the owner has researched models; `deliver-check`'s rule that the PR body names the change, every acceptance criterion and the evidence path changes with it (D-4; design-open-points)
@@ -213,3 +213,9 @@ Not changes of this repository, and so not lines of this roadmap: in each projec
 
 ## Round 28m: redacted real-run proofs
 - [ ] proof-stream-redaction (after: post-merge-validate) — the real-run streams of post-merge-validate (`proof/real-run-*.jsonl`) carried the owner's home path, every MCP server name and the tool lists of the session, and were redacted by hand before the first commit. Give the real-run recipe one helper that keeps only what the proof reads (the devkit plugin lines of the init event, the Agent and Bash calls, the loop's lines) and writes the home folder as `/home/<user>`, and make `scripts/check.py` refuse a `proof/*.jsonl` that holds a home path or an init event with `mcp_servers`.
+
+## Round 28p: follow-ups of project-setup
+- [ ] setup-typed-hook (after: project-setup) — from the project-setup retro (F-1): a hook refuses the setup scripts (`setup-block.mjs apply`, `project-settings.mjs`, `install-schemas.sh`, `kit-installer.mjs`) unless the session's run started from a typed `/devkit setup`, so a plain-words request writes no file of a setup; the spec of project-setup gets back its stronger scenario.
+- [ ] train-manifest-fields (after: delivery-train) — from the project-setup retro: `release-merge.mjs --merge` refuses a head that edits a manifest field beyond its version (pull request 148 changed the devkit-compozy description), so such a change cannot ride a train; the join accepts description edits, or the departure says so before it starts.
+- [ ] review-owner-rounds (after: project-setup) — from the project-setup retro: `review-round.workflow.js` accepts a round above 2 when the owner authorized it, and `review.md` prints the real round number and the owner's words.
+- [ ] project-setup-followups (after: project-setup) — from the project-setup review nits: run R-3's ruleset question once the release tag exists; widen D-13's N counts and order N-20/N-21; restrict kit-installer (and bin/devkit-kit) to the installed cache; add ADR 0031's dated line on the typed-only gap; read the setup's settings from the chosen root in a nested repository.
