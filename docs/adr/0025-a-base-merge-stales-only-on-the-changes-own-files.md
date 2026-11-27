@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Amended by ADR 0034 (0034-release-at-merge.md)
-- Amended by ADR [a-change-runs-only-the-tests-its-files-map-to] (a-change-runs-only-the-tests-its-files-map-to.md)
+- Amended by ADR 0036 (0036-a-change-runs-only-the-tests-its-files-map-to.md)
 - Accepted by: the owner, on 2026-11-23, in the approval of the plan of change stale-only-on-own-files (openspec/changes/stale-only-on-own-files/approval.md)
 - Date: 2026-11-23
 - Change: stale-only-on-own-files
