@@ -1,5 +1,30 @@
 # Roadmap
 
+> Order of the remaining work, set by the owner on 2026-11-27. The rounds below keep their numbers;
+> this note only says which open item to pick next. The owner opens one change at a time and
+> chooses which; items of one wave that touch the same function run one after the other, never
+> together.
+>
+> 1. Wave 1, cheaper changes (suite, gates, delivery): `test-map-hub-links`, `test-private-tmpdir`,
+>    `own-files-by-content`, `blocked-why-held`, `delivery-merge-hold`, `lean-pr-template`,
+>    `state-listing-speed`.
+> 2. Wave 2, release and delivery correctness: `forced-merge-release-edit`, `release-at-merge-nits`,
+>    `forced-merge-path-followups`, `release-merge-manifest-fields`, `train-empty-failure-text`,
+>    `openspec-type-flag`, `proof-stream-redaction`.
+> 3. Wave 3, coordinator loop and setup: `coordinator-loop-fixes-followups`, `handoff-tool-guard`,
+>    `host-monitor-wake`, `review-writer-text`, `loop-place-and-evidence-followups`,
+>    `review-owner-rounds`, `setup-typed-hook`, `project-setup-followups`, `run-status-bar-followups`.
+> 4. Wave 4, new features, each after the one before it: `script-driver`, `coordination-panels` (mock
+>    of the screens first), `compozy-driver-dogfood`, `compozy-driver-gaps`, `coordination-cleanup`.
+>
+> The live checks (`roadmap-live-checks`, `release-merge-live-check`, `remote-worker-live-checks`,
+> `sessions-upfront-live-checks`, `stage-models-live-checks`, `train-live-check`, `jira-entry-live`,
+> `project-slice-dogfood`) are not changes of their own: each is ticked when a real change in one of
+> the waves above runs the feature and its retro records the result.
+>
+> The items `multi-roadmaps` and `split-roadmaps` of Round 29 replace this note with named roadmaps by
+> front.
+
 ## Round 1: ready PR without the owner in between
 - [x] ship-modes
 
@@ -232,3 +257,8 @@ Not changes of this repository, and so not lines of this roadmap: in each projec
 
 ## Round 28s: follow-ups of selective-tests-by-map
 - [ ] test-map-hub-links: narrow the hub-module links of scripts/test-map.json so a change on deliver-check.mjs selects fewer tests (after: selective-tests-by-map-2)
+
+## Round 29: several roadmaps, named and run on request
+- [ ] multi-roadmaps (after: roadmap-coordinator) — asked by the owner on 2026-11-27: a repository holds several named roadmaps, each with its own rounds (the phases) and items (the tasks), as files under `openspec/roadmaps/<name>.md`; `openspec/roadmap.md` stays the default one. `/devkit roadmap <name>` runs that roadmap and nothing else, and with no name it runs the default one. With no number it runs the whole roadmap on its own, change after change, until the roadmap is done, a change waits for an owner's gate, or the owner stops it (`/devkit roadmap <name> stop`); `/devkit roadmap <name> <n>` runs up to `<n>` changes at once (2, 3, ...). `/devkit status` lists every roadmap with its counts. In the grill: the run file and the lock of each roadmap (ADR 0013 decided one run per repository, so an amending record is owed), how runs of two roadmaps at once share the places and the load limit, whether `after:` may name an item of another roadmap, and which roadmap a `/devkit project` slice appends its rounds to. A change id stays unique in the repository, so no change opens twice.
+- [ ] roadmap-run-opens-sessions (after: multi-roadmaps) — asked by the owner on 2026-11-27, who will not sit at the computer to open sessions: when the owner types `/devkit roadmap <name>`, the run itself opens, in the desktop app, the session of every change it will run, with no click and no command typed in them, as ADR 0021 does for the single roadmap, now for every named roadmap and every place of `<n>`. The host refuses a session start on a turn nobody typed (the open item `roadmap-live-checks` records the real refusal), so the grill decides how every session is opened on the typed turn and what a change waiting for a free place does meanwhile. The owner's gates (the grill, the plan approval, each retro proposal) stay the owner's: the grill also decides what the owner sees, and on the phone, when a session waits for one.
+- [ ] split-roadmaps (after: multi-roadmaps) — asked by the owner on 2026-11-27: split the open items of `openspec/roadmap.md` into named roadmaps by front, each with its rounds and items: the coordinator and its loop, the delivery train and the release, the suite and its gates, project setup and intake, the panels and the status bar, the CompozyOS driver, and the loose items; the done rounds stay in the default roadmap as history, and the "Order of the remaining work" note at the top of that file goes away.
