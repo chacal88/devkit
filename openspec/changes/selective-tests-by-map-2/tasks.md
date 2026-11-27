@@ -177,7 +177,7 @@ implementer.
   before the task). T-20 keeps passing unchanged. Check: as in 2.7, and
   `git grep -n -e headBranch -e abbrev-ref -e spawnSync -- scripts/test-suite.mjs` prints nothing.
   Commit 2.8 before 2.9 starts.
-- [ ] 2.9 The CI base (D-2). Write T-35 in `plugins/openspec/hooks/test-suite.test.mjs` (a second
+- [x] 2.9 The CI base (D-2). Write T-35 in `plugins/openspec/hooks/test-suite.test.mjs` (a second
   origin branch, `GITHUB_BASE_REF` set and blank). It passes on the code as it stands, so prove it
   bites: make `selectOwn` pass `{}` in place of `process.env` to `stalenessBase` for one run, see
   T-35 fail, and restore the line before the commit. Record the red run's failing line in the
@@ -185,7 +185,7 @@ implementer.
   `scripts/test-suite.mjs` it can leave. Check: as in 2.7, and
   `git diff --quiet HEAD -- scripts/test-suite.mjs` exits 0 before 2.9's commit, so the restored
   line is what ships.
-- [ ] 2.5 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-5,
+- [x] 2.5 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-5,
   AC-6, AC-7). It passed once before 2.6 to 2.9 were added; it runs again after them.
 
 ## 3. Release and the proofs (phase 3)
@@ -255,7 +255,7 @@ implementer.
     agents read after a merge.
 
   Check: no `selected the whole suite` line.
-- [ ] 3.7 Conductor: case (k), the reviewer's reproduction of code-quality F1, after 2.7. It was added
+- [x] 3.7 Conductor: case (k), the reviewer's reproduction of code-quality F1, after 2.7. It was added
   after round 1 and sits before the phase gate 3.6, which is open again. In a scratch clone set up as
   in 3.4, make case (a)'s scratch commit, then make two runs of
   `node scripts/test-suite.mjs --own-files`, both kept in `proof/case-k.txt`:
@@ -269,7 +269,7 @@ implementer.
     (the fail safe of D-3, "The M5 list"). Stop it as in 3.4 (d) and record exit 130.
 
   Remove the clone afterwards. Check: each run shows the outcome named here.
-- [ ] 3.6 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-1 to
+- [x] 3.6 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-1 to
   AC-9). The pr-verifier writes its row with the `selected` lines (D-6). It words the AC-5 row
   `pass:` followed by what is proven here (the texts the loop's agents read, the selective run on
   the head in `proof/base-merge.txt`, and case (h)'s run on a merge commit in `proof/case-h.txt`)
