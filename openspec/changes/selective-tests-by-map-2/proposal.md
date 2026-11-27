@@ -32,6 +32,8 @@ touches what they cover, and that the whole suite run once, on the train.
   is not a git repository), selects the whole suite (fail safe, ADR 0025 decision 4).
 - **The map cannot rot unnoticed**: before it selects, `--own-files` refuses a map that names a
   missing file, links a non-suite file, or leaves a suite script or a suite test uncovered. A suite
+  script is a file git tracks under a suite folder: a stray untracked or ignored file (a `.DS_Store`)
+  is not one, and when git cannot tell, every file on disk counts (`design.md` D-3). A suite
   test is covered only when a map entry names it; importing a shared helper does not count. It names
   each entry and runs nothing. A test pins the repository's own map.
 - **A link is a real use**: the map's first content is built by rules (`design.md` D-4) that link a
@@ -101,7 +103,15 @@ None.
   `hooks/test-suite.test.mjs`, `hooks/deliver-check.test.mjs`, `hooks/delivery-train.test.mjs`,
   `hooks/test-tmp.test.mjs`; comment-only fixes in `hooks/change-loop-compozy.test.mjs` and
   `hooks/deliver-check.test.mjs` (they state that CI checks out shallow, which stays true only for
-  a push).
+  a push). Also `hooks/release-note.test.mjs`, a base test this change had to extend: the
+  `openspec/config.yaml` ADR list entry of the record is the first entry after the release-at-merge
+  pair, and the test required that pair to end the line. Since commit `02eb93ed` it keeps the two
+  records linked and lets later records follow them, with one test of its own (`design.md`
+  "Pinned rules", `tasks.md` 2.6).
+- Revised after round 1 of the code review (`review.md`), with no AC changed: M5 checks the files
+  git tracks (`design.md` D-3); the head branch is read by `deliver-check.mjs`'s `currentBranch`, so
+  `DEVKIT_BRANCH` counts as it does for every train-branch caller (D-5); a test pins the CI base
+  (D-2). Tasks 2.6 to 2.9 and 3.7 carry them.
 - Unchanged: devkit-core, devkit-compozy, devkit-panel (`commandLabel` reads the gate as
   `test-suite --own-files`), the train's command and its bisection, `check.py`, `gen-catalog.py`,
   `gen-agents.mjs`.
@@ -112,7 +122,7 @@ change opened before the release note" (`CONTRIBUTING.md` step 5; `openspec/conf
 Conventions), and decision 8 of `0034-release-at-merge.md` keeps it for those changes alone. So the
 change carries `openspec/changes/selective-tests-by-map-2/release.md`, written with the plan:
 `packs:` with `devkit-openspec: patch` (the one pack whose files it changes, `hooks/deliver-check.mjs`
-and four of its tests), the default marketplace bump (the largest pack bump), a changelog title and
+and its tests), the default marketplace bump (the largest pack bump), a changelog title and
 a body. As decisions 1, 2 and 7 of `0034-release-at-merge.md` say, the branch bumps no version, adds
 no `CHANGELOG.md` line, moves no CI pin line of `docs/openspec-flow.md`, regenerates no
 `docs/catalog.md` for a release, and numbers no ADR by hand: the delivery (the `assign-release`
@@ -156,6 +166,11 @@ touched.
   `openspec/config.yaml`, `CLAUDE.md`), and by this change's own evidence after its last base
   merge. The pr-verifier's row for a "selected no test file" gate is next-change dogfood: this
   change's own gate always selects tests.
+- AC-5's evidence row is `pass` only for what is proven here: the texts the loop reads, the
+  selective run on the head (`proof/base-merge.txt`; task 3.1's merge of `origin/main` was already
+  up to date, so no real base merge happened) and case (h)'s run on a merge commit in a scratch clone
+  (`proof/case-h.txt`). The loop asking for the selective run after a real base merge is next-change
+  dogfood. The pr-verifier words the row that way (task 3.6).
 - The release follows the note rule (above): `release.md` names `devkit-openspec: patch`, and the
   delivery writes the versions, the changelog entry and the CI pins, and numbers the unnumbered
   record; no task does.

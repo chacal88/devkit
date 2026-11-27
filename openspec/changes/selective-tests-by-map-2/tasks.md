@@ -20,7 +20,8 @@ proof, D-11 the tests and the pinned rules. The implementer copies them and make
 script under `plugins/` changes what it answers: `deliver-check.mjs` only gains the two exports of D-2.
 
 Test first in every task that adds a test: write it, see it fail on the code before the task, then
-make it pass. Every new test's name starts `selective-tests-by-map-2 AC-<n> `. Before a test is
+make it pass. Every new test's name starts `selective-tests-by-map-2 AC-<n> `. The one exception is
+the base test task 2.6 extends, which keeps its `release-note AC-14 texts:` prefix (D-11). Before a test is
 changed, its commit message names its invariant, the layer that owns it and the suite it lives in
 (CLAUDE.md); the "Pinned rules" table of `design.md` gives the three for each test this plan touches.
 Leave no scratch file in the tree (the D-4 seed script lives in the session's scratch folder), and
@@ -35,15 +36,15 @@ the free disk checked (`df -h /`).
 
 | Id | Slug | Tasks |
 |---|---|---|
-| AC-1 | `gate-runs-mapped-tests` | 1.3, 1.5, 1.7, 3.4 |
+| AC-1 | `gate-runs-mapped-tests` | 1.3, 1.5, 1.7, 2.9, 3.4 |
 | AC-2 | `slow-only-when-linked` | 1.3, 1.6, 3.4 |
 | AC-3 | `shared-helper-fast-only` | 1.3, 3.4 |
 | AC-4 | `unmapped-code-runs-all` | 1.2, 1.3, 1.5, 3.4 |
 | AC-5 | `base-merge-selective` | 2.2, 2.3, 3.1, 3.5 |
 | AC-6 | `proof-selective` | 1.5, 2.2, 2.3, 3.4, 3.6 |
-| AC-7 | `pr-ci-selective-train-whole` | 1.5, 2.1, 3.4 |
-| AC-8 | `whole-suite-unchanged` | 1.1, 1.5, 3.3 |
-| AC-9 | `map-checked` | 1.4, 1.5, 1.6, 3.4 |
+| AC-7 | `pr-ci-selective-train-whole` | 1.5, 2.1, 2.8, 3.4 |
+| AC-8 | `whole-suite-unchanged` | 1.1, 1.5, 2.6, 3.3 |
+| AC-9 | `map-checked` | 1.4, 1.5, 1.6, 2.7, 3.4, 3.7 |
 
 ## 1. The selection, the map and its check (phase 1)
 
@@ -138,8 +139,54 @@ the free disk checked (`df -h /`).
   shows, besides the record's own file, the three `Amended by` lines, the two `openspec/config.yaml`
   citations and the header comment of `scripts/test-suite.mjs` (and any `CLAUDE.md` or `CONTRIBUTING.md` line that names the record), each in the form
   `ADR [a-change-runs-only-the-tests-its-files-map-to]`, and no line in a test or fixture file.
-- [x] 2.5 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-5,
-  AC-6, AC-7).
+Tasks 2.6 to 2.9 were added after round 1 of the code review (`review.md`; code-quality F1 and F2,
+architecture F1, test-coverage F1). They sit before the phase gate 2.5, because a phase ends with its
+gate. Gate 2.5 is open again and runs after them. They are inside D-2, D-3, D-5 and D-11 as revised
+in `design.md`, and no AC changes. 2.6 records a fix already committed; 2.7 to 2.9 are for the
+implementer.
+
+- [x] 2.6 The ADRs-line test of `release-note.test.mjs`. Done in commit `02eb93ed`, after gate 2.5
+  failed on it: task 2.2's ADR list entry is the first record after the release-at-merge pair, and the
+  test required the pair to end the line. Test file: `plugins/openspec/hooks/release-note.test.mjs`.
+  Invariant: the ADRs line keeps the two release-at-merge records linked and lets later records
+  follow them. Layer: config text (`openspec/config.yaml` `ADRs:`). Suite: `release-note.test.mjs`.
+  The edit adds `ADRS_LINE_TAIL` (line 895), the old regex with a trailing `(?:; [^;]+)*` before
+  `\)$`, used by the `documents:` subtest (line 999). It also adds the test
+  `release-note AC-14 texts: the ADRs line keeps the two records linked and lets later records follow them`
+  (two later-record positives, two broken-pair negatives), named after the base test it extends
+  (D-11). D-10 step 4 drops that one name. Check:
+  `node scripts/test-suite.mjs --test-name-pattern="^release-note AC-14 texts" plugins/openspec/hooks/release-note.test.mjs`
+  passes.
+- [x] 2.7 M5 on git's list (D-3, "The M5 list"). In `scripts/test-suite.mjs`, add the private
+  `trackedSuitePaths(root, env)` and the `env = process.env` argument of `mapProblems`. Use git's list
+  for M5 and the disk walk when it is `null`. Write T-31 and T-32 (direct calls) and T-33 (end to
+  end) in `plugins/openspec/hooks/test-suite.test.mjs`, test first: T-31 and T-33 fail on the code
+  before the task, because the stray files are refused. T-33's tree commits a `.gitignore` that
+  ignores `.DS_Store` and `__pycache__/` (as the repository's does), so its ignored files are no own
+  file; its case (2), an untracked, not ignored, uncovered `stray.tmp`, exits 0 with
+  `selected the whole suite: no entry of scripts/test-map.json covers <path>` and no
+  `is not covered by the map` line (the fail safe of D-3, "The M5 list"). T-13 keeps passing
+  unchanged ("Pinned rules"). Check: `node scripts/test-suite.mjs plugins/openspec/hooks/test-suite.test.mjs` passes, and
+  passes again under
+  `env GITHUB_HEAD_REF=selective-tests-by-map-2 GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/test-suite.test.mjs`,
+  so the CI branch variables cannot leak into a test.
+- [x] 2.8 The head branch from its owner (D-5). In `scripts/test-suite.mjs`, delete `headBranch`, drop
+  `spawnSync` from the `node:child_process` import (`headBranch` is its only user), and make
+  `selectOwn` read the branch with `deliver.currentBranch(root, process.env)`. Write T-34 in
+  `plugins/openspec/hooks/test-suite.test.mjs`, test first (its `DEVKIT_BRANCH=train/4` case fails
+  before the task). T-20 keeps passing unchanged. Check: as in 2.7, and
+  `git grep -n -e headBranch -e abbrev-ref -e spawnSync -- scripts/test-suite.mjs` prints nothing.
+  Commit 2.8 before 2.9 starts.
+- [ ] 2.9 The CI base (D-2). Write T-35 in `plugins/openspec/hooks/test-suite.test.mjs` (a second
+  origin branch, `GITHUB_BASE_REF` set and blank). It passes on the code as it stands, so prove it
+  bites: make `selectOwn` pass `{}` in place of `process.env` to `stalenessBase` for one run, see
+  T-35 fail, and restore the line before the commit. Record the red run's failing line in the
+  commit message. 2.9 starts after 2.8's commit, so the mutation is the only edit of
+  `scripts/test-suite.mjs` it can leave. Check: as in 2.7, and
+  `git diff --quiet HEAD -- scripts/test-suite.mjs` exits 0 before 2.9's commit, so the restored
+  line is what ships.
+- [ ] 2.5 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-5,
+  AC-6, AC-7). It passed once before 2.6 to 2.9 were added; it runs again after them.
 
 ## 3. Release and the proofs (phase 3)
 
@@ -208,8 +255,28 @@ the free disk checked (`df -h /`).
     agents read after a merge.
 
   Check: no `selected the whole suite` line.
-- [x] 3.6 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-1 to
-  AC-9). The pr-verifier writes its row with the `selected` lines (D-6).
+- [ ] 3.7 Conductor: case (k), the reviewer's reproduction of code-quality F1, after 2.7. It was added
+  after round 1 and sits before the phase gate 3.6, which is open again. In a scratch clone set up as
+  in 3.4, make case (a)'s scratch commit, then make two runs of
+  `node scripts/test-suite.mjs --own-files`, both kept in `proof/case-k.txt`:
+  - run 1, with an untracked `plugins/openspec/hooks/.DS_Store` (the repository's `.gitignore`
+    ignores it): exit 0, no `is not covered by the map` line, and the same `selected` line as case
+    (a);
+  - run 2, with an untracked, not ignored `plugins/openspec/hooks/stray.tmp` added: no
+    `is not covered by the map` line and no refusal. The file is an own file that no key covers, so
+    the run prints
+    `selected the whole suite: no entry of scripts/test-map.json covers plugins/openspec/hooks/stray.tmp`
+    (the fail safe of D-3, "The M5 list"). Stop it as in 3.4 (d) and record exit 130.
+
+  Remove the clone afterwards. Check: each run shows the outcome named here.
+- [ ] 3.6 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-1 to
+  AC-9). The pr-verifier writes its row with the `selected` lines (D-6). It words the AC-5 row
+  `pass:` followed by what is proven here (the texts the loop's agents read, the selective run on
+  the head in `proof/base-merge.txt`, and case (h)'s run on a merge commit in `proof/case-h.txt`)
+  and what is next-change dogfood (the loop asking for the selective run after a real base merge),
+  as the AC-7 row splits what is proven here from its CI half (`proposal.md`, "Flagged for the
+  owner"); never a bare `pass`. It passed once before 3.7
+  was added; it runs again after it.
 
 ## Workflow follow-up
 

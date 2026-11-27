@@ -103,15 +103,17 @@ See `proposal.md` (Why). The state at `e8991d6d` (the branch's tree adds only it
 - `baseTip` stays private. `branchOwnPaths` is the one caller outside `ownFiles`. The script calls
   `branchOwnPaths(root, gitFacts(root, { base: stalenessBase(root, process.env) }))`. The CI base
   (`GITHUB_BASE_REF`) and the local one (`origin/HEAD`) therefore come from the rule the reviews check
-  uses (ADR 0025 decision 5).
+  uses (ADR 0025 decision 5). T-35 pins the CI half: with a second origin branch and
+  `GITHUB_BASE_REF` naming it, the own files are the diff against that base, not against `main`
+  (test-coverage F1 of round 1).
 - Git itself can fail before `branchOwnPaths` decides anything: `gitFacts` calls `dirtyPaths`, whose
   `git status --porcelain -z -uall` throws in a folder that is not a git work tree (an export, a
   tarball, a copy made by `git archive`), and so does any git call when git is missing or the
   repository is broken. The script therefore makes that one call inside a `try`. Any error it throws
   gives `{ base: null, why }` with `why` = `git cannot tell the own files: <first line of the error's
   message>`. `main()` keeps catching only `UsageError`; this `try` is the one other catch, and it
-  wraps only the own-files call, never the map check or the run. The head branch read of D-5 is
-  guarded the same way.
+  wraps only the own-files call, never the map check or the run. The head branch read of D-5,
+  `currentBranch`, catches its own git failure and returns `''`.
 - What the list holds, against `ownFiles`:
   - It has no rule for `openspec/changes/<id>/` (it takes no id). `ownFiles` adds that whole folder
     to `isOwn`; this list holds only the committed paths of the diff, the change folder's committed
@@ -169,9 +171,45 @@ before any file runs. The problems:
 | M2 | a value, shared link or slow item is not a suite test file | `links <path>, which is not a test file of the suite` |
 | M3 | a `files` or `shared` key is a suite test file (a test selects itself) | `is a test file of the suite: it selects itself` |
 | M4 | a path is both a `files` key and a `shared` key | `is both a file entry and a shared helper` |
-| M5 | a file under one of the four suite folders that is not a suite test file and that no key covers ("a script the map lacks") | `is not covered by the map` |
+| M5 | a file git tracks under one of the four suite folders (the M5 list below) that is not a suite test file and that no key covers ("a script the map lacks") | `is not covered by the map` |
 | M6 | a suite test file that no `files` value and no `shared` link names ("a test the map lacks"); importing a shared helper does not count as a link | `is linked to nothing` |
 | M7 | the shape: not an object, a top-level key other than `slow`, `shared`, `files`, a value that is not an array of strings | `is not ...` (the expected shape) |
+
+**The M5 list** (revised after round 1 of the code review, code-quality F1). The first build walked
+the four folders on disk and kept every file, so an untracked or git-ignored file (a macOS
+`.DS_Store`, an editor's backup) refused every `--own-files` run with `<path>: is not covered by the
+map`. M5 now considers only the files git tracks:
+
+- `mapProblems(root, map, suite, env = process.env)` gains the `env` argument (default
+  `process.env`), used only for the git calls below. The calls `mapProblems(root, map, suite)` of
+  T-10 to T-16 keep working unchanged.
+- A private helper `trackedSuitePaths(root, env)` returns the M5 list, or `null` when git cannot
+  tell. It runs `git -C <root> rev-parse --show-toplevel` and requires its `realpathSync` to equal
+  `realpathSync(root)`. A folder inside an enclosing repository is not its own work tree, and
+  `ls-files` there would list that repository's files. It then runs
+  `git -C <root> ls-files -z --cached -- <the four SUITE_FOLDERS>`, keeps the paths that exist on
+  disk as files, and returns them sorted with `byPath`. It returns `null` when either command fails
+  to spawn, exits non-zero, or when the list holds no path at all. A work tree whose suite folders
+  track nothing has not told which files belong, so the walk decides.
+- `mapProblems` uses that list for M5, and the disk walk of the first build
+  (`walk(root, join(root, folder), () => true)` over `SUITE_FOLDERS`) when it is `null`. The walk
+  checks a superset of what git tracks, so the fallback never makes the check weaker. In a copy
+  with no `.git`, a stray file still refuses the run, as before.
+- A tracked file deleted from the disk and not yet staged is left out of the list: M5 asks for a
+  key only for a file that exists, as the walk did. M1 still refuses a key that names it.
+
+Why tracked files and not "skip dotfiles". The fail-safe rule (ADR 0025 decision 4: when unsure,
+more is checked, never less) decides, and D-3 asks the map to cover what the repository holds:
+
+- Leaving untracked files out of M5 makes no run check fewer tests. An untracked file that is not
+  ignored is an own file (D-2: `dirtyPaths` reads `git status --porcelain -uall`). When no key
+  covers it, S7 selects the whole suite for it. Once the file is added to the index, M5 refuses it.
+  An ignored file is never committed, never in CI's checkout and never an own file, so no test can
+  be missed through it.
+- Skipping dotfiles would drop tracked files from M5. A tracked dotfile under a suite folder that no
+  key covers would no longer be refused, so the check would be weaker. A stray untracked file whose
+  name does not start with `.` (`x.mjs.orig`, `notes.tmp`) would still refuse every run, so the
+  fault would stay.
 
 The file's input, which the readiness review asks for under "Parsers":
 
@@ -313,14 +351,23 @@ differs today. The rule keeps it so when a test drops its direct import. The clo
 product modules (`deliver-check.mjs`, `change-loop.mjs`): ADR 0025 rejected that dependency closure,
 and product modules never import a test helper. T-5 pins the path through a `-fixtures.mjs` module.
 
-Before the selection, the script checks the head branch. `GITHUB_HEAD_REF` is read when it is
-non-empty. Otherwise the script runs `git rev-parse --abbrev-ref HEAD`, and when that fails (no
-commit yet, a folder that is not a git work tree, no git) the branch is unknown. An unknown branch is
-not a train branch, and the script goes on to the own files, where the same failure gives a `why`
-(D-2). When the branch matches `TRAIN_BRANCH` (imported from `deliver-check.mjs`, not a second
-pattern), the result is `whole` with reason `<branch> is a train branch` (the record's decisions 5 and
-6). A `why`, from `branchOwnPaths` or from the git failure of D-2, gives `whole` with that `why` as
-the reason.
+Before the selection, the script checks the head branch with `currentBranch(root, process.env)`,
+exported by `deliver-check.mjs` (line 3001), as every other train-branch caller of that module does
+(`TRAIN_BRANCH.exec(currentBranch(root, env))`, line 3700). `DEVKIT_BRANCH` wins when it is
+non-empty, then `GITHUB_HEAD_REF`, then `git symbolic-ref --short -q HEAD`. When git fails (a
+detached head, a folder that is not a git work tree, no git) it returns `''`, and catches the error
+itself. An unknown branch is not a train branch, and the script goes on to the own files, where a
+git failure gives a `why` (D-2). When the branch matches `TRAIN_BRANCH` (imported from
+`deliver-check.mjs`, not a second pattern), the result is `whole` with reason
+`<branch> is a train branch` (the record's decisions 5 and 6). A `why`, from `branchOwnPaths` or from
+the git failure of D-2, gives `whole` with that `why` as the reason.
+
+The first build read the branch with a private `headBranch(root)` in `scripts/test-suite.mjs`
+(`GITHUB_HEAD_REF`, else `git rev-parse --abbrev-ref HEAD`). That was a second copy of
+`currentBranch` that ignored `DEVKIT_BRANCH`, in a function that already imports the module
+(architecture F1 of round 1). The fix deletes `headBranch` and calls the owner. This is the D-5
+intent (one train rule, owned by `deliver-check.mjs`), not a new behaviour. T-34 pins
+`DEVKIT_BRANCH`.
 
 ### D-6 The output
 
@@ -413,7 +460,8 @@ It can only be pinned as text, and a second train pattern would exist beside `TR
   the `CLAUDE.md` rows or the `CONTRIBUTING.md` paragraph) writes
   `ADR [a-change-runs-only-the-tests-its-files-map-to]`, never a number. No test or fixture file
   cites the record: the release step does not rewrite those files (D-9), and the new tests are named
-  `selective-tests-by-map-2 AC-<n> ...`.
+  `selective-tests-by-map-2 AC-<n> ...` (with the one exception D-11 names, which cites no record
+  either).
 
 ### D-9 The records
 
@@ -469,8 +517,10 @@ This is the procedure of suite-speed's design D-10.
    must exit 0.
 3. At the head, after the last base merge, `node scripts/test-suite.mjs --reporter=tap > .../head.tap`
    runs with no `TMPDIR` override, as CONTRIBUTING.md asks of a change to the suite script.
-4. Extract the names (`^\s*(not )?ok [0-9]+ - `, reduced and `LC_ALL=C sort`ed) and drop the head
-   names that start with `selective-tests-by-map-2 `. `diff` must print nothing.
+4. Extract the names (`^\s*(not )?ok [0-9]+ - `, reduced and `LC_ALL=C sort`ed). Drop the head
+   names that start with `selective-tests-by-map-2 `, and the one head name
+   `release-note AC-14 texts: the ADRs line keeps the two records linked and lets later records follow them`
+   (the base test this change extends, D-11). `diff` must print nothing.
 5. The sorted `start ` lines of the two runs must be equal.
 
 The base run is also the source of D-4 rule 1. Its per-file summary lines and its `suite:` line are
@@ -478,8 +528,16 @@ committed as `proof/base-whole.txt`.
 
 ### D-11 Tests
 
-Every new test's name starts `selective-tests-by-map-2 AC-<n> ` (`T-` ids below are the plan's). The
-synthetic trees for the end-to-end tests are git repositories made by the test:
+Every new test's name starts `selective-tests-by-map-2 AC-<n> ` (`T-` ids below are the plan's),
+with one exception. `release-note AC-14 texts: the ADRs line keeps the two records linked and lets
+later records follow them`, in `plugins/openspec/hooks/release-note.test.mjs` (commit `02eb93ed`),
+keeps the `release-note AC-14 texts:` prefix of the base test it extends. The invariant it pins
+belongs to `release-at-merge` (its AC-14: the ADRs line keeps that change's two records linked).
+This change only allows a later record after the pair, because its own entry (D-8) is the first
+such record. A `selective-tests-by-map-2` name would attribute a release-note rule to this change,
+and the test would read as removable when this change's tests are. D-10 step 4 drops this one name
+by its full text. The synthetic trees for the end-to-end tests are git repositories made by the
+test:
 
 - a base commit, `refs/remotes/origin/main` set to it with `git update-ref`, and
   `refs/remotes/origin/HEAD` pointing at it;
@@ -522,15 +580,35 @@ synthetic trees for the end-to-end tests are git repositories made by the test:
 | T-28 | AC-6 | delivery-train.test.mjs | with the train key `node scripts/test-suite.mjs && python3 scripts/check.py`, a gate `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` with no rows lists the selective part in `missingGates` and the check part in `trainParts`; with a pass row for the selective part, item 1 is met |
 | T-29 | AC-7 | test-tmp.test.mjs | ci.yml: the `Test suite` step holds the `--own-files` expression of D-7 and no other test command; the checkout holds the `fetch-depth` expression; the job id is `check` |
 | T-30 | AC-5 | test-suite.test.mjs | `openspec/config.yaml` `Test command:` and `Gates:` name `node scripts/test-suite.mjs --own-files`; `devkit.delivery.train` is still the whole command; `CLAUDE.md` has the selective row after the whole one; `CONTRIBUTING.md` names `--own-files` and `scripts/test-map.json` |
+| T-31 | AC-9 | test-suite.test.mjs | M5 on git's list (D-3), in a git work tree whose map covers every tracked file: an untracked `.DS_Store`, an untracked `stray.mjs` and a file the tree's `.gitignore` ignores, each under a suite folder, are no problem; a tracked module no key covers is a problem, committed and also when only staged (`git add`); a tracked file covered by a folder key (not an exact key, which M1 would refuse once the file is gone), deleted from the disk and not staged, is no problem: the expected problem list is empty |
+| T-32 | AC-9 | test-suite.test.mjs | M5 falls back to the walk: the same tree made without `git init`, called with `env` holding `GIT_CEILING_DIRECTORIES` set to its parent, makes the untracked `stray.mjs` and `.DS_Store` problems; a folder inside an enclosing git repository (not its top level) walks too; a git work tree whose suite folders track no file walks too, so its untracked `stray.mjs` is a problem |
+| T-33 | AC-9 | test-suite.test.mjs | end to end, in a tree whose committed `.gitignore` ignores `.DS_Store` and `__pycache__/` (as the repository's does), so neither ignored file is an own file: (1) a branch touching a mapped module, with an untracked `.DS_Store` and an untracked `__pycache__/x.pyc` under a suite folder, exits 0 and prints the same `selected` lines as the same run without them; (2) the fail safe of D-3 "The M5 list": the same branch with an untracked, not ignored `stray.tmp` under a suite folder that no key covers exits 0, prints `selected the whole suite: no entry of scripts/test-map.json covers <path>` for it, and prints no `is not covered by the map` line; (3) a committed module no key covers exits 1 with `<path>: is not covered by the map` and starts no file |
+| T-34 | AC-7 | test-suite.test.mjs | `DEVKIT_BRANCH=train/4` on a local branch `feature` gives the whole suite with `train/4 is a train branch`; `DEVKIT_BRANCH=feature` beside `GITHUB_HEAD_REF=train/7` stays selective (it wins, as in `currentBranch`); with both blank, the local branch decides (T-20) |
+| T-35 | AC-1 | test-suite.test.mjs | the CI base: a second origin branch `origin/release`, one commit past `origin/main` touching mapped module A; the branch made from it touches mapped module B. With `GITHUB_BASE_REF=release` only B's tests are selected (`by` names B only). With `GITHUB_BASE_REF` blank (`origin/HEAD` names `main`), A's and B's tests are selected |
 
-T-1 to T-16 call the exported functions directly. T-17 to T-26 spawn the copy of the script.
+T-1 to T-16, T-31 and T-32 call the exported functions directly. T-17 to T-26 and T-33 to T-35 spawn
+the copy of the script. T-31 to T-35 were added after round 1 of the code review (code-quality F1,
+architecture F1, test-coverage F1). They pin the D-2, D-3 and D-5 rules as revised above. The ACs
+are the same.
 
 ### Pinned rules: every test that quotes what this change replaces
 
 The grep covered all four suite folders, `scripts/check.py`, the fixtures modules and
 `delivery-train-fixtures.mjs`. It searched for `test-suite`, `Test suite`, `ci.yml`, `fetch-depth`,
 `depth 1`, `Test command`, `Gates:`, `Test history`, `trainParts`, `ownFiles`, `stalenessBase`,
-`TRAIN_BRANCH`, `Amended by ADR`, `usage: node scripts/test-suite.mjs` and `no test file`.
+`TRAIN_BRANCH`, `Amended by ADR`, `usage: node scripts/test-suite.mjs` and `no test file`. It did not
+search for `ADRs:`, the key of the `openspec/config.yaml` line whose list D-8 extends. Gate 2.5 found
+the one test that pins that line's end (the `release-note.test.mjs` row below, commit `02eb93ed`).
+After round 1 of the code review the grep was also run for `ADRs:`, `headBranch` and
+`is not covered by the map`:
+
+- The other suite tests that read the real `ADRs:` line match entries inside it, not its end:
+  `guard.test.mjs`, `roadmap-loop-followups.test.mjs`, `stage-models.test.mjs`,
+  `deliver-check-archive.test.mjs`, `delivery-models.test.mjs`, `project-loop.test.mjs` and
+  `change-loop-compozy.test.mjs`. All of them are in the map's `openspec/config.yaml` entry, so they
+  ran and passed in gate 2.5's selective run.
+- `headBranch` and the M5 message appear only in `scripts/test-suite.mjs` and
+  `test-suite.test.mjs`. `currentBranch` is pinned in `deliver-check.test.mjs` (row below).
 
 | Test (file) | What it pins | This change |
 |---|---|---|
@@ -543,6 +621,9 @@ The grep covered all four suite folders, `scripts/check.py`, the fixtures module
 | `delivery-train AC-5: ...` ×3 (delivery-train.test.mjs), `delivery-train P11 ...` (delivery-train-after.test.mjs) | gate parts equal to train parts need no row | unchanged; T-28 adds the selective part |
 | `own-files AC-1` to `AC-6` (deliver-check.test.mjs) | the staleness rule through `ownFiles` | unchanged; `ownFiles` calls `ownDiffPaths` |
 | `delivery-train-fixtures.mjs` `SUITE` | the train command | unchanged |
+| `release-note AC-14 texts: the agents, the documents and the records ...`, subtest `documents: ...` (release-note.test.mjs, line 999) | invariant: the ADRs line keeps the two release-at-merge records linked (the first named as amended by the second, the second amending the first) and lets later records follow them. Layer: config text (`openspec/config.yaml` `ADRs:`). Suite: `release-note.test.mjs` | edited in `02eb93ed`: its regex was `...amends ${CITED}\)$`, which required the pair to end the line, and D-8 appends this change's entry after it. It is now `ADRS_LINE_TAIL` (line 895), the same regex with a trailing `(?:; [^;]+)*` before `\)$`. One test is added beside it, `release-note AC-14 texts: the ADRs line keeps the two records linked and lets later records follow them` (lines 934 to 944): two positives with later records, two negatives that break the pair (D-11, the name's exception) |
+| `currentBranch: DEVKIT_BRANCH wins over GITHUB_HEAD_REF, which wins over the git branch` (deliver-check.test.mjs) | the branch order of `currentBranch` | unchanged; `scripts/test-suite.mjs` becomes one more caller (D-5), and T-34 pins it through the script |
+| `selective-tests-by-map-2 AC-9 T-13 ...` (test-suite.test.mjs) | M5 on the walk, in a tree with no git | unchanged: that tree has no work tree of its own, so `trackedSuitePaths` returns `null` and the walk decides (D-3) |
 
 `plugins/openspec/skills/devkit/scripts/setup-block.test.mjs:350` builds its own `Test command:` line
 for a template and does not read this repository's config.
@@ -582,7 +663,8 @@ command they name.
 Dependency order: own-files helper (deliver-check) → selection and map reader (script) → the map's
 content → CI and texts → records (the release itself is the delivery's).
 
-- **Per surface**: devkit-openspec hooks (`deliver-check.mjs` two exports; four test files). Repository
+- **Per surface**: devkit-openspec hooks (`deliver-check.mjs` two exports; four test files of the
+  mode, and the base test of `release-note.test.mjs` that D-8's ADR entry required). Repository
   scripts (`scripts/test-suite.mjs`, `scripts/test-map.json`). CI (`ci.yml`). Texts and records
   (`openspec/config.yaml`, `CLAUDE.md`, `CONTRIBUTING.md`, `docs/openspec-flow.md`, ADRs). No frontend, no
   worker.
@@ -590,7 +672,7 @@ content → CI and texts → records (the release itself is the delivery's).
   - create `scripts/test-map.json` and `openspec/changes/selective-tests-by-map-2/proof/*.txt`
     (`release.md` is written with the plan);
   - modify `scripts/test-suite.mjs`, `plugins/openspec/hooks/deliver-check.mjs`,
-    `plugins/openspec/hooks/{test-suite,deliver-check,delivery-train,test-tmp,change-loop-compozy}.test.mjs`,
+    `plugins/openspec/hooks/{test-suite,deliver-check,delivery-train,test-tmp,change-loop-compozy,release-note}.test.mjs`,
     `.github/workflows/ci.yml`, `openspec/config.yaml`, `CLAUDE.md`, `CONTRIBUTING.md`,
     `docs/openspec-flow.md` (the sentence of D-8 only), `docs/adr/0022-*`, `0025-*`, `0026-*`, and
     the new ADR (its status lines);
@@ -609,6 +691,8 @@ content → CI and texts → records (the release itself is the delivery's).
 | CI step and checkout + T-29 | 1 | Integration | LOW |
 | Texts (config, CLAUDE.md, CONTRIBUTING, flow page, comments) + T-28, T-30 | 2 | Documentation | LOW |
 | Records, release-note check, AC-8 runs, real-run proofs | 3 | Testing | MEDIUM |
+| Round-1 fixes: `release-note.test.mjs` ADRs-line regex and its test (done in `02eb93ed`) | 0.5 | Testing | LOW |
+| Round-1 fixes: M5 on git's list + T-31 to T-33; `currentBranch` + T-34; T-35; case (k) | 3 | Core | LOW |
 
 - **Risks** (probability × impact, mitigation):
   - map seed too coarse, so selections are near-whole (MEDIUM × LOW): rule 1 marks slow, and the owner
@@ -623,7 +707,14 @@ content → CI and texts → records (the release itself is the delivery's).
     D-9 name the form each file writes, and task 2.4's check greps for it;
   - CI expression typo leaves `check` red (LOW × HIGH): T-29 pins the text, and the pull request's
     first run is read before auto-merge (workflow follow-up);
-  - whole-run names differ because of a flaky test (LOW × MEDIUM): re-run alone on a quiet machine.
+  - whole-run names differ because of a flaky test (LOW × MEDIUM): re-run alone on a quiet machine;
+  - git's M5 list is silently empty or foreign, so M5 checks nothing (LOW × MEDIUM): `trackedSuitePaths`
+    requires the work tree's top level to be the root and a non-empty list, else the walk decides
+    (D-3); T-32 pins each fallback.
+  - a stale `DEVKIT_BRANCH` left in a shell now overrides `GITHUB_HEAD_REF` and the local branch for
+    the train rule, so `DEVKIT_BRANCH=<non-train>` on a `train/<n>` checkout runs selectively (LOW ×
+    LOW): it is the order `deliver-check` already uses for every train-branch caller, CI sets no
+    `DEVKIT_BRANCH`, and the train's pull request runs the whole suite in CI; T-34 pins the order.
 - **Assumptions**:
   - `actions/checkout@v4` with `fetch-depth: 0` on `pull_request` gives `refs/remotes/origin/<base>`
     (as `.github/workflows/devkit-reviews.yml` relies on);
