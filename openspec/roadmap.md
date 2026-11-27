@@ -1,5 +1,27 @@
 # Roadmap
 
+> Order of the remaining work, set by the owner on 2026-11-27. The rounds below keep their numbers;
+> this note only says which open item to pick next. The owner opens one change at a time and
+> chooses which; items of one wave that touch the same function run one after the other, never
+> together.
+>
+> 1. Wave 1, cheaper changes (suite, gates, delivery): `test-map-hub-links`, `test-private-tmpdir`,
+>    `own-files-by-content`, `blocked-why-held`, `delivery-merge-hold`, `lean-pr-template`,
+>    `state-listing-speed`.
+> 2. Wave 2, release and delivery correctness: `forced-merge-release-edit`, `release-at-merge-nits`,
+>    `forced-merge-path-followups`, `release-merge-manifest-fields`, `train-empty-failure-text`,
+>    `openspec-type-flag`, `proof-stream-redaction`.
+> 3. Wave 3, coordinator loop and setup: `coordinator-loop-fixes-followups`, `handoff-tool-guard`,
+>    `host-monitor-wake`, `review-writer-text`, `loop-place-and-evidence-followups`,
+>    `review-owner-rounds`, `setup-typed-hook`, `project-setup-followups`, `run-status-bar-followups`.
+> 4. Wave 4, new features, each after the one before it: `script-driver`, `coordination-panels` (mock
+>    of the screens first), `compozy-driver-dogfood`, `compozy-driver-gaps`, `coordination-cleanup`.
+>
+> The live checks (`roadmap-live-checks`, `release-merge-live-check`, `remote-worker-live-checks`,
+> `sessions-upfront-live-checks`, `stage-models-live-checks`, `train-live-check`, `jira-entry-live`,
+> `project-slice-dogfood`) are not changes of their own: each is ticked when a real change in one of
+> the waves above runs the feature and its retro records the result.
+
 ## Round 1: ready PR without the owner in between
 - [x] ship-modes
 
