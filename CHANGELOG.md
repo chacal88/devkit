@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.55.3 — selective-tests-by-map retro
+
+- **devkit-core** 0.18.1: the stage 1 prompt of the review round tells a reviewer to open every path of its remit,
+  because the round refuses an answer with a path in `notRead` and a second stage 1 follows.
+- Project rules (`openspec/config.yaml`): a task that appends to a line of a shared file also greps the tests for
+  the line's other entries and its `$` anchors; a proposal merges `origin/main` first when a sibling has merged.
+- Roadmap: `test-map-hub-links` narrows the hub-module links of `scripts/test-map.json`.
+
 ## 0.55.2 — a change runs only the tests its own files map to
 
 - **devkit-openspec** 0.50.2: `deliver-check.mjs` exports the own-files computation it already had

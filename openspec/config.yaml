@@ -48,7 +48,7 @@ rules:
   requirements:
     - Ask the owner every question that nothing written settles; the requirements-triage agent answers the others first, each with its source. Never answer a question yourself. The triage answers first only in the grill of a change that follows flow version 2 or later of its script; in a change on flow 1 the owner answers every question.
   proposal:
-    - Keep it under two pages; the how belongs in design.md
+    - Keep it under two pages; the how belongs in design.md. When a sibling change has merged since the branch was cut, merge origin/main before the plan is written and before its first readiness round, so every claim about the base is true when the review reads it.
     - Every sentence stating a fact about the repository is true at the commit that ships it; a task that corrects such a claim names every file that repeats it
   design:
     - Record any decision that changes an ADR as a proposal for a new ADR, not as a silent deviation
@@ -58,7 +58,7 @@ rules:
     - One "## N." group per phase, each ending with a gate task that names the test command
     - Every acceptance criterion id appears in at least one task
     - 'In a change with a release note (release.md) no task bumps a version or numbers an ADR: the delivery writes them at the merge. In an old-rule change (no release.md) a task that writes an ADR or bumps a version names "the next free number on origin/main at the last merge before review", never a literal number or version'
-    - A task that changes a text a test pins (a skill's frontmatter, a reply, a doc sentence) names each test file that asserts the old text; grep the test files for it
+    - A task that changes a text a test pins (a skill's frontmatter, a reply, a doc sentence) names each test file that asserts the old text; grep the test files for it. A task that appends an entry to a line of a shared file (the ADR list) also greps for the line's other entries and for anchored patterns (a regex ending in $), which pin the end of the line.
   readiness:
     - Written only by the plan-readiness-reviewer agent, never by the plan's author
 

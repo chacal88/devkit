@@ -271,7 +271,7 @@ function reviewerPrompt(args, entry) {
     + 'Review as your own instructions say, but write no file: a later stage writes your verdict file. Run every test in the foreground and give your answer when it ends: start no background command and leave none running.\n'
     + 'Run git rev-parse HEAD in the worktree and put the full sha it prints in commit; the round refuses any other value, a short sha padded with zeros included.\n'
     + 'The round writes your Commit line itself, from git: it adds (uncommitted changes) only when a path outside openspec/ is uncommitted (an untracked path under .claude/ does not count); report nothing about it.\n'
-    + 'List in read every repo-relative path you opened, and in notRead every path of your remit you did not open (an empty list when you opened them all); the round refuses an answer with a path in notRead, or with an empty read unless you declined.\n'
+    + 'List in read every repo-relative path you opened, and in notRead every path of your remit you did not open (an empty list when you opened them all); the round refuses an answer with a path in notRead, or with an empty read unless you declined, so open every path of your remit before you answer; a path you truly cannot open goes in notRead with the reason in sections, and costs a second stage 1.\n'
     + 'A disposition is either fixed in <sha>, naming exactly one sha, the commit that holds the fix, or refuted: <evidence>; never name two shas.\n'
     + 'sections holds neither a Verdict: line nor a Commit: line: stage 3 writes both.\n'
     + 'End your reply with one fenced json block holding one object: '
