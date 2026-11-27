@@ -890,6 +890,9 @@ const CITED = `ADR (?:\\[${SLUG}\\]|\\d{4})`;
 const FILED = `(?:\\d{4}-)?${SLUG}\\.md`;
 // The change's second record, which amends the first (D-20, "The `ADRs:` line"), cited in the same two forms.
 const CITED2 = `ADR (?:\\[${SLUG}-step-record\\]|\\d{4})`;
+// The invariant of the `ADRs:` line of openspec/config.yaml: the change's two records stay linked on it, the first naming the second as its
+// amender and the second naming the first. It does not forbid later records, so a change that adds its own entry after them keeps it green.
+const ADRS_LINE_TAIL = new RegExp(`; ${CITED} [^;]+, amends 0022 and 0025, amended by ${CITED2}; ${CITED2} [^;]+, amends ${CITED}(?:; [^;]+)*\\)$`);
 const repoText = (...parts) => readFileSync(join(here, '..', '..', '..', ...parts), 'utf8');
 const sectionOf = (text, heading) => (text.split(`\n${heading}\n`)[1] ?? '').split('\n## ')[0];
 
@@ -927,6 +930,17 @@ test('release-note AC-14 texts: a delivery hand-off with no phase returns the im
     const returns = text.slice(text.indexOf('\n## Returns\n'), text.indexOf('\n## Escalate'));
     assert.ok(returns.split('\n').includes(sentence), `${parts.join('/')}: the Returns section holds the hand-off bullet`);
   }
+});
+
+test('release-note AC-14 texts: the ADRs line keeps the two records linked and lets later records follow them', () => {
+  const head = '  ADRs: docs/adr/ (0033 a setting, amends 0023';
+  const first = (amended) => `; ADR 0034 a note, amends 0022 and 0025${amended}`;
+  const pair = `${first(', amended by ADR 0035')}; ADR 0035 a step record, amends ADR 0034`;
+  assert.match(`${head}${pair})`, ADRS_LINE_TAIL, 'the pair alone ends the line');
+  assert.match(`${head}${pair}; ADR 0036 a later record, amends 0026)`, ADRS_LINE_TAIL, 'a later record after the pair keeps the line valid');
+  assert.match(`${head}${pair}; ADR [a-later-change] one, amends 0026; ADR 0037 two)`, ADRS_LINE_TAIL, 'several later records keep the line valid');
+  assert.doesNotMatch(`${head}${first('')}; ADR 0035 a step record, amends ADR 0034; ADR 0036 a later record)`, ADRS_LINE_TAIL, 'the first record no longer naming the second as its amender breaks the pair');
+  assert.doesNotMatch(`${head}${first(', amended by ADR 0035')}; ADR 0035 a step record; ADR 0036 a later record)`, ADRS_LINE_TAIL, 'the second record no longer naming the first breaks the pair');
 });
 
 test('release-note AC-14 texts: the agents, the documents and the records follow the release note and the unnumbered ADR', async (t) => {
@@ -982,7 +996,7 @@ test('release-note AC-14 texts: the agents, the documents and the records follow
     assert.match(rule, /^\s{4}- ['"]/, 'the rule is quoted');
     for (const part of ['no task bumps a version or numbers an ADR', 'old-rule', 'the next free number on origin/main at the last merge before review']) assert.ok(rule.includes(part), `the tasks rule says ${part}`);
     const adrs = config.find((l) => l.trim().startsWith('ADRs:'));
-    assert.match(adrs, new RegExp(`; ${CITED} [^;]+, amends 0022 and 0025, amended by ${CITED2}; ${CITED2} [^;]+, amends ${CITED}\\)$`), 'the ADRs line ends with this change\'s two records, the first naming the second as its amender');
+    assert.match(adrs, ADRS_LINE_TAIL, 'the ADRs line ends with this change\'s two records, the first naming the second as its amender');
     assert.ok(adrs.includes('; 0030 the pin test reads the manifest, so only the flow page pins pass unnamed, amends 0003 and 0027;'), 'the entries before it stay');
 
     const flow = repoText('docs', 'openspec-flow.md');

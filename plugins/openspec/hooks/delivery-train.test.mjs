@@ -1137,6 +1137,25 @@ test('delivery-train AC-5: collectState passes the train parts to the tasks item
   assert.equal(deliver.nextStep(state).step, 'verify');
 });
 
+// Invariant: the selective gate part is not a part of the train's whole-suite command, so it needs its own pass row; the check part is the train's.
+// Layer: the tasks item (`tasksItem`). Suite: delivery-train.test.mjs.
+test('selective-tests-by-map-2 AC-6: a gate naming the selective command needs its own row, and the train still proves the check part', () => {
+  const SELECTIVE = 'node scripts/test-suite.mjs --own-files';
+  const gate = `${SELECTIVE} && ${PARTS[1]}`;
+  const tasks = `# Tasks\n\n## 1. Phase\n\n- [x] 1.1 code\n- [x] 1.2 Gate: \`${gate}\`\n`;
+  const root = project().t.main;
+  const evidence = (rows) => `Commit: ${git(root, 'rev-parse', 'HEAD')}\n\n| gate | command | result |\n|---|---|---|\n${rows}`;
+  put(root, { 'openspec/changes/g/tasks.md': tasks, 'openspec/changes/g/evidence.md': evidence('') });
+  const none = deliver.tasksItem(root, 'g', deliver.gitFacts(root), { trainParts: PARTS });
+  assert.equal(none.status, 'open');
+  assert.deepEqual(none.details.missingGates, [SELECTIVE], 'the selective part is not a train part, so it is listed');
+  assert.deepEqual(none.details.trainParts, [PARTS[1]], 'the check part is the train\'s');
+  put(root, { 'openspec/changes/g/evidence.md': evidence(`| 1.2 | \`${SELECTIVE}\` | pass: selected 2 test files, suite: 2 files, 20 tests, 20 pass |\n`) });
+  const item = deliver.tasksItem(root, 'g', deliver.gitFacts(root), { trainParts: PARTS });
+  assert.equal(item.status, 'met');
+  assert.deepEqual(item.details.missingGates, []);
+});
+
 // ---------------------------------------------------------------- the archive rows A1-A5 (P3), pure
 
 const URL = (n) => `https://github.com/o/r/pull/${n}`;

@@ -1,0 +1,56 @@
+selective-tests-by-map-2 task 1.1: the whole suite on the base copy (D-10 steps 1 and 2; the source of the slow marks, D-4 rule 1)
+
+base sha: e8991d6db221a4eab8a58a16f72c32ded9fb5360 (origin/main, the sha the branch was opened on; it has merged nothing yet)
+copy: git archive of that sha, extracted under /var/tmp/devkit-stbm/base, then git init and git add -f . (the guard refuses git add -A)
+command: env TMPDIR=/var/tmp/devkit-suite node scripts/test-suite.mjs --reporter=tap > /var/tmp/devkit-stbm/base.tap 2>&1
+exit code: 0
+machine: 14 cores (hw.ncpu), macOS; uptime at the end of the run: 22:40 up 1:09, 3 load averages 12.90 16.73 14.09
+note: the run took 741.0 s, over the usual ten minutes, because the implementer ran a few short single-file runs (about two minutes of one test file, and
+test-suite.test.mjs several times) beside it; the per-file times are therefore a little high. Over-marking a file slow only makes the shared-helper rule
+run fewer files (D-4 rule 1), and the owner may trim the marks.
+
+pass 0.1s plugins/compozy/kit/scripts/adoption.test.mjs
+pass 8.4s plugins/compozy/kit/scripts/devkit-kit.test.mjs
+pass 4.4s plugins/compozy/kit/scripts/gen-agents.test.mjs
+pass 3.1s plugins/compozy/kit/scripts/install-kit.test.mjs
+pass 0.6s plugins/compozy/kit/scripts/loop-templates.test.mjs
+pass 4.0s plugins/core/skills/review-change/scripts/review-round.test.mjs
+pass 378.2s plugins/openspec/hooks/change-loop-compozy.test.mjs
+pass 325.9s plugins/openspec/hooks/change-loop-declared.test.mjs
+pass 293.8s plugins/openspec/hooks/change-loop-remote-state.test.mjs
+pass 232.1s plugins/openspec/hooks/change-loop-remote.test.mjs
+pass 597.1s plugins/openspec/hooks/change-loop.test.mjs
+pass 58.8s plugins/openspec/hooks/change-state-stages.test.mjs
+pass 5.2s plugins/openspec/hooks/compozy-driver.test.mjs
+pass 382.8s plugins/openspec/hooks/conduct-check.test.mjs
+pass 622.7s plugins/openspec/hooks/deliver-check-archive.test.mjs
+pass 307.5s plugins/openspec/hooks/deliver-check-cli.test.mjs
+pass 741.0s plugins/openspec/hooks/deliver-check.test.mjs
+pass 434.6s plugins/openspec/hooks/delivery-models.test.mjs
+pass 301.6s plugins/openspec/hooks/delivery-train-after.test.mjs
+pass 508.8s plugins/openspec/hooks/delivery-train.test.mjs
+pass 209.2s plugins/openspec/hooks/flow-check.test.mjs
+pass 59.6s plugins/openspec/hooks/guard.test.mjs
+pass 0.1s plugins/openspec/hooks/jira-task.test.mjs
+pass 25.5s plugins/openspec/hooks/merge-setup.test.mjs
+pass 536.2s plugins/openspec/hooks/project-loop.test.mjs
+pass 259.6s plugins/openspec/hooks/release-merge.test.mjs
+pass 194.9s plugins/openspec/hooks/release-note.test.mjs
+pass 116.3s plugins/openspec/hooks/release-tags.test.mjs
+pass 296.7s plugins/openspec/hooks/roadmap-loop-followups.test.mjs
+pass 396.7s plugins/openspec/hooks/roadmap-loop-upfront.test.mjs
+pass 374.9s plugins/openspec/hooks/roadmap-loop.test.mjs
+pass 355.5s plugins/openspec/hooks/stage-models.test.mjs
+pass 48.4s plugins/openspec/hooks/status-line.test.mjs
+pass 4.7s plugins/openspec/hooks/test-suite.test.mjs
+pass 0.4s plugins/openspec/hooks/test-tmp.test.mjs
+pass 106.5s plugins/openspec/hooks/version-pin.test.mjs
+pass 20.6s plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs
+pass 2.6s plugins/openspec/skills/devkit/scripts/gh-version.test.mjs
+pass 87.8s plugins/openspec/skills/devkit/scripts/github-setup.test.mjs
+pass 3.4s plugins/openspec/skills/devkit/scripts/install-schemas.test.mjs
+pass 0.6s plugins/openspec/skills/devkit/scripts/kit-installer.test.mjs
+pass 0.9s plugins/openspec/skills/devkit/scripts/project-settings.test.mjs
+pass 5.7s plugins/openspec/skills/devkit/scripts/setup-block.test.mjs
+pass 0.8s plugins/openspec/skills/devkit/scripts/ship-entry.test.mjs
+suite: 44 files, 3855 tests, 3852 pass, 0 fail, 741.0s, concurrency 14

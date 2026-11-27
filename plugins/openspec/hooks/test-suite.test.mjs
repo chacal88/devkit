@@ -39,8 +39,25 @@ function probe({ name = 'suite-speed probe passes', body = '' } = {}) {
   ].join('\n');
 }
 
-// A synthetic repository: a copy of the script and the given files (path relative to the tree -> text).
-function tree(files) {
+// The variables a branch or a pull request run sets, blanked in every run of the script, so that the CI environment cannot leak into a
+// test (CONTRIBUTING.md). A test that needs one sets it on purpose.
+const BLANK_ENV = { GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', DEVKIT_BYPASS: '' };
+const GIT_IDENTITY = {
+  GIT_AUTHOR_NAME: 'devkit test', GIT_AUTHOR_EMAIL: 'test@devkit.invalid', GIT_COMMITTER_NAME: 'devkit test', GIT_COMMITTER_EMAIL: 'test@devkit.invalid',
+  GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null',
+};
+
+function gitIn(root, ...args) {
+  const r = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8', env: { ...process.env, ...GIT_IDENTITY } });
+  if (r.status !== 0) throw new Error(`git ${args.join(' ')} in ${root}: ${r.stderr}`);
+  return r.stdout.trim();
+}
+
+// A synthetic repository: a copy of the script and the given files (path relative to the tree -> text). The tree is a git repository
+// on a branch `feature` off `origin/main` (one base commit holds everything written) and holds `deliver-check.mjs` as a link to the real
+// one (the mode loads it; Node resolves its imports from the real path); `git: false` makes the tree without `git init`, `link: false`
+// without the link.
+function tree(files, { git = true, link = true } = {}) {
   const root = tmpFolder('devkit-suite-tree-');
   mkdirSync(join(root, 'scripts'), { recursive: true });
   copyFileSync(SCRIPT, join(root, 'scripts', 'test-suite.mjs'));
@@ -48,7 +65,29 @@ function tree(files) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), text);
   }
+  if (link) {
+    mkdirSync(join(root, HOOKS), { recursive: true });
+    symlinkSync(join(REPO_ROOT, HOOKS, 'deliver-check.mjs'), join(root, HOOKS, 'deliver-check.mjs'));
+  }
+  if (git) {
+    gitIn(root, 'init', '-q', '-b', 'main');
+    gitIn(root, 'add', '-A');
+    gitIn(root, 'commit', '-q', '-m', 'base');
+    gitIn(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+    gitIn(root, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main');
+    gitIn(root, 'switch', '-q', '-c', 'feature');
+  }
   return root;
+}
+
+// A commit on the tree's branch: the files written (path -> text) and committed.
+function commitOnBranch(root, content, message = 'change') {
+  for (const [path, text] of Object.entries(content)) {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
+    writeFileSync(join(root, path), text);
+  }
+  gitIn(root, 'add', '-A');
+  gitIn(root, 'commit', '-q', '-m', message);
 }
 
 // Where a run root lands for a TMPDIR `base` that holds `fileCount` files: under the base when it fits, else under the real /tmp.
@@ -64,7 +103,7 @@ const runRootLines = (out) => out.stdout.split('\n').filter((line) => line.start
 function start(root, args = [], { env = {}, base = tmpFolder('devkit-b-') } = {}) {
   const child = spawn(process.execPath, [join(root, 'scripts', 'test-suite.mjs'), ...args], {
     cwd: root,
-    env: { ...process.env, TMPDIR: base, ...env },
+    env: { ...process.env, ...BLANK_ENV, TMPDIR: base, ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   const seen = { stdout: '', stderr: '' };
@@ -724,4 +763,640 @@ test('suite-socket-path AC-4 a TMPDIR of exactly the longest base keeps the run 
   } finally {
     cleanup();
   }
+});
+
+// ---------------------------------------------------------------- selective-tests-by-map-2: the selection (D-5)
+// Invariant: `selectTests` classes each own path by the first rule that matches (S1 a suite test, S2 a deleted one, S3 a shared helper,
+// S4 a map entry, S5 openspec/, S6 docs, S7 anything else) and gives `files`, `whole` or `none`. Layer: the pure function of
+// scripts/test-suite.mjs (the change's decision 2: a change runs only the tests its own files map to). Suite: test-suite.
+
+const SELECT_SUITE = ['a', 'b', 'c', 'slow', 'slow2'].map((name) => `${HOOKS}/${name}${TEST_EXT}`);
+const [TA, TB, TC, TSLOW, TSLOW2] = SELECT_SUITE;
+const modPath = (name) => `${HOOKS}/${name}.mjs`;
+// `map` is merged over an empty map whose slow tests are `slow` and `slow2`.
+const pick = ({ own, map = {}, suite = SELECT_SUITE, exists = () => true, uses = new Map() }) =>
+  suiteScript.selectTests({ own, map: { slow: [TSLOW, TSLOW2], shared: {}, files: {}, ...map }, suite, exists, uses });
+const noCover = (...paths) => `no entry of scripts/test-map.json covers ${paths.join(', ')}`;
+
+test('selective-tests-by-map-2 AC-1 T-1 S4 an exact key selects its fast and its slow tests, each with the own path that selected it; a test no key links is not selected', () => {
+  const result = pick({ own: [modPath('m')], map: { files: { [modPath('m')]: [TA, TSLOW] } } });
+  assert.deepEqual(result, { kind: 'files', files: [{ file: TA, by: [modPath('m')] }, { file: TSLOW, by: [modPath('m')] }] });
+  assert.ok(!result.files.some((f) => f.file === TB || f.file === TC), 'a test no key links is not selected');
+});
+
+test('selective-tests-by-map-2 AC-1 T-2 two own files linking one test: both are in its by, and the test is selected once', () => {
+  const result = pick({ own: [modPath('n'), modPath('m')], map: { files: { [modPath('m')]: [TA, TB], [modPath('n')]: [TB] } } });
+  assert.deepEqual(result, { kind: 'files', files: [{ file: TA, by: [modPath('m')] }, { file: TB, by: [modPath('m'), modPath('n')] }] });
+});
+
+test('selective-tests-by-map-2 AC-1 T-3 S1 a touched suite test, slow or fast, selects itself; S2 a deleted one selects nothing', () => {
+  assert.deepEqual(pick({ own: [TSLOW] }), { kind: 'files', files: [{ file: TSLOW, by: [TSLOW] }] });
+  assert.deepEqual(pick({ own: [TA] }), { kind: 'files', files: [{ file: TA, by: [TA] }] });
+  const gone = `${HOOKS}/gone${TEST_EXT}`;
+  assert.deepEqual(pick({ own: [gone], exists: (path) => path !== gone }), { kind: 'none', count: 1 });
+  assert.deepEqual(pick({ own: [gone, TA], exists: (path) => path !== gone }), { kind: 'files', files: [{ file: TA, by: [TA] }] }, 'a deleted test beside a kept one adds nothing');
+});
+
+test('selective-tests-by-map-2 AC-1 T-4 S4 a folder key covers a path under it; the exact key beats the folder; the longer folder beats the shorter; a sibling is not covered', () => {
+  const files = { 'plugins/x/': [TA], 'plugins/x/deep/': [TB], 'plugins/x/deep/exact.json': [TC] };
+  assert.deepEqual(pick({ own: ['plugins/x/other.json'], map: { files } }), { kind: 'files', files: [{ file: TA, by: ['plugins/x/other.json'] }] });
+  assert.deepEqual(pick({ own: ['plugins/x/deep/f.json'], map: { files } }), { kind: 'files', files: [{ file: TB, by: ['plugins/x/deep/f.json'] }] }, 'the longer folder key');
+  assert.deepEqual(pick({ own: ['plugins/x/deep/exact.json'], map: { files } }), { kind: 'files', files: [{ file: TC, by: ['plugins/x/deep/exact.json'] }] }, 'the exact key');
+  assert.deepEqual(pick({ own: ['plugins/xy/f.json'], map: { files } }), { kind: 'whole', reason: noCover('plugins/xy/f.json') }, 'a sibling of the folder is not under it');
+});
+
+test('selective-tests-by-map-2 AC-2 AC-3 T-5 S3 a shared helper selects the fast tests that use it and no slow one, no other', () => {
+  const helper = modPath('helper');
+  const uses = new Map([[helper, [TA, TB, TSLOW]]]);
+  const result = pick({ own: [helper], map: { shared: { [helper]: [] } }, uses });
+  assert.deepEqual(result, { kind: 'files', files: [{ file: TA, by: [helper] }, { file: TB, by: [helper] }] });
+  assert.ok(!result.files.some((f) => f.file === TSLOW), 'a slow importer is not selected');
+  assert.ok(!result.files.some((f) => f.file === TC), 'a fast non-importer is not selected');
+  assert.deepEqual(pick({ own: [helper], map: { shared: { [helper]: [] } } }), { kind: 'none', count: 1 }, 'a helper no test uses selects nothing');
+});
+
+test('selective-tests-by-map-2 AC-2 T-6 S3 a slow test the helper entry links is selected; the same slow test unlinked is not', () => {
+  const helper = modPath('helper');
+  const uses = new Map([[helper, [TA, TSLOW, TSLOW2]]]);
+  const linked = pick({ own: [helper], map: { shared: { [helper]: [TSLOW] } }, uses });
+  assert.deepEqual(linked.files.map((f) => f.file), [TA, TSLOW]);
+  assert.deepEqual(linked.files.find((f) => f.file === TSLOW).by, [helper]);
+  assert.ok(!linked.files.some((f) => f.file === TSLOW2), 'the slow test the entry does not link is not selected');
+});
+
+test('selective-tests-by-map-2 AC-4 T-7 S7 an unmapped code path gives the whole suite naming it; mapped it gives its tests; under a key with an empty list it gives the whole suite again', () => {
+  const code = modPath('new');
+  assert.deepEqual(pick({ own: [code] }), { kind: 'whole', reason: noCover(code) });
+  assert.deepEqual(pick({ own: [code], map: { files: { [code]: [TA] } } }), { kind: 'files', files: [{ file: TA, by: [code] }] });
+  assert.deepEqual(pick({ own: [code], map: { files: { [code]: [] } } }), { kind: 'whole', reason: noCover(code) }, 'an exact key with no test covers nothing');
+  assert.deepEqual(pick({ own: [`${HOOKS}/sub/deep.mjs`], map: { files: { [`${HOOKS}/sub/`]: [] } } }), { kind: 'whole', reason: noCover(`${HOOKS}/sub/deep.mjs`) }, 'a folder key with no test covers nothing');
+  assert.deepEqual(pick({ own: [modPath('z'), code] }), { kind: 'whole', reason: noCover(code, modPath('z')) }, 'every unmapped path is named, in order');
+});
+
+test('selective-tests-by-map-2 AC-4 T-8 S5 and S6 select nothing; an unmapped markdown file under plugins/ gives the whole suite; a mapped openspec/ path or root markdown gives its tests', () => {
+  assert.deepEqual(pick({ own: ['openspec/changes/x/tasks.md', 'openspec/config.yaml'] }), { kind: 'none', count: 2 }, 'S5');
+  assert.deepEqual(pick({ own: ['docs/guide.md', 'README.md'] }), { kind: 'none', count: 2 }, 'S6');
+  assert.deepEqual(pick({ own: [] }), { kind: 'none', count: 0 });
+  assert.deepEqual(pick({ own: ['plugins/panel/README.md'] }), { kind: 'whole', reason: noCover('plugins/panel/README.md') }, 'a markdown file under plugins/ is code');
+  assert.deepEqual(pick({ own: ['openspec/config.yaml'], map: { files: { 'openspec/config.yaml': [TA] } } }), { kind: 'files', files: [{ file: TA, by: ['openspec/config.yaml'] }] }, 'a mapped openspec/ path');
+  assert.deepEqual(pick({ own: ['CLAUDE.md'], map: { files: { 'CLAUDE.md': [TB] } } }), { kind: 'files', files: [{ file: TB, by: ['CLAUDE.md'] }] }, 'a mapped root markdown file');
+});
+
+test('selective-tests-by-map-2 AC-4 T-9 a path that selects nothing beside a mapped one adds nothing; an unmapped code path beside a mapped one gives the whole suite', () => {
+  const files = { [modPath('m')]: [TA] };
+  assert.deepEqual(pick({ own: ['docs/guide.md', modPath('m'), 'openspec/changes/x/tasks.md'], map: { files } }), { kind: 'files', files: [{ file: TA, by: [modPath('m')] }] });
+  assert.deepEqual(pick({ own: ['docs/guide.md', modPath('m'), modPath('new')], map: { files } }), { kind: 'whole', reason: noCover(modPath('new')) });
+});
+
+// A folder of plain files (path relative to it -> text), for the functions that read the tree.
+function files(content) {
+  const root = tmpFolder('devkit-map-');
+  for (const [path, text] of Object.entries(content)) {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
+    writeFileSync(join(root, path), text);
+  }
+  return root;
+}
+const importing = (spec) => `${IMPORT} ${JSON.stringify(spec)};\n`;
+
+test('selective-tests-by-map-2 AC-2 AC-3 T-5 sharedUses finds the tests that import a shared helper directly, through another shared helper or through a -fixtures module, and no other', () => {
+  const root = files({
+    [`${HOOKS}/test-fixtures.mjs`]: 'export const a = 1;\n',
+    [`${HOOKS}/test-tmp.mjs`]: importing('./test-fixtures.mjs'),
+    [`${HOOKS}/x-fixtures.mjs`]: importing('./test-fixtures.mjs'),
+    [`${HOOKS}/product.mjs`]: importing('./test-fixtures.mjs'),
+    [`${HOOKS}/direct${TEST_EXT}`]: importing('./test-fixtures.mjs'),
+    [`${HOOKS}/viashared${TEST_EXT}`]: importing('./test-tmp.mjs'),
+    [`${HOOKS}/viafixtures${TEST_EXT}`]: importing('./x-fixtures.mjs'),
+    [`${HOOKS}/viaproduct${TEST_EXT}`]: importing('./product.mjs'),
+    [`${HOOKS}/dynamic${TEST_EXT}`]: `await ${IMPORT}('./test-fixtures.mjs');\n`,
+    [`${HOOKS}/other${TEST_EXT}`]: importing('./test-tmp.mjs'),
+    [`${HOOKS}/none${TEST_EXT}`]: 'export const a = 1;\n',
+    [`${SETUP}/parent${TEST_EXT}`]: importing('../../../../openspec/hooks/test-fixtures.mjs'),
+  });
+  const map = { slow: [], shared: { [`${HOOKS}/test-fixtures.mjs`]: [], [`${HOOKS}/test-tmp.mjs`]: [] }, files: {} };
+  const uses = suiteScript.sharedUses(root, map, suiteScript.suiteFiles(root));
+  const at = (name) => `${HOOKS}/${name}${TEST_EXT}`;
+  assert.deepEqual(uses.get(`${HOOKS}/test-fixtures.mjs`), [at('direct'), at('dynamic'), at('other'), at('viafixtures'), at('viashared'), `${SETUP}/parent${TEST_EXT}`].sort());
+  assert.deepEqual(uses.get(`${HOOKS}/test-tmp.mjs`), [at('other'), at('viashared')]);
+  assert.ok(!uses.get(`${HOOKS}/test-fixtures.mjs`).includes(at('viaproduct')), 'a product module is not followed');
+  assert.ok(!uses.get(`${HOOKS}/test-fixtures.mjs`).includes(at('none')));
+});
+
+// ---------------------------------------------------------------- selective-tests-by-map-2: the map and its check (D-3)
+// Invariant: `mapProblems` refuses a map that names a path that is not there (M1) or not a suite test (M2), lets a test select itself
+// (M3), keeps one path from being a file entry and a shared helper (M4), leaves a script no key covers (M5) or a test no entry links
+// (M6) or has a wrong shape (M7); `readTestMap` refuses a missing or unparsable file. Layer: the pure functions of
+// scripts/test-suite.mjs. Suite: test-suite.
+
+const MAP_FILES = {
+  [`${HOOKS}/a${TEST_EXT}`]: '',
+  [`${HOOKS}/b${TEST_EXT}`]: '',
+  [`${HOOKS}/mod.mjs`]: 'export const m = 1;\n',
+  [`${HOOKS}/helper.mjs`]: 'export const h = 1;\n',
+  [`${HOOKS}/fixtures/f.json`]: '{}\n',
+  'docs/guide.md': '# guide\n',
+};
+const goodMap = () => ({
+  slow: [TB],
+  shared: { [`${HOOKS}/helper.mjs`]: [] },
+  files: { [`${HOOKS}/mod.mjs`]: [TA], 'docs/guide.md': [TB], [`${HOOKS}/fixtures/`]: [TA] },
+});
+const problemsOf = (root, map) => suiteScript.mapProblems(root, map, suiteScript.suiteFiles(root));
+const said = (problems) => problems.map((p) => `${p.entry}: ${p.why}`);
+
+test('selective-tests-by-map-2 AC-9 T-10 M1 a key, value, shared key, shared link or slow item that names a missing path is a problem naming it; a folder key on a file is one; existing paths are none', () => {
+  const root = files(MAP_FILES);
+  assert.deepEqual(problemsOf(root, goodMap()), []);
+  const ghost = `${HOOKS}/ghost.mjs`;
+  const cases = {
+    'a files key': (m) => { m.files[ghost] = [TA]; },
+    'a files value': (m) => { m.files[`${HOOKS}/mod.mjs`].push(`${HOOKS}/ghost${TEST_EXT}`); },
+    'a shared key': (m) => { m.shared[ghost] = []; },
+    'a shared link': (m) => { m.shared[`${HOOKS}/helper.mjs`].push(`${HOOKS}/ghost${TEST_EXT}`); },
+    'a slow item': (m) => { m.slow.push(`${HOOKS}/ghost${TEST_EXT}`); },
+  };
+  for (const [name, edit] of Object.entries(cases)) {
+    const map = goodMap();
+    edit(map);
+    const found = problemsOf(root, map);
+    assert.equal(found.length, 1, `${name}: ${JSON.stringify(found)}`);
+    assert.match(found[0].why, /^names .*ghost.*, which does not exist$/, name);
+  }
+  const folderOnFile = goodMap();
+  folderOnFile.files['docs/guide.md/'] = [TA];
+  assert.deepEqual(problemsOf(root, folderOnFile).map((p) => [p.entry, p.why]), [['docs/guide.md/', 'is not a folder']]);
+  const noFolder = goodMap();
+  noFolder.files['docs/nothing/'] = [TA];
+  assert.match(said(problemsOf(root, noFolder)).join('\n'), /docs\/nothing\/: names docs\/nothing\/, which does not exist/);
+});
+
+test('selective-tests-by-map-2 AC-9 T-11 M2 a value, a shared link or a slow item that is no test file of the suite is a problem; a suite file is none', () => {
+  const root = files(MAP_FILES);
+  const mod = `${HOOKS}/mod.mjs`;
+  for (const [name, edit] of Object.entries({
+    'a files value': (m) => { m.files[mod].push(mod); },
+    'a shared link': (m) => { m.shared[`${HOOKS}/helper.mjs`].push(mod); },
+    'a slow item': (m) => { m.slow.push(mod); },
+  })) {
+    const map = goodMap();
+    edit(map);
+    const found = problemsOf(root, map);
+    assert.equal(found.length, 1, `${name}: ${JSON.stringify(found)}`);
+    assert.equal(found[0].why, `links ${mod}, which is not a test file of the suite`, name);
+  }
+  const fine = goodMap();
+  fine.shared[`${HOOKS}/helper.mjs`].push(TA);
+  fine.slow.push(TA);
+  assert.deepEqual(problemsOf(root, fine), []);
+});
+
+test('selective-tests-by-map-2 AC-9 T-12 M3 a suite test as a key and M4 one path as a file entry and a shared helper are problems; apart they are none', () => {
+  const root = files(MAP_FILES);
+  const itself = goodMap();
+  itself.files[TA] = [TB];
+  itself.shared[TB] = [];
+  assert.deepEqual(said(problemsOf(root, itself)).sort(), [
+    `${TA}: is a test file of the suite: it selects itself`,
+    `${TB}: is a test file of the suite: it selects itself`,
+  ].sort());
+  const both = goodMap();
+  both.files[`${HOOKS}/helper.mjs`] = [TA];
+  assert.deepEqual(said(problemsOf(root, both)), [`${HOOKS}/helper.mjs: is both a file entry and a shared helper`]);
+  assert.deepEqual(problemsOf(root, goodMap()), []);
+});
+
+test('selective-tests-by-map-2 AC-9 T-13 M5 a module under a suite folder that no key covers is a problem; an exact key, a folder key, a shared key or a key with an empty list covers it', () => {
+  const root = files({ ...MAP_FILES, [`${HOOKS}/orphan.mjs`]: '', [`${HOOKS}/sub/deep.mjs`]: '', [`${HOOKS}/sub/deeper/x.json`]: '{}' });
+  const orphan = `${HOOKS}/orphan.mjs`;
+  const base = () => { const m = goodMap(); m.files[`${HOOKS}/sub/`] = [TA]; return m; };
+  assert.deepEqual(said(problemsOf(root, base())), [`${orphan}: is not covered by the map`]);
+  const exact = base(); exact.files[orphan] = [TA];
+  assert.deepEqual(problemsOf(root, exact), [], 'an exact key');
+  const shared = base(); shared.shared[orphan] = [];
+  assert.deepEqual(problemsOf(root, shared), [], 'a shared key');
+  const empty = base(); empty.files[orphan] = [];
+  assert.deepEqual(problemsOf(root, empty), [], 'a key with an empty list still covers it');
+  const folder = base(); folder.files[`${HOOKS}/`] = [TA];
+  assert.deepEqual(problemsOf(root, folder), [], 'a folder key');
+  const noSub = goodMap(); noSub.files[orphan] = [TA];
+  assert.deepEqual(said(problemsOf(root, noSub)).sort(), [`${HOOKS}/sub/deep.mjs: is not covered by the map`, `${HOOKS}/sub/deeper/x.json: is not covered by the map`], 'a folder no key covers, its nested files included');
+});
+
+test('selective-tests-by-map-2 AC-9 T-14 M6 a test linked to nothing is a problem, a test that only imports a shared helper too; a files value or a shared link makes it none', () => {
+  const root = files({ ...MAP_FILES, [`${HOOKS}/c${TEST_EXT}`]: importing('./helper.mjs') });
+  const unlinked = goodMap();
+  assert.deepEqual(said(problemsOf(root, unlinked)), [`${TC}: is linked to nothing`], 'importing a shared helper is no link');
+  const slowOnly = goodMap(); slowOnly.slow.push(TC);
+  assert.deepEqual(said(problemsOf(root, slowOnly)), [`${TC}: is linked to nothing`], 'a slow mark is no link');
+  const byFiles = goodMap(); byFiles.files[`${HOOKS}/mod.mjs`].push(TC);
+  assert.deepEqual(problemsOf(root, byFiles), []);
+  const byShared = goodMap(); byShared.shared[`${HOOKS}/helper.mjs`].push(TC);
+  assert.deepEqual(problemsOf(root, byShared), []);
+  const bare = files({ ...MAP_FILES, [`${HOOKS}/c${TEST_EXT}`]: 'export const a = 1;\n' });
+  assert.deepEqual(said(problemsOf(bare, goodMap())), [`${TC}: is linked to nothing`], 'a test that imports nothing');
+});
+
+test('selective-tests-by-map-2 AC-9 T-15 M7 and the input cases: a missing file, an empty file, not JSON, an array, an unknown key and a value that is no array of strings', () => {
+  const read = (content) => suiteScript.readTestMap(files(content));
+  assert.deepEqual(read({}), { error: 'cannot read: ENOENT' });
+  assert.match(read({ 'scripts/test-map.json': '' }).error, /^not JSON: /);
+  assert.match(read({ 'scripts/test-map.json': '{' }).error, /^not JSON: /);
+  assert.deepEqual(read({ 'scripts/test-map.json': JSON.stringify(goodMap()) }), { map: goodMap() });
+
+  const root = files(MAP_FILES);
+  assert.deepEqual(said(problemsOf(root, [])), ['the map: is not an object']);
+  assert.deepEqual(said(problemsOf(root, null)), ['the map: is not an object']);
+  assert.deepEqual(said(problemsOf(root, 'text')), ['the map: is not an object']);
+  const extra = { ...goodMap(), other: [] };
+  assert.deepEqual(said(problemsOf(root, extra)), ['other: is not a key of the map (slow, shared, files)']);
+  const notArray = goodMap(); notArray.files[`${HOOKS}/mod.mjs`] = TA;
+  assert.deepEqual(said(problemsOf(root, notArray)), [`${HOOKS}/mod.mjs: is not an array of strings`]);
+  const notStrings = goodMap(); notStrings.slow = [TB, 3];
+  assert.deepEqual(said(problemsOf(root, notStrings)), ['slow: is not an array of strings']);
+  const sharedWrong = goodMap(); sharedWrong.shared = [];
+  assert.deepEqual(said(problemsOf(root, sharedWrong)), ['shared: is not an object']);
+  const filesWrong = goodMap(); filesWrong.files = 'x';
+  assert.deepEqual(said(problemsOf(root, filesWrong)), ['files: is not an object']);
+});
+
+test('selective-tests-by-map-2 AC-9 AC-2 T-16 the repository\'s own map has no problem, marks slow tests, shares test-fixtures.mjs and links a script by its code lines, not by a comment', () => {
+  const found = suiteScript.readTestMap(REPO_ROOT);
+  assert.equal(found.error, undefined, found.error);
+  const listed = suiteFiles(REPO_ROOT);
+  assert.deepEqual(suiteScript.mapProblems(REPO_ROOT, found.map, listed), []);
+  assert.ok(Object.hasOwn(found.map.shared, `${HOOKS}/test-fixtures.mjs`), 'test-fixtures.mjs is a shared helper');
+  assert.ok(found.map.slow.length > 0, 'slow is not empty');
+  assert.deepEqual(found.map.slow.filter((file) => !listed.includes(file)), [], 'slow holds suite files only');
+  const entry = found.map.files['scripts/test-suite.mjs'];
+  assert.ok(entry.includes(`${HOOKS}/test-suite${TEST_EXT}`), 'the script entry holds its own test');
+  // ship-entry.test.mjs names scripts/test-suite.mjs only in comments (ADR 0026's "Run by" header line): a comment links nothing (D-4).
+  assert.ok(!entry.includes(`${SETUP}/ship-entry${TEST_EXT}`), 'a test that names the script in a comment is not linked to it');
+});
+
+// Invariant: M5 asks for a key only for a file git tracks, so an untracked or git-ignored file under a suite folder (a macOS `.DS_Store`,
+// an editor's backup) refuses no run; where git cannot tell (no work tree of its own, no tracked file), the disk walk decides and the
+// check is never weaker. Layer: the pure function mapProblems of scripts/test-suite.mjs (D-3, "The M5 list"). Suite: test-suite.
+
+// A `files()` folder made a git work tree of its own, everything written committed on `main`.
+function gitFiles(content) {
+  const root = files(content);
+  gitIn(root, 'init', '-q', '-b', 'main');
+  gitIn(root, 'add', '-A');
+  gitIn(root, 'commit', '-q', '-m', 'base');
+  return root;
+}
+const ORPHAN = `${HOOKS}/orphan.mjs`;
+const STRAY = `${HOOKS}/stray.mjs`;
+const DS_STORE = `${HOOKS}/.DS_Store`;
+const notCovered = (path) => `${path}: is not covered by the map`;
+
+test('selective-tests-by-map-2 AC-9 T-31 M5 on git\'s list: an untracked or an ignored file is no problem; a tracked module no key covers is one, committed or only staged; a deleted tracked file is none', () => {
+  const root = gitFiles({ ...MAP_FILES, '.gitignore': 'ignored.log\n' });
+  for (const path of [DS_STORE, STRAY, `${HOOKS}/ignored.log`]) writeFileSync(join(root, path), '');
+  assert.deepEqual(problemsOf(root, goodMap()), [], 'untracked .DS_Store and stray.mjs, and a file the .gitignore ignores');
+
+  const committed = gitFiles({ ...MAP_FILES, [ORPHAN]: '' });
+  assert.deepEqual(said(problemsOf(committed, goodMap())), [notCovered(ORPHAN)], 'a committed module no key covers');
+
+  const staged = gitFiles(MAP_FILES);
+  writeFileSync(join(staged, ORPHAN), '');
+  gitIn(staged, 'add', ORPHAN);
+  assert.deepEqual(said(problemsOf(staged, goodMap())), [notCovered(ORPHAN)], 'a module only staged');
+
+  const covered = gitFiles(MAP_FILES);
+  rmSync(join(covered, `${HOOKS}/fixtures/f.json`));
+  assert.deepEqual(problemsOf(covered, goodMap()), [], 'a tracked file a folder key covers, deleted and not staged');
+
+  const gone = gitFiles({ ...MAP_FILES, [ORPHAN]: '' });
+  rmSync(join(gone, ORPHAN));
+  assert.deepEqual(problemsOf(gone, goodMap()), [], 'a tracked module no key covers, deleted and not staged: M5 asks a key only for a file that exists');
+});
+
+test('selective-tests-by-map-2 AC-9 T-32 M5 falls back to the walk where git cannot tell: no work tree, a folder inside another repository, a work tree whose suite folders track no file', () => {
+  const walked = (root, env) => said(suiteScript.mapProblems(root, goodMap(), suiteFiles(root), env));
+
+  const bare = files({ ...MAP_FILES, [STRAY]: '', [DS_STORE]: '' });
+  assert.deepEqual(walked(bare, { ...process.env, GIT_CEILING_DIRECTORIES: dirname(bare) }), [notCovered(DS_STORE), notCovered(STRAY)], 'no git work tree');
+
+  const outer = gitFiles(Object.fromEntries(Object.entries(MAP_FILES).map(([path, text]) => [`inner/${path}`, text])));
+  const inner = join(outer, 'inner');
+  writeFileSync(join(inner, STRAY), '');
+  assert.deepEqual(walked(inner, process.env), [notCovered(STRAY)], 'a folder inside an enclosing repository is not a work tree of its own');
+
+  const empty = files(MAP_FILES);
+  gitIn(empty, 'init', '-q', '-b', 'main');
+  gitIn(empty, 'add', 'docs/guide.md');
+  writeFileSync(join(empty, STRAY), '');
+  assert.deepEqual(walked(empty, process.env), [notCovered(STRAY)], 'a work tree whose suite folders track no file');
+});
+
+// ---------------------------------------------------------------- selective-tests-by-map-2: the mode, end to end (D-1, D-5, D-6)
+// Invariant: `node scripts/test-suite.mjs --own-files` runs the tests the branch's own files map to, prints which ones and why before the
+// first `start` line, runs the whole suite when it cannot tell or the branch is a train branch, exits 0 with no run when nothing maps,
+// and refuses a bad map or a bad argument before any file runs; without the flag nothing of it runs. Layer: the script, run in a
+// synthetic git tree. Suite: test-suite.
+
+const E_A = `${HOOKS}/a${TEST_EXT}`;
+const E_B = `${HOOKS}/b${TEST_EXT}`;
+const E_C = `${HOOKS}/c${TEST_EXT}`;
+const E_ALL = [E_A, E_B, E_C];
+const E_MOD = `${HOOKS}/mod.mjs`;
+const E_OTHER = `${HOOKS}/other.mjs`;
+const E_LATE = `${HOOKS}/late.mjs`;
+const E_CHECK = `${HOOKS}/deliver-check.mjs`;
+const eMap = (files = {}) => ({
+  slow: [],
+  shared: {},
+  files: { [E_MOD]: [E_A], [E_OTHER]: [E_B], [E_CHECK]: [E_C], 'openspec/config.yaml': [E_B], ...files },
+});
+const eFiles = (map = eMap(), extra = {}) => ({
+  [E_A]: probe({ name: 'suite-speed probe alpha' }),
+  [E_B]: probe({ name: 'suite-speed probe beta' }),
+  [E_C]: probe({ name: 'suite-speed probe gamma' }),
+  [E_MOD]: 'export const m = 1;\n',
+  [E_OTHER]: 'export const o = 1;\n',
+  'openspec/config.yaml': 'context: |\n  one\n',
+  'CHANGELOG.md': '# Changelog\n',
+  'scripts/test-map.json': JSON.stringify(map),
+  ...extra,
+});
+const selectedLines = (out) => out.stdout.split('\n').filter((line) => line.startsWith('selected '));
+const noStack = (out) => assert.ok(!/^\s+at /m.test(out.stderr), `a stack trace on stderr: ${out.stderr}`);
+
+test('selective-tests-by-map-2 AC-1 T-17 a branch that touches a mapped module prints the selected lines with their by and starts only those files', async () => {
+  const root = tree(eFiles());
+  commitOnBranch(root, { [E_MOD]: 'export const m = 2;\n' });
+  const out = await run(root, ['--own-files']);
+  assert.equal(out.code, 0, either(out));
+  assert.deepEqual(selectedLines(out), [`selected ${E_A} by ${E_MOD}`]);
+  assert.deepEqual(startLines(out), [E_A]);
+  assert.ok(out.stdout.indexOf('selected ') < out.stdout.indexOf('start '), 'the selected lines come before the first start line');
+  assert.match(out.stdout, /suite: 1 files, 1 tests, 1 pass, 0 fail,/);
+});
+
+test('selective-tests-by-map-2 AC-4 AC-6 T-18 a branch of docs and openspec/ files only exits 0, says it selected no test file, starts none and leaves no run root', async () => {
+  const root = tree(eFiles());
+  commitOnBranch(root, { 'docs/guide.md': '# guide\n', 'openspec/changes/x/tasks.md': '# tasks\n' });
+  const out = await run(root, ['--own-files']);
+  assert.equal(out.code, 0, either(out));
+  assert.deepEqual(out.stdout.trim().split('\n'), ['selected no test file: 2 own files, none maps to a test']);
+  assert.deepEqual(readdirSync(out.base), [], 'no run root was made');
+  assert.ok(!out.stdout.includes('suite:'), 'no suite line');
+});
+
+test('selective-tests-by-map-2 AC-4 T-19 an unmapped code file starts every suite file after a line that names it', async () => {
+  const root = tree(eFiles());
+  commitOnBranch(root, { 'scripts/x.py': 'print(1)\n' });
+  const out = await run(root, ['--own-files']);
+  assert.equal(out.code, 0, either(out));
+  assert.deepEqual(selectedLines(out), ['selected the whole suite: no entry of scripts/test-map.json covers scripts/x.py']);
+  assert.deepEqual(startLines(out).sort(), E_ALL);
+});
+
+test('selective-tests-by-map-2 AC-7 T-20 a train branch, from the pull request variable or the local branch, runs the whole suite; another branch name stays selective', async () => {
+  const root = tree(eFiles());
+  commitOnBranch(root, { [E_MOD]: 'export const m = 2;\n' });
+  const train = await run(root, ['--own-files'], { env: { GITHUB_HEAD_REF: 'train/7' } });
+  assert.equal(train.code, 0, either(train));
+  assert.deepEqual(selectedLines(train), ['selected the whole suite: train/7 is a train branch']);
+  assert.deepEqual(startLines(train).sort(), E_ALL);
+
+  const plain = await run(root, ['--own-files'], { env: { GITHUB_HEAD_REF: 'feature' } });
+  assert.equal(plain.code, 0, either(plain));
+  assert.deepEqual(startLines(plain), [E_A], 'the same tree, another branch name, is selective');
+
+  gitIn(root, 'switch', '-q', '-c', 'train/3');
+  const local = await run(root, ['--own-files']);
+  assert.equal(local.code, 0, either(local));
+  assert.deepEqual(selectedLines(local), ['selected the whole suite: train/3 is a train branch']);
+  assert.deepEqual(startLines(local).sort(), E_ALL);
+
+  gitIn(root, 'switch', '-q', '-c', 'train/3x');
+  const near = await run(root, ['--own-files']);
+  assert.deepEqual(startLines(near), [E_A], 'train/3x is not a train branch');
+});
+
+test('selective-tests-by-map-2 AC-1 T-21 an uncommitted, a staged and an untracked own file count; an uncommitted openspec/ file selects nothing until it is committed', async () => {
+  const root = tree(eFiles(eMap({ [E_LATE]: [E_C] })));
+  writeFileSync(join(root, E_MOD), 'export const m = 3;\n'); // modified, not staged
+  writeFileSync(join(root, E_OTHER), 'export const o = 3;\n'); // staged
+  gitIn(root, 'add', E_OTHER);
+  writeFileSync(join(root, E_LATE), 'export const l = 1;\n'); // untracked
+  const dirty = await run(root, ['--own-files']);
+  assert.equal(dirty.code, 0, either(dirty));
+  assert.deepEqual(selectedLines(dirty), [`selected ${E_A} by ${E_MOD}`, `selected ${E_B} by ${E_OTHER}`, `selected ${E_C} by ${E_LATE}`]);
+
+  const config = tree(eFiles());
+  writeFileSync(join(config, 'openspec/config.yaml'), 'context: |\n  two\n');
+  const unsaved = await run(config, ['--own-files']);
+  assert.equal(unsaved.code, 0, either(unsaved));
+  assert.deepEqual(selectedLines(unsaved), ['selected no test file: no own file']);
+  commitOnBranch(config, {});
+  const saved = await run(config, ['--own-files']);
+  assert.deepEqual(selectedLines(saved), [`selected ${E_B} by openspec/config.yaml`]);
+});
+
+test('selective-tests-by-map-2 AC-4 T-22 when the own files cannot be told, the whole suite runs: no origin/main, no git repository, no commit; release files only select nothing', async () => {
+  const noBase = tree(eFiles());
+  gitIn(noBase, 'update-ref', '-d', 'refs/remotes/origin/main');
+  const missing = await run(noBase, ['--own-files']);
+  assert.equal(missing.code, 0, either(missing));
+  assert.deepEqual(selectedLines(missing), ['selected the whole suite: origin/main is missing']);
+  assert.deepEqual(startLines(missing).sort(), E_ALL);
+
+  const bare = tree(eFiles(), { git: false });
+  const nogit = await run(bare, ['--own-files'], { env: { GIT_CEILING_DIRECTORIES: dirname(bare) } });
+  assert.equal(nogit.code, 0, either(nogit));
+  assert.equal(selectedLines(nogit).length, 1);
+  assert.ok(selectedLines(nogit)[0].startsWith('selected the whole suite: git cannot tell the own files: '), selectedLines(nogit)[0]);
+  assert.deepEqual(startLines(nogit).sort(), E_ALL);
+  noStack(nogit);
+
+  const unborn = tree(eFiles());
+  gitIn(unborn, 'checkout', '-q', '--orphan', 'unborn');
+  const empty = await run(unborn, ['--own-files']);
+  assert.equal(empty.code, 0, either(empty));
+  assert.deepEqual(selectedLines(empty), ['selected the whole suite: no commit']);
+
+  const release = tree(eFiles());
+  commitOnBranch(release, { 'CHANGELOG.md': '# Changelog\n\n## 1.0.0\n' });
+  const none = await run(release, ['--own-files']);
+  assert.equal(none.code, 0, either(none));
+  assert.deepEqual(selectedLines(none), ['selected no test file: no own file']);
+  assert.deepEqual(startLines(none), []);
+});
+
+test('selective-tests-by-map-2 AC-9 T-23 a map that names a missing file exits 1 naming the entry and starts no file', async () => {
+  const ghost = `${HOOKS}/ghost.mjs`;
+  const root = tree(eFiles(eMap({ [ghost]: [E_A] })));
+  commitOnBranch(root, { [E_MOD]: 'export const m = 2;\n' });
+  const out = await run(root, ['--own-files']);
+  assert.equal(out.code, 1, either(out));
+  assert.ok(out.stderr.includes(`scripts/test-map.json: ${ghost}: names ${ghost}, which does not exist`), out.stderr);
+  assert.ok(out.stderr.includes('refused: 1 test map problems'), out.stderr);
+  assert.deepEqual(startLines(out), []);
+  noStack(out);
+});
+
+test('selective-tests-by-map-2 AC-9 T-23 a missing or unreadable map file exits 1 before any file runs', async () => {
+  const missing = tree(eFiles());
+  rmSync(join(missing, 'scripts', 'test-map.json'));
+  const out = await run(missing, ['--own-files']);
+  assert.equal(out.code, 1, either(out));
+  assert.ok(out.stderr.includes('scripts/test-map.json: cannot read: ENOENT'), out.stderr);
+  assert.deepEqual(startLines(out), []);
+
+  const broken = tree(eFiles(undefined, { 'scripts/test-map.json': '{' }));
+  const notJson = await run(broken, ['--own-files']);
+  assert.equal(notJson.code, 1, either(notJson));
+  assert.match(notJson.stderr, /scripts\/test-map\.json: not JSON: /);
+  assert.deepEqual(startLines(notJson), []);
+});
+
+test('selective-tests-by-map-2 AC-1 T-24 --own-files with a file argument or a value exits 2 and starts no file', async () => {
+  const root = tree(eFiles());
+  const withFile = await run(root, ['--own-files', E_A]);
+  assert.equal(withFile.code, 2, either(withFile));
+  assert.ok(withFile.stderr.includes('--own-files takes no file argument'), withFile.stderr);
+  assert.match(withFile.stderr, /^usage: node scripts\/test-suite\.mjs .*\[--own-files\]/m);
+  assert.deepEqual(startLines(withFile), []);
+  const withValue = await run(root, ['--own-files=x']);
+  assert.equal(withValue.code, 2, either(withValue));
+  assert.ok(withValue.stderr.includes('unknown argument: --own-files=x'), withValue.stderr);
+  assert.deepEqual(startLines(withValue), []);
+});
+
+test('selective-tests-by-map-2 AC-8 T-25 a whole run of a tree with a broken map and no deliver-check.mjs runs every file as before', async () => {
+  const root = tree(eFiles(undefined, { 'scripts/test-map.json': '{' }), { link: false });
+  const out = await run(root, []);
+  assert.equal(out.code, 0, either(out));
+  assert.deepEqual(startLines(out).sort(), E_ALL);
+  assert.ok(!out.stdout.includes('selected '), out.stdout);
+  assert.match(out.stdout, /suite: 3 files, 3 tests, 3 pass, 0 fail,/);
+});
+
+test('selective-tests-by-map-2 AC-1 T-26 under --own-files, the reporter and a name pattern reach the selected children', async () => {
+  const root = tree(eFiles());
+  commitOnBranch(root, { [E_MOD]: 'export const m = 2;\n' });
+  const out = await run(root, ['--own-files', '--reporter=tap', '--test-name-pattern=alpha']);
+  assert.equal(out.code, 0, either(out));
+  assert.match(out.stdout, /^ok 1 - suite-speed probe alpha$/m, 'the tap reporter reached the child');
+  assert.deepEqual(startLines(out), [E_A]);
+  const skipped = await run(root, ['--own-files', '--test-name-pattern=beta']);
+  assert.equal(skipped.code, 0, either(skipped));
+  assert.deepEqual(startLines(skipped), [E_A], 'the file still starts');
+  assert.ok(!skipped.stdout.includes('suite-speed probe alpha'), 'alpha ran although the pattern names beta');
+});
+
+// Invariant: the map check refuses no run over a file the repository does not hold (an ignored one), and an untracked file no key covers is
+// an own file that selects the whole suite, while a committed module no key covers is refused. Layer: the script, run in a synthetic git
+// tree whose committed .gitignore is the repository's (D-3, "The M5 list"). Suite: test-suite.
+const NOT_COVERED = 'is not covered by the map';
+const IGNORING = { '.gitignore': '.DS_Store\n__pycache__/\n' };
+
+test('selective-tests-by-map-2 AC-9 T-33 an ignored .DS_Store and __pycache__ change no selected line; an untracked stray file no key covers selects the whole suite; a committed one is refused', async () => {
+  const root = tree(eFiles(undefined, IGNORING));
+  commitOnBranch(root, { [E_MOD]: 'export const m = 2;\n' });
+  const clean = await run(root, ['--own-files']);
+  assert.equal(clean.code, 0, either(clean));
+  assert.deepEqual(selectedLines(clean), [`selected ${E_A} by ${E_MOD}`]);
+  writeFileSync(join(root, HOOKS, '.DS_Store'), '');
+  mkdirSync(join(root, HOOKS, '__pycache__'));
+  writeFileSync(join(root, HOOKS, '__pycache__', 'x.pyc'), '');
+  const littered = await run(root, ['--own-files']);
+  assert.equal(littered.code, 0, either(littered));
+  assert.ok(!either(littered).includes(NOT_COVERED), either(littered));
+  assert.deepEqual(selectedLines(littered), selectedLines(clean), 'the same selected lines as the same run without the ignored files');
+  assert.deepEqual(startLines(littered), [E_A]);
+
+  const stray = tree(eFiles(undefined, IGNORING));
+  commitOnBranch(stray, { [E_MOD]: 'export const m = 2;\n' });
+  writeFileSync(join(stray, HOOKS, 'stray.tmp'), '');
+  const whole = await run(stray, ['--own-files']);
+  assert.equal(whole.code, 0, either(whole));
+  assert.deepEqual(selectedLines(whole), [`selected the whole suite: no entry of scripts/test-map.json covers ${HOOKS}/stray.tmp`]);
+  assert.ok(!either(whole).includes(NOT_COVERED), either(whole));
+  assert.deepEqual(startLines(whole).sort(), E_ALL);
+
+  const orphan = tree(eFiles(undefined, IGNORING));
+  commitOnBranch(orphan, { [`${HOOKS}/orphan.mjs`]: 'export const o = 1;\n' });
+  const refused = await run(orphan, ['--own-files']);
+  assert.equal(refused.code, 1, either(refused));
+  assert.ok(refused.stderr.includes(`scripts/test-map.json: ${HOOKS}/orphan.mjs: ${NOT_COVERED}`), refused.stderr);
+  assert.deepEqual(startLines(refused), []);
+});
+
+// Invariant: the script reads the branch it is on through `currentBranch` of deliver-check.mjs, the owner of the train rule, so
+// DEVKIT_BRANCH wins over GITHUB_HEAD_REF, which wins over the git branch (D-5). Layer: the script, run in a synthetic git tree on the local
+// branch `feature`. Suite: test-suite. With both variables blank, the local branch decides: T-20.
+test('selective-tests-by-map-2 AC-7 T-34 DEVKIT_BRANCH names the branch: train/4 runs the whole suite on a local feature branch, and feature beside GITHUB_HEAD_REF=train/7 stays selective', async () => {
+  const root = tree(eFiles());
+  commitOnBranch(root, { [E_MOD]: 'export const m = 2;\n' });
+  const train = await run(root, ['--own-files'], { env: { DEVKIT_BRANCH: 'train/4' } });
+  assert.equal(train.code, 0, either(train));
+  assert.deepEqual(selectedLines(train), ['selected the whole suite: train/4 is a train branch']);
+  assert.deepEqual(startLines(train).sort(), E_ALL);
+
+  const wins = await run(root, ['--own-files'], { env: { DEVKIT_BRANCH: 'feature', GITHUB_HEAD_REF: 'train/7' } });
+  assert.equal(wins.code, 0, either(wins));
+  assert.deepEqual(selectedLines(wins), [`selected ${E_A} by ${E_MOD}`], 'DEVKIT_BRANCH wins over GITHUB_HEAD_REF, as in currentBranch');
+  assert.deepEqual(startLines(wins), [E_A]);
+});
+
+// Invariant: the own files are the diff against the base `stalenessBase(root, process.env)` gives: `GITHUB_BASE_REF` in CI, else origin/HEAD
+// (D-2). Layer: the script, run in a synthetic git tree with a second origin branch `origin/release`, one commit past `origin/main` that
+// touches module A; the branch under test is made from it and touches module B. Suite: test-suite. The case passes on the code as it stands:
+// the mutation of task 2.9 (`{}` in place of `process.env` in the script's `stalenessBase` call) is what turns it red.
+test('selective-tests-by-map-2 AC-1 T-35 GITHUB_BASE_REF names the base: release selects only what the branch added past it, and a blank one diffs against origin/main', async () => {
+  const root = tree(eFiles());
+  gitIn(root, 'switch', '-q', '-c', 'release');
+  commitOnBranch(root, { [E_MOD]: 'export const m = 2;\n' }, 'release adds module A');
+  gitIn(root, 'update-ref', 'refs/remotes/origin/release', 'HEAD');
+  gitIn(root, 'switch', '-q', '-c', 'work');
+  commitOnBranch(root, { [E_OTHER]: 'export const o = 2;\n' }, 'work adds module B');
+
+  const ci = await run(root, ['--own-files'], { env: { GITHUB_BASE_REF: 'release' } });
+  assert.equal(ci.code, 0, either(ci));
+  assert.deepEqual(selectedLines(ci), [`selected ${E_B} by ${E_OTHER}`], 'against origin/release only module B is own');
+  assert.deepEqual(startLines(ci), [E_B]);
+
+  const local = await run(root, ['--own-files']);
+  assert.equal(local.code, 0, either(local));
+  assert.deepEqual(selectedLines(local).sort(), [`selected ${E_A} by ${E_MOD}`, `selected ${E_B} by ${E_OTHER}`].sort(), 'a blank GITHUB_BASE_REF diffs against origin/main: A and B are own');
+  assert.deepEqual(startLines(local).sort(), [E_A, E_B]);
+});
+
+// Invariant: the agents read the selective command as the project's test command and gate, and the train keeps the whole command.
+// Layer: the text of openspec/config.yaml. Suite: test-suite.test.mjs.
+test('selective-tests-by-map-2 AC-5 T-30 the config names the selective command as the test command and the gate, and the train keeps the whole command', () => {
+  const config = readFileSync(join(REPO_ROOT, 'openspec', 'config.yaml'), 'utf8').split('\n');
+  const line = (prefix) => config.find((l) => l.startsWith(prefix));
+  assert.equal(line('  Test command: '), '  Test command: node scripts/test-suite.mjs --own-files && python3 scripts/check.py');
+  const gates = line('  Gates: ');
+  assert.ok(gates, 'openspec/config.yaml has no Gates line');
+  assert.ok(gates.includes('`node scripts/test-suite.mjs --own-files`'), 'the Gates line does not name the selective command');
+  assert.ok(gates.includes('`python3 scripts/check.py`'), 'the Gates line does not name the check part');
+  assert.ok(gates.includes('--test-name-pattern="^<name>"'), 'the Gates line lost the sentence on --test-name-pattern');
+  assert.ok(config.includes('    train: "node scripts/test-suite.mjs && python3 scripts/check.py"'), 'devkit.delivery.train is not the whole command');
+  const history = line('  Test history: ');
+  assert.ok(history.includes("CI's push run checks out at depth 1"), 'the Test history line does not say the depth is the push run');
+});
+
+// Invariant: the documents the sessions read name the selective command and its map, after the whole-suite row they keep.
+// Layer: the text of CLAUDE.md, CONTRIBUTING.md and docs/openspec-flow.md. Suite: test-suite.test.mjs.
+test('selective-tests-by-map-2 AC-5 T-30 CLAUDE.md has the selective row after the whole one, CONTRIBUTING.md names the mode and the map, and the flow page names the project test command', () => {
+  const claude = readFileSync(join(REPO_ROOT, 'CLAUDE.md'), 'utf8').split('\n');
+  const whole = claude.findIndex((l) => l.includes('node scripts/test-suite.mjs'));
+  assert.ok(whole >= 0 && !claude[whole].includes('--own-files'), 'the first CLAUDE.md line with the command is not the whole-suite row');
+  const selective = claude.findIndex((l, i) => i > whole && l.startsWith('|') && l.includes('node scripts/test-suite.mjs --own-files'));
+  assert.ok(selective > whole, 'CLAUDE.md has no Commands row with --own-files after the whole-suite row');
+  assert.ok(claude[selective].includes('scripts/test-map.json'), 'the selective row does not name the map');
+  assert.ok(claude.some((l, i) => i > selective && l.startsWith('- ') && l.includes('scripts/test-map.json')), 'CLAUDE.md has no working rule on the map upkeep');
+  const contributing = readFileSync(join(REPO_ROOT, 'CONTRIBUTING.md'), 'utf8');
+  assert.ok(contributing.includes('--own-files'), 'CONTRIBUTING.md does not name --own-files');
+  assert.ok(contributing.includes('scripts/test-map.json'), 'CONTRIBUTING.md does not name scripts/test-map.json');
+  const flow = readFileSync(join(REPO_ROOT, 'docs', 'openspec-flow.md'), 'utf8');
+  assert.ok(flow.includes("the project's test command runs once, in the evidence stage that follows"), 'the flow page does not name the project test command');
+  assert.ok(!flow.includes('the whole test suite runs once, in the evidence stage that follows'), 'the flow page still says the whole test suite');
 });

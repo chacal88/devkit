@@ -1,0 +1,69 @@
+case (c): a slow test file edited (plugins/openspec/skills/devkit/scripts/github-setup.test.mjs) runs itself
+clone: /var/tmp/devkit-stbm/clone, a clone of this branch's head 02eb93edb470f02f60c83ca508c25245233f7a55; refs/remotes/origin/main in the clone is set to that same sha, not to e8991d6d: with e8991d6d every case's own files would also hold the branch's own earlier commits (scripts/test-suite.mjs, deliver-check.mjs, ...), and no case could show what one scratch file selects
+branch in the clone: case-c; scratch commit: 2ada00b9; files it touches: plugins/openspec/skills/devkit/scripts/github-setup.test.mjs 
+command: node scripts/test-suite.mjs --own-files
+---
+selected plugins/openspec/skills/devkit/scripts/github-setup.test.mjs by plugins/openspec/skills/devkit/scripts/github-setup.test.mjs
+start plugins/openspec/skills/devkit/scripts/github-setup.test.mjs
+=== plugins/openspec/skills/devkit/scripts/github-setup.test.mjs
+✔ desiredRuleset: the payload of design D8 for the given contexts (1.131708ms)
+✔ plan (no --apply): four items with state and payload, no -X call, no file written (AC-7) (1266.289375ms)
+✔ plan: contexts come from the newest pull requests heads without devkit-reviews; --checks replaces them (1166.855958ms)
+✔ plan: check runs of each head are read across pages (--paginate), so more than 30 checks all reach the ruleset, and the list is shown for confirmation (completeness) (996.473916ms)
+✔ ruleset: the create payload equals design D8 for contexts check, devkit-reviews (768.713083ms)
+✔ ruleset: an existing matching devkit ruleset is ok, whatever GitHub adds to it (730.026666ms)
+✔ ruleset: one missing devkit-reviews is update and keeps its extra contexts (752.306666ms)
+✔ ruleset: a weaker existing ruleset (not active, or bypass actors) is update (1638.699917ms)
+✔ ruleset: deferred until devkit-reviews has reported (on the default branch, or on the current PR) (3196.424083ms)
+✔ ruleset applied from a PR: every other open PR is listed before confirming (1858.744709ms)
+✔ workflow: a missing one is written pinned to the commit sha of tag v + the plugin version, tag named in a comment; nothing is committed (security) (1003.213ms)
+✔ workflow: an annotated tag is dereferenced to the commit it points at (1253.219792ms)
+✔ workflow: a tag that does not exist yet defers the item naming the tag; nothing is written, no fallback to the tag or a branch (security) (1273.302666ms)
+✔ workflow: a tag lookup that fails for another reason is an error, not a fallback (1322.829ms)
+✔ workflow: one that runs deliver-check --ci is ok; any other is deferred and never overwritten (1940.047125ms)
+✔ --apply auto-merge applies only that item: one PATCH, no other write, no file (969.692375ms)
+✔ --apply auto-merge also turns on the merge method when it is off; --method picks it (1043.307791ms)
+✔ --apply delete-branch, ruleset create (POST, payload on stdin) and ruleset update (PUT) (3066.575667ms)
+✔ --apply on a deferred ruleset applies nothing (983.7115ms)
+✔ a second --apply run is all ok with no -X call (AC-7 idempotent) (902.800083ms)
+✔ a write error is reported per item and exits 1; the other items still run (997.515625ms)
+✔ a read error is reported, not applied over: gh missing the repository settings exits 1 (618.128083ms)
+✔ usage: an unknown --apply item or --method exits 2 and touches nothing (170.846833ms)
+✔ format: the Setup section has the GitHub step: script path that resolves, one confirmation per item, nothing applied unconfirmed (AC-7) (0.368542ms)
+✔ format: the config template says who merges per mode and shows a commented ship / merge_method example (0.106625ms)
+✔ field-fixes 5 actions: Actions disabled for the repository is blocked, names where to enable it and exits 1 (1029.287666ms)
+✔ field-fixes 5 actions: Actions permissions that cannot be read are unknown, never blocked, and the exit code stays 0 (1044.574167ms)
+✔ field-fixes 5 actions: Actions enabled is ok (1029.566167ms)
+✔ field-fixes 5 runs: the newest runs all failed without a job starting a step is blocked, naming billing as one possible cause (829.672166ms)
+✔ field-fixes 5 runs: a failed run whose job started a step is ok, and so is a run that succeeded (2676.788875ms)
+✔ field-fixes 5 runs: runs or jobs that cannot be read are unknown, never blocked, and the exit code stays 0 (1846.206542ms)
+✔ field-fixes 5 rulesets: a 403 naming the plan blocks the ruleset with the line, defers auto-merge and exits 1 (714.768542ms)
+✔ field-fixes 5 rulesets: a read failure that is not about the plan stays an error (953.111167ms)
+✔ field-fixes 5 rulesets: --apply with the rulesets refused writes no ruleset and no auto-merge, and applies the workflow and delete-branch (907.148667ms)
+✔ field-fixes 5 checks: the proposed checks are the ones reported on pull request heads, never a job that runs only on the default branch (1032.395166ms)
+✔ field-fixes 5 checks: with no pull request check reported the list is empty and the plan says to pass --checks (1756.399041ms)
+✔ field-fixes 5 checks: --checks still replaces the proposed list and reads no pull request (959.0325ms)
+✔ field-fixes 5 nothing written: no gh api -X call and no file in any blocked or unknown state (776.034708ms)
+✔ field-fixes 5 skill: step 7 names the repository states, that billing is only a possible cause, and that a blocked ruleset means merge mode is not available (0.164625ms)
+✔ field-fixes 11 setup: --checks "" with no ruleset lists devkit-reviews, says it is always required and holds no none (934.614625ms)
+✔ field-fixes 11 setup: checks found on the newest pull requests are listed with devkit-reviews and labelled (1024.36425ms)
+✔ field-fixes 11 setup: no check reported lists devkit-reviews and says to pass --checks (983.29ms)
+✔ field-fixes 11 setup: a check the stored ruleset requires is kept, listed and labelled (974.446417ms)
+✔ field-fixes 11 setup: with the newest pull requests unreadable the line says so, and checksFrom is unreadable (859.953958ms)
+✔ field-fixes 11 setup: with the rulesets refused the line still lists devkit-reviews, and requires equals the printed list (973.49875ms)
+✔ coordinator-loop-fixes AC-14 T88 github-setup with Actions disabled exits 1 (1043.2185ms)
+✔ coordinator-loop-fixes AC-14 T89 github-setup with the newest runs failed without starting exits 1 (1124.389458ms)
+✔ coordinator-loop-fixes AC-14 T90 github-setup with the rulesets refused exits 1 (940.573833ms)
+✔ coordinator-loop-fixes AC-14 T91 github-setup with nothing blocked and the Actions state unknown exits 0 (1022.814042ms)
+ℹ tests 49
+ℹ suites 0
+ℹ pass 49
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 53406.949584
+=== plugins/openspec/skills/devkit/scripts/github-setup.test.mjs: pass 53.4s
+pass 53.4s plugins/openspec/skills/devkit/scripts/github-setup.test.mjs
+suite: 1 files, 49 tests, 49 pass, 0 fail, 53.4s, concurrency 14
+exit: 0

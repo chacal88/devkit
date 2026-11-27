@@ -1,0 +1,8 @@
+case (g): a map entry naming a missing file (plugins/openspec/hooks/does-not-exist.mjs) exits 1 naming it
+clone: /var/tmp/devkit-stbm/clone, a clone of this branch's head 02eb93edb470f02f60c83ca508c25245233f7a55; refs/remotes/origin/main in the clone is set to that same sha, not to e8991d6d: with e8991d6d every case's own files would also hold the branch's own earlier commits (scripts/test-suite.mjs, deliver-check.mjs, ...), and no case could show what one scratch file selects
+branch in the clone: case-g; scratch commit: f5ffdcd5; files it touches: scripts/test-map.json 
+command: node scripts/test-suite.mjs --own-files
+---
+scripts/test-map.json: plugins/openspec/hooks/does-not-exist.mjs: names plugins/openspec/hooks/does-not-exist.mjs, which does not exist
+refused: 1 test map problems
+exit: 1

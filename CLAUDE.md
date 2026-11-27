@@ -31,6 +31,7 @@ code closed until the plan is ready, reviewer agents, checkers and a side panel.
 | CompozyOS agents are up to date | `node plugins/compozy/kit/scripts/gen-agents.mjs --check` |
 | Names, descriptions, links, language | `python3 scripts/check.py` |
 | The suite's test files, each in its own process, several at once (about 10 minutes on an idle 8-core machine; run it as a background command of the tool, never with a shell `&`) | `node scripts/test-suite.mjs` |
+| The tests the change's own files map to (gates, proof, after a base merge; `scripts/test-map.json`) | `node scripts/test-suite.mjs --own-files` |
 | Validate the marketplace | `claude plugin validate .` |
 
 ## Working rules
@@ -48,6 +49,8 @@ code closed until the plan is ready, reviewer agents, checkers and a side panel.
 - When a merge of the base supersedes a decision the plan states (a moved file, a renamed helper), the same commit edits `proposal.md` and `tasks.md`: the review reads those files as claims about the code.
 - When a merge of the base joins a rule of the branch and a rule of the base into one condition (a guard one side adds to a rule the other brought), a test for each side of that condition lands before the next review round: the review reads the joined condition as new behaviour.
 - A plan rule that reacts to a stage agent's failure names the hook that sees the failure (the stop hook refuses a first stop without a stage file) and the files the agent leaves, and its real run proves the failure path as well as the success path.
+- The selective gate part (`node scripts/test-suite.mjs --own-files`) is its own `pass` row in `evidence.md`, never a whole-suite pass: the row's summary copies the run's `selected` lines, or names the file under `proof/` that holds them, together with the `suite:` line. A run that selected nothing reads `pass: selected no test file (<n> own files)`.
+- A change that adds or moves a script or a test under the suite's folders edits `scripts/test-map.json` in the same commit: `node scripts/test-suite.mjs --own-files` refuses a map that misses the file, so the gate of that change fails until the map is edited.
 
 ## Gates
 

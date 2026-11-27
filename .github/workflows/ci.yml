@@ -7,6 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: "${{ github.event_name == 'pull_request' && '0' || '1' }}"
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - uses: actions/setup-python@v5
@@ -23,7 +25,7 @@ jobs:
         run: |
           git config --global user.email ci@example.com
           git config --global user.name ci
-          node scripts/test-suite.mjs
+          node scripts/test-suite.mjs ${{ github.event_name == 'pull_request' && '--own-files' || '' }}
       - name: Schemas validate against the OpenSpec CLI
         run: |
           tmp="$(mktemp -d)" && cd "$tmp" && git init -q
