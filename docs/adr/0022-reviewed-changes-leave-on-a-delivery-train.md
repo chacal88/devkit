@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Amended by ADR 0034 (0034-release-at-merge.md)
-- Amended by ADR [a-change-runs-only-the-tests-its-files-map-to] (a-change-runs-only-the-tests-its-files-map-to.md)
+- Amended by ADR 0036 (0036-a-change-runs-only-the-tests-its-files-map-to.md)
 - Date: 2026-11-23
 - Change: delivery-train
 - Amends: ADR 0002 (0002-merge-without-the-owner-opt-in.md), the Negative consequence "Strict up-to-date re-runs stale reviews after each base update (Accepted: cost, scoped re-review)" and the "Merge queue" row of its alternatives; ADR 0003 (0003-auto-merge-the-archive-pr.md), the Decision on how an archive pull request reaches the base branch in `merge` mode; ADR 0012 (0012-the-reviews-check-follows-the-change-script.md), decision 4, on what `devkit-reviews` recomputes at the pull request's head; ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md), decision 1, on what the models `trunk` and `trunk-auto` deliver through

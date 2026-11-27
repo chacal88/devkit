@@ -1,4 +1,4 @@
-# ADR [a-change-runs-only-the-tests-its-files-map-to]: A change runs only the tests its own files map to, and the whole suite runs once, on the train
+# ADR 0036: A change runs only the tests its own files map to, and the whole suite runs once, on the train
 
 - Status: accepted
 - Accepted by: the owner, on 2026-11-26, in the approval of the plan of change selective-tests-by-map-2 (openspec/changes/selective-tests-by-map-2/approval.md)
