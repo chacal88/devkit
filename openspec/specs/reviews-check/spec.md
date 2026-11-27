@@ -346,7 +346,9 @@ ancestor of the pull request's head.
 ### Requirement: The train's own commits change only releases, the roadmap and its record
 Every commit of the train not reachable from a boarded head or from the base branch SHALL change, beyond
 what Git merges by itself, only release files, the CI pin, `openspec/roadmap.md` and the train's own
-record; any other path SHALL fail the check, naming the commit and the path.
+record, and the numbering of a boarded change's unnumbered ADR: the file renamed to its number and
+citations that differ only by that number; any other path SHALL fail the check, naming the commit and
+the path.
 
 #### Scenario: A commit pushed onto the train
 - **WHEN** a commit on `train/4` that no boarded head holds edits `plugins/x/hooks/a.mjs`
@@ -355,6 +357,14 @@ record; any other path SHALL fail the check, naming the commit and the path.
 #### Scenario: The joins and the record
 - **WHEN** the train's own commits are its join merges, whose resolutions edit only release files, and the record's commit
 - **THEN** this rule passes
+
+#### Scenario: A join that numbers an ADR
+- **WHEN** a join renames `docs/adr/alpha.md` to `docs/adr/0027-alpha.md` and rewrites `ADR [alpha]` to `ADR 0027` in `docs/openspec-flow.md`
+- **THEN** this rule passes
+
+#### Scenario: A join that numbers an ADR and edits a sentence
+- **WHEN** the same join also changes a sentence of `docs/openspec-flow.md` that is not a citation
+- **THEN** the check fails naming the join commit and `docs/openspec-flow.md`
 
 ### Requirement: A train passes only with a green, current record
 The check SHALL fail when the train record is missing or unreadable, says the suite did not pass, or
