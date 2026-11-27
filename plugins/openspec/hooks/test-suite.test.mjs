@@ -1344,6 +1344,29 @@ test('selective-tests-by-map-2 AC-7 T-34 DEVKIT_BRANCH names the branch: train/4
   assert.deepEqual(startLines(wins), [E_A]);
 });
 
+// Invariant: the own files are the diff against the base `stalenessBase(root, process.env)` gives: `GITHUB_BASE_REF` in CI, else origin/HEAD
+// (D-2). Layer: the script, run in a synthetic git tree with a second origin branch `origin/release`, one commit past `origin/main` that
+// touches module A; the branch under test is made from it and touches module B. Suite: test-suite. The case passes on the code as it stands:
+// the mutation of task 2.9 (`{}` in place of `process.env` in the script's `stalenessBase` call) is what turns it red.
+test('selective-tests-by-map-2 AC-1 T-35 GITHUB_BASE_REF names the base: release selects only what the branch added past it, and a blank one diffs against origin/main', async () => {
+  const root = tree(eFiles());
+  gitIn(root, 'switch', '-q', '-c', 'release');
+  commitOnBranch(root, { [E_MOD]: 'export const m = 2;\n' }, 'release adds module A');
+  gitIn(root, 'update-ref', 'refs/remotes/origin/release', 'HEAD');
+  gitIn(root, 'switch', '-q', '-c', 'work');
+  commitOnBranch(root, { [E_OTHER]: 'export const o = 2;\n' }, 'work adds module B');
+
+  const ci = await run(root, ['--own-files'], { env: { GITHUB_BASE_REF: 'release' } });
+  assert.equal(ci.code, 0, either(ci));
+  assert.deepEqual(selectedLines(ci), [`selected ${E_B} by ${E_OTHER}`], 'against origin/release only module B is own');
+  assert.deepEqual(startLines(ci), [E_B]);
+
+  const local = await run(root, ['--own-files']);
+  assert.equal(local.code, 0, either(local));
+  assert.deepEqual(selectedLines(local).sort(), [`selected ${E_A} by ${E_MOD}`, `selected ${E_B} by ${E_OTHER}`].sort(), 'a blank GITHUB_BASE_REF diffs against origin/main: A and B are own');
+  assert.deepEqual(startLines(local).sort(), [E_A, E_B]);
+});
+
 // Invariant: the agents read the selective command as the project's test command and gate, and the train keeps the whole command.
 // Layer: the text of openspec/config.yaml. Suite: test-suite.test.mjs.
 test('selective-tests-by-map-2 AC-5 T-30 the config names the selective command as the test command and the gate, and the train keeps the whole command', () => {
