@@ -1,0 +1,194 @@
+command: node <scratch>/coverage.mjs <worktree root> /var/tmp/devkit-tmhl/cov   (then node <scratch>/report.mjs, which made this file)
+sha: acacc172e3fd1e3e5b4c325674d75f11511d8af0 (base map, before any edit of scripts/test-map.json); cores 14
+method: design.md D-4. NODE_V8_COVERAGE per test file run alone (`node --test --test-reporter=dot <file>`), at most 6 at once, a fresh TMPDIR under /private/var/tmp; "beyond load" = functions of the hub with a count above 0, less the baseline.
+
+baseline (what loading both modules runs):
+  plugins/openspec/hooks/change-loop.mjs: 10 functions
+  plugins/openspec/hooks/deliver-check.mjs: 3 functions
+
+== plugins/openspec/hooks/change-loop.mjs
+test | speed | class (D-4) | exit | beyond load (measured) | D-4 count | link | first functions beyond load
+gen-agents | fast | own (dynamic import, line 21) | 0 | 0 | 0 (same side) | kept | -
+change-loop-compozy | slow | own (import) | 0 | 234 | 234 (same side) | kept | cleanOf, git, tryGit, mainRoot, locate
+change-loop-declared | slow | own (import) | 0 | 158 | 158 (same side) | kept | settingsText, readDevkitSettings, budgetOf, modelProblems, modelsOf
+change-loop-remote-state | slow | own (import) | 0 | 168 | 168 (same side) | kept | settingsText, readDevkitSettings, modelProblems, modelsOf, (anonymous)
+change-loop-remote | slow | own (import) | 0 | 177 | 177 (same side) | kept | settingsText, readDevkitSettings, modelProblems, cleanOf, git
+change-loop | slow | own (import) | 0 | 241 | 241 (same side) | kept | settingsText, readDevkitSettings, budgetOf, modelProblems, modelsOf
+change-state-stages | fast | own (import) | 0 | 105 | 105 (same side) | kept | settingsText, readDevkitSettings, modelProblems, modelsOf, (anonymous)
+compozy-driver | fast | own (import, line 11) | 0 | 1 | 1 (same side) | kept | LoopUsageError
+conduct-check | slow | other (a module that names the hub) | 0 | 0 | 0 (same side) | dropped | -
+deliver-check-archive | slow | own (import) | 0 | 61 | 61 (same side) | kept | settingsText, readDevkitSettings, budgetOf, modelProblems, modelsOf
+deliver-check-cli | slow | other (`test-fixtures.mjs` only) | 0 | 0 | 0 (same side) | dropped | -
+deliver-check | slow | other (`test-fixtures.mjs` only) | 0 | 0 | 0 (same side) | dropped | -
+delivery-models | slow | own (import) | 0 | 89 | 89 (same side) | kept | LoopUsageError, LoopRefusal, settingsText, readDevkitSettings, modelProblems
+delivery-train-after | slow | own (import) | 0 | 26 | 26 (same side) | kept | settingsText, readDevkitSettings, modelProblems, normalizeLang, parseStart
+delivery-train | slow | own (import) | 0 | 59 | 59 (same side) | kept | settingsText, readDevkitSettings, modelProblems, normalizeLang, filesLanguageName
+flow-check | slow | other (a module that names the hub) | 0 | 0 | 0 (same side) | dropped | -
+guard | fast | other (`change-loop-fixtures.mjs`; names the hub only in strings) | 0 | 64 | 64 (same side) | kept | settingsText, readDevkitSettings, modelProblems, normalizeLang, render
+jira-task | fast | own (reads its source, line 185) | 0 | 0 | 0 (same side) | kept | -
+merge-setup | fast | other (`test-fixtures.mjs` only) | 0 | 0 | 0 (same side) | dropped | -
+project-loop | slow | own (import) | 0 | 96 | 96 (same side) | kept | LoopUsageError, LoopRefusal, settingsText, readDevkitSettings, modelProblems
+release-merge | slow | other (`test-fixtures.mjs` only) | 0 | 0 | 0 (same side) | dropped | -
+release-note | slow | other (a module that names the hub) | 0 | 0 | 0 (same side) | dropped | -
+release-tags | slow | own (import) | 0 | 26 | 26 (same side) | kept | settingsText, readDevkitSettings, modelProblems, normalizeLang, stagePhrase
+roadmap-loop-followups | slow | own (import) | 0 | 125 | 125 (same side) | kept | LoopUsageError, LoopRefusal, modelRank, cheaper, strongest
+roadmap-loop-upfront | slow | own (import) | 0 | 168 | 168 (same side) | kept | settingsText, readDevkitSettings, modelProblems, modelsOf, (anonymous)
+roadmap-loop | slow | own (import) | 0 | 156 | 156 (same side) | kept | LoopUsageError, LoopRefusal, settingsText, readDevkitSettings, modelProblems
+stage-models | slow | own (import) | 0 | 133 | 133 (same side) | kept | LoopUsageError, LoopRefusal, modelRank, cheaper, strongest
+status-line | fast | own (import) | 0 | 74 | 74 (same side) | kept | LoopUsageError, normalizeLang, render, need, (anonymous)
+version-pin | slow | own (import) | 0 | 140 | 140 (same side) | kept | LoopUsageError, settingsText, readDevkitSettings, budgetOf, modelProblems
+changes-under-way | fast | own (spawns it, line 186) | 0 | 61 | 61 (same side) | kept | settingsText, readDevkitSettings, modelProblems, cleanOf, git
+gh-version | fast | other (`test-fixtures.mjs` only) | 0 | 0 | 0 (same side) | dropped | -
+github-setup | slow | other (`test-fixtures.mjs` only) | 0 | 0 | 0 (same side) | dropped | -
+setup-block | fast | own (import) | 0 | 6 | 6 (same side) | kept | settingsText, readDevkitSettings, modelProblems, isObject, git
+rows: 33; kept: 24 (16 slow); dropped: 9
+
+== plugins/openspec/hooks/deliver-check.mjs
+test | speed | class (D-4) | exit | beyond load (measured) | D-4 count | link | first functions beyond load
+devkit-kit | fast | other (writes a stub named `deliver-check.mjs`, lines 54, 74, 104) | 0 | 0 | 0 (same side) | dropped | -
+change-loop-compozy | slow | own (import) | 0 | 167 | 167 (same side) | kept | parseShip, (anonymous), parseMergeMethod, (anonymous), deliveryConfig
+change-loop-declared | slow | own (import) | 0 | 210 | 210 (same side) | kept | stripComment, unquote, setMode, parseShip, (anonymous)
+change-loop-remote-state | slow | other (through `change-loop.mjs`) | 0 | 132 | 132 (same side) | kept | parseShip, (anonymous), parseMergeMethod, (anonymous), deliveryConfig
+change-loop-remote | slow | other (through `change-loop.mjs`) | 0 | 129 | 129 (same side) | kept | git, rebaseBranch, listWorktrees, locateChange, stripComment
+change-loop | slow | own (import) | 0 | 185 | 185 (same side) | kept | parseShip, (anonymous), parseMergeMethod, (anonymous), deliveryConfig
+change-state-stages | fast | other (through `change-loop.mjs`) | 0 | 125 | 125 (same side) | kept | stripComment, unquote, setMode, parseShip, (anonymous)
+compozy-driver | fast | other (through `compozy-driver.mjs` and `change-loop.mjs`) | 0 | 0 | 0 (same side) | dropped | -
+conduct-check | slow | other (through `deliver-check-fixtures.mjs`) | 0 | 303 | 303 (same side) | kept | holdsCitations, (anonymous), holdsCitationText, releaseTagOf, git
+deliver-check-archive | slow | own (import) | 0 | 326 | 326 (same side) | kept | stripComment, unquote, setMode, parseShip, (anonymous)
+deliver-check-cli | slow | own (import) | 0 | 263 | 263 (same side) | kept | releaseTagOf, git, gitOk, isOpenspec, approved
+deliver-check | slow | own (import) | 0 | 375 | 375 (same side) | kept | holdsCitations, (anonymous), holdsCitationText, releaseTagOf, git
+delivery-models | slow | own (import) | 0 | 279 | 279 (same side) | kept | ShipConfigError, stripComment, unquote, setMode, parseShip
+delivery-train-after | slow | own (import) | 0 | 330 | 330 (same side) | kept | releaseTagOf, git, gitOk, isOpenspec, approved
+delivery-train | slow | own (import) | 0 | 280 | 280 (same side) | kept | releaseTagOf, holdsCitations, (anonymous), holdsCitationText, git
+flow-check | slow | own (import) | 0 | 212 | 212 (same side) | kept | parseShip, (anonymous), parseMergeMethod, (anonymous), deliveryConfig
+guard | fast | own (spawns it, line 276) | 0 | 100 | 100 (same side) | kept | parseShip, (anonymous), parseMergeMethod, (anonymous), deliveryConfig
+merge-setup | fast | own (import of `makeGh`, line 12) | 0 | 0 | 0 (same side) | kept | -
+project-loop | slow | own (spawns it, line 253) | 0 | 109 | 109 (same side) | kept | git, gitOk, dirtyPaths, gitFacts, stalenessBase
+release-merge | slow | own (import) | 0 | 98 | 98 (same side) | kept | ReleaseError, holdsCitations, (anonymous), holdsCitationText, releaseTagOf
+release-note | slow | own (import) | 0 | 212 | 212 (same side) | kept | holdsCitations, (anonymous), holdsCitationText, releaseTagOf, git
+release-tags | slow | own (import) | 0 | 123 | 123 (same side) | kept | stripComment, unquote, setMode, parseShip, (anonymous)
+roadmap-loop-followups | slow | other (through product modules) | 0 | 85 | 85 (same side) | kept | stripComment, unquote, setMode, parseShip, (anonymous)
+roadmap-loop-upfront | slow | other (through product modules) | 0 | 87 | 87 (same side) | kept | stripComment, unquote, setMode, parseShip, (anonymous)
+roadmap-loop | slow | other (through product modules) | 0 | 123 | 123 (same side) | kept | stripComment, unquote, setMode, parseShip, (anonymous)
+stage-models | slow | other (through product modules) | 0 | 78 | 78 (same side) | kept | parseShip, (anonymous), parseMergeMethod, (anonymous), deliveryConfig
+status-line | fast | other (through `change-loop.mjs`) | 0 | 27 | 27 (same side) | kept | parseShip, (anonymous), parseMergeMethod, (anonymous), deliveryConfig
+test-suite | fast | own (links the real file, line 70) | 0 | 14 | 14 (same side) | kept | git, gitOk, dirtyPaths, gitFacts, baseTip
+version-pin | slow | own (import) | 0 | 120 | 120 (same side) | kept | parseShip, (anonymous), parseMergeMethod, (anonymous), deliveryConfig
+changes-under-way | fast | own (spawns it, line 71) | 0 | 86 | 86 (same side) | kept | git, rebaseBranch, listWorktrees, fencedLines, parseTasks
+gh-version | fast | other (`test-fixtures.mjs` only) | 0 | 0 | 0 (same side) | dropped | -
+github-setup | slow | other (`test-fixtures.mjs`; names the hub only in a workflow string, line 56) | 0 | 0 | 0 (same side) | dropped | -
+setup-block | fast | own (import) | 0 | 10 | 10 (same side) | kept | stripComment, unquote, setMode, parseShip, (anonymous)
+rows: 33; kept: 29 (22 slow); dropped: 4
+
+--- run log (tail) ---
+done github-setup exit 0 change-loop 0 deliver-check 0
+done roadmap-loop exit 0 change-loop 156 deliver-check 123
+done roadmap-loop-upfront exit 0 change-loop 168 deliver-check 87
+done stage-models exit 0 change-loop 133 deliver-check 78
+check: 0 difference(s)
+exit 0
+
+--- coverage.mjs (verbatim) ---
+// Task 1.3 of test-map-hub-links (design D-4): which functions of the two hub modules each linked test file executes beyond what loading
+// the modules runs. V8 coverage (NODE_V8_COVERAGE) of `node --test` per file, spawned processes included.
+// Usage: node coverage.mjs <worktree root> <out dir> [--baseline-only]
+import { spawn, spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const [root, out, flag] = process.argv.slice(2);
+const HUBS = ['plugins/openspec/hooks/change-loop.mjs', 'plugins/openspec/hooks/deliver-check.mjs'];
+const URL_OF = Object.fromEntries(HUBS.map((h) => [h, pathToFileURL(join(root, h)).href]));
+const POOL = 6;
+
+// D-4's tables: the tests whose count beyond load is 0 (every other linked test is above 0).
+const ZERO = {
+  'plugins/openspec/hooks/change-loop.mjs': ['gen-agents', 'conduct-check', 'deliver-check-cli', 'deliver-check', 'flow-check', 'jira-task', 'merge-setup', 'release-merge', 'release-note', 'gh-version', 'github-setup'],
+  'plugins/openspec/hooks/deliver-check.mjs': ['devkit-kit', 'compozy-driver', 'merge-setup', 'gh-version', 'github-setup'],
+};
+
+mkdirSync(out, { recursive: true });
+const tmpBase = realpathSync('/var/tmp');
+
+// Functions with a count above 0 in a coverage dir, per hub: Map<hub, Map<key, name>>.
+function executed(dir) {
+  const found = new Map(HUBS.map((h) => [h, new Map()]));
+  let files = [];
+  try { files = readdirSync(dir).filter((f) => f.endsWith('.json')); } catch { return found; }
+  for (const f of files) {
+    let data;
+    try { data = JSON.parse(readFileSync(join(dir, f), 'utf8')); } catch { continue; }
+    for (const script of data.result || []) {
+      const hub = HUBS.find((h) => URL_OF[h] === script.url);
+      if (!hub) continue;
+      for (const fn of script.functions) {
+        const r = fn.ranges[0];
+        if (r.count > 0) found.get(hub).set(`${fn.functionName}@${r.startOffset}`, fn.functionName || '(anonymous)');
+      }
+    }
+  }
+  return found;
+}
+
+// 1. the baseline: what loading both modules runs.
+const baseDir = join(out, 'baseline');
+rmSync(baseDir, { recursive: true, force: true });
+const base = spawnSync(process.execPath, ['--input-type=module', '-e', `await import(${JSON.stringify(URL_OF[HUBS[0]])}); await import(${JSON.stringify(URL_OF[HUBS[1]])})`], { cwd: root, env: { ...process.env, NODE_V8_COVERAGE: baseDir }, encoding: 'utf8' });
+const baseline = executed(baseDir);
+const topLevel = (hub) => [...baseline.get(hub).keys()].filter((k) => k.startsWith('@0')).length;
+console.log(`baseline exit ${base.status}`);
+for (const h of HUBS) console.log(`baseline ${h}: ${baseline.get(h).size} functions (${topLevel(h)} anonymous at offset 0)`);
+if (flag === '--baseline-only') process.exit(base.status || 0);
+
+// 2. the linked tests (35 distinct files of the two base lists), each alone, at most POOL at once.
+const map = JSON.parse(readFileSync(join(root, 'scripts/test-map.json'), 'utf8'));
+const tests = [...new Set(HUBS.flatMap((h) => map.files[h]))].sort();
+console.log(`${tests.length} test files`);
+const results = [];
+
+function run(file) {
+  return new Promise((resolve) => {
+    const name = file.split('/').pop().replace(/\.test\.mjs$/, '');
+    const cov = join(out, 'cov', name);
+    rmSync(cov, { recursive: true, force: true });
+    const tmp = mkdtempSync(join(tmpBase, 'tmhl-cov-'));
+    const child = spawn(process.execPath, ['--test', '--test-reporter=dot', file], { cwd: root, env: { ...process.env, NODE_V8_COVERAGE: cov, TMPDIR: tmp }, stdio: ['ignore', 'pipe', 'pipe'] });
+    let tail = '';
+    for (const stream of [child.stdout, child.stderr]) stream.on('data', (chunk) => { tail = (tail + chunk).slice(-1500); });
+    child.on('close', (code) => {
+      const got = executed(cov);
+      const entry = { name, file, exit: code, hubs: {} };
+      for (const h of HUBS) {
+        const beyond = [...got.get(h)].filter(([k]) => !baseline.get(h).has(k));
+        entry.hubs[h] = { count: beyond.length, first: beyond.slice(0, 5).map(([, n]) => n) };
+      }
+      if (code !== 0) entry.tail = tail;
+      results.push(entry);
+      console.log(`done ${name} exit ${code} change-loop ${entry.hubs[HUBS[0]].count} deliver-check ${entry.hubs[HUBS[1]].count}`);
+      rmSync(cov, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true });
+      resolve();
+    });
+  });
+}
+
+const queue = [...tests];
+await Promise.all(Array.from({ length: POOL }, async () => { while (queue.length) await run(queue.shift()); }));
+results.sort((a, b) => a.file.localeCompare(b.file));
+writeFileSync(join(out, 'results.json'), JSON.stringify({ baseline: Object.fromEntries(HUBS.map((h) => [h, baseline.get(h).size])), results }, null, 1));
+
+// 3. the check of the task: exit codes, and each count on the side D-4's tables give it.
+let bad = 0;
+for (const h of HUBS) {
+  for (const file of map.files[h]) {
+    const r = results.find((x) => x.file === file);
+    const name = r.name;
+    const zero = ZERO[h].includes(name);
+    const side = r.hubs[h].count === 0;
+    if (r.exit !== 0) { bad++; console.log(`FAIL exit ${r.exit}: ${name}`); }
+    if (zero !== side) { bad++; console.log(`DIFF ${h} ${name}: count ${r.hubs[h].count}, D-4 says ${zero ? '0' : 'above 0'}`); }
+  }
+}
+console.log(`check: ${bad} difference(s)`);
+process.exit(bad ? 1 : 0);

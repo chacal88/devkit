@@ -1,0 +1,13 @@
+D-8 steps 2 to 4: the base whole run (base.tap, proof/base-whole.txt), the head whole run (head.tap) and the train-branch run (train.tap).
+start lines: base 44, head 44, train 44
+test names (ok / not ok lines with their subtest path, compared as sorted multisets; the file is not part of the key, because the tap reporter interleaves the output of files that run at once): base 3897, head 3900, train 3900
+The three tests of D-5 are removed from the head and train lists before the diff; they are:
+  ok test-map-hub-links AC-1 AC-2 AC-3 AC-4 the repository's map links no slow test to a document, keeps the named documents' readers and the hubs' dropped links out, and has no empty list
+  ok test-map-hub-links AC-1 a document key is a non-code path outside plugins/
+  ok test-map-hub-links AC-1 slowDocumentLinks names each document key that lists a slow test
+after removal: head 3897, train 3897
+
+diff of the sorted start lines, base vs head: empty
+diff of the sorted test names, base vs head: empty
+diff of the sorted start lines, base vs train: empty
+diff of the sorted test names, base vs train: empty

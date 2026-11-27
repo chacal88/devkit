@@ -1,0 +1,52 @@
+command: node scripts/test-suite.mjs --reporter=tap   (no TMPDIR override; output kept in /var/tmp/devkit-tmhl/head.tap)
+head: ad182dd2643deaa070e7c3a0d85fd60ee9d7f7bf (after the last merge of the base: 'Already up to date')
+origin/main: 02713b3a8917bfb3a2d113d35b15b74082becbb0
+cores: 14
+uptime before the run: 16:05, load averages 3.86 5.01 6.85; free disk 379Gi; no other suite running
+
+pass 0.1s plugins/compozy/kit/scripts/adoption.test.mjs
+pass 7.6s plugins/compozy/kit/scripts/devkit-kit.test.mjs
+pass 3.7s plugins/compozy/kit/scripts/gen-agents.test.mjs
+pass 2.9s plugins/compozy/kit/scripts/install-kit.test.mjs
+pass 0.6s plugins/compozy/kit/scripts/loop-templates.test.mjs
+pass 4.0s plugins/core/skills/review-change/scripts/review-round.test.mjs
+pass 363.5s plugins/openspec/hooks/change-loop-compozy.test.mjs
+pass 328.7s plugins/openspec/hooks/change-loop-declared.test.mjs
+pass 280.2s plugins/openspec/hooks/change-loop-remote-state.test.mjs
+pass 234.4s plugins/openspec/hooks/change-loop-remote.test.mjs
+pass 593.3s plugins/openspec/hooks/change-loop.test.mjs
+pass 65.1s plugins/openspec/hooks/change-state-stages.test.mjs
+pass 5.5s plugins/openspec/hooks/compozy-driver.test.mjs
+pass 367.4s plugins/openspec/hooks/conduct-check.test.mjs
+pass 615.9s plugins/openspec/hooks/deliver-check-archive.test.mjs
+pass 306.8s plugins/openspec/hooks/deliver-check-cli.test.mjs
+pass 735.0s plugins/openspec/hooks/deliver-check.test.mjs
+pass 429.6s plugins/openspec/hooks/delivery-models.test.mjs
+pass 304.9s plugins/openspec/hooks/delivery-train-after.test.mjs
+pass 497.4s plugins/openspec/hooks/delivery-train.test.mjs
+pass 197.7s plugins/openspec/hooks/flow-check.test.mjs
+pass 51.9s plugins/openspec/hooks/guard.test.mjs
+pass 0.1s plugins/openspec/hooks/jira-task.test.mjs
+pass 25.8s plugins/openspec/hooks/merge-setup.test.mjs
+pass 528.2s plugins/openspec/hooks/project-loop.test.mjs
+pass 263.6s plugins/openspec/hooks/release-merge.test.mjs
+pass 202.0s plugins/openspec/hooks/release-note.test.mjs
+pass 118.2s plugins/openspec/hooks/release-tags.test.mjs
+pass 284.2s plugins/openspec/hooks/roadmap-loop-followups.test.mjs
+pass 387.4s plugins/openspec/hooks/roadmap-loop-upfront.test.mjs
+pass 364.3s plugins/openspec/hooks/roadmap-loop.test.mjs
+pass 354.0s plugins/openspec/hooks/stage-models.test.mjs
+pass 51.2s plugins/openspec/hooks/status-line.test.mjs
+pass 25.0s plugins/openspec/hooks/test-suite.test.mjs
+pass 0.4s plugins/openspec/hooks/test-tmp.test.mjs
+pass 107.0s plugins/openspec/hooks/version-pin.test.mjs
+pass 22.1s plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs
+pass 2.1s plugins/openspec/skills/devkit/scripts/gh-version.test.mjs
+pass 87.7s plugins/openspec/skills/devkit/scripts/github-setup.test.mjs
+pass 3.2s plugins/openspec/skills/devkit/scripts/install-schemas.test.mjs
+pass 0.6s plugins/openspec/skills/devkit/scripts/kit-installer.test.mjs
+pass 0.8s plugins/openspec/skills/devkit/scripts/project-settings.test.mjs
+pass 5.3s plugins/openspec/skills/devkit/scripts/setup-block.test.mjs
+pass 0.9s plugins/openspec/skills/devkit/scripts/ship-entry.test.mjs
+suite: 44 files, 3900 tests, 3897 pass, 0 fail, 735.1s, concurrency 14
+exit 0

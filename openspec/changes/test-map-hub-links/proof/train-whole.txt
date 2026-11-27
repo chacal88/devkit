@@ -1,0 +1,52 @@
+command: DEVKIT_BRANCH=train/1 node scripts/test-suite.mjs --own-files --reporter=tap   (output kept in /var/tmp/devkit-tmhl/train.tap)
+head: ad182dd2643deaa070e7c3a0d85fd60ee9d7f7bf
+first lines of the output (the run-root line is printed by every run that does not set a short TMPDIR; the selection line follows it):
+  run root: /private/tmp/devkit-suite-86F831 (TMPDIR /private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T: its run root would take 76 bytes, over 71, and a Unix socket path under it would pass 103 bytes)
+  selected the whole suite: train/1 is a train branch
+
+pass 0.2s plugins/compozy/kit/scripts/adoption.test.mjs
+pass 7.7s plugins/compozy/kit/scripts/devkit-kit.test.mjs
+pass 4.2s plugins/compozy/kit/scripts/gen-agents.test.mjs
+pass 3.0s plugins/compozy/kit/scripts/install-kit.test.mjs
+pass 0.6s plugins/compozy/kit/scripts/loop-templates.test.mjs
+pass 8.8s plugins/core/skills/review-change/scripts/review-round.test.mjs
+pass 396.3s plugins/openspec/hooks/change-loop-compozy.test.mjs
+pass 360.6s plugins/openspec/hooks/change-loop-declared.test.mjs
+pass 303.3s plugins/openspec/hooks/change-loop-remote-state.test.mjs
+pass 292.4s plugins/openspec/hooks/change-loop-remote.test.mjs
+pass 648.5s plugins/openspec/hooks/change-loop.test.mjs
+pass 78.7s plugins/openspec/hooks/change-state-stages.test.mjs
+pass 6.4s plugins/openspec/hooks/compozy-driver.test.mjs
+pass 411.3s plugins/openspec/hooks/conduct-check.test.mjs
+pass 706.0s plugins/openspec/hooks/deliver-check-archive.test.mjs
+pass 361.9s plugins/openspec/hooks/deliver-check-cli.test.mjs
+pass 867.5s plugins/openspec/hooks/deliver-check.test.mjs
+pass 475.0s plugins/openspec/hooks/delivery-models.test.mjs
+pass 373.2s plugins/openspec/hooks/delivery-train-after.test.mjs
+pass 542.6s plugins/openspec/hooks/delivery-train.test.mjs
+pass 207.2s plugins/openspec/hooks/flow-check.test.mjs
+pass 55.5s plugins/openspec/hooks/guard.test.mjs
+pass 0.1s plugins/openspec/hooks/jira-task.test.mjs
+pass 28.4s plugins/openspec/hooks/merge-setup.test.mjs
+pass 571.1s plugins/openspec/hooks/project-loop.test.mjs
+pass 291.9s plugins/openspec/hooks/release-merge.test.mjs
+pass 226.7s plugins/openspec/hooks/release-note.test.mjs
+pass 138.0s plugins/openspec/hooks/release-tags.test.mjs
+pass 312.0s plugins/openspec/hooks/roadmap-loop-followups.test.mjs
+pass 420.9s plugins/openspec/hooks/roadmap-loop-upfront.test.mjs
+pass 397.4s plugins/openspec/hooks/roadmap-loop.test.mjs
+pass 375.1s plugins/openspec/hooks/stage-models.test.mjs
+pass 48.0s plugins/openspec/hooks/status-line.test.mjs
+pass 38.5s plugins/openspec/hooks/test-suite.test.mjs
+pass 0.6s plugins/openspec/hooks/test-tmp.test.mjs
+pass 107.5s plugins/openspec/hooks/version-pin.test.mjs
+pass 30.3s plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs
+pass 1.5s plugins/openspec/skills/devkit/scripts/gh-version.test.mjs
+pass 94.1s plugins/openspec/skills/devkit/scripts/github-setup.test.mjs
+pass 3.8s plugins/openspec/skills/devkit/scripts/install-schemas.test.mjs
+pass 1.2s plugins/openspec/skills/devkit/scripts/kit-installer.test.mjs
+pass 1.5s plugins/openspec/skills/devkit/scripts/project-settings.test.mjs
+pass 6.1s plugins/openspec/skills/devkit/scripts/setup-block.test.mjs
+pass 1.3s plugins/openspec/skills/devkit/scripts/ship-entry.test.mjs
+suite: 44 files, 3900 tests, 3897 pass, 0 fail, 867.5s, concurrency 14
+exit 0
