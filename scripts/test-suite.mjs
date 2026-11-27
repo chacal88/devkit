@@ -1,18 +1,21 @@
 #!/usr/bin/env node
 // The devkit test suite: `node scripts/test-suite.mjs [--concurrency=<n>] [--reporter=<name>]
-// [--test-name-pattern=<re>] [--test-skip-pattern=<re>] [<test file>...]` (ADR 0026).
+// [--test-name-pattern=<re>] [--test-skip-pattern=<re>] [--own-files] [<test file>...]` (ADR 0026).
 //
 // Runs every `*.test.mjs` of the suite's four folders, each file in a process of its own (`node --test <file>`),
 // several at once, each with its own empty real-path TMPDIR under one run root (made under the real TMPDIR when a Unix socket
 // path under it fits, else under the real /tmp). Refuses a test file or a fixtures
 // module that imports a test file, fails a file that leaves anything in its TMPDIR, and exits 1 when any file fails.
-// Exit codes: 0 green; 1 a failed file, a leftover, a refused import or no test file; 2 a usage error;
+// `--own-files` (ADR [a-change-runs-only-the-tests-its-files-map-to]) runs only the tests the branch's own files map to, by
+// scripts/test-map.json, and prints each choice before the first `start` line; it runs the whole suite when it cannot tell, and on a
+// train branch. Without it, nothing of this runs and the map is never read.
+// Exit codes: 0 green, or no test selected; 1 a failed file, a leftover, a refused import, a refused map or no test file; 2 a usage error;
 // 130 after SIGINT; 143 after SIGTERM.
-import { spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, rmdirSync, statSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, rmdirSync, statSync } from 'node:fs';
 import { availableParallelism, tmpdir } from 'node:os';
-import { join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, posix, relative, resolve, sep } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -28,7 +31,7 @@ const TEST_FILE = /\.test\.mjs$/;
 const FIXTURES_FILE = /(?:^|-)fixtures\.mjs$/; // test-fixtures.mjs and every <name>-fixtures.mjs
 const IMPORTED_TEST_FILE = /(?:\bfrom\s*|^\s*import\s*|\bimport\s*\(\s*)['"]([^'"]*\.test\.mjs)['"]/;
 const FIXTURES = 'plugins/openspec/hooks/test-fixtures.mjs';
-const USAGE = 'usage: node scripts/test-suite.mjs [--concurrency=<n>] [--reporter=<name>] [--test-name-pattern=<re>] [--test-skip-pattern=<re>] [<test file>...]';
+const USAGE = 'usage: node scripts/test-suite.mjs [--concurrency=<n>] [--reporter=<name>] [--test-name-pattern=<re>] [--test-skip-pattern=<re>] [--own-files] [<test file>...]';
 const STOP_WAIT_MS = 10_000;
 const LEFT_NAMES_SHOWN = 10;
 export const SOCKET_PATH_MAX_BYTES = 103; // the longest Unix socket path both platforms take: macOS sun_path holds 104 with the terminator, Linux 108
@@ -86,9 +89,177 @@ export function testImports(root = ROOT) {
   return found.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : a.line - b.line));
 }
 
+const underSuiteFolder = (path) => SUITE_FOLDERS.some((folder) => path.startsWith(`${folder}/`));
+const hasKey = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+const byPath = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
+// The map key that covers `path`: the exact key, else the longest folder key (one that ends in `/`) that is a prefix of it; null when none.
+function coveringKey(files, path) {
+  if (hasKey(files, path)) return path;
+  let found = null;
+  for (const key of Object.keys(files)) {
+    if (key.endsWith('/') && path.startsWith(key) && (found === null || key.length > found.length)) found = key;
+  }
+  return found;
+}
+
+// The suite test files an own-path list selects (the header names the record): `{ kind: 'files', files:
+// [{ file, by }] }`, `{ kind: 'whole', reason }` or `{ kind: 'none', count }`. `own` is the sorted own paths, `exists(path)` tells whether
+// a path is on disk and `uses` maps each shared helper to the suite tests that use it (sharedUses). Each own path takes the first rule
+// that matches: S1 a suite test, S2 a deleted one, S3 a shared helper, S4 a map entry, S5 openspec/, S6 docs, S7 anything else.
+export function selectTests({ own, map, suite, exists, uses }) {
+  const slow = new Set(map.slow);
+  const picked = new Map(); // test file -> the own paths that selected it
+  const add = (file, path) => {
+    if (!picked.has(file)) picked.set(file, new Set());
+    picked.get(file).add(path);
+  };
+  const uncovered = [];
+  for (const path of [...own].sort(byPath)) {
+    if (suite.includes(path) && exists(path)) { // S1
+      add(path, path);
+    } else if (TEST_FILE.test(path) && underSuiteFolder(path) && !exists(path)) { // S2
+      // a deleted test selects nothing
+    } else if (hasKey(map.shared, path)) { // S3
+      for (const file of uses.get(path) ?? []) if (!slow.has(file)) add(file, path);
+      for (const file of map.shared[path]) add(file, path);
+    } else if (coveringKey(map.files, path) !== null) { // S4
+      const tests = map.files[coveringKey(map.files, path)];
+      if (tests.length === 0) uncovered.push(path); // a key that covers no test covers nothing
+      for (const file of tests) add(file, path);
+    } else if (path.startsWith('openspec/')) { // S5
+      // the change's own records run no test
+    } else if (path.endsWith('.md') && !path.startsWith('plugins/')) { // S6
+      // docs run no test
+    } else { // S7
+      uncovered.push(path);
+    }
+  }
+  if (uncovered.length) return { kind: 'whole', reason: `no entry of scripts/test-map.json covers ${uncovered.join(', ')}` };
+  if (picked.size === 0) return { kind: 'none', count: own.length };
+  return { kind: 'files', files: [...picked].sort(([a], [b]) => byPath(a, b)).map(([file, by]) => ({ file, by: [...by].sort(byPath) })) };
+}
+
+const RELATIVE_IMPORT = /(?:\bfrom\s*|^\s*import\s*|\bimport\s*\(\s*)['"](\.{1,2}\/[^'"]+)['"]/g;
+
+// The repository paths a module imports by a relative specifier (static, side-effect or dynamic), resolved against its folder.
+function relativeImports(root, file) {
+  let text;
+  try {
+    text = readFileSync(join(root, file), 'utf8');
+  } catch {
+    return [];
+  }
+  const found = [];
+  for (const line of text.split('\n')) {
+    for (const hit of line.matchAll(RELATIVE_IMPORT)) found.push(posix.join(posix.dirname(file), hit[1]));
+  }
+  return found;
+}
+
+// A `Map` from each shared helper of the map to the sorted suite tests that use it: a test uses a helper when it imports it, or imports a
+// shared helper or a test-support module (a `-fixtures.mjs` file under a suite folder) that uses it. The closure goes through those two
+// kinds of module only and stops at every other one: a product module that imports a helper does not make its importers users of it.
+export function sharedUses(root, map, suite) {
+  const shared = new Set(Object.keys(map.shared));
+  const follows = (file) => shared.has(file) || (FIXTURES_FILE.test(file.split('/').pop()) && underSuiteFolder(file));
+  const users = new Map([...shared].map((helper) => [helper, new Set()]));
+  for (const test of suite) {
+    const seen = new Set();
+    const stack = relativeImports(root, test);
+    while (stack.length) {
+      const file = stack.pop();
+      if (seen.has(file)) continue;
+      seen.add(file);
+      if (shared.has(file)) users.get(file).add(test);
+      if (follows(file)) stack.push(...relativeImports(root, file));
+    }
+  }
+  return new Map([...users].map(([helper, tests]) => [helper, [...tests].sort(byPath)]));
+}
+
+export const MAP_FILE = 'scripts/test-map.json';
+const MAP_KEYS = ['slow', 'shared', 'files'];
+
+// The parsed map of `root`, `{ map }`, or `{ error }` when the file cannot be read or is not JSON (what it is, an object or not, is `mapProblems`'s).
+export function readTestMap(root = ROOT) {
+  let text;
+  try {
+    text = readFileSync(join(root, MAP_FILE), 'utf8');
+  } catch (error) {
+    return { error: `cannot read: ${error.code || error.message}` };
+  }
+  try {
+    return { map: JSON.parse(text) };
+  } catch (error) {
+    return { error: `not JSON: ${error.message}` };
+  }
+}
+
+const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const isStrings = (value) => Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+// `[{ entry, why }]`, one per fault of the map (M1 to M7 of the design), none when it holds. `suite` is the suiteFiles() list; the paths the
+// map names are looked up under `root`. A map of the wrong shape (M7) gives only the shape's faults: the other checks need the shape.
+export function mapProblems(root, map, suite) {
+  if (!isObject(map)) return [{ entry: 'the map', why: 'is not an object' }];
+  const problems = [];
+  const problem = (entry, why) => problems.push({ entry, why });
+  for (const key of Object.keys(map)) if (!MAP_KEYS.includes(key)) problem(key, `is not a key of the map (${MAP_KEYS.join(', ')})`);
+  if (hasKey(map, 'slow') && !isStrings(map.slow)) problem('slow', 'is not an array of strings');
+  for (const name of ['shared', 'files']) {
+    if (!hasKey(map, name)) continue;
+    if (!isObject(map[name])) problem(name, 'is not an object');
+    else for (const [key, value] of Object.entries(map[name])) if (!isStrings(value)) problem(key, 'is not an array of strings');
+  }
+  if (problems.length) return problems;
+
+  const slow = map.slow ?? [];
+  const shared = map.shared ?? {};
+  const files = map.files ?? {};
+  const stat = (path) => {
+    try {
+      return statSync(join(root, path));
+    } catch {
+      return null;
+    }
+  };
+  const linked = new Set();
+  // A path the map names as a test file: it must exist (M1) and be a test file of the suite (M2). A `files` value and a shared link link
+  // the test to a key (M6); a slow item only marks it.
+  const checkLinks = (entry, paths, links = true) => {
+    for (const path of paths) {
+      if (links) linked.add(path);
+      if (!stat(path)) problem(entry, `names ${path}, which does not exist`);
+      else if (!suite.includes(path)) problem(entry, `links ${path}, which is not a test file of the suite`);
+    }
+  };
+  for (const [key, tests] of Object.entries(files)) {
+    const found = stat(key.endsWith('/') ? key.slice(0, -1) : key);
+    if (!found) problem(key, `names ${key}, which does not exist`);
+    else if (key.endsWith('/') && !found.isDirectory()) problem(key, 'is not a folder');
+    checkLinks(key, tests);
+  }
+  for (const [key, tests] of Object.entries(shared)) {
+    if (!stat(key)) problem(key, `names ${key}, which does not exist`);
+    checkLinks(key, tests);
+  }
+  checkLinks('slow', slow, false);
+  for (const key of [...Object.keys(files), ...Object.keys(shared)]) {
+    if (suite.includes(key)) problem(key, 'is a test file of the suite: it selects itself');
+  }
+  for (const key of Object.keys(shared)) if (hasKey(files, key)) problem(key, 'is both a file entry and a shared helper');
+  const covered = (path) => hasKey(shared, path) || coveringKey(files, path) !== null;
+  for (const path of SUITE_FOLDERS.flatMap((folder) => walk(root, join(root, folder), () => true)).sort(byPath)) {
+    if (!suite.includes(path) && !covered(path)) problem(path, 'is not covered by the map');
+  }
+  for (const test of suite) if (!linked.has(test)) problem(test, 'is linked to nothing');
+  return problems;
+}
+
 // The arguments, one by one; anything else is a usage error.
 function parseArgs(argv, root, files) {
-  const options = { concurrency: availableParallelism(), reporter: 'spec', patterns: [], only: [] };
+  const options = { concurrency: availableParallelism(), reporter: 'spec', patterns: [], only: [], ownFiles: false };
   for (const arg of argv) {
     const hit = /^(--[a-z-]+)=(.*)$/s.exec(arg);
     if (!arg.startsWith('--')) {
@@ -104,10 +275,13 @@ function parseArgs(argv, root, files) {
     } else if (hit && (hit[1] === '--test-name-pattern' || hit[1] === '--test-skip-pattern')) {
       if (hit[2] === '') throw new UsageError(`${hit[1]} takes a pattern`);
       options.patterns.push(arg);
+    } else if (arg === '--own-files') {
+      options.ownFiles = true;
     } else {
       throw new UsageError(`unknown argument: ${arg}`);
     }
   }
+  if (options.ownFiles && options.only.length) throw new UsageError('--own-files takes no file argument');
   return options;
 }
 
@@ -288,10 +462,41 @@ function isEntry(argv1) {
   }
 }
 
+// The branch the run is on: the pull request's head (`GITHUB_HEAD_REF`) when set, else the checked-out branch; '' when git cannot say.
+function headBranch(root) {
+  if (process.env.GITHUB_HEAD_REF) return process.env.GITHUB_HEAD_REF;
+  const found = spawnSync('git', ['-C', root, 'rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8' });
+  return found.error || found.status !== 0 ? '' : found.stdout.trim();
+}
+
+// What `--own-files` runs: the result of selectTests, or `whole` when the branch is a train branch or git cannot tell the own files. The own
+// files and the train pattern come from deliver-check.mjs, loaded here only: a whole run never loads it.
+async function selectOwn(root, map, files) {
+  const deliver = await import(pathToFileURL(join(root, 'plugins/openspec/hooks/deliver-check.mjs')).href);
+  const branch = headBranch(root);
+  if (deliver.TRAIN_BRANCH.test(branch)) return { kind: 'whole', reason: `${branch} is a train branch` };
+  let own;
+  try {
+    own = deliver.branchOwnPaths(root, deliver.gitFacts(root, { base: deliver.stalenessBase(root, process.env) }));
+  } catch (error) {
+    own = { base: null, why: `git cannot tell the own files: ${String(error.message).split('\n')[0]}` };
+  }
+  if (own.why) return { kind: 'whole', reason: own.why };
+  return selectTests({ own: own.paths, map: { slow: [], shared: {}, files: {}, ...map }, suite: files, exists: (path) => existsSync(join(root, path)), uses: sharedUses(root, { shared: {}, ...map }, files) });
+}
+
+// The lines that say what a selection runs (D-6); `none` has its own line and no run.
+function selectionLines(selection) {
+  if (selection.kind === 'whole') return [`selected the whole suite: ${selection.reason}`];
+  if (selection.kind === 'none') return [selection.count === 0 ? 'selected no test file: no own file' : `selected no test file: ${selection.count} own files, none maps to a test`];
+  return selection.files.map(({ file, by }) => `selected ${file} by ${by.join(', ')}`);
+}
+
 export async function main(argv, root = ROOT, short = SHORT_TMP) {
   let options;
   let order;
   let made;
+  let selection = null;
   try {
     const files = suiteFiles(root);
     options = parseArgs(argv, root, files);
@@ -303,7 +508,21 @@ export async function main(argv, root = ROOT, short = SHORT_TMP) {
       process.stderr.write(`refused: ${refused.length} test-file imports\n`);
       return 1;
     }
-    const chosen = options.only.length ? options.only : files;
+    if (options.ownFiles) {
+      const found = readTestMap(root);
+      const problems = found.error ? [{ entry: null, why: found.error }] : mapProblems(root, found.map, files);
+      if (problems.length) {
+        for (const { entry, why } of problems) process.stderr.write(`${MAP_FILE}: ${entry === null ? '' : `${entry}: `}${why}\n`);
+        process.stderr.write(`refused: ${problems.length} test map problems\n`);
+        return 1;
+      }
+      selection = await selectOwn(root, found.map, files);
+      if (selection.kind === 'none') {
+        process.stdout.write(`${selectionLines(selection).join('\n')}\n`);
+        return 0;
+      }
+    }
+    const chosen = selection?.kind === 'files' ? selection.files.map(({ file }) => file) : options.only.length ? options.only : files;
     if (chosen.length === 0) {
       process.stderr.write(`no test file under ${SUITE_FOLDERS.join(', ')}\n`);
       return 1;
@@ -320,6 +539,7 @@ export async function main(argv, root = ROOT, short = SHORT_TMP) {
 
   const { runRoot, line } = made;
   if (line) process.stdout.write(`${line}\n`);
+  if (selection) process.stdout.write(`${selectionLines(selection).join('\n')}\n`);
   const running = new Map(); // file -> child
   const state = { signal: null };
   let stillRunning = [];

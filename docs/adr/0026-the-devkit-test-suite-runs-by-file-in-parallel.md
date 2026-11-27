@@ -5,6 +5,7 @@
 - Date: 2026-11-23
 - Change: suite-speed
 - Amended by ADR 0031 (0031-one-setup-verb-replaces-the-two-setup-skills.md)
+- Amended by ADR [a-change-runs-only-the-tests-its-files-map-to] (a-change-runs-only-the-tests-its-files-map-to.md)
 
 ## Context
 

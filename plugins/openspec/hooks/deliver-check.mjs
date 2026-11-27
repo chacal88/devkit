@@ -345,6 +345,33 @@ export function headInBase(root, facts) {
   return Boolean(tip) && gitOk(root, ['merge-base', '--is-ancestor', facts.head, tip]);
 }
 
+// The paths that differ between the merge base of `tip` and `head` and the head, both sides of a move included, less the release
+// files (stale-only-on-own-files D-2). Throws as git does when there is no merge base. The one command both the staleness rule
+// (`ownFiles`) and the selective test run (`branchOwnPaths`) read.
+export function ownDiffPaths(root, tip, head) {
+  return new Set(git(root, ['diff', '--name-only', '-z', '--no-renames', `${tip}...${head}`]).split('\0').filter((p) => p && !RELEASE_FILE.test(p)));
+}
+
+// What the selective test run reads (selective-tests-by-map-2 D-2): `{ base, paths }`, the sorted own paths, or `{ base, why }` when
+// the rule cannot tell. Own are the paths of the committed diff off origin/<facts.base> (`ownDiffPaths`) and the uncommitted ones
+// (`facts.dirty`, which holds none under openspec/), less the release files; a head already in origin/<base> has the dirty ones only.
+export function branchOwnPaths(root, facts) {
+  const base = facts.base;
+  if (!base) return { base: null, why: 'no base branch' };
+  const tip = baseTip(root, base);
+  if (!tip) return { base, why: `origin/${base} is missing` };
+  if (!facts.head) return { base, why: 'no commit' };
+  const dirty = facts.dirty.filter((p) => !RELEASE_FILE.test(p));
+  if (headInBase(root, facts)) return { base, paths: [...new Set(dirty)].sort() };
+  let committed;
+  try {
+    committed = ownDiffPaths(root, tip, facts.head);
+  } catch {
+    return { base, why: `no merge base with origin/${base}` };
+  }
+  return { base, paths: [...new Set([...committed, ...dirty])].sort() };
+}
+
 // The change's own files (stale-only-on-own-files D-2): { base, tip, isOwn(path) }, or null when the rule cannot
 // tell (no base, no origin/<base>, no head, the head already in the base, no merge base). Own are the paths that
 // differ between the merge base and the head, both sides of a move included, less the release files, and
@@ -356,7 +383,7 @@ export function ownFiles(root, id, facts) {
   const tip = facts.base && facts.head ? baseTip(root, facts.base) : null;
   if (tip && !headInBase(root, facts)) {
     try {
-      const paths = new Set(git(root, ['diff', '--name-only', '-z', '--no-renames', `${tip}...${facts.head}`]).split('\0').filter((p) => p && !RELEASE_FILE.test(p)));
+      const paths = ownDiffPaths(root, tip, facts.head);
       const folder = `openspec/changes/${id}/`;
       own = { base: facts.base, tip, isOwn: (p) => paths.has(p) || p.startsWith(folder) };
     } catch { /* unrelated histories: no merge base */ }

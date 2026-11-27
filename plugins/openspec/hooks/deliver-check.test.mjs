@@ -1321,7 +1321,7 @@ test('nextStep row 9: missing reviewers and approved reviewers with undisposed f
 });
 
 // The real round-1 line of release-rebase-pin (af4055a, test-coverage-reviewer.md): approved, with an open important.
-// Copied here because CI checks out shallow.
+// Copied here because CI's push run checks out shallow.
 const REAL_ROUND1_LINE = "- [important] [6] \"at every rebase stop\" has no multi-stop test: every pin test in release-rebase.test.mjs:440-520 has one change commit, so the pin branch of the loop at release-rebase.mjs:270 runs once. With two change commits that both touch docs/openspec-flow.md, a bug that reuses a stale `pinMerged` or `baseVersion`, or that fails at the second stop, stays green. · write in: release-rebase.test.mjs, with releaseRepo plus a second commit on feature (style of the \"second entry\" test near :304), asserting exit 0 and both edits present.";
 
 function approvedWithOpenFinding(severity) {
@@ -3474,4 +3474,64 @@ test('coordinator-loop-fixes AC-12 T74 pr-verifier.md names the proof/ folder an
   const delivers = md.slice(md.indexOf('## Delivers'));
   assert.ok(delivers.replace(/\s+/g, ' ').includes('you are its only writer; besides it you write only the output of the runs you record, under the change\'s `proof/` folder, and you name each such file in its row'), 'the Delivers sentence');
   assert.ok(!md.includes('the only file you write'), 'the old sentence is gone');
+});
+
+// ---------------------------------------------------------------- selective-tests-by-map-2 AC-4, AC-5: the own paths of the branch (D-2)
+// Invariant: `branchOwnPaths` gives the paths the selective test run reads, from the same diff as the staleness rule
+// (`ownDiffPaths`): the committed paths off the base and the dirty ones, less the release files, sorted; and a reason when
+// the rule cannot tell. Layer: the own-files rule of deliver-check.mjs (ADR 0025). Suite: deliver-check.
+// The new exports are reached through the DC namespace so that a missing one fails its own test.
+
+const stbmDiff = (root) => {
+  const tip = git(root, 'rev-parse', 'refs/remotes/origin/main');
+  return DC.ownDiffPaths(root, tip, head(root));
+};
+
+test('selective-tests-by-map-2 AC-4 T-27 ownDiffPaths is the committed diff off the base, the release files out', () => {
+  const { root } = ownFilesRepo();
+  const paths = stbmDiff(root);
+  assert.ok(paths instanceof Set);
+  assert.ok(paths.has('src/a.ts') && paths.has('src/a.test.ts'), 'the product and test files the branch changed');
+  assert.ok(paths.has('openspec/changes/feat/evidence.md'), 'a committed path under openspec/');
+  assert.ok(!paths.has('CHANGELOG.md') && !paths.has('plugins/p/.claude-plugin/plugin.json'), 'the release files are out');
+  assert.ok(!paths.has('src/other.ts'), 'what only the base changed is not own');
+  assert.ok([...paths].every((p) => !RELEASE_FILE.test(p)));
+});
+
+test('selective-tests-by-map-2 AC-4 T-27 branchOwnPaths gives the committed and the dirty paths together, release files out, sorted', () => {
+  const { root } = ownFilesRepo();
+  put(root, { 'src/b.ts': 'b dirty\n', 'src/new.ts': 'new\n', 'CHANGELOG.md': 'dirty release file\n', 'openspec/changes/feat/untracked.md': 'x\n' });
+  const result = DC.branchOwnPaths(root, ownFacts(root));
+  assert.equal(result.base, 'main');
+  assert.equal(result.why, undefined);
+  assert.deepEqual(result.paths, [...new Set(result.paths)].sort(), 'sorted, unique');
+  for (const p of ['src/a.ts', 'src/a.test.ts', 'src/b.ts', 'src/new.ts', 'openspec/changes/feat/evidence.md']) assert.ok(result.paths.includes(p), `${p} is own`);
+  for (const p of ['CHANGELOG.md', 'plugins/p/.claude-plugin/plugin.json', 'src/other.ts', 'openspec/changes/feat/untracked.md']) assert.ok(!result.paths.includes(p), `${p} is not own`);
+});
+
+test('selective-tests-by-map-2 AC-4 T-27 branchOwnPaths of a head inside origin/<base> is the dirty paths only', () => {
+  const { root } = ownFilesRepo({ origin: 'head' });
+  put(root, { 'src/b.ts': 'b dirty\n', 'CHANGELOG.md': 'dirty release file\n' });
+  assert.deepEqual(DC.branchOwnPaths(root, ownFacts(root)), { base: 'main', paths: ['src/b.ts'] });
+  const clean = ownFilesRepo({ origin: 'head' });
+  assert.deepEqual(DC.branchOwnPaths(clean.root, ownFacts(clean.root)), { base: 'main', paths: [] });
+});
+
+test('selective-tests-by-map-2 AC-4 T-27 branchOwnPaths gives its reason when no base branch, no origin/<base>, no commit or no merge base', () => {
+  const { root } = ownFilesRepo();
+  assert.deepEqual(DC.branchOwnPaths(root, gitFacts(root, { base: null })), { base: null, why: 'no base branch' });
+
+  const missing = ownFilesRepo({ origin: 'none' });
+  assert.deepEqual(DC.branchOwnPaths(missing.root, ownFacts(missing.root)), { base: 'main', why: 'origin/main is missing' });
+
+  const unborn = ownFilesRepo();
+  git(unborn.root, 'switch', '-q', '--orphan', 'unborn');
+  assert.equal(ownFacts(unborn.root).head, null);
+  assert.deepEqual(DC.branchOwnPaths(unborn.root, ownFacts(unborn.root)), { base: 'main', why: 'no commit' });
+
+  const unrelated = ownFilesRepo();
+  git(unrelated.root, 'switch', '-q', '--orphan', 'unrelated');
+  put(unrelated.root, { 'src/z.ts': 'z\n' });
+  commitAll(unrelated.root, 'an unrelated history');
+  assert.deepEqual(DC.branchOwnPaths(unrelated.root, ownFacts(unrelated.root)), { base: 'main', why: 'no merge base with origin/main' });
 });

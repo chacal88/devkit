@@ -211,3 +211,25 @@ test('test-fixture-cleanup AC-5 the hook tests run on an empty TMPDIR and a step
     }
   }
 });
+
+// Invariant: a pull request's `check` job runs the tests its own files map to, on a checkout deep enough to find the merge base; a push runs the whole suite on the default depth.
+// Layer: the CI workflow text. Suite: test-tmp.test.mjs.
+test('selective-tests-by-map-2 AC-7 the check job checks out the history of a pull request and runs the selective suite there', () => {
+  const text = readFileSync(join(REPO_ROOT, '.github', 'workflows', 'ci.yml'), 'utf8');
+  assert.match(text, /^jobs:\n {2}check:\n/m, 'ci.yml has no job with the id check');
+  const steps = ciSteps(text);
+  const checkout = steps.find((s) => s.text.includes('actions/checkout@'));
+  assert.ok(checkout, 'ci.yml has no checkout step');
+  assert.ok(
+    checkout.text.includes(`fetch-depth: "\${{ github.event_name == 'pull_request' && '0' || '1' }}"`),
+    'the checkout step lacks the fetch-depth expression',
+  );
+  const suite = steps.find((s) => s.name === 'Test suite');
+  assert.ok(suite, 'ci.yml has no step named Test suite');
+  const commands = suite.text.split('\n').filter((line) => line.includes('test-suite.mjs'));
+  assert.deepEqual(
+    commands.map((line) => line.trim()),
+    [`node scripts/test-suite.mjs \${{ github.event_name == 'pull_request' && '--own-files' || '' }}`],
+    'step Test suite must run the one suite command with the --own-files expression',
+  );
+});
