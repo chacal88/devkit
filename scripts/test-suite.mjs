@@ -11,7 +11,7 @@
 // train branch. Without it, nothing of this runs and the map is never read.
 // Exit codes: 0 green, or no test selected; 1 a failed file, a leftover, a refused import, a refused map or no test file; 2 a usage error;
 // 130 after SIGINT; 143 after SIGTERM.
-import { spawn, spawnSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, rmdirSync, statSync } from 'node:fs';
 import { availableParallelism, tmpdir } from 'node:os';
 import { join, posix, relative, resolve, sep } from 'node:path';
@@ -199,9 +199,26 @@ export function readTestMap(root = ROOT) {
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isStrings = (value) => Array.isArray(value) && value.every((item) => typeof item === 'string');
 
+// The files git tracks under the suite folders and that exist on disk (M5's list), sorted, relative to `root` with `/`; null when git cannot
+// tell which files belong: no work tree of `root`'s own (a copy, or a folder inside another repository), a git failure, or no tracked file.
+// A file that is untracked or ignored is no repository file, and an own file that no key covers selects the whole suite (S7) anyway.
+function trackedSuitePaths(root, env) {
+  const git = (args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'ignore'] });
+  let listed;
+  try {
+    if (realpathSync(git(['rev-parse', '--show-toplevel']).trim()) !== realpathSync(root)) return null;
+    listed = git(['ls-files', '-z', '--cached', '--', ...SUITE_FOLDERS]);
+  } catch {
+    return null;
+  }
+  const found = listed.split('\0').filter((path) => path && statSync(join(root, path), { throwIfNoEntry: false })?.isFile()).sort(byPath);
+  return found.length ? found : null;
+}
+
 // `[{ entry, why }]`, one per fault of the map (M1 to M7 of the design), none when it holds. `suite` is the suiteFiles() list; the paths the
-// map names are looked up under `root`. A map of the wrong shape (M7) gives only the shape's faults: the other checks need the shape.
-export function mapProblems(root, map, suite) {
+// map names are looked up under `root`. A map of the wrong shape (M7) gives only the shape's faults: the other checks need the shape. `env`
+// reaches only the git calls of M5.
+export function mapProblems(root, map, suite, env = process.env) {
   if (!isObject(map)) return [{ entry: 'the map', why: 'is not an object' }];
   const problems = [];
   const problem = (entry, why) => problems.push({ entry, why });
@@ -250,7 +267,8 @@ export function mapProblems(root, map, suite) {
   }
   for (const key of Object.keys(shared)) if (hasKey(files, key)) problem(key, 'is both a file entry and a shared helper');
   const covered = (path) => hasKey(shared, path) || coveringKey(files, path) !== null;
-  for (const path of SUITE_FOLDERS.flatMap((folder) => walk(root, join(root, folder), () => true)).sort(byPath)) {
+  const repoFiles = trackedSuitePaths(root, env) ?? SUITE_FOLDERS.flatMap((folder) => walk(root, join(root, folder), () => true)).sort(byPath);
+  for (const path of repoFiles) {
     if (!suite.includes(path) && !covered(path)) problem(path, 'is not covered by the map');
   }
   for (const test of suite) if (!linked.has(test)) problem(test, 'is linked to nothing');
@@ -462,18 +480,11 @@ function isEntry(argv1) {
   }
 }
 
-// The branch the run is on: the pull request's head (`GITHUB_HEAD_REF`) when set, else the checked-out branch; '' when git cannot say.
-function headBranch(root) {
-  if (process.env.GITHUB_HEAD_REF) return process.env.GITHUB_HEAD_REF;
-  const found = spawnSync('git', ['-C', root, 'rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8' });
-  return found.error || found.status !== 0 ? '' : found.stdout.trim();
-}
-
 // What `--own-files` runs: the result of selectTests, or `whole` when the branch is a train branch or git cannot tell the own files. The own
-// files and the train pattern come from deliver-check.mjs, loaded here only: a whole run never loads it.
+// files, the branch and the train pattern come from deliver-check.mjs, loaded here only: a whole run never loads it.
 async function selectOwn(root, map, files) {
   const deliver = await import(pathToFileURL(join(root, 'plugins/openspec/hooks/deliver-check.mjs')).href);
-  const branch = headBranch(root);
+  const branch = deliver.currentBranch(root, process.env);
   if (deliver.TRAIN_BRANCH.test(branch)) return { kind: 'whole', reason: `${branch} is a train branch` };
   let own;
   try {

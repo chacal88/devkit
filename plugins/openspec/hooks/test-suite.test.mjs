@@ -1034,6 +1034,63 @@ test('selective-tests-by-map-2 AC-9 AC-2 T-16 the repository\'s own map has no p
   assert.ok(!entry.includes(`${SETUP}/ship-entry${TEST_EXT}`), 'a test that names the script in a comment is not linked to it');
 });
 
+// Invariant: M5 asks for a key only for a file git tracks, so an untracked or git-ignored file under a suite folder (a macOS `.DS_Store`,
+// an editor's backup) refuses no run; where git cannot tell (no work tree of its own, no tracked file), the disk walk decides and the
+// check is never weaker. Layer: the pure function mapProblems of scripts/test-suite.mjs (D-3, "The M5 list"). Suite: test-suite.
+
+// A `files()` folder made a git work tree of its own, everything written committed on `main`.
+function gitFiles(content) {
+  const root = files(content);
+  gitIn(root, 'init', '-q', '-b', 'main');
+  gitIn(root, 'add', '-A');
+  gitIn(root, 'commit', '-q', '-m', 'base');
+  return root;
+}
+const ORPHAN = `${HOOKS}/orphan.mjs`;
+const STRAY = `${HOOKS}/stray.mjs`;
+const DS_STORE = `${HOOKS}/.DS_Store`;
+const notCovered = (path) => `${path}: is not covered by the map`;
+
+test('selective-tests-by-map-2 AC-9 T-31 M5 on git\'s list: an untracked or an ignored file is no problem; a tracked module no key covers is one, committed or only staged; a deleted tracked file is none', () => {
+  const root = gitFiles({ ...MAP_FILES, '.gitignore': 'ignored.log\n' });
+  for (const path of [DS_STORE, STRAY, `${HOOKS}/ignored.log`]) writeFileSync(join(root, path), '');
+  assert.deepEqual(problemsOf(root, goodMap()), [], 'untracked .DS_Store and stray.mjs, and a file the .gitignore ignores');
+
+  const committed = gitFiles({ ...MAP_FILES, [ORPHAN]: '' });
+  assert.deepEqual(said(problemsOf(committed, goodMap())), [notCovered(ORPHAN)], 'a committed module no key covers');
+
+  const staged = gitFiles(MAP_FILES);
+  writeFileSync(join(staged, ORPHAN), '');
+  gitIn(staged, 'add', ORPHAN);
+  assert.deepEqual(said(problemsOf(staged, goodMap())), [notCovered(ORPHAN)], 'a module only staged');
+
+  const covered = gitFiles(MAP_FILES);
+  rmSync(join(covered, `${HOOKS}/fixtures/f.json`));
+  assert.deepEqual(problemsOf(covered, goodMap()), [], 'a tracked file a folder key covers, deleted and not staged');
+
+  const gone = gitFiles({ ...MAP_FILES, [ORPHAN]: '' });
+  rmSync(join(gone, ORPHAN));
+  assert.deepEqual(problemsOf(gone, goodMap()), [], 'a tracked module no key covers, deleted and not staged: M5 asks a key only for a file that exists');
+});
+
+test('selective-tests-by-map-2 AC-9 T-32 M5 falls back to the walk where git cannot tell: no work tree, a folder inside another repository, a work tree whose suite folders track no file', () => {
+  const walked = (root, env) => said(suiteScript.mapProblems(root, goodMap(), suiteFiles(root), env));
+
+  const bare = files({ ...MAP_FILES, [STRAY]: '', [DS_STORE]: '' });
+  assert.deepEqual(walked(bare, { ...process.env, GIT_CEILING_DIRECTORIES: dirname(bare) }), [notCovered(DS_STORE), notCovered(STRAY)], 'no git work tree');
+
+  const outer = gitFiles(Object.fromEntries(Object.entries(MAP_FILES).map(([path, text]) => [`inner/${path}`, text])));
+  const inner = join(outer, 'inner');
+  writeFileSync(join(inner, STRAY), '');
+  assert.deepEqual(walked(inner, process.env), [notCovered(STRAY)], 'a folder inside an enclosing repository is not a work tree of its own');
+
+  const empty = files(MAP_FILES);
+  gitIn(empty, 'init', '-q', '-b', 'main');
+  gitIn(empty, 'add', 'docs/guide.md');
+  writeFileSync(join(empty, STRAY), '');
+  assert.deepEqual(walked(empty, process.env), [notCovered(STRAY)], 'a work tree whose suite folders track no file');
+});
+
 // ---------------------------------------------------------------- selective-tests-by-map-2: the mode, end to end (D-1, D-5, D-6)
 // Invariant: `node scripts/test-suite.mjs --own-files` runs the tests the branch's own files map to, prints which ones and why before the
 // first `start` line, runs the whole suite when it cannot tell or the branch is a train branch, exits 0 with no run when nothing maps,
@@ -1230,6 +1287,61 @@ test('selective-tests-by-map-2 AC-1 T-26 under --own-files, the reporter and a n
   assert.equal(skipped.code, 0, either(skipped));
   assert.deepEqual(startLines(skipped), [E_A], 'the file still starts');
   assert.ok(!skipped.stdout.includes('suite-speed probe alpha'), 'alpha ran although the pattern names beta');
+});
+
+// Invariant: the map check refuses no run over a file the repository does not hold (an ignored one), and an untracked file no key covers is
+// an own file that selects the whole suite, while a committed module no key covers is refused. Layer: the script, run in a synthetic git
+// tree whose committed .gitignore is the repository's (D-3, "The M5 list"). Suite: test-suite.
+const NOT_COVERED = 'is not covered by the map';
+const IGNORING = { '.gitignore': '.DS_Store\n__pycache__/\n' };
+
+test('selective-tests-by-map-2 AC-9 T-33 an ignored .DS_Store and __pycache__ change no selected line; an untracked stray file no key covers selects the whole suite; a committed one is refused', async () => {
+  const root = tree(eFiles(undefined, IGNORING));
+  commitOnBranch(root, { [E_MOD]: 'export const m = 2;\n' });
+  const clean = await run(root, ['--own-files']);
+  assert.equal(clean.code, 0, either(clean));
+  assert.deepEqual(selectedLines(clean), [`selected ${E_A} by ${E_MOD}`]);
+  writeFileSync(join(root, HOOKS, '.DS_Store'), '');
+  mkdirSync(join(root, HOOKS, '__pycache__'));
+  writeFileSync(join(root, HOOKS, '__pycache__', 'x.pyc'), '');
+  const littered = await run(root, ['--own-files']);
+  assert.equal(littered.code, 0, either(littered));
+  assert.ok(!either(littered).includes(NOT_COVERED), either(littered));
+  assert.deepEqual(selectedLines(littered), selectedLines(clean), 'the same selected lines as the same run without the ignored files');
+  assert.deepEqual(startLines(littered), [E_A]);
+
+  const stray = tree(eFiles(undefined, IGNORING));
+  commitOnBranch(stray, { [E_MOD]: 'export const m = 2;\n' });
+  writeFileSync(join(stray, HOOKS, 'stray.tmp'), '');
+  const whole = await run(stray, ['--own-files']);
+  assert.equal(whole.code, 0, either(whole));
+  assert.deepEqual(selectedLines(whole), [`selected the whole suite: no entry of scripts/test-map.json covers ${HOOKS}/stray.tmp`]);
+  assert.ok(!either(whole).includes(NOT_COVERED), either(whole));
+  assert.deepEqual(startLines(whole).sort(), E_ALL);
+
+  const orphan = tree(eFiles(undefined, IGNORING));
+  commitOnBranch(orphan, { [`${HOOKS}/orphan.mjs`]: 'export const o = 1;\n' });
+  const refused = await run(orphan, ['--own-files']);
+  assert.equal(refused.code, 1, either(refused));
+  assert.ok(refused.stderr.includes(`scripts/test-map.json: ${HOOKS}/orphan.mjs: ${NOT_COVERED}`), refused.stderr);
+  assert.deepEqual(startLines(refused), []);
+});
+
+// Invariant: the script reads the branch it is on through `currentBranch` of deliver-check.mjs, the owner of the train rule, so
+// DEVKIT_BRANCH wins over GITHUB_HEAD_REF, which wins over the git branch (D-5). Layer: the script, run in a synthetic git tree on the local
+// branch `feature`. Suite: test-suite. With both variables blank, the local branch decides: T-20.
+test('selective-tests-by-map-2 AC-7 T-34 DEVKIT_BRANCH names the branch: train/4 runs the whole suite on a local feature branch, and feature beside GITHUB_HEAD_REF=train/7 stays selective', async () => {
+  const root = tree(eFiles());
+  commitOnBranch(root, { [E_MOD]: 'export const m = 2;\n' });
+  const train = await run(root, ['--own-files'], { env: { DEVKIT_BRANCH: 'train/4' } });
+  assert.equal(train.code, 0, either(train));
+  assert.deepEqual(selectedLines(train), ['selected the whole suite: train/4 is a train branch']);
+  assert.deepEqual(startLines(train).sort(), E_ALL);
+
+  const wins = await run(root, ['--own-files'], { env: { DEVKIT_BRANCH: 'feature', GITHUB_HEAD_REF: 'train/7' } });
+  assert.equal(wins.code, 0, either(wins));
+  assert.deepEqual(selectedLines(wins), [`selected ${E_A} by ${E_MOD}`], 'DEVKIT_BRANCH wins over GITHUB_HEAD_REF, as in currentBranch');
+  assert.deepEqual(startLines(wins), [E_A]);
 });
 
 // Invariant: the agents read the selective command as the project's test command and gate, and the train keeps the whole command.
