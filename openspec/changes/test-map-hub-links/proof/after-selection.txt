@@ -1,0 +1,128 @@
+command: node <scratch>/simulate.mjs <worktree root>  (selectTests with sharedUses, as selectOwn calls them, one own path at a time; the same script as before-selection.txt)
+compare: node <scratch>/compare.mjs proof/before-selection.txt <this run's output>  (the files each hub lost, checked against D-4's dropped lists)
+sha: ad182dd2643deaa070e7c3a0d85fd60ee9d7f7bf (the head's map, scripts/test-map.json as committed; git rev-parse HEAD)
+suite files: 44; slow marks: 23
+
+== own path: openspec/roadmap.md
+selected plugins/openspec/hooks/guard.test.mjs by openspec/roadmap.md
+count: 1 files, 0 slow
+
+== own path: openspec/config.yaml
+selected plugins/openspec/hooks/guard.test.mjs by openspec/config.yaml
+selected plugins/openspec/hooks/test-suite.test.mjs by openspec/config.yaml
+count: 2 files, 0 slow
+
+== own path: CHANGELOG.md
+selected plugins/openspec/hooks/guard.test.mjs by CHANGELOG.md
+count: 1 files, 0 slow
+
+== own path: CONTRIBUTING.md
+selected plugins/openspec/hooks/guard.test.mjs by CONTRIBUTING.md
+selected plugins/openspec/hooks/test-suite.test.mjs by CONTRIBUTING.md
+count: 2 files, 0 slow
+
+== own path: README.md
+selected plugins/openspec/hooks/guard.test.mjs by README.md
+selected plugins/openspec/hooks/test-suite.test.mjs by README.md
+count: 2 files, 0 slow
+
+== own path: docs/openspec-flow.md
+selected plugins/core/skills/review-change/scripts/review-round.test.mjs by docs/openspec-flow.md
+selected plugins/openspec/hooks/guard.test.mjs by docs/openspec-flow.md
+selected plugins/openspec/hooks/status-line.test.mjs by docs/openspec-flow.md
+count: 3 files, 0 slow
+
+== own path: docs/catalog.md
+selected plugins/openspec/hooks/guard.test.mjs by docs/catalog.md
+count: 1 files, 0 slow
+
+== own path: .claude-plugin/marketplace.json
+selected plugins/openspec/hooks/guard.test.mjs by .claude-plugin/marketplace.json
+selected plugins/openspec/skills/devkit/scripts/project-settings.test.mjs by .claude-plugin/marketplace.json
+count: 2 files, 0 slow
+
+== own path: plugins/openspec/hooks/change-loop.mjs
+selected plugins/compozy/kit/scripts/gen-agents.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/change-loop-compozy.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/change-loop-declared.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/change-loop-remote-state.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/change-loop-remote.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/change-loop.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/change-state-stages.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/compozy-driver.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/deliver-check-archive.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/delivery-models.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/delivery-train-after.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/delivery-train.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/guard.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/jira-task.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/project-loop.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/release-tags.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/roadmap-loop-followups.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/roadmap-loop-upfront.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/roadmap-loop.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/stage-models.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/status-line.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/version-pin.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/skills/devkit/scripts/setup-block.test.mjs by plugins/openspec/hooks/change-loop.mjs
+count: 24 files, 16 slow
+
+== own path: plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/change-loop-compozy.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/change-loop-declared.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/change-loop-remote-state.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/change-loop-remote.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/change-loop.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/change-state-stages.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/conduct-check.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/deliver-check-archive.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/deliver-check-cli.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/deliver-check.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/delivery-models.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/delivery-train-after.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/delivery-train.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/flow-check.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/guard.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/merge-setup.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/project-loop.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/release-merge.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/release-note.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/release-tags.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/roadmap-loop-followups.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/roadmap-loop-upfront.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/roadmap-loop.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/stage-models.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/status-line.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/test-suite.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/hooks/version-pin.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+selected plugins/openspec/skills/devkit/scripts/setup-block.test.mjs by plugins/openspec/hooks/deliver-check.mjs
+count: 29 files, 22 slow
+
+== files each hub lost against proof/before-selection.txt
+== hub: plugins/openspec/hooks/change-loop.mjs
+lost plugins/openspec/hooks/conduct-check.test.mjs
+lost plugins/openspec/hooks/deliver-check-cli.test.mjs
+lost plugins/openspec/hooks/deliver-check.test.mjs
+lost plugins/openspec/hooks/flow-check.test.mjs
+lost plugins/openspec/hooks/merge-setup.test.mjs
+lost plugins/openspec/hooks/release-merge.test.mjs
+lost plugins/openspec/hooks/release-note.test.mjs
+lost plugins/openspec/skills/devkit/scripts/gh-version.test.mjs
+lost plugins/openspec/skills/devkit/scripts/github-setup.test.mjs
+lost: 9 files (33 to 24); gained: 0 files
+equals D-4's dropped list: yes
+
+== hub: plugins/openspec/hooks/deliver-check.mjs
+lost plugins/compozy/kit/scripts/devkit-kit.test.mjs
+lost plugins/openspec/hooks/compozy-driver.test.mjs
+lost plugins/openspec/skills/devkit/scripts/gh-version.test.mjs
+lost plugins/openspec/skills/devkit/scripts/github-setup.test.mjs
+lost: 4 files (33 to 29); gained: 0 files
+equals D-4's dropped list: yes
+
+== checks
+no document selects a slow file: yes (the eight documents give 0 slow in every count line)
+each document's selection equals D-3's new list: yes (roadmap: guard; config: guard, test-suite; CHANGELOG: guard; CONTRIBUTING: guard, test-suite; README: guard, test-suite; docs/openspec-flow.md: review-round, guard, status-line; docs/catalog.md: guard; marketplace.json: guard, project-settings)
+map problems: 0

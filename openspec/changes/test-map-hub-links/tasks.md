@@ -96,14 +96,14 @@ macOS; D-2, D-4): a longer one breaks the Unix socket tests, and a symlinked one
 
 ## 2. The proofs on the head (phase 2)
 
-- [ ] 2.1 Conductor: merge `origin/main` into the branch, the last merge before review (fetch
+- [x] 2.1 Conductor: merge `origin/main` into the branch, the last merge before review (fetch
   first, then `git merge origin/main`). When the merge brings an edit of `scripts/test-map.json`,
   apply D-3 and D-4 to the merged keys in the merge commit and rerun 1.5's check. When it moves or
   renames a file or a helper this plan names, the same commit edits `proposal.md`, `design.md` and
   `tasks.md` (CLAUDE.md). When it brings a newer `origin/main` than 1.1's run, redo 1.1's whole run
   on that sha before 2.4. Check: `git status --short` is empty, and `git log -1 --format=%P` shows two
   parents or the merge said "Already up to date".
-- [ ] 2.2 Conductor: AC-2's run (D-3). Make the scratch clone so that its base is the head itself
+- [x] 2.2 Conductor: AC-2's run (D-3). Make the scratch clone so that its base is the head itself
   and its own files are the one rename commit alone (`stalenessBase` in
   `plugins/openspec/hooks/deliver-check.mjs` reads `GITHUB_BASE_REF`, then `refs/remotes/origin/HEAD`,
   then `main`): with `<head>` the output of `git rev-parse HEAD` in this worktree after 2.1, run
@@ -118,19 +118,19 @@ macOS; D-2, D-4): a longer one breaks the Unix socket tests, and a symlinked one
   worktree, and remove the clone. Check: the only `selected` line is
   `selected plugins/openspec/hooks/guard.test.mjs by openspec/roadmap.md`, the run exits 1, and the
   failed test is `field-fixes 12 roadmap: the round 17b line is read before round 18` (AC-2).
-- [ ] 2.3 The selections after the change (D-8). Run 1.1's simulation script on the head's map and
+- [x] 2.3 The selections after the change (D-8). Run 1.1's simulation script on the head's map and
   commit `proof/after-selection.txt`: per document and hub the `selected` lines and the counts, the
   files each hub lost against `proof/before-selection.txt`, and `mapProblems`' result. Check: no
   document selects a slow file, each hub's list equals D-4's, and `mapProblems` is empty (AC-1, AC-3,
   AC-4).
-- [ ] 2.4 Conductor: AC-5 (D-8 steps 2 to 4). With no `TMPDIR` override, run
+- [x] 2.4 Conductor: AC-5 (D-8 steps 2 to 4). With no `TMPDIR` override, run
   `node scripts/test-suite.mjs --reporter=tap > /var/tmp/devkit-tmhl/head.tap 2>&1` and then
   `DEVKIT_BRANCH=train/1 node scripts/test-suite.mjs --own-files --reporter=tap > /var/tmp/devkit-tmhl/train.tap 2>&1`
   on the head, one after the other. Commit `proof/head-whole.txt`, `proof/train-whole.txt` and
   `proof/same-tests.txt` as D-8 says. Check: both runs exit 0; the train run's first line is
   `selected the whole suite: train/1 is a train branch`; both diffs of `same-tests.txt` are empty
   once the three names of D-5 are removed (AC-5).
-- [ ] 2.5 AC-6 (D-7). Save the step names and times of run 46024905007's `check` job from
+- [x] 2.5 AC-6 (D-7). Save the step names and times of run 46024905007's `check` job from
   `gh run view 46024905007 --json jobs` as `proof/ci-fixed-part.txt`, with the sum of the non-suite
   steps. Make a scratch clone exactly as in 2.2 (same path, `origin/main` and `origin/HEAD` on
   `<head>`), commit an edit of `openspec/roadmap.md` only that renames no heading (one added blank
@@ -142,13 +142,13 @@ macOS; D-2, D-4): a longer one breaks the Unix socket tests, and a symlinked one
   `selected plugins/openspec/hooks/guard.test.mjs by openspec/roadmap.md`, it exits 0, and the fixed
   part plus the local run is under about 2 minutes, or the task stops and the change goes back to
   the owner (D-7) (AC-6).
-- [ ] 2.6 The release note stays the only release record. Check: `python3 scripts/gen-catalog.py --check`,
+- [x] 2.6 The release note stays the only release record. Check: `python3 scripts/gen-catalog.py --check`,
   `node plugins/compozy/kit/scripts/gen-agents.mjs --check`, `claude plugin validate .` and
   `openspec validate test-map-hub-links --strict` pass;
   `git diff --name-only origin/main...HEAD -- CHANGELOG.md .claude-plugin/marketplace.json plugins/openspec/.claude-plugin/plugin.json docs/catalog.md .github/workflows/ci.yml scripts/test-suite.mjs`
   prints nothing; `node plugins/openspec/hooks/deliver-check.mjs test-map-hub-links` prints no
   `no release:` line and no `release.md:` line.
-- [ ] 2.7 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-1 to
+- [x] 2.7 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-1 to
   AC-6), after 2.1's merge. The pr-verifier copies the run's `selected` lines into its row, and
   writes the AC-1, AC-3 and AC-6 rows from `proof/after-selection.txt`, `proof/hub-coverage.txt`,
   `proof/ci-fixed-part.txt` and `proof/markdown-only.txt`.

@@ -1,0 +1,22 @@
+task: 2.5
+head: ad182dd2643deaa070e7c3a0d85fd60ee9d7f7bf
+commands:
+  git clone --quiet /Users/kauesantos/Documents/devkit/.claude/worktrees/test-map-hub-links /var/tmp/devkit-tmhl/clone
+  (in the clone) git update-ref refs/remotes/origin/main ad182dd2643deaa070e7c3a0d85fd60ee9d7f7bf
+  (in the clone) git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
+  (in the clone) add one blank line at the end of openspec/roadmap.md (no heading renamed), commit it
+  (in the clone) env -u GITHUB_BASE_REF -u GITHUB_HEAD_REF -u DEVKIT_BRANCH node scripts/test-suite.mjs --own-files
+
+git diff --name-only origin/main...HEAD:
+openspec/roadmap.md
+git status --short:
+(end of status)
+
+== run ==
+selected plugins/openspec/hooks/guard.test.mjs by openspec/roadmap.md
+✔ field-fixes 12 roadmap: the round 17b line is read before round 18 (1.06875ms)
+ℹ fail 0
+suite: 1 files, 160 tests, 160 pass, 0 fail, 37.0s, concurrency 14
+
+exit code: 0
+wall time: 37 s
