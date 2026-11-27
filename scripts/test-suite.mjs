@@ -6,7 +6,7 @@
 // several at once, each with its own empty real-path TMPDIR under one run root (made under the real TMPDIR when a Unix socket
 // path under it fits, else under the real /tmp). Refuses a test file or a fixtures
 // module that imports a test file, fails a file that leaves anything in its TMPDIR, and exits 1 when any file fails.
-// `--own-files` (ADR [a-change-runs-only-the-tests-its-files-map-to]) runs only the tests the branch's own files map to, by
+// `--own-files` (ADR 0036) runs only the tests the branch's own files map to, by
 // scripts/test-map.json, and prints each choice before the first `start` line; it runs the whole suite when it cannot tell, and on a
 // train branch. Without it, nothing of this runs and the map is never read.
 // Exit codes: 0 green, or no test selected; 1 a failed file, a leftover, a refused import, a refused map or no test file; 2 a usage error;
