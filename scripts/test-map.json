@@ -32,47 +32,11 @@
   },
   "files": {
     ".claude-plugin/marketplace.json": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/change-loop-declared.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote-state.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote.test.mjs",
-      "plugins/openspec/hooks/change-loop.test.mjs",
-      "plugins/openspec/hooks/change-state-stages.test.mjs",
-      "plugins/openspec/hooks/compozy-driver.test.mjs",
-      "plugins/openspec/hooks/conduct-check.test.mjs",
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/deliver-check-cli.test.mjs",
-      "plugins/openspec/hooks/deliver-check.test.mjs",
-      "plugins/openspec/hooks/delivery-models.test.mjs",
-      "plugins/openspec/hooks/delivery-train-after.test.mjs",
-      "plugins/openspec/hooks/delivery-train.test.mjs",
-      "plugins/openspec/hooks/flow-check.test.mjs",
       "plugins/openspec/hooks/guard.test.mjs",
-      "plugins/openspec/hooks/merge-setup.test.mjs",
-      "plugins/openspec/hooks/project-loop.test.mjs",
-      "plugins/openspec/hooks/release-merge.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs",
-      "plugins/openspec/hooks/release-tags.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-followups.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-upfront.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop.test.mjs",
-      "plugins/openspec/hooks/stage-models.test.mjs",
-      "plugins/openspec/hooks/status-line.test.mjs",
-      "plugins/openspec/hooks/version-pin.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/gh-version.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/github-setup.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/project-settings.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/setup-block.test.mjs"
+      "plugins/openspec/skills/devkit/scripts/project-settings.test.mjs"
     ],
     ".claude/settings.json": [
-      "plugins/core/skills/review-change/scripts/review-round.test.mjs",
-      "plugins/openspec/hooks/change-loop.test.mjs",
-      "plugins/openspec/hooks/deliver-check.test.mjs",
-      "plugins/openspec/hooks/guard.test.mjs",
-      "plugins/openspec/hooks/project-loop.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/project-settings.test.mjs"
+      "plugins/openspec/hooks/guard.test.mjs"
     ],
     ".compozy/bin/devkit-kit": [
       "plugins/compozy/kit/scripts/adoption.test.mjs",
@@ -87,291 +51,62 @@
       "plugins/openspec/hooks/test-tmp.test.mjs"
     ],
     ".github/workflows/devkit-reviews.yml": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/change-loop-declared.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote-state.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote.test.mjs",
-      "plugins/openspec/hooks/change-loop.test.mjs",
-      "plugins/openspec/hooks/change-state-stages.test.mjs",
-      "plugins/openspec/hooks/compozy-driver.test.mjs",
-      "plugins/openspec/hooks/conduct-check.test.mjs",
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/deliver-check-cli.test.mjs",
-      "plugins/openspec/hooks/deliver-check.test.mjs",
-      "plugins/openspec/hooks/delivery-models.test.mjs",
-      "plugins/openspec/hooks/delivery-train-after.test.mjs",
-      "plugins/openspec/hooks/delivery-train.test.mjs",
-      "plugins/openspec/hooks/flow-check.test.mjs",
       "plugins/openspec/hooks/guard.test.mjs",
-      "plugins/openspec/hooks/merge-setup.test.mjs",
-      "plugins/openspec/hooks/project-loop.test.mjs",
-      "plugins/openspec/hooks/release-merge.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs",
-      "plugins/openspec/hooks/release-tags.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-followups.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-upfront.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop.test.mjs",
-      "plugins/openspec/hooks/stage-models.test.mjs",
-      "plugins/openspec/hooks/status-line.test.mjs",
-      "plugins/openspec/hooks/version-pin.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/gh-version.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/github-setup.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/setup-block.test.mjs"
+      "plugins/openspec/hooks/merge-setup.test.mjs"
     ],
     ".gitignore": [
-      "plugins/openspec/hooks/project-loop.test.mjs"
+      "plugins/openspec/hooks/guard.test.mjs",
+      "plugins/openspec/hooks/test-suite.test.mjs"
     ],
     "CHANGELOG.md": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/change-loop-declared.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote-state.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote.test.mjs",
-      "plugins/openspec/hooks/change-loop.test.mjs",
-      "plugins/openspec/hooks/change-state-stages.test.mjs",
-      "plugins/openspec/hooks/compozy-driver.test.mjs",
-      "plugins/openspec/hooks/conduct-check.test.mjs",
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/deliver-check-cli.test.mjs",
-      "plugins/openspec/hooks/deliver-check.test.mjs",
-      "plugins/openspec/hooks/delivery-models.test.mjs",
-      "plugins/openspec/hooks/delivery-train-after.test.mjs",
-      "plugins/openspec/hooks/delivery-train.test.mjs",
-      "plugins/openspec/hooks/flow-check.test.mjs",
-      "plugins/openspec/hooks/guard.test.mjs",
-      "plugins/openspec/hooks/merge-setup.test.mjs",
-      "plugins/openspec/hooks/project-loop.test.mjs",
-      "plugins/openspec/hooks/release-merge.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs",
-      "plugins/openspec/hooks/release-tags.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-followups.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-upfront.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop.test.mjs",
-      "plugins/openspec/hooks/stage-models.test.mjs",
-      "plugins/openspec/hooks/status-line.test.mjs",
-      "plugins/openspec/hooks/test-suite.test.mjs",
-      "plugins/openspec/hooks/version-pin.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/gh-version.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/github-setup.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/setup-block.test.mjs"
+      "plugins/openspec/hooks/guard.test.mjs"
     ],
     "CLAUDE.md": [
       "plugins/openspec/hooks/test-suite.test.mjs"
     ],
     "CONTRIBUTING.md": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/change-loop-declared.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote-state.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote.test.mjs",
-      "plugins/openspec/hooks/change-loop.test.mjs",
-      "plugins/openspec/hooks/change-state-stages.test.mjs",
-      "plugins/openspec/hooks/compozy-driver.test.mjs",
-      "plugins/openspec/hooks/conduct-check.test.mjs",
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/deliver-check-cli.test.mjs",
-      "plugins/openspec/hooks/deliver-check.test.mjs",
-      "plugins/openspec/hooks/delivery-models.test.mjs",
-      "plugins/openspec/hooks/delivery-train-after.test.mjs",
-      "plugins/openspec/hooks/delivery-train.test.mjs",
-      "plugins/openspec/hooks/flow-check.test.mjs",
       "plugins/openspec/hooks/guard.test.mjs",
-      "plugins/openspec/hooks/merge-setup.test.mjs",
-      "plugins/openspec/hooks/release-merge.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs",
-      "plugins/openspec/hooks/release-tags.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-followups.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-upfront.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop.test.mjs",
-      "plugins/openspec/hooks/stage-models.test.mjs",
-      "plugins/openspec/hooks/status-line.test.mjs",
-      "plugins/openspec/hooks/test-suite.test.mjs",
-      "plugins/openspec/hooks/version-pin.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/gh-version.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/github-setup.test.mjs"
+      "plugins/openspec/hooks/test-suite.test.mjs"
     ],
     "README.md": [
-      "plugins/compozy/kit/scripts/adoption.test.mjs",
-      "plugins/compozy/kit/scripts/install-kit.test.mjs",
-      "plugins/core/skills/review-change/scripts/review-round.test.mjs",
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/change-loop-declared.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote-state.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote.test.mjs",
-      "plugins/openspec/hooks/change-loop.test.mjs",
-      "plugins/openspec/hooks/change-state-stages.test.mjs",
-      "plugins/openspec/hooks/conduct-check.test.mjs",
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/deliver-check-cli.test.mjs",
-      "plugins/openspec/hooks/delivery-models.test.mjs",
-      "plugins/openspec/hooks/delivery-train.test.mjs",
       "plugins/openspec/hooks/guard.test.mjs",
-      "plugins/openspec/hooks/project-loop.test.mjs",
-      "plugins/openspec/hooks/release-merge.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-followups.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop.test.mjs",
-      "plugins/openspec/hooks/status-line.test.mjs",
-      "plugins/openspec/hooks/test-suite.test.mjs",
-      "plugins/openspec/hooks/version-pin.test.mjs"
+      "plugins/openspec/hooks/test-suite.test.mjs"
     ],
     "docs/adr/0001-coordination-without-a-harness.md": [
       "plugins/openspec/hooks/guard.test.mjs"
     ],
     "docs/adr/0002-merge-without-the-owner-opt-in.md": [
-      "plugins/openspec/hooks/deliver-check-cli.test.mjs",
-      "plugins/openspec/hooks/delivery-models.test.mjs",
       "plugins/openspec/hooks/guard.test.mjs"
     ],
     "docs/adr/0003-auto-merge-the-archive-pr.md": [
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/delivery-models.test.mjs",
-      "plugins/openspec/hooks/guard.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs"
+      "plugins/openspec/hooks/guard.test.mjs"
     ],
     "docs/adr/0004-devkit-per-project.md": [
-      "plugins/openspec/hooks/guard.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-upfront.test.mjs"
+      "plugins/openspec/hooks/guard.test.mjs"
     ],
     "docs/adr/0005-parallel-steps-and-a-session-wake-up.md": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
       "plugins/openspec/hooks/guard.test.mjs"
     ],
     "docs/adr/0006-phases-as-child-sessions.md": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
       "plugins/openspec/hooks/guard.test.mjs"
     ],
     "docs/adr/0007-one-change-on-request.md": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
       "plugins/openspec/hooks/guard.test.mjs"
     ],
     "docs/adr/0008-reviews-as-a-workflow.md": [
-      "plugins/core/skills/review-change/scripts/review-round.test.mjs",
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
       "plugins/openspec/hooks/guard.test.mjs"
     ],
-    "docs/adr/0009-compozy-loop-as-a-second-driver.md": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs"
-    ],
     "docs/adr/0010-openspec-as-the-harness.md": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote-state.test.mjs",
-      "plugins/openspec/hooks/delivery-models.test.mjs",
-      "plugins/openspec/hooks/guard.test.mjs",
-      "plugins/openspec/hooks/project-loop.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-followups.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-upfront.test.mjs"
-    ],
-    "docs/adr/0011-the-change-coordinator-is-the-owners-session.md": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/change-loop-declared.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-followups.test.mjs"
-    ],
-    "docs/adr/0012-the-reviews-check-follows-the-change-script.md": [
-      "plugins/openspec/hooks/delivery-models.test.mjs",
-      "plugins/openspec/hooks/project-loop.test.mjs"
-    ],
-    "docs/adr/0013-the-roadmap-coordinator-is-the-owners-session.md": [
-      "plugins/openspec/hooks/roadmap-loop-followups.test.mjs"
-    ],
-    "docs/adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md": [
-      "plugins/openspec/hooks/change-loop-remote-state.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-followups.test.mjs",
-      "plugins/openspec/hooks/stage-models.test.mjs"
-    ],
-    "docs/adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md": [
-      "plugins/openspec/hooks/project-loop.test.mjs"
-    ],
-    "docs/adr/0016-stage-roles-write-their-own-files.md": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs"
-    ],
-    "docs/adr/0017-a-change-state-is-derived-in-one-place.md": [
-      "plugins/openspec/hooks/change-loop-remote-state.test.mjs"
-    ],
-    "docs/adr/0018-the-delivery-model-is-chosen-per-project.md": [
-      "plugins/openspec/hooks/delivery-models.test.mjs"
-    ],
-    "docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md": [
-      "plugins/openspec/hooks/release-tags.test.mjs"
-    ],
-    "docs/adr/0020-a-change-can-run-on-another-machine.md": [
-      "plugins/openspec/hooks/roadmap-loop-upfront.test.mjs"
+      "plugins/openspec/hooks/guard.test.mjs"
     ],
     "docs/adr/0021-a-roadmap-run-opens-every-change-at-its-start.md": [
-      "plugins/openspec/hooks/guard.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-upfront.test.mjs"
-    ],
-    "docs/adr/0022-reviewed-changes-leave-on-a-delivery-train.md": [
-      "plugins/openspec/hooks/change-loop-declared.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs"
-    ],
-    "docs/adr/0023-the-model-is-chosen-by-stage.md": [
-      "plugins/openspec/hooks/change-loop-declared.test.mjs",
-      "plugins/openspec/hooks/stage-models.test.mjs"
-    ],
-    "docs/adr/0024-compozy-runs-the-short-loop.md": [
-      "plugins/openspec/hooks/change-loop-declared.test.mjs"
-    ],
-    "docs/adr/0025-a-base-merge-stales-only-on-the-changes-own-files.md": [
-      "plugins/openspec/hooks/release-note.test.mjs"
+      "plugins/openspec/hooks/guard.test.mjs"
     ],
     "docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md": [
       "plugins/openspec/hooks/guard.test.mjs"
     ],
-    "docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md": [
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs"
-    ],
-    "docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md": [
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs"
-    ],
     "docs/catalog.md": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/change-loop-declared.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote-state.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote.test.mjs",
-      "plugins/openspec/hooks/change-loop.test.mjs",
-      "plugins/openspec/hooks/change-state-stages.test.mjs",
-      "plugins/openspec/hooks/compozy-driver.test.mjs",
-      "plugins/openspec/hooks/conduct-check.test.mjs",
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/deliver-check-cli.test.mjs",
-      "plugins/openspec/hooks/deliver-check.test.mjs",
-      "plugins/openspec/hooks/delivery-models.test.mjs",
-      "plugins/openspec/hooks/delivery-train-after.test.mjs",
-      "plugins/openspec/hooks/delivery-train.test.mjs",
-      "plugins/openspec/hooks/flow-check.test.mjs",
-      "plugins/openspec/hooks/guard.test.mjs",
-      "plugins/openspec/hooks/merge-setup.test.mjs",
-      "plugins/openspec/hooks/project-loop.test.mjs",
-      "plugins/openspec/hooks/release-merge.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs",
-      "plugins/openspec/hooks/release-tags.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-followups.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-upfront.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop.test.mjs",
-      "plugins/openspec/hooks/stage-models.test.mjs",
-      "plugins/openspec/hooks/status-line.test.mjs",
-      "plugins/openspec/hooks/version-pin.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/gh-version.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/github-setup.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/setup-block.test.mjs"
-    ],
-    "docs/compozy-kit.md": [
-      "plugins/openspec/hooks/change-loop-declared.test.mjs"
-    ],
-    "docs/coordination-design.md": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/change-loop-declared.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote-state.test.mjs",
-      "plugins/openspec/hooks/delivery-models.test.mjs",
-      "plugins/openspec/hooks/project-loop.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-followups.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-upfront.test.mjs",
-      "plugins/openspec/hooks/stage-models.test.mjs"
+      "plugins/openspec/hooks/guard.test.mjs"
     ],
     "docs/getting-started.md": [
       "plugins/openspec/hooks/guard.test.mjs"
@@ -381,174 +116,15 @@
     ],
     "docs/openspec-flow.md": [
       "plugins/core/skills/review-change/scripts/review-round.test.mjs",
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/change-loop-declared.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote-state.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote.test.mjs",
-      "plugins/openspec/hooks/change-loop.test.mjs",
-      "plugins/openspec/hooks/change-state-stages.test.mjs",
-      "plugins/openspec/hooks/compozy-driver.test.mjs",
-      "plugins/openspec/hooks/conduct-check.test.mjs",
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/deliver-check-cli.test.mjs",
-      "plugins/openspec/hooks/deliver-check.test.mjs",
-      "plugins/openspec/hooks/delivery-models.test.mjs",
-      "plugins/openspec/hooks/delivery-train-after.test.mjs",
-      "plugins/openspec/hooks/delivery-train.test.mjs",
-      "plugins/openspec/hooks/flow-check.test.mjs",
       "plugins/openspec/hooks/guard.test.mjs",
-      "plugins/openspec/hooks/merge-setup.test.mjs",
-      "plugins/openspec/hooks/project-loop.test.mjs",
-      "plugins/openspec/hooks/release-merge.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs",
-      "plugins/openspec/hooks/release-tags.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-followups.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-upfront.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop.test.mjs",
-      "plugins/openspec/hooks/stage-models.test.mjs",
-      "plugins/openspec/hooks/status-line.test.mjs",
-      "plugins/openspec/hooks/version-pin.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/gh-version.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/github-setup.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/setup-block.test.mjs"
-    ],
-    "docs/roles.md": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/change-loop.test.mjs",
-      "plugins/openspec/hooks/flow-check.test.mjs",
-      "plugins/openspec/hooks/project-loop.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-followups.test.mjs"
+      "plugins/openspec/hooks/status-line.test.mjs"
     ],
     "openspec/config.yaml": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/change-loop-declared.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote-state.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote.test.mjs",
-      "plugins/openspec/hooks/change-loop.test.mjs",
-      "plugins/openspec/hooks/change-state-stages.test.mjs",
-      "plugins/openspec/hooks/compozy-driver.test.mjs",
-      "plugins/openspec/hooks/conduct-check.test.mjs",
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/deliver-check-cli.test.mjs",
-      "plugins/openspec/hooks/deliver-check.test.mjs",
-      "plugins/openspec/hooks/delivery-models.test.mjs",
-      "plugins/openspec/hooks/delivery-train-after.test.mjs",
-      "plugins/openspec/hooks/delivery-train.test.mjs",
-      "plugins/openspec/hooks/flow-check.test.mjs",
       "plugins/openspec/hooks/guard.test.mjs",
-      "plugins/openspec/hooks/merge-setup.test.mjs",
-      "plugins/openspec/hooks/project-loop.test.mjs",
-      "plugins/openspec/hooks/release-merge.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs",
-      "plugins/openspec/hooks/release-tags.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-followups.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-upfront.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop.test.mjs",
-      "plugins/openspec/hooks/stage-models.test.mjs",
-      "plugins/openspec/hooks/status-line.test.mjs",
-      "plugins/openspec/hooks/test-suite.test.mjs",
-      "plugins/openspec/hooks/version-pin.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/gh-version.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/github-setup.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/setup-block.test.mjs"
+      "plugins/openspec/hooks/test-suite.test.mjs"
     ],
     "openspec/roadmap.md": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/change-loop-declared.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote-state.test.mjs",
-      "plugins/openspec/hooks/change-loop-remote.test.mjs",
-      "plugins/openspec/hooks/change-loop.test.mjs",
-      "plugins/openspec/hooks/change-state-stages.test.mjs",
-      "plugins/openspec/hooks/compozy-driver.test.mjs",
-      "plugins/openspec/hooks/conduct-check.test.mjs",
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/deliver-check-cli.test.mjs",
-      "plugins/openspec/hooks/deliver-check.test.mjs",
-      "plugins/openspec/hooks/delivery-models.test.mjs",
-      "plugins/openspec/hooks/delivery-train-after.test.mjs",
-      "plugins/openspec/hooks/delivery-train.test.mjs",
-      "plugins/openspec/hooks/flow-check.test.mjs",
-      "plugins/openspec/hooks/guard.test.mjs",
-      "plugins/openspec/hooks/merge-setup.test.mjs",
-      "plugins/openspec/hooks/project-loop.test.mjs",
-      "plugins/openspec/hooks/release-merge.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs",
-      "plugins/openspec/hooks/release-tags.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-followups.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-upfront.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop.test.mjs",
-      "plugins/openspec/hooks/stage-models.test.mjs",
-      "plugins/openspec/hooks/status-line.test.mjs",
-      "plugins/openspec/hooks/version-pin.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/gh-version.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/github-setup.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/setup-block.test.mjs"
-    ],
-    "openspec/schemas/devkit-lite/flow.json": [
-      "plugins/openspec/hooks/change-loop.test.mjs",
-      "plugins/openspec/hooks/version-pin.test.mjs"
-    ],
-    "openspec/schemas/devkit-lite/schema.yaml": [
-      "plugins/openspec/hooks/change-loop-declared.test.mjs"
-    ],
-    "openspec/schemas/devkit/flow.json": [
-      "plugins/openspec/hooks/change-loop.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop-upfront.test.mjs",
-      "plugins/openspec/hooks/roadmap-loop.test.mjs",
-      "plugins/openspec/hooks/version-pin.test.mjs"
-    ],
-    "openspec/schemas/devkit/flows/2.json": [
-      "plugins/openspec/hooks/version-pin.test.mjs"
-    ],
-    "openspec/schemas/devkit/schema.yaml": [
-      "plugins/openspec/hooks/change-loop-declared.test.mjs",
-      "plugins/openspec/hooks/conduct-check.test.mjs",
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/deliver-check-cli.test.mjs",
-      "plugins/openspec/hooks/deliver-check.test.mjs",
-      "plugins/openspec/hooks/flow-check.test.mjs",
-      "plugins/openspec/hooks/merge-setup.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs"
-    ],
-    "openspec/schemas/devkit/templates/requirements.md": [
-      "plugins/openspec/hooks/change-loop.test.mjs"
-    ],
-    "openspec/specs/change-coordination/spec.md": [
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/delivery-train-after.test.mjs",
-      "plugins/openspec/hooks/delivery-train.test.mjs"
-    ],
-    "openspec/specs/change-delivery/spec.md": [
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs"
-    ],
-    "openspec/specs/change-stages/spec.md": [
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs"
-    ],
-    "openspec/specs/review-round/spec.md": [
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs"
-    ],
-    "openspec/specs/verdict-files/spec.md": [
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs"
-    ],
-    "openspec/trains/1.md": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/delivery-train-after.test.mjs",
-      "plugins/openspec/hooks/delivery-train.test.mjs"
-    ],
-    "openspec/trains/3.md": [
-      "plugins/openspec/hooks/delivery-train-after.test.mjs",
-      "plugins/openspec/hooks/delivery-train.test.mjs"
-    ],
-    "openspec/trains/4.md": [
-      "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/delivery-train.test.mjs"
-    ],
-    "openspec/trains/9.md": [
-      "plugins/openspec/hooks/delivery-train.test.mjs"
+      "plugins/openspec/hooks/guard.test.mjs"
     ],
     "plugins/compozy/kit/scripts/gen-agents.mjs": [
       "plugins/compozy/kit/scripts/gen-agents.test.mjs"
@@ -721,20 +297,13 @@
       "plugins/openspec/hooks/change-loop.test.mjs",
       "plugins/openspec/hooks/change-state-stages.test.mjs",
       "plugins/openspec/hooks/compozy-driver.test.mjs",
-      "plugins/openspec/hooks/conduct-check.test.mjs",
       "plugins/openspec/hooks/deliver-check-archive.test.mjs",
-      "plugins/openspec/hooks/deliver-check-cli.test.mjs",
-      "plugins/openspec/hooks/deliver-check.test.mjs",
       "plugins/openspec/hooks/delivery-models.test.mjs",
       "plugins/openspec/hooks/delivery-train-after.test.mjs",
       "plugins/openspec/hooks/delivery-train.test.mjs",
-      "plugins/openspec/hooks/flow-check.test.mjs",
       "plugins/openspec/hooks/guard.test.mjs",
       "plugins/openspec/hooks/jira-task.test.mjs",
-      "plugins/openspec/hooks/merge-setup.test.mjs",
       "plugins/openspec/hooks/project-loop.test.mjs",
-      "plugins/openspec/hooks/release-merge.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs",
       "plugins/openspec/hooks/release-tags.test.mjs",
       "plugins/openspec/hooks/roadmap-loop-followups.test.mjs",
       "plugins/openspec/hooks/roadmap-loop-upfront.test.mjs",
@@ -743,8 +312,6 @@
       "plugins/openspec/hooks/status-line.test.mjs",
       "plugins/openspec/hooks/version-pin.test.mjs",
       "plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/gh-version.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/github-setup.test.mjs",
       "plugins/openspec/skills/devkit/scripts/setup-block.test.mjs"
     ],
     "plugins/openspec/hooks/compozy-driver.mjs": [
@@ -824,14 +391,12 @@
       "plugins/openspec/hooks/release-note.test.mjs"
     ],
     "plugins/openspec/hooks/deliver-check.mjs": [
-      "plugins/compozy/kit/scripts/devkit-kit.test.mjs",
       "plugins/openspec/hooks/change-loop-compozy.test.mjs",
       "plugins/openspec/hooks/change-loop-declared.test.mjs",
       "plugins/openspec/hooks/change-loop-remote-state.test.mjs",
       "plugins/openspec/hooks/change-loop-remote.test.mjs",
       "plugins/openspec/hooks/change-loop.test.mjs",
       "plugins/openspec/hooks/change-state-stages.test.mjs",
-      "plugins/openspec/hooks/compozy-driver.test.mjs",
       "plugins/openspec/hooks/conduct-check.test.mjs",
       "plugins/openspec/hooks/deliver-check-archive.test.mjs",
       "plugins/openspec/hooks/deliver-check-cli.test.mjs",
@@ -854,8 +419,6 @@
       "plugins/openspec/hooks/test-suite.test.mjs",
       "plugins/openspec/hooks/version-pin.test.mjs",
       "plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/gh-version.test.mjs",
-      "plugins/openspec/skills/devkit/scripts/github-setup.test.mjs",
       "plugins/openspec/skills/devkit/scripts/setup-block.test.mjs"
     ],
     "plugins/openspec/hooks/delivery-train-fixtures.mjs": [
@@ -1377,8 +940,8 @@
       "plugins/openspec/skills/devkit/scripts/setup-block.test.mjs"
     ],
     "scripts/released-flows.json": [
-      "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/version-pin.test.mjs"
+      "plugins/openspec/hooks/guard.test.mjs",
+      "plugins/openspec/hooks/test-suite.test.mjs"
     ],
     "scripts/test-map.json": [
       "plugins/openspec/hooks/test-suite.test.mjs"

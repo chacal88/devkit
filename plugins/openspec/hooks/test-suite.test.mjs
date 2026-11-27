@@ -1034,6 +1034,92 @@ test('selective-tests-by-map-2 AC-9 AC-2 T-16 the repository\'s own map has no p
   assert.ok(!entry.includes(`${SETUP}/ship-entry${TEST_EXT}`), 'a test that names the script in a comment is not linked to it');
 });
 
+// Invariant: a document key of the repository's map (a non-code path outside plugins/) lists no slow test, the fast readers of the eight
+// named documents stay linked, the hub links of tests that neither import nor run change-loop.mjs or deliver-check.mjs stay dropped, and no
+// files key has an empty list. Layer: the data of scripts/test-map.json (design D-1 to D-4 of test-map-hub-links). Suite: test-suite.
+
+// D-1: a document key is a non-code path outside plugins/ (not .mjs, .js, .cjs, .py or .sh, and no bin/ segment).
+function isDocumentKey(key) {
+  if (key.startsWith('plugins/')) return false;
+  if (/\.(mjs|js|cjs|py|sh)$/.test(key)) return false;
+  return !key.split('/').includes('bin');
+}
+
+// The sorted `<key>: <test>` strings of each document key whose list holds a test of `map.slow`.
+function slowDocumentLinks(map) {
+  const slow = new Set(map.slow);
+  const found = [];
+  for (const [key, tests] of Object.entries(map.files)) {
+    if (!isDocumentKey(key)) continue;
+    for (const file of tests) if (slow.has(file)) found.push(`${key}: ${file}`);
+  }
+  return found.sort();
+}
+
+test('test-map-hub-links AC-1 a document key is a non-code path outside plugins/', () => {
+  for (const key of ['openspec/roadmap.md', 'CHANGELOG.md', '.claude-plugin/marketplace.json', '.gitignore', 'docs/adr/']) {
+    assert.equal(isDocumentKey(key), true, `${key} is a document key`);
+  }
+  for (const key of [
+    'plugins/openspec/README.md', 'scripts/test-suite.mjs', 'x.js', 'x.cjs', 'scripts/check.py',
+    'plugins/openspec/skills/devkit/scripts/install-schemas.sh', 'tools/run.sh', '.compozy/bin/devkit-kit',
+  ]) {
+    assert.equal(isDocumentKey(key), false, `${key} is not a document key`);
+  }
+});
+
+test('test-map-hub-links AC-1 slowDocumentLinks names each document key that lists a slow test', () => {
+  const S = 'plugins/openspec/hooks/slow.test.mjs';
+  const F = 'plugins/openspec/hooks/fast.test.mjs';
+  const of = (files) => slowDocumentLinks({ slow: [S], shared: {}, files });
+  assert.deepEqual(of({ 'docs/a.md': [F, S] }), [`docs/a.md: ${S}`]);
+  assert.deepEqual(of({ 'docs/a.md': [F] }), []);
+  assert.deepEqual(of({ 'scripts/x.mjs': [S] }), []);
+  assert.deepEqual(of({ 'plugins/openspec/README.md': [S] }), []);
+  assert.deepEqual(of({ 'openspec/b.md': [S], 'docs/a.md': [S] }), [`docs/a.md: ${S}`, `openspec/b.md: ${S}`]);
+});
+
+test('test-map-hub-links AC-1 AC-2 AC-3 AC-4 the repository\'s map links no slow test to a document, keeps the named documents\' readers and the hubs\' dropped links out, and has no empty list', () => {
+  const found = suiteScript.readTestMap(REPO_ROOT);
+  assert.equal(found.error, undefined, found.error);
+  const { map } = found;
+  const listed = suiteFiles(REPO_ROOT);
+  const stem = (name) => {
+    const hits = listed.filter((file) => file.split('/').pop() === name + TEST_EXT);
+    assert.equal(hits.length, 1, `${name} names exactly one suite test file`);
+    return hits[0];
+  };
+  assert.deepEqual(slowDocumentLinks(map), [], 'a document key lists no slow test');
+  // D-3: the fast tests that read each of the eight named documents from the checkout.
+  const readers = {
+    'openspec/roadmap.md': ['guard'],
+    'openspec/config.yaml': ['guard', 'test-suite'],
+    'CHANGELOG.md': ['guard'],
+    'CONTRIBUTING.md': ['guard', 'test-suite'],
+    'README.md': ['guard', 'test-suite'],
+    'docs/openspec-flow.md': ['guard', 'review-round', 'status-line'],
+    'docs/catalog.md': ['guard'],
+    '.claude-plugin/marketplace.json': ['guard', 'project-settings'],
+  };
+  for (const [key, stems] of Object.entries(readers)) {
+    for (const name of stems) assert.ok((map.files[key] ?? []).includes(stem(name)), `${key} keeps its reader ${name}`);
+  }
+  // D-4: the tests that reach a hub only through test-fixtures.mjs, guard.mjs or another module and run none of its code are not linked.
+  const dropped = {
+    'plugins/openspec/hooks/change-loop.mjs': [
+      'conduct-check', 'deliver-check-cli', 'deliver-check', 'flow-check', 'merge-setup', 'release-merge', 'release-note', 'gh-version', 'github-setup',
+    ],
+    'plugins/openspec/hooks/deliver-check.mjs': ['devkit-kit', 'compozy-driver', 'gh-version', 'github-setup'],
+  };
+  for (const [hub, stems] of Object.entries(dropped)) {
+    for (const name of stems) assert.ok(!map.files[hub].includes(stem(name)), `${hub} does not link ${name}`);
+  }
+  assert.ok(map.files['plugins/openspec/hooks/change-loop.mjs'].includes(`${HOOKS}/change-loop${TEST_EXT}`), 'change-loop.mjs keeps its own test');
+  assert.ok(map.files['plugins/openspec/hooks/deliver-check.mjs'].includes(`${HOOKS}/deliver-check${TEST_EXT}`), 'deliver-check.mjs keeps its own test');
+  const empty = Object.entries(map.files).filter(([, tests]) => tests.length === 0).map(([key]) => key);
+  assert.deepEqual(empty, [], 'no files key has an empty list');
+});
+
 // Invariant: M5 asks for a key only for a file git tracks, so an untracked or git-ignored file under a suite folder (a macOS `.DS_Store`,
 // an editor's backup) refuses no run; where git cannot tell (no work tree of its own, no tracked file), the disk walk decides and the
 // check is never weaker. Layer: the pure function mapProblems of scripts/test-suite.mjs (D-3, "The M5 list"). Suite: test-suite.
