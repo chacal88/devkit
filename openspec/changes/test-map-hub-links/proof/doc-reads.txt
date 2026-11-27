@@ -1,0 +1,362 @@
+test-map-hub-links, task 1.2 (D-2, D-3): the trace of the fast suite tests
+sha: acacc172e3fd1e3e5b4c325674d75f11511d8af0 (base map, before any edit of scripts/test-map.json); node v24.22.2
+
+commands (scratch folder of the session; sources below):
+  node <scratch>/fast.mjs <root>                                   the 21 fast test files (suiteFiles less the map's slow list)
+  node <scratch>/run-trace.mjs <root> <out> <file>...              each file alone, one after the other, with
+    NODE_OPTIONS=--import=<tracer URL> TRACE_ROOT=<root> TRACE_LOG=<out>/<file>.reads TMPDIR=<fresh real path under /private/var/tmp>
+    node --test --test-reporter=dot <file>   (cwd = the repository root, NODE_TEST_CONTEXT unset)
+  sh <scratch>/limits.sh                                           the grep of D-2's limits
+  python3 <scratch>/table.py <root> <out> <fast.txt> reads|table   the per-file reads and D-3's table as computed
+
+== the tracer (trace-reads.mjs), verbatim ==
+// The read tracer of test-map-hub-links D-2. Loaded with NODE_OPTIONS=--import=<this file's URL>.
+// TRACE_ROOT: the repository root; TRACE_LOG: the file each opened path under the root is appended to, relative to the root.
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { relative, resolve, isAbsolute } from 'node:path';
+
+const root = resolve(process.env.TRACE_ROOT ?? '');
+const log = process.env.TRACE_LOG;
+const append = fs.appendFileSync;
+let busy = false;
+
+const record = (target) => {
+  if (busy || typeof target === 'number' || !log) return;
+  busy = true;
+  try {
+    const text = target instanceof URL ? fileURLToPath(target) : Buffer.isBuffer(target) ? target.toString() : String(target);
+    const abs = resolve(text);
+    const rel = relative(root, abs);
+    if (rel !== '' && !rel.startsWith('..') && !isAbsolute(rel) && abs !== resolve(log)) append(log, `${rel}\n`);
+  } catch { /* a path the tracer cannot read is not a document */ } finally { busy = false; }
+};
+
+const wrap = (owner, name) => {
+  const original = owner[name];
+  owner[name] = function traced(target, ...rest) { record(target); return original.call(this, target, ...rest); };
+};
+
+for (const name of ['readFileSync', 'readFile', 'openSync', 'open', 'createReadStream']) wrap(fs, name);
+for (const name of ['readFile', 'open']) wrap(fsp, name);
+syncBuiltinESMExports();
+
+== the runner (run-trace.mjs), verbatim ==
+// node run-trace.mjs <repo root> <out dir> <test file>...: each test file alone under the read tracer, one after the other.
+import { spawn } from 'node:child_process';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const [root, out, ...files] = process.argv.slice(2);
+mkdirSync(out, { recursive: true });
+const tracer = new URL('./trace-reads.mjs', import.meta.url).href;
+const one = (file) => new Promise((done) => {
+  const tag = file.replaceAll('/', '__');
+  const tmp = realpathSync(mkdtempSync('/var/tmp/tmhl-trace-'));
+  const env = { ...process.env, TMPDIR: tmp, TRACE_ROOT: root, TRACE_LOG: join(out, `${tag}.reads`), NODE_OPTIONS: `--import=${tracer}` };
+  delete env.NODE_TEST_CONTEXT;
+  const started = Date.now();
+  const child = spawn(process.execPath, ['--test', '--test-reporter=dot', file], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  let text = '';
+  child.stdout.on('data', (c) => { text += c; });
+  child.stderr.on('data', (c) => { text += c; });
+  child.on('close', (code) => {
+    writeFileSync(join(out, `${tag}.out`), text);
+    writeFileSync(join(out, `${tag}.exit`), `${code}\n`);
+    rmSync(tmp, { recursive: true, force: true });
+    process.stdout.write(`${code === 0 ? 'pass' : 'FAIL'} ${((Date.now() - started) / 1000).toFixed(1)}s ${file}\n`);
+    done();
+  });
+});
+for (const file of files) await one(file);
+
+== the table script (table.py), verbatim ==
+#!/usr/bin/env python3
+# python3 table.py <repo root> <trace out dir> <fast.txt> <section>
+# Sections: reads (per test file: exit code and the document keys it opened), table (D-3's table as computed, then the
+# comparison with the table of design.md).
+import json, os, re, sys
+
+root, out, fast_list, section = sys.argv[1:5]
+tag = lambda f: f.replace('/', '__')
+fast = [l.strip() for l in open(fast_list) if l.strip()]
+m = json.load(open(os.path.join(root, 'scripts/test-map.json')))
+slow = set(m['slow'])
+CODE = ('.mjs', '.js', '.cjs', '.py', '.sh')
+
+
+def is_document(key):
+    return not key.startswith('plugins/') and not key.endswith(CODE) and '/bin/' not in '/' + key
+
+
+doc_keys = sorted(k for k in m['files'] if is_document(k))
+read = {}  # test file -> set of distinct repository paths opened
+code = {}
+for f in fast:
+    p = os.path.join(out, tag(f))
+    read[f] = set(l.strip() for l in open(p + '.reads')) if os.path.exists(p + '.reads') else set()
+    code[f] = open(p + '.exit').read().strip()
+
+
+def opens(f, key):
+    return key in read[f] or (key.endswith('/') and any(r.startswith(key) for r in read[f]))
+
+
+def short(f):
+    return os.path.basename(f).removesuffix('.test.mjs')
+
+
+if section == 'reads':
+    for f in fast:
+        keys = [k for k in doc_keys if opens(f, k)]
+        print(f'{f}: exit {code[f]}, {len(read[f])} distinct repository paths opened, {len(keys)} of the {len(doc_keys)} document keys:')
+        for k in keys:
+            print(f'  {k}')
+    sys.exit(0)
+
+rows = []
+for k in doc_keys:
+    base = m['files'][k]
+    if not any(t in slow for t in base):
+        continue
+    linked_fast = [t for t in base if t not in slow]
+    keep = [t for t in linked_fast if opens(t, k)]
+    dropped = [t for t in linked_fast if t not in keep]
+    if keep:
+        action, new = 'narrow', keep
+    elif k.startswith('openspec/'):
+        action, new = 'remove the key (S5)', []
+    elif k.endswith('.md'):
+        action, new = 'remove the key (S6)', []
+    else:
+        action, new = 'relink', [t for t in fast if opens(t, k)]
+    rows.append((k, f'{len(base)} ({sum(t in slow for t in base)} slow)', action, ', '.join(short(t) for t in new) or '-',
+                 ', '.join(short(t) for t in dropped) or '-'))
+
+computed = [f'| `{k}` | {b} | {a} | {n} | {d} |' for k, b, a, n, d in rows]
+print(f'{len(rows)} keys of D-1 hold a slow test on the base map.\n')
+print('| Key | Base links | Action | New list | Linked fast tests dropped |')
+print('|---|---|---|---|---|')
+print('\n'.join(computed))
+
+design = open(os.path.join(root, 'openspec/changes/test-map-hub-links/design.md')).read()
+planned = [l for l in design.split('\n') if re.match(r'^\| `[^`]+` \| \d+ \(\d+ slow\) \|', l)]
+# the hub table of D-4 has other columns: keep only the rows with the five columns of D-3's table
+planned = [l for l in planned if l.count('|') == 6 and not l.split('|')[1].strip().startswith('`plugins/')]
+print(f'\nD-3 rows read from design.md: {len(planned)}; computed rows: {len(computed)}')
+same = sorted(planned) == sorted(computed)
+print('Comparison with D-3, row for row (action and new list, and the base links and dropped tests):', 'EQUAL' if same else 'DIFFERENT')
+for l in sorted(set(planned) - set(computed)):
+    print('  only in design.md:', l)
+for l in sorted(set(computed) - set(planned)):
+    print('  only computed:    ', l)
+
+== the 21 traced runs: exit code, and the document keys (D-1) each file opened ==
+plugins/compozy/kit/scripts/adoption.test.mjs: exit 0, 57 distinct repository paths opened, 1 of the 64 document keys:
+  .compozy/kit-manifest.json
+plugins/compozy/kit/scripts/devkit-kit.test.mjs: exit 0, 2 distinct repository paths opened, 0 of the 64 document keys:
+plugins/compozy/kit/scripts/gen-agents.test.mjs: exit 0, 55 distinct repository paths opened, 0 of the 64 document keys:
+plugins/compozy/kit/scripts/install-kit.test.mjs: exit 0, 5 distinct repository paths opened, 0 of the 64 document keys:
+plugins/compozy/kit/scripts/loop-templates.test.mjs: exit 0, 4 distinct repository paths opened, 0 of the 64 document keys:
+plugins/core/skills/review-change/scripts/review-round.test.mjs: exit 0, 16 distinct repository paths opened, 1 of the 64 document keys:
+  docs/openspec-flow.md
+plugins/openspec/hooks/change-state-stages.test.mjs: exit 0, 17 distinct repository paths opened, 0 of the 64 document keys:
+plugins/openspec/hooks/compozy-driver.test.mjs: exit 0, 16 distinct repository paths opened, 0 of the 64 document keys:
+plugins/openspec/hooks/guard.test.mjs: exit 0, 506 distinct repository paths opened, 43 of the 64 document keys:
+  .claude-plugin/marketplace.json
+  .claude/settings.json
+  .compozy/kit-manifest.json
+  .github/workflows/ci.yml
+  .github/workflows/devkit-reviews.yml
+  .gitignore
+  CHANGELOG.md
+  CLAUDE.md
+  CONTRIBUTING.md
+  README.md
+  docs/adr/0001-coordination-without-a-harness.md
+  docs/adr/0002-merge-without-the-owner-opt-in.md
+  docs/adr/0003-auto-merge-the-archive-pr.md
+  docs/adr/0004-devkit-per-project.md
+  docs/adr/0005-parallel-steps-and-a-session-wake-up.md
+  docs/adr/0006-phases-as-child-sessions.md
+  docs/adr/0007-one-change-on-request.md
+  docs/adr/0008-reviews-as-a-workflow.md
+  docs/adr/0010-openspec-as-the-harness.md
+  docs/adr/0021-a-roadmap-run-opens-every-change-at-its-start.md
+  docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md
+  docs/catalog.md
+  docs/compozy-kit.md
+  docs/coordination-design.md
+  docs/getting-started.md
+  docs/migrate-to-project-scope.md
+  docs/openspec-flow.md
+  docs/roles.md
+  openspec/config.yaml
+  openspec/roadmap.md
+  openspec/schemas/devkit-lite/flow.json
+  openspec/schemas/devkit-lite/schema.yaml
+  openspec/schemas/devkit/flow.json
+  openspec/schemas/devkit/flows/2.json
+  openspec/schemas/devkit/schema.yaml
+  openspec/schemas/devkit/templates/requirements.md
+  openspec/specs/change-coordination/spec.md
+  openspec/specs/change-delivery/spec.md
+  openspec/specs/change-stages/spec.md
+  openspec/specs/review-round/spec.md
+  openspec/specs/verdict-files/spec.md
+  scripts/released-flows.json
+  scripts/test-map.json
+plugins/openspec/hooks/jira-task.test.mjs: exit 0, 3 distinct repository paths opened, 0 of the 64 document keys:
+plugins/openspec/hooks/merge-setup.test.mjs: exit 0, 19 distinct repository paths opened, 1 of the 64 document keys:
+  .github/workflows/devkit-reviews.yml
+plugins/openspec/hooks/status-line.test.mjs: exit 0, 20 distinct repository paths opened, 1 of the 64 document keys:
+  docs/openspec-flow.md
+plugins/openspec/hooks/test-suite.test.mjs: exit 0, 487 distinct repository paths opened, 35 of the 64 document keys:
+  .claude-plugin/marketplace.json
+  .claude/settings.json
+  .compozy/kit-manifest.json
+  .github/workflows/ci.yml
+  .github/workflows/devkit-reviews.yml
+  .gitignore
+  CLAUDE.md
+  CONTRIBUTING.md
+  README.md
+  docs/catalog.md
+  docs/compozy-kit.md
+  docs/coordination-design.md
+  docs/getting-started.md
+  docs/migrate-to-project-scope.md
+  docs/openspec-flow.md
+  docs/roles.md
+  openspec/config.yaml
+  openspec/roadmap.md
+  openspec/schemas/devkit-lite/flow.json
+  openspec/schemas/devkit-lite/schema.yaml
+  openspec/schemas/devkit/flow.json
+  openspec/schemas/devkit/flows/2.json
+  openspec/schemas/devkit/schema.yaml
+  openspec/schemas/devkit/templates/requirements.md
+  openspec/specs/change-coordination/spec.md
+  openspec/specs/change-delivery/spec.md
+  openspec/specs/change-stages/spec.md
+  openspec/specs/review-round/spec.md
+  openspec/specs/verdict-files/spec.md
+  openspec/trains/1.md
+  openspec/trains/3.md
+  openspec/trains/4.md
+  openspec/trains/9.md
+  scripts/released-flows.json
+  scripts/test-map.json
+plugins/openspec/hooks/test-tmp.test.mjs: exit 0, 56 distinct repository paths opened, 1 of the 64 document keys:
+  .github/workflows/ci.yml
+plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs: exit 0, 17 distinct repository paths opened, 0 of the 64 document keys:
+plugins/openspec/skills/devkit/scripts/gh-version.test.mjs: exit 0, 18 distinct repository paths opened, 0 of the 64 document keys:
+plugins/openspec/skills/devkit/scripts/install-schemas.test.mjs: exit 0, 2 distinct repository paths opened, 0 of the 64 document keys:
+plugins/openspec/skills/devkit/scripts/kit-installer.test.mjs: exit 0, 33 distinct repository paths opened, 0 of the 64 document keys:
+plugins/openspec/skills/devkit/scripts/project-settings.test.mjs: exit 0, 4 distinct repository paths opened, 1 of the 64 document keys:
+  .claude-plugin/marketplace.json
+plugins/openspec/skills/devkit/scripts/setup-block.test.mjs: exit 0, 16 distinct repository paths opened, 0 of the 64 document keys:
+plugins/openspec/skills/devkit/scripts/ship-entry.test.mjs: exit 0, 6 distinct repository paths opened, 0 of the 64 document keys:
+
+== the grep of D-2's limits (spawnSync('python3', 'bash', git grep) in the fast test files) ==
+plugins/openspec/hooks/guard.test.mjs:45:const bash = (root, command, a, env) => run('bash', { cwd: root, tool_name: 'Bash', tool_input: { command }, ...agent(a) }, env);
+plugins/openspec/hooks/guard.test.mjs:570:  assert.equal(run('bash', { cwd: deep, tool_input: { command: 'git reset --hard' } }).code, 2);
+plugins/openspec/hooks/guard.test.mjs:677:  const r = spawnSync('python3', [checkPy, '--root', lintRoot(files)], { encoding: 'utf8' });
+plugins/openspec/hooks/guard.test.mjs:800:  const r = spawnSync('python3', [checkPy], { encoding: 'utf8' });
+plugins/openspec/hooks/guard.test.mjs:809:    const r = spawnSync('bash', ['-n'], { input: b, encoding: 'utf8' });
+plugins/openspec/hooks/guard.test.mjs:825:  const run = (script, extra = {}) => spawnSync('bash', ['-c', script.replaceAll('claude plugin list --json', `cat ${listFile}`)], {
+plugins/openspec/hooks/guard.test.mjs:908:  r = spawnSync('bash', ['-c', loop], { encoding: 'utf8', cwd: margi, env: { PATH: `${bin}:/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin`, HOME: home } });
+plugins/openspec/hooks/guard.test.mjs:911:  r = spawnSync('bash', ['-c', loop], { encoding: 'utf8', cwd: margi, env: { PATH: `${bin}:/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin`, HOME: home } });
+plugins/openspec/hooks/guard.test.mjs:942:const bashAt = (cwd, command, a) => run('bash', { cwd, tool_name: 'Bash', tool_input: { command }, ...agent(a) });
+plugins/openspec/hooks/test-suite.test.mjs:464:    const r = spawnSync('python3', [checkPy, '--root', root], { encoding: 'utf8' });
+plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs:167:  const install = t.exec('bash', [installer, t.root], t.root);
+plugins/openspec/skills/devkit/scripts/install-schemas.test.mjs:15:const PATH = [...new Set([folderOf('bash'), folderOf('git')])].join(delimiter);
+plugins/openspec/skills/devkit/scripts/install-schemas.test.mjs:31:  const r = spawnSync('bash', [script, ...args], { cwd, encoding: 'utf8', env: { PATH, HOME: w.home, XDG_DATA_HOME: w.xdg } });
+plugins/openspec/skills/devkit/scripts/install-schemas.test.mjs:102:  const fullPath = [pathDir, ...new Set([folderOf('bash'), folderOf('git'), folderOf('node')])].join(delimiter);
+plugins/openspec/skills/devkit/scripts/install-schemas.test.mjs:104:    const r = spawnSync('bash', [script, ...args], { cwd, encoding: 'utf8', env: { PATH: fullPath, HOME: w.home, XDG_DATA_HOME: w.xdg } });
+
+== each hit, read ==
+No `git grep` hit in any fast test file. The `spawnSync('python3'` and `'bash'` hits, one by one:
+
+- guard.test.mjs:45, 570, 942: `bash` there is the name of a hook input (`run('bash', ...)`), not a child process.
+- guard.test.mjs:677: `python3 scripts/check.py --root <lintRoot(files)>`, a temporary folder (lintRoot, line 667), not the checkout.
+- guard.test.mjs:800: `python3 scripts/check.py` with no `--root`: runs on the checkout. The only fast test that does. It asserts
+  only on `migrate-to-project-scope.md:<n>: plugin install` lines (the test 'migration doc: it passes the install-scope lint (3.3)'),
+  so it reads the document `docs/migrate-to-project-scope.md`, which has no slow test linked and keeps its list.
+- guard.test.mjs:809: `bash -n` with the text of a fenced block on stdin: no file is read.
+- guard.test.mjs:825, 908, 911: `bash -c <script text>` in a temporary HOME with a stub `claude`: no checkout file is read.
+- test-suite.test.mjs:464: `python3 scripts/check.py --root <tmpFolder>`: a temporary folder, not the checkout.
+- changes-under-way.test.mjs:167: `bash install-schemas.sh <t.root>`: t.root is a temporary project; the script copies the pack's
+  `plugins/openspec/schemas` (a path under `plugins/`, outside D-1's document keys).
+- install-schemas.test.mjs:15, 31, 102, 104: `bash install-schemas.sh` in a temporary world (repo, home, xdg): same, the pack's schemas
+  only. (Line 15 and 102 name `bash` to find its folder.)
+
+So the only non-Node child that runs on the checkout is the one D-2 names (guard, line 800), and it adds no document key of D-3's
+56 (its one document, `docs/migrate-to-project-scope.md`, is not one of them).
+
+== D-3's table as computed, and its comparison with design.md ==
+56 keys of D-1 hold a slow test on the base map.
+
+| Key | Base links | Action | New list | Linked fast tests dropped |
+|---|---|---|---|---|
+| `.claude-plugin/marketplace.json` | 32 (23 slow) | narrow | guard, project-settings | change-state-stages, compozy-driver, merge-setup, status-line, changes-under-way, gh-version, setup-block |
+| `.claude/settings.json` | 7 (4 slow) | narrow | guard | review-round, project-settings |
+| `.github/workflows/devkit-reviews.yml` | 31 (23 slow) | narrow | guard, merge-setup | change-state-stages, compozy-driver, status-line, changes-under-way, gh-version, setup-block |
+| `.gitignore` | 1 (1 slow) | relink | guard, test-suite | - |
+| `CHANGELOG.md` | 32 (23 slow) | narrow | guard | change-state-stages, compozy-driver, merge-setup, status-line, test-suite, changes-under-way, gh-version, setup-block |
+| `CONTRIBUTING.md` | 30 (22 slow) | narrow | guard, test-suite | change-state-stages, compozy-driver, merge-setup, status-line, changes-under-way, gh-version |
+| `README.md` | 23 (16 slow) | narrow | guard, test-suite | adoption, install-kit, review-round, change-state-stages, status-line |
+| `docs/adr/0002-merge-without-the-owner-opt-in.md` | 3 (2 slow) | narrow | guard | - |
+| `docs/adr/0003-auto-merge-the-archive-pr.md` | 4 (3 slow) | narrow | guard | - |
+| `docs/adr/0004-devkit-per-project.md` | 2 (1 slow) | narrow | guard | - |
+| `docs/adr/0005-parallel-steps-and-a-session-wake-up.md` | 2 (1 slow) | narrow | guard | - |
+| `docs/adr/0006-phases-as-child-sessions.md` | 2 (1 slow) | narrow | guard | - |
+| `docs/adr/0007-one-change-on-request.md` | 2 (1 slow) | narrow | guard | - |
+| `docs/adr/0008-reviews-as-a-workflow.md` | 3 (1 slow) | narrow | guard | review-round |
+| `docs/adr/0009-compozy-loop-as-a-second-driver.md` | 1 (1 slow) | remove the key (S6) | - | - |
+| `docs/adr/0010-openspec-as-the-harness.md` | 7 (6 slow) | narrow | guard | - |
+| `docs/adr/0011-the-change-coordinator-is-the-owners-session.md` | 3 (3 slow) | remove the key (S6) | - | - |
+| `docs/adr/0012-the-reviews-check-follows-the-change-script.md` | 2 (2 slow) | remove the key (S6) | - | - |
+| `docs/adr/0013-the-roadmap-coordinator-is-the-owners-session.md` | 1 (1 slow) | remove the key (S6) | - | - |
+| `docs/adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md` | 3 (3 slow) | remove the key (S6) | - | - |
+| `docs/adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md` | 1 (1 slow) | remove the key (S6) | - | - |
+| `docs/adr/0016-stage-roles-write-their-own-files.md` | 1 (1 slow) | remove the key (S6) | - | - |
+| `docs/adr/0017-a-change-state-is-derived-in-one-place.md` | 1 (1 slow) | remove the key (S6) | - | - |
+| `docs/adr/0018-the-delivery-model-is-chosen-per-project.md` | 1 (1 slow) | remove the key (S6) | - | - |
+| `docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md` | 1 (1 slow) | remove the key (S6) | - | - |
+| `docs/adr/0020-a-change-can-run-on-another-machine.md` | 1 (1 slow) | remove the key (S6) | - | - |
+| `docs/adr/0021-a-roadmap-run-opens-every-change-at-its-start.md` | 2 (1 slow) | narrow | guard | - |
+| `docs/adr/0022-reviewed-changes-leave-on-a-delivery-train.md` | 2 (2 slow) | remove the key (S6) | - | - |
+| `docs/adr/0023-the-model-is-chosen-by-stage.md` | 2 (2 slow) | remove the key (S6) | - | - |
+| `docs/adr/0024-compozy-runs-the-short-loop.md` | 1 (1 slow) | remove the key (S6) | - | - |
+| `docs/adr/0025-a-base-merge-stales-only-on-the-changes-own-files.md` | 1 (1 slow) | remove the key (S6) | - | - |
+| `docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md` | 2 (2 slow) | remove the key (S6) | - | - |
+| `docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md` | 2 (2 slow) | remove the key (S6) | - | - |
+| `docs/catalog.md` | 31 (23 slow) | narrow | guard | change-state-stages, compozy-driver, merge-setup, status-line, changes-under-way, gh-version, setup-block |
+| `docs/compozy-kit.md` | 1 (1 slow) | remove the key (S6) | - | - |
+| `docs/coordination-design.md` | 8 (8 slow) | remove the key (S6) | - | - |
+| `docs/openspec-flow.md` | 32 (23 slow) | narrow | review-round, guard, status-line | change-state-stages, compozy-driver, merge-setup, changes-under-way, gh-version, setup-block |
+| `docs/roles.md` | 6 (6 slow) | remove the key (S6) | - | - |
+| `openspec/config.yaml` | 32 (23 slow) | narrow | guard, test-suite | change-state-stages, compozy-driver, merge-setup, status-line, changes-under-way, gh-version, setup-block |
+| `openspec/roadmap.md` | 31 (23 slow) | narrow | guard | change-state-stages, compozy-driver, merge-setup, status-line, changes-under-way, gh-version, setup-block |
+| `openspec/schemas/devkit-lite/flow.json` | 2 (2 slow) | remove the key (S5) | - | - |
+| `openspec/schemas/devkit-lite/schema.yaml` | 1 (1 slow) | remove the key (S5) | - | - |
+| `openspec/schemas/devkit/flow.json` | 4 (4 slow) | remove the key (S5) | - | - |
+| `openspec/schemas/devkit/flows/2.json` | 1 (1 slow) | remove the key (S5) | - | - |
+| `openspec/schemas/devkit/schema.yaml` | 8 (7 slow) | remove the key (S5) | - | merge-setup |
+| `openspec/schemas/devkit/templates/requirements.md` | 1 (1 slow) | remove the key (S5) | - | - |
+| `openspec/specs/change-coordination/spec.md` | 3 (3 slow) | remove the key (S5) | - | - |
+| `openspec/specs/change-delivery/spec.md` | 1 (1 slow) | remove the key (S5) | - | - |
+| `openspec/specs/change-stages/spec.md` | 1 (1 slow) | remove the key (S5) | - | - |
+| `openspec/specs/review-round/spec.md` | 1 (1 slow) | remove the key (S5) | - | - |
+| `openspec/specs/verdict-files/spec.md` | 1 (1 slow) | remove the key (S5) | - | - |
+| `openspec/trains/1.md` | 3 (3 slow) | remove the key (S5) | - | - |
+| `openspec/trains/3.md` | 2 (2 slow) | remove the key (S5) | - | - |
+| `openspec/trains/4.md` | 2 (2 slow) | remove the key (S5) | - | - |
+| `openspec/trains/9.md` | 1 (1 slow) | remove the key (S5) | - | - |
+| `scripts/released-flows.json` | 2 (2 slow) | relink | guard, test-suite | - |
+
+D-3 rows read from design.md: 56; computed rows: 56
+Comparison with D-3, row for row (action and new list, and the base links and dropped tests): EQUAL
