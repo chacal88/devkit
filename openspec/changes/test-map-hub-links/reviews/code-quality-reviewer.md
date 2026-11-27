@@ -1,15 +1,28 @@
 Verdict: approved
-Commit: 76b2987d2fe5e6e0cd31cdd109057f2a2ba26348
+Commit: a4f215885a9627fefa1348001fd2374c11bbd7e5
 
-## Quality review — test-map-hub-links (round 1)
+## Quality review — test-map-hub-links (round 2)
 
 ### Findings
-- [praise] plugins/openspec/hooks/test-suite.test.mjs:1037-1121 — The durable guard is a data test with the invariant, layer and suite named, a helper (isDocumentKey, slowDocumentLinks) with its own positive and negative unit tests, and a no-script-change choice that avoids an M8 making every script edit run the slow tests; the proofs (read tracer, V8 coverage per test file) are committed verbatim and reproducible, and the red-before case is shown in reader-fails.txt.
-- [nit] plugins/openspec/hooks/test-suite.test.mjs:1087 — One test covers AC-1 to AC-4 with many assertions; if a reader or a dropped link regresses, the failure names the message but not the separate AC, so a split into one test per AC would make a red easier to read.
-- [nit] CONTRIBUTING.md:44 — The added sentence says the hub keys leave out a test that 'runs none of their code', while the rule applied (design D-4) keeps a test reached only through fixtures when coverage shows it runs hub code beyond load (guard is kept this way); wording 'runs none of their code beyond loading them' would match the rule.
+- [nit] plugins/openspec/hooks/test-suite.test.mjs:1087 — One test still covers AC-1 to AC-4; a red names the message, not the AC (round 1 nit, unchanged). The new AC-3 and AC-4 tests are split per hub.
+- [nit] CONTRIBUTING.md:44 — Wording 'runs none of their code' still differs from design D-4, which keeps tests that run hub code beyond load (round 1 nit, unchanged).
+- [praise] plugins/openspec/hooks/test-suite.test.mjs:1141-1176 — hubLinkProblems and suiteStem are unit-tested with positive and negative cases. The per-hub real-map tests report missing and extra separately, which closes the kept-readers gap.
+- [praise] plugins/openspec/hooks/test-suite.test.mjs:1124-1138 — KEPT_HUB_READERS holds 24 and 29 stems, matching the 53 kept rows of design.md, so the map is checked against an independent statement of intent.
 
-## Quality review — test-map-hub-links (round 1)
+### Scope
+This round re-checks my round 1 findings and the lines changed since 76b2987d. Outside openspec/, one file changed: plugins/openspec/hooks/test-suite.test.mjs (+55, commit cfaefc9f). CONTRIBUTING.md, scripts/ and the map are untouched since round 1.
+
+### Previous findings
+Round 1 had no blocking or important finding from me. Its two nits are unchanged and listed as F1 and F2. The one important finding of the round-1 bench (kept hub readers not pinned) came from test-coverage-reviewer; the fix is confirmed below.
+
+### Re-check of cfaefc9f
+- KEPT_HUB_READERS holds 24 stems for change-loop.mjs and 29 for deliver-check.mjs, 53 in total, equal to the number of kept rows in design.md.
+- suiteStem throws unless a stem names exactly one suite file; the unit test covers the 0-match case.
+- hubLinkProblems ignores order, reports missing and extra separately and sorts the result. The unit test covers equal sets, reordered, missing, extra, both, an absent key and an unknown stem.
+- The real-map tests read the map through suiteScript.readTestMap and compare it to the kept list, so removing a kept reader or re-adding a dropped link turns them red.
+- Run alone: env TMPDIR=/var/tmp/devkit-suite node scripts/test-suite.mjs plugins/openspec/hooks/test-suite.test.mjs gave 1 files, 72 tests, 72 pass, 0 fail, 14.8s.
+- evidence.md says the whole-suite rows were not re-run at cfaefc9f. The task brief records a later whole-suite run on the head with 3900 tests, 0 fail.
 
 ### Summary
-- 3 findings (0 blocking, 0 important, 2 nit) + 1 praise
-- Justification: reviewed origin/main...HEAD (map data, the new pin tests, the CONTRIBUTING sentence, the plan files and the proof files). Independently verified: 56 document keys in scope, 35 removed and 21 narrowed or relinked, as the proposal states; only the two hub keys change beyond them; slow and shared untouched; no empty list; the dropped hub links are tests that do not import change-loop.mjs or deliver-check.mjs (checked by grep, and deliver-check.mjs/conduct-check.mjs do not import change-loop.mjs); the 3 new tests pass when run alone; python3 scripts/check.py prints all checks passed; commits after ad182dd2 (the evidence head) touch only openspec/ files; the Markdown-only run (37 s) plus the fixed CI part (10 s) is under 2 minutes; test names between base, head and train runs are identical after removing the 3 new tests; the reader-fails proof shows a renamed roadmap heading fails the selected guard test. Residual risks accepted by the plan: slow readers of narrowed documents run only on the train (owner accepted, requirements question 1), the read tracer covers only five fs functions in Node processes (non-Node children covered by the recorded grep), and the hub coverage is a single run on the base.
+- 4 findings (0 blocking, 0 important, 2 nit) + 2 praise.
+- Justification: re-review limited to the round 1 findings and the cfaefc9f diff. The helper and tests are correct and close the gap the bench raised. The test file passes alone. The two remaining nits are optional and unchanged. No blocking or important finding is open from this reviewer.
