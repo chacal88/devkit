@@ -1120,6 +1120,61 @@ test('test-map-hub-links AC-1 AC-2 AC-3 AC-4 the repository\'s map links no slow
   assert.deepEqual(empty, [], 'no files key has an empty list');
 });
 
+// D-4: the tests each hub keeps, the rows of design.md's two tables marked `kept`.
+const KEPT_HUB_READERS = {
+  'plugins/openspec/hooks/change-loop.mjs': [
+    'gen-agents', 'change-loop-compozy', 'change-loop-declared', 'change-loop-remote-state', 'change-loop-remote', 'change-loop',
+    'change-state-stages', 'compozy-driver', 'deliver-check-archive', 'delivery-models', 'delivery-train-after', 'delivery-train',
+    'guard', 'jira-task', 'project-loop', 'release-tags', 'roadmap-loop-followups', 'roadmap-loop-upfront', 'roadmap-loop',
+    'stage-models', 'status-line', 'version-pin', 'changes-under-way', 'setup-block',
+  ],
+  'plugins/openspec/hooks/deliver-check.mjs': [
+    'change-loop-compozy', 'change-loop-declared', 'change-loop-remote-state', 'change-loop-remote', 'change-loop',
+    'change-state-stages', 'conduct-check', 'deliver-check-archive', 'deliver-check-cli', 'deliver-check', 'delivery-models',
+    'delivery-train-after', 'delivery-train', 'flow-check', 'guard', 'merge-setup', 'project-loop', 'release-merge', 'release-note',
+    'release-tags', 'roadmap-loop-followups', 'roadmap-loop-upfront', 'roadmap-loop', 'stage-models', 'status-line', 'test-suite',
+    'version-pin', 'changes-under-way', 'setup-block',
+  ],
+};
+
+// The one suite file named `<name>` plus the test extension; a name that matches none or several is a plan error.
+function suiteStem(listed, name) {
+  const hits = listed.filter((file) => file.split('/').pop() === name + TEST_EXT);
+  if (hits.length !== 1) throw new Error(`${name} names ${hits.length} suite test files, not one`);
+  return hits[0];
+}
+
+// The sorted problems of `hub`'s list in `map` against the kept stems: `<hub>: missing <test>` and `<hub>: extra <test>`.
+function hubLinkProblems(map, listed, hub, stems) {
+  const expected = new Set(stems.map((name) => suiteStem(listed, name)));
+  const actual = new Set(map.files[hub] ?? []);
+  const missing = [...expected].filter((file) => !actual.has(file)).map((file) => `${hub}: missing ${file}`);
+  const extra = [...actual].filter((file) => !expected.has(file)).map((file) => `${hub}: extra ${file}`);
+  return [...missing, ...extra].sort();
+}
+
+test('test-map-hub-links AC-3 AC-4 hubLinkProblems names a kept reader the hub list lacks and a link it holds beyond the kept ones', () => {
+  const T = (name) => `${HOOKS}/${name}${TEST_EXT}`;
+  const listed = [T('a'), T('b'), T('c')];
+  const hub = 'plugins/openspec/hooks/hub.mjs';
+  const of = (tests) => hubLinkProblems({ files: { [hub]: tests } }, listed, hub, ['a', 'b']);
+  assert.deepEqual(of([T('a'), T('b')]), []);
+  assert.deepEqual(of([T('b'), T('a')]), [], 'the order of the list does not matter');
+  assert.deepEqual(of([T('a')]), [`${hub}: missing ${T('b')}`]);
+  assert.deepEqual(of([T('a'), T('b'), T('c')]), [`${hub}: extra ${T('c')}`]);
+  assert.deepEqual(of([T('a'), T('c')]), [`${hub}: extra ${T('c')}`, `${hub}: missing ${T('b')}`]);
+  assert.deepEqual(hubLinkProblems({ files: {} }, listed, hub, ['a']), [`${hub}: missing ${T('a')}`], 'an absent key misses every kept reader');
+  assert.throws(() => hubLinkProblems({ files: {} }, listed, hub, ['nope']), /nope names 0 suite test files/);
+});
+
+for (const [ac, hub] of [['AC-3', 'plugins/openspec/hooks/change-loop.mjs'], ['AC-4', 'plugins/openspec/hooks/deliver-check.mjs']]) {
+  test(`test-map-hub-links ${ac} the map links ${hub} to exactly its kept readers`, () => {
+    const found = suiteScript.readTestMap(REPO_ROOT);
+    assert.equal(found.error, undefined, found.error);
+    assert.deepEqual(hubLinkProblems(found.map, suiteFiles(REPO_ROOT), hub, KEPT_HUB_READERS[hub]), []);
+  });
+}
+
 // Invariant: M5 asks for a key only for a file git tracks, so an untracked or git-ignored file under a suite folder (a macOS `.DS_Store`,
 // an editor's backup) refuses no run; where git cannot tell (no work tree of its own, no tracked file), the disk walk decides and the
 // check is never weaker. Layer: the pure function mapProblems of scripts/test-suite.mjs (D-3, "The M5 list"). Suite: test-suite.
