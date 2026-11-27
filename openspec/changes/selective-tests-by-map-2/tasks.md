@@ -138,7 +138,7 @@ the free disk checked (`df -h /`).
   shows, besides the record's own file, the three `Amended by` lines, the two `openspec/config.yaml`
   citations and the header comment of `scripts/test-suite.mjs` (and any `CLAUDE.md` or `CONTRIBUTING.md` line that names the record), each in the form
   `ADR [a-change-runs-only-the-tests-its-files-map-to]`, and no line in a test or fixture file.
-- [ ] 2.5 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-5,
+- [x] 2.5 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-5,
   AC-6, AC-7).
 
 ## 3. Release and the proofs (phase 3)
