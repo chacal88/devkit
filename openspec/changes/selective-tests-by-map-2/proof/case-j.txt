@@ -1,0 +1,49 @@
+case (j): a copy of the branch's head 02eb93edb470f02f60c83ca508c25245233f7a55 made with git archive, with no .git, run with GIT_CEILING_DIRECTORIES=/var/tmp/devkit-stbm; stopped with SIGINT once the first start lines were read
+copy: /var/tmp/devkit-stbm/nogit (0 .git entries)
+command: env GIT_CEILING_DIRECTORIES=/var/tmp/devkit-stbm node scripts/test-suite.mjs --own-files
+---
+selected the whole suite: git cannot tell the own files: Command failed: git -C /private/var/tmp/devkit-stbm/nogit/ status --porcelain -z -uall
+start plugins/openspec/hooks/change-loop.test.mjs
+start plugins/openspec/hooks/deliver-check-archive.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/change-loop-compozy.test.mjs
+start plugins/openspec/hooks/flow-check.test.mjs
+start plugins/openspec/hooks/roadmap-loop-followups.test.mjs
+start plugins/openspec/hooks/guard.test.mjs
+start plugins/openspec/hooks/roadmap-loop-upfront.test.mjs
+start plugins/openspec/hooks/project-loop.test.mjs
+start plugins/openspec/hooks/delivery-train.test.mjs
+start plugins/openspec/hooks/change-loop-remote-state.test.mjs
+start plugins/openspec/hooks/delivery-models.test.mjs
+start plugins/openspec/hooks/roadmap-loop.test.mjs
+start plugins/openspec/hooks/conduct-check.test.mjs
+=== plugins/openspec/hooks/change-loop.test.mjs
+=== plugins/openspec/hooks/change-loop.test.mjs: FAIL 0.0s
+=== plugins/openspec/hooks/change-loop-remote-state.test.mjs
+=== plugins/openspec/hooks/change-loop-remote-state.test.mjs: FAIL 0.0s
+=== plugins/openspec/hooks/delivery-train.test.mjs
+=== plugins/openspec/hooks/delivery-train.test.mjs: FAIL 0.0s
+=== plugins/openspec/hooks/roadmap-loop.test.mjs
+=== plugins/openspec/hooks/roadmap-loop.test.mjs: FAIL 0.0s
+=== plugins/openspec/hooks/conduct-check.test.mjs
+=== plugins/openspec/hooks/conduct-check.test.mjs: FAIL 0.0s
+=== plugins/openspec/hooks/project-loop.test.mjs
+=== plugins/openspec/hooks/project-loop.test.mjs: FAIL 0.0s
+=== plugins/openspec/hooks/roadmap-loop-upfront.test.mjs
+=== plugins/openspec/hooks/roadmap-loop-upfront.test.mjs: FAIL 0.0s
+=== plugins/openspec/hooks/roadmap-loop-followups.test.mjs
+=== plugins/openspec/hooks/roadmap-loop-followups.test.mjs: FAIL 0.0s
+=== plugins/openspec/hooks/deliver-check-archive.test.mjs
+=== plugins/openspec/hooks/deliver-check-archive.test.mjs: FAIL 0.0s
+=== plugins/openspec/hooks/flow-check.test.mjs
+=== plugins/openspec/hooks/flow-check.test.mjs: FAIL 0.0s
+=== plugins/openspec/hooks/guard.test.mjs
+=== plugins/openspec/hooks/guard.test.mjs: FAIL 0.0s
+=== plugins/openspec/hooks/deliver-check.test.mjs
+=== plugins/openspec/hooks/deliver-check.test.mjs: FAIL 0.0s
+=== plugins/openspec/hooks/change-loop-compozy.test.mjs
+=== plugins/openspec/hooks/change-loop-compozy.test.mjs: FAIL 0.0s
+=== plugins/openspec/hooks/delivery-models.test.mjs
+=== plugins/openspec/hooks/delivery-models.test.mjs: FAIL 0.0s
+interrupted; still running: plugins/openspec/hooks/change-loop.test.mjs, plugins/openspec/hooks/deliver-check-archive.test.mjs, plugins/openspec/hooks/deliver-check.test.mjs, plugins/openspec/hooks/change-loop-compozy.test.mjs, plugins/openspec/hooks/flow-check.test.mjs, plugins/openspec/hooks/roadmap-loop-followups.test.mjs, plugins/openspec/hooks/guard.test.mjs, plugins/openspec/hooks/roadmap-loop-upfront.test.mjs, plugins/openspec/hooks/project-loop.test.mjs, plugins/openspec/hooks/delivery-train.test.mjs, plugins/openspec/hooks/change-loop-remote-state.test.mjs, plugins/openspec/hooks/delivery-models.test.mjs, plugins/openspec/hooks/roadmap-loop.test.mjs, plugins/openspec/hooks/conduct-check.test.mjs
+exit: 130 (SIGINT sent when the first start lines were read; 14 start lines were out by then, the pool starts 14 files at once)

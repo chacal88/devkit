@@ -143,7 +143,7 @@ the free disk checked (`df -h /`).
 
 ## 3. Release and the proofs (phase 3)
 
-- [ ] 3.1 Conductor: merge `origin/main` into the branch, the last merge before review (fetch first,
+- [x] 3.1 Conductor: merge `origin/main` into the branch, the last merge before review (fetch first,
   then `git merge origin/main`). The branch holds no release line before the delivery, so a release
   file cannot conflict here; a conflict after the delivery's `assign-release` is classified by the
   loop (`assignConflict` in `plugins/openspec/hooks/conduct-check.mjs`). Keep both entries of the ADR list line of `openspec/config.yaml` when it
@@ -152,7 +152,7 @@ the free disk checked (`df -h /`).
   `tasksItem`; `docs/openspec-flow.md:347`; the two test comments of D-8). If the merge moved or
   renamed a file or a helper this plan names, the same commit edits `proposal.md` and `tasks.md`
   (CLAUDE.md). Check: `git log -1 --format=%P` shows two parents, and `git status --short` is empty.
-- [ ] 3.2 The release note and the record stay readable, after 3.1's merge. This change follows the
+- [x] 3.2 The release note and the record stay readable, after 3.1's merge. This change follows the
   note rule (`proposal.md`, "Release rule"; `docs/adr/0034-release-at-merge.md` decisions 1, 2 and
   7; `CONTRIBUTING.md` step 5): `openspec/changes/selective-tests-by-map-2/release.md`, written with
   the plan, states `devkit-openspec: patch`, and the delivery writes the versions, the
@@ -169,13 +169,13 @@ the free disk checked (`df -h /`).
   exists, and
   `node --input-type=module -e "const m = await import('./plugins/openspec/hooks/change-loop.mjs'); console.log(JSON.stringify(m.decisionRecords(process.cwd(), 'openspec/changes/selective-tests-by-map-2')))"`
   prints `"unreadable":[]` and `"proposed":[]`.
-- [ ] 3.3 Conductor: AC-8 at the head (D-10 steps 3 to 5). When 3.1 merged a newer `origin/main`
+- [x] 3.3 Conductor: AC-8 at the head (D-10 steps 3 to 5). When 3.1 merged a newer `origin/main`
   than the base of 1.1's copy, first redo 1.1's copy and run on that sha (D-10 step 1), and keep its
   sha in `proof/same-tests.txt`. With no `TMPDIR` override, run
   `node scripts/test-suite.mjs --reporter=tap > /var/tmp/devkit-stbm/head.tap 2>&1` and compare its
   names and `start` lines with the base run's. Commit the counts, the removed count and the two empty diffs
   as `proof/same-tests.txt`. Check: exit 0; both diffs are empty.
-- [ ] 3.4 Conductor: the real runs of every case the plan declares. Use a scratch clone of the
+- [x] 3.4 Conductor: the real runs of every case the plan declares. Use a scratch clone of the
   branch under `/var/tmp/devkit-stbm/clone`, with `refs/remotes/origin/main` set to this worktree's
   `origin/main` sha. Each case is one scratch commit there (case (j) is a copy instead) and one run of
   `node scripts/test-suite.mjs --own-files`, with its output kept as `proof/case-<x>.txt`:
@@ -201,14 +201,14 @@ the free disk checked (`df -h /`).
     (d) (AC-4, the fail safe of D-2).
 
   Remove the clone and the copy afterwards. Check: each file shows the outcome named here.
-- [ ] 3.5 Conductor: AC-5. Record two things in `proof/base-merge.txt`:
+- [x] 3.5 Conductor: AC-5. Record two things in `proof/base-merge.txt`:
   - the run of `node scripts/test-suite.mjs --own-files` on the head after 3.1's merge, its `selected`
     lines naming only this change's own files' tests;
   - the `Test command:` and `Gates:` lines of `openspec/config.yaml` at that head, the texts the loop's
     agents read after a merge.
 
   Check: no `selected the whole suite` line.
-- [ ] 3.6 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-1 to
+- [x] 3.6 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-1 to
   AC-9). The pr-verifier writes its row with the `selected` lines (D-6).
 
 ## Workflow follow-up

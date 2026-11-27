@@ -1,0 +1,32 @@
+selective-tests-by-map-2 task 3.3: AC-8 at the head, the whole suite with no flag, base and head compared (D-10 steps 3 to 5)
+
+base copy: git archive of origin/main e8991d6db221a4eab8a58a16f72c32ded9fb5360, the same sha as task 1.1 (task 3.1's merge of origin/main was 'Already up to date', so the copy was not redone)
+head: 02eb93edb470f02f60c83ca508c25245233f7a55 (phase 3 edits to tasks.md are not committed yet and are not code)
+head command: env TMPDIR=/var/tmp/devkit-suite node scripts/test-suite.mjs --reporter=tap > /var/tmp/devkit-stbm/head.tap 2>&1
+  (the owner's standing rule for this macOS machine; D-10 step 3 says no TMPDIR override, but the base run of task 1.1 used the same override, so the two runs are comparable)
+exit code: 0
+machine: 14 cores, no other suite running, load average 4.60 11.36 10.64 at the start (uptime)
+base suite: 44 files, 3855 tests, 3852 pass, 0 fail, 741.0s, concurrency 14
+head suite: 44 files, 3892 tests, 3889 pass, 0 fail, 712.9s, concurrency 14
+
+== counts
+base test names: 3855
+head test names: 3892
+removed (head names that start 'selective-tests-by-map-2 '): 36
+head names after removal: 3856
+start lines: base 44, head 44
+
+== step 5: diff of the sorted start lines (base head)
+(empty)
+
+== step 4: diff of the sorted names, head reduced as D-10 says (base head)
+lines of the raw diff: 7 (the three compozy-loops skips differ only in the path inside their '# SKIP' reason; one test is added, see below)
+
+== step 4 with two stated reductions
+1. the text after '# SKIP' is dropped on both sides: the three compozy-loops tests skip without a daemon and their skip reason names the folder the run was in (/var/tmp/devkit-stbm/base against this worktree); the test names and the skip are the same
+2498a2499
+> release-note AC-14 texts: the ADRs line keeps the two records linked and lets later records follow them
+2. the one name left is a test that commit 02eb93ed (phase 2, after the gate 2.5 red) added to plugins/openspec/hooks/release-note.test.mjs under its own AC-14 prefix, not under 'selective-tests-by-map-2 ':
+   release-note AC-14 texts: the ADRs line keeps the two records linked and lets later records follow them
+(empty)
+   no base test name is missing from the head: every line of the diff above starts with '>'

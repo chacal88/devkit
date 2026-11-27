@@ -1,0 +1,238 @@
+case (h): a local merge commit of the scratch branch into origin/main, run with GITHUB_BASE_REF=main GITHUB_HEAD_REF=scratch, as CI's merged ref is
+clone: /var/tmp/devkit-stbm/clone, a clone of this branch's head 02eb93edb470f02f60c83ca508c25245233f7a55; refs/remotes/origin/main in the clone is set to that same sha, not to e8991d6d: with e8991d6d every case's own files would also hold the branch's own earlier commits (scripts/test-suite.mjs, deliver-check.mjs, ...), and no case could show what one scratch file selects
+checked out: merge commit 410cd7e1, parents 02eb93edb470f02f60c83ca508c25245233f7a55 3f2bd8e8ccc72dddb1a871da243400a7a2fe2978; the scratch commit touches: plugins/openspec/hooks/status-line.mjs 
+command: env GITHUB_BASE_REF=main GITHUB_HEAD_REF=scratch node scripts/test-suite.mjs --own-files
+---
+selected plugins/openspec/hooks/status-line.test.mjs by plugins/openspec/hooks/status-line.mjs
+start plugins/openspec/hooks/status-line.test.mjs
+=== plugins/openspec/hooks/status-line.test.mjs
+▶ run-status-bar AC-1 input: workspace.current_dir wins over cwd
+  ✔ inputOf (0.542667ms)
+  ✔ main runs state in that folder (182.055458ms)
+✔ run-status-bar AC-1 input: workspace.current_dir wins over cwd (183.384833ms)
+▶ run-status-bar AC-1 input: cwd is the folder when workspace is missing, empty or no string
+  ✔ workspace missing (0.104333ms)
+  ✔ workspace.current_dir empty (0.065417ms)
+  ✔ workspace.current_dir a number (0.051083ms)
+  ✔ workspace not an object (0.03625ms)
+  ✔ a session_id that is empty or no string is no session (0.064375ms)
+  ✔ every other field is ignored, the transcript included (0.070833ms)
+✔ run-status-bar AC-1 input: cwd is the folder when workspace is missing, empty or no string (0.732667ms)
+✔ run-status-bar AC-1 input: empty standard input reads as the process folder and no session (0.072708ms)
+✔ run-status-bar AC-1 input: input that is not JSON reads as no fields (0.047584ms)
+✔ run-status-bar AC-1 input: an unclosed object reads as no fields, whatever it already shows (0.036875ms)
+▶ run-status-bar AC-1 input: JSON that is no object reads as no fields
+  ✔ [1,2] (0.035625ms)
+  ✔ ["cwd"] (0.025458ms)
+  ✔ "cwd" (0.026292ms)
+  ✔ null (0.036666ms)
+  ✔ 7 (0.027541ms)
+  ✔ true (0.03975ms)
+✔ run-status-bar AC-1 input: JSON that is no object reads as no fields (0.330375ms)
+▶ run-status-bar AC-3 choice: the coordinator session prints the counts line from any of its folders
+  ✔ the main checkout (148.789541ms)
+  ✔ a change worktree (the coordinator wins over the change) (164.4375ms)
+✔ run-status-bar AC-3 choice: the coordinator session prints the counts line from any of its folders (313.449833ms)
+▶ run-status-bar AC-4 choice: another session id, no session id and no run file print no counts line
+  ✔ another session id (131.232541ms)
+  ✔ no session id (120.976083ms)
+  ✔ a run file whose session is null and an input with no session: no session equals no session (125.170708ms)
+  ✔ no run file (110.5055ms)
+  ✔ in a change worktree another session reads the change, not the listing (178.902333ms)
+✔ run-status-bar AC-4 choice: another session id, no session id and no run file print no counts line (667.203458ms)
+▶ run-status-bar AC-1 choice: a change worktree on its branch prints its line
+  ✔ the line (155.159583ms)
+  ✔ the entry's root is compared through realpath (a link to the worktree) (157.648541ms)
+  ✔ a subfolder of the worktree is the same checkout (150.693917ms)
+✔ run-status-bar AC-1 choice: a change worktree on its branch prints its line (463.835708ms)
+✔ run-status-bar AC-1 choice: an archive branch reads its change and prints its line, the one call not offline (149.122ms)
+▶ run-status-bar AC-4 choice: a branch with no change folder, a detached HEAD and main print nothing and run no state
+  ✔ a branch with no change folder (129.599542ms)
+  ✔ a detached HEAD (142.027708ms)
+  ✔ main (103.771209ms)
+  ✔ an archive branch of an unusable id (131.002875ms)
+✔ run-status-bar AC-4 choice: a branch with no change folder, a detached HEAD and main print nothing and run no state (506.798958ms)
+▶ run-status-bar AC-4 choice: an entry with another root or branch prints nothing
+  ✔ another root (194.638625ms)
+  ✔ no root (168.877792ms)
+  ✔ another branch (155.337042ms)
+  ✔ no branch (155.518958ms)
+  ✔ an archive branch whose entry names the plain branch (152.890834ms)
+  ✔ no entry for the change (153.044042ms)
+✔ run-status-bar AC-4 choice: an entry with another root or branch prints nothing (980.867667ms)
+▶ run-status-bar AC-4 choice: a folder that is no git checkout, or has no openspec folder, prints nothing and exits 0
+  ✔ not a git folder (20.176458ms)
+  ✔ not a git folder, and a session id (29.761541ms)
+  ✔ a git folder on a branch with no openspec folder (68.570584ms)
+  ✔ a folder that does not exist (19.219708ms)
+✔ run-status-bar AC-4 choice: a folder that is no git checkout, or has no openspec folder, prints nothing and exits 0 (138.05575ms)
+▶ run-status-bar AC-5 calls: each refresh makes at most one state call
+  ✔ the coordinator (135.252334ms)
+  ✔ a change worktree (153.476667ms)
+  ✔ the coordinator inside a change worktree (162.159041ms)
+  ✔ a session that conducts nothing makes none (111.936333ms)
+✔ run-status-bar AC-5 calls: each refresh makes at most one state call (563.142083ms)
+▶ run-status-bar AC-5 calls: a plan-stage state --change in a real process makes no gh call
+  ✔ the state command (1723.752667ms)
+  ✔ the bar (1733.594041ms)
+✔ run-status-bar AC-5 calls: a plan-stage state --change in a real process makes no gh call (3457.574625ms)
+▶ run-status-bar AC-5 failure: state exits 3 and the bar prints nothing, exit 0
+  ✔ the coordinator (136.342458ms)
+  ✔ a change worktree (159.15275ms)
+✔ run-status-bar AC-5 failure: state exits 3 and the bar prints nothing, exit 0 (295.765375ms)
+▶ run-status-bar AC-5 failure: state prints no JSON, or a JSON that is no listing, and the bar prints nothing
+  ✔ text, the coordinator (133.705541ms)
+  ✔ text, a change worktree (152.851792ms)
+  ✔ nothing, the coordinator (133.314209ms)
+  ✔ nothing, a change worktree (150.842583ms)
+  ✔ an array, the coordinator (134.986083ms)
+  ✔ an array, a change worktree (150.618166ms)
+  ✔ an object with no changes, the coordinator (131.384416ms)
+  ✔ an object with no changes, a change worktree (160.269791ms)
+  ✔ changes that are no list, the coordinator (132.975834ms)
+  ✔ changes that are no list, a change worktree (151.277209ms)
+✔ run-status-bar AC-5 failure: state prints no JSON, or a JSON that is no listing, and the bar prints nothing (1432.974166ms)
+▶ run-status-bar AC-5 failure: a state that passes the bound is killed, the bar prints nothing and exits 0
+  ✔ the coordinator (435.521375ms)
+  ✔ a change worktree (457.710334ms)
+✔ run-status-bar AC-5 failure: a state that passes the bound is killed, the bar prints nothing and exits 0 (893.616292ms)
+▶ run-status-bar AC-5 failure: an abort of the signal ends the state process before main returns
+  ✔ the coordinator (145.406042ms)
+  ✔ a change worktree (173.051583ms)
+  ✔ a signal already aborted runs no state at all (148.462375ms)
+✔ run-status-bar AC-5 failure: an abort of the signal ends the state process before main returns (467.254334ms)
+▶ run-status-bar AC-5 failure: the bound and an abort also end the processes the state call started
+  ✔ the coordinator, at the bound (1642.130834ms)
+  ✔ the coordinator, at an abort (196.656917ms)
+  ✔ a change worktree, at the bound (1681.230042ms)
+  ✔ a change worktree, at an abort (188.971708ms)
+✔ run-status-bar AC-5 failure: the bound and an abort also end the processes the state call started (3709.556208ms)
+▶ run-status-bar AC-5 failure: SIGTERM, SIGINT and SIGHUP end the real bar and the real openspec its state is waiting on
+  ✔ SIGTERM (752.06075ms)
+  ✔ SIGINT (785.550833ms)
+  ✔ SIGHUP (759.315708ms)
+✔ run-status-bar AC-5 failure: SIGTERM, SIGINT and SIGHUP end the real bar and the real openspec its state is waiting on (2297.471ms)
+▶ run-status-bar AC-1 snippet: the README command starts the newest installed copy, and with none prints nothing and exits 0
+  ✔ the docs carry the same entry as the README (0.552083ms)
+  ✔ it is a command entry (0.113209ms)
+  ✔ two versions: 0.10.0 is newer than 0.9.0 (the sort -V case) (33.864875ms)
+  ✔ one version (28.327167ms)
+  ✔ no copy of the plugin: nothing on either stream, exit 0 (5.772375ms)
+  ✔ the plugin folder holds no version: nothing, exit 0 (5.3085ms)
+  ✔ with no CLAUDE_CONFIG_DIR the copy is under $HOME/.claude (24.397333ms)
+✔ run-status-bar AC-1 snippet: the README command starts the newest installed copy, and with none prints nothing and exits 0 (98.773917ms)
+✔ run-status-bar AC-1 line: running has no state icon and no reason (0.086041ms)
+✔ run-status-bar AC-1 line: waiting-for-owner has the owner icon and the reason (0.064917ms)
+✔ run-status-bar AC-1 line: waiting-on-github has the hourglass and the reason (0.0445ms)
+✔ run-status-bar AC-1 line: blocked has the stop icon and the reason (0.041666ms)
+✔ run-status-bar AC-1 line: archived shows its icon once, no strip and no progress (0.033958ms)
+▶ run-status-bar AC-1 line: a running change with the reason ready, or a held one, shows no reason
+  ✔ ready (0.045208ms)
+  ✔ held for a place (0.0365ms)
+✔ run-status-bar AC-1 line: a running change with the reason ready, or a held one, shows no reason (0.15625ms)
+▶ run-status-bar AC-1 strip: the first stage, a middle one and the last one
+  ✔ first (0.053709ms)
+  ✔ middle (0.0395ms)
+  ✔ last (0.20225ms)
+✔ run-status-bar AC-1 strip: the first stage, a middle one and the last one (0.388208ms)
+▶ run-status-bar AC-1 strip: stages null, and a stage the list does not hold, draw neither strip nor progress
+  ✔ stages null (0.031708ms)
+  ✔ a stage outside the list (0.045292ms)
+  ✔ an empty list (0.029584ms)
+  ✔ no stage title and a reason (0.036083ms)
+✔ run-status-bar AC-1 strip: stages null, and a stage the list does not hold, draw neither strip nor progress (0.233667ms)
+▶ run-status-bar AC-1 width: columns counts the emoji two and the rest one
+  ✔ "🛠️" (0.02775ms)
+  ✔ "🙋" (0.019917ms)
+  ✔ "■" (0.030042ms)
+  ✔ "…" (0.019875ms)
+  ✔ "ç" (0.019375ms)
+  ✔ "" (0.019208ms)
+  ✔ "é" (0.019167ms)
+  ✔ "a‍b" (0.023958ms)
+  ✔ "feat" (0.038833ms)
+✔ run-status-bar AC-1 width: columns counts the emoji two and the rest one (0.376667ms)
+▶ run-status-bar AC-1 cut: step 1 drops the reason's last words and ends it in an ellipsis
+  ✔ words dropped one at a time until the line fits (0.078666ms)
+  ✔ the first word is kept when it fits with the ellipsis (exactly 100) (0.048709ms)
+✔ run-status-bar AC-1 cut: step 1 drops the reason's last words and ends it in an ellipsis (0.367208ms)
+▶ run-status-bar AC-1 cut: step 2 drops the reason with its separator
+  ✔ a first word that does not fit with the ellipsis (0.072333ms)
+  ✔ a reason of one word that is too long (0.055292ms)
+✔ run-status-bar AC-1 cut: step 2 drops the reason with its separator (0.226792ms)
+▶ run-status-bar AC-1 cut: step 3 cuts the id at its end, keeping at least 20 columns, and never the rest
+  ✔ a 60-letter id keeps 50 letters and the ellipsis, the line is exactly 100 (0.087ms)
+  ✔ a 60-letter stage title leaves the id its 20 letters; the line, 116 wide, is printed as it is (0.059792ms)
+  ✔ a 70-letter id with the reason: the reason goes first, then the id (0.096208ms)
+✔ run-status-bar AC-1 cut: step 3 cuts the id at its end, keeping at least 20 columns, and never the rest (0.338584ms)
+✔ run-status-bar AC-1 cut: a line of exactly 100 columns is not cut (0.04925ms)
+✔ run-status-bar AC-3 counts: the mix of the criterion (0.067542ms)
+✔ run-status-bar AC-3 counts: an empty listing prints the four zeros (0.055916ms)
+✔ run-status-bar AC-3 counts: waiting-on-github and archived count in play only (0.059583ms)
+▶ run-status-bar AC-3 counts: a listing that fails prints nothing
+  ✔ exit 3 (30.680708ms)
+  ✔ text (30.678833ms)
+  ✔ changes that are no list (30.067333ms)
+✔ run-status-bar AC-3 counts: a listing that fails prints nothing (197.324208ms)
+▶ run-status-bar AC-6 language: of/de, the counts words and the singular of blocked follow the language
+  ✔ of and de, the rest equal (0.110708ms)
+  ✔ a language that is neither is Brazilian Portuguese, as everywhere (0.048042ms)
+  ✔ 0 blocked (0.067125ms)
+  ✔ 1 blocked (0.042458ms)
+  ✔ 2 blocked (0.036375ms)
+✔ run-status-bar AC-6 language: of/de, the counts words and the singular of blocked follow the language (0.49575ms)
+✔ run-status-bar AC-6 language: the four new message keys exist in both languages, with the words of the design (0.080417ms)
+▶ run-status-bar AC-6 language: the language reaches the state call of the coordinator and of a change worktree
+  ✔ --lang pt-BR, the coordinator (132.925459ms)
+  ✔ --lang pt-BR, a change worktree (151.814917ms)
+  ✔ --lang fr, the coordinator (160.722833ms)
+  ✔ --lang fr, a change worktree (207.685167ms)
+  ✔ --lang en, the coordinator (159.467458ms)
+  ✔ --lang en, a change worktree (161.660417ms)
+✔ run-status-bar AC-6 language: the language reaches the state call of the coordinator and of a change worktree (974.808458ms)
+▶ run-status-bar AC-2 budget: a cap in the config and a transcript on the input give no percentage and no word about it
+  ✔ en, the coordinator (143.679959ms)
+  ✔ en, a change worktree (180.412334ms)
+  ✔ pt-BR, the coordinator (140.222875ms)
+  ✔ pt-BR, a change worktree (153.232667ms)
+✔ run-status-bar AC-2 budget: a cap in the config and a transcript on the input give no percentage and no word about it (618.222541ms)
+▶ run-status-bar AC-5 read-only: git status, the run file and the worktree list are as they were, and no loop marker is printed
+  ✔ the coordinator (228.35525ms)
+  ✔ a change worktree (250.413167ms)
+✔ run-status-bar AC-5 read-only: git status, the run file and the worktree list are as they were, and no loop marker is printed (479.0355ms)
+▶ run-status-bar AC-5 read-only: the source writes nothing, spawns only node and git, and never reads a transcript or a cap
+  ✔ the only fs functions are read-only ones (0.147875ms)
+  ✔ no write call but the two standard streams (0.102041ms)
+  ✔ every spawned program is node, git or the injected state command (0.155084ms)
+  ✔ no read of a transcript, a cap or a spent count, and no loop marker (0.07725ms)
+✔ run-status-bar AC-5 read-only: the source writes nothing, spawns only node and git, and never reads a transcript or a cap (0.7415ms)
+▶ run-status-bar AC-7 mock: each line of the lone-change mock-up, in both languages and with the long id
+  ✔ en (0.157625ms)
+  ✔ pt-BR (0.06225ms)
+  ✔ the long id of the mock: the reason is cut by step 1 to exactly 100 columns (0.062125ms)
+  ✔ the widths the mock states: 97 and 98 cut, 104 whole (0.067084ms)
+✔ run-status-bar AC-7 mock: each line of the lone-change mock-up, in both languages and with the long id (0.481417ms)
+▶ run-status-bar AC-7 mock: each line of the roadmap-run mock-up
+  ✔ ten changes, all running (0.05225ms)
+  ✔ the mix of the criterion (0.047083ms)
+✔ run-status-bar AC-7 mock: each line of the roadmap-run mock-up (0.161417ms)
+✔ run-status-bar AC-4 mock: a session that conducts nothing prints the empty bar of the mock-up (111.061375ms)
+▶ run-status-bar AC-1 usage: an unknown option prints nothing on standard output, one line on standard error, exit 0
+  ✔ --frobnicate (109.8975ms)
+  ✔ --lang en --frobnicate (119.045083ms)
+  ✔ stray (113.064958ms)
+  ✔ --lang (112.287083ms)
+✔ run-status-bar AC-1 usage: an unknown option prints nothing on standard output, one line on standard error, exit 0 (454.618125ms)
+✔ run-status-bar AC-1 input: a standard input left open is read as no fields after one second and the process exits 0 (1395.143ms)
+ℹ tests 184
+ℹ suites 0
+ℹ pass 184
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20899.965834
+=== plugins/openspec/hooks/status-line.test.mjs: pass 20.9s
+pass 20.9s plugins/openspec/hooks/status-line.test.mjs
+suite: 1 files, 184 tests, 184 pass, 0 fail, 20.9s, concurrency 14
+exit: 0

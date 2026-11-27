@@ -1,0 +1,7 @@
+case (e): a docs and openspec/ only commit selects no test file
+clone: /var/tmp/devkit-stbm/clone, a clone of this branch's head 02eb93edb470f02f60c83ca508c25245233f7a55; refs/remotes/origin/main in the clone is set to that same sha, not to e8991d6d: with e8991d6d every case's own files would also hold the branch's own earlier commits (scripts/test-suite.mjs, deliver-check.mjs, ...), and no case could show what one scratch file selects
+branch in the clone: case-e; scratch commit: 11be4d34; files it touches: docs/scratch-note.md openspec/changes/scratch-change/notes.md 
+command: node scripts/test-suite.mjs --own-files
+---
+selected no test file: 2 own files, none maps to a test
+exit: 0

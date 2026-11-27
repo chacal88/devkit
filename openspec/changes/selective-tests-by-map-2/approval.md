@@ -3,5 +3,6 @@
 
 - Status: APPROVED
 - Readiness: sha256:919ce6f12944
+- Release note: sha256:f089a771c74d
 - Date: 2026-11-26
 - Owner's words: "`Aprovo o plano`"

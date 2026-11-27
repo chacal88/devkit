@@ -1,0 +1,553 @@
+case (b): the shared helper plugins/openspec/hooks/test-fixtures.mjs runs its fast importers and no slow file
+clone: /var/tmp/devkit-stbm/clone, a clone of this branch's head 02eb93edb470f02f60c83ca508c25245233f7a55; refs/remotes/origin/main in the clone is set to that same sha, not to e8991d6d: with e8991d6d every case's own files would also hold the branch's own earlier commits (scripts/test-suite.mjs, deliver-check.mjs, ...), and no case could show what one scratch file selects
+branch in the clone: case-b; scratch commit: 071281d9; files it touches: plugins/openspec/hooks/test-fixtures.mjs 
+command: node scripts/test-suite.mjs --own-files
+---
+selected plugins/openspec/hooks/change-state-stages.test.mjs by plugins/openspec/hooks/test-fixtures.mjs
+selected plugins/openspec/hooks/compozy-driver.test.mjs by plugins/openspec/hooks/test-fixtures.mjs
+selected plugins/openspec/hooks/guard.test.mjs by plugins/openspec/hooks/test-fixtures.mjs
+selected plugins/openspec/hooks/merge-setup.test.mjs by plugins/openspec/hooks/test-fixtures.mjs
+selected plugins/openspec/hooks/status-line.test.mjs by plugins/openspec/hooks/test-fixtures.mjs
+selected plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs by plugins/openspec/hooks/test-fixtures.mjs
+selected plugins/openspec/skills/devkit/scripts/gh-version.test.mjs by plugins/openspec/hooks/test-fixtures.mjs
+start plugins/openspec/hooks/guard.test.mjs
+start plugins/openspec/hooks/status-line.test.mjs
+start plugins/openspec/hooks/merge-setup.test.mjs
+start plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs
+start plugins/openspec/hooks/change-state-stages.test.mjs
+start plugins/openspec/hooks/compozy-driver.test.mjs
+start plugins/openspec/skills/devkit/scripts/gh-version.test.mjs
+=== plugins/openspec/skills/devkit/scripts/gh-version.test.mjs
+✔ gh-version 17: ghVersionLine gives the four lines of H-6 exactly (0.717167ms)
+✔ gh-version 18: the script prints one line, exits 0, and exits 2 on an argument (AC-7) (1665.778417ms)
+✔ gh-version 19: step 1 of SKILL.md names the script and 2.50.0 and says the setup goes on (AC-7) (0.296042ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1714.373167
+=== plugins/openspec/skills/devkit/scripts/gh-version.test.mjs: pass 1.7s
+=== plugins/openspec/hooks/compozy-driver.test.mjs
+✔ compozy-driver readiness: not-installed when the binary cannot be spawned, with its fixing command (2.41825ms)
+✔ compozy-driver readiness: daemon-stopped when the socket is absent, or a file nobody listens on (369.607292ms)
+✔ compozy-driver readiness: workspace-unknown when workspace info exits non-zero, run in the main checkout (461.404958ms)
+✔ compozy-driver readiness: kit-missing when the change loop is not in the workspace (375.588334ms)
+✔ compozy-driver readiness: ready when the binary, the daemon, the workspace and the kit are all there (365.473ms)
+✔ compozy-driver readiness: the rows are checked in order, the first failure wins (461.377125ms)
+✔ compozy-driver readiness: the socket is $COMPOZY_HOME/daemon.sock, and ~/.compozy when unset (260.229416ms)
+✔ compozy-driver liveRuns: lists the loop run in the workspace and keeps the five live states (190.542458ms)
+✔ compozy-driver startRun: one --input per input, --no-prompt, and the run id with the web url (234.6845ms)
+✔ compozy-driver startRun: url is null when the reply has no web_url (241.0255ms)
+✔ compozy-driver startRun: a reply with no run id is an error (147.567375ms)
+✔ compozy-driver pauseRun, resumeRun and cancelRun: act on the run id in the workspace (284.083375ms)
+✔ compozy-driver pendingRequests: the count of the pending items of the workspace (333.473458ms)
+✔ compozy-driver: any other failure throws LoopUsageError with the first stderr line of the command (185.391084ms)
+✔ compozy-driver: a reply that is not JSON is an error, not an empty list (180.134ms)
+✔ compozy-driver: the exec option replaces the process spawn, and the binary is compozy on PATH when COMPOZY_BIN is unset (0.227292ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4142.934584
+=== plugins/openspec/hooks/compozy-driver.test.mjs: pass 4.2s
+=== plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs
+✔ field-fixes 7 listing: every change under way with its script, checkout and what the upgrade changes for it; nothing is written (2279.553917ms)
+✔ field-fixes 7 listing: a slice under way on devkit-project is listed as continuing on the new project script and nothing is written for it (829.054167ms)
+✔ field-fixes 7 listing: a project with no change under way says so and --apply writes nothing (472.55425ms)
+✔ field-fixes 7 apply: --apply without --owner-answer exits 2 and writes no file (444.209375ms)
+✔ field-fixes 7 apply: with the owner answer only the started full-script change gets an approval.md that records no approval; a change on another schema gets no file (990.718208ms)
+✔ field-fixes 7 apply: the owner answer is cut to 200 characters, and an existing approval.md is never overwritten (1123.944291ms)
+✔ field-fixes 7 upgrade: after the listing, the answer and install-schemas the started change is not blocked, the plan-ready one asks the owner once, the short one is not sent to the grill (5393.4595ms)
+✔ field-fixes 7 upgrade: without the owner answer no schema is replaced and no file is written (the listing alone changes nothing) (739.310084ms)
+✔ field-fixes 7 flow-check: readFlowFile reads a flow.json by path, readFlow still reads it by schema, and a malformed one names the path (98.876834ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12423.256083
+=== plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs: pass 12.4s
+=== plugins/openspec/hooks/merge-setup.test.mjs
+✔ constants: the check name, the workflow path, the ruleset name and the method fields (design D4) (0.826292ms)
+✔ workflow (this repository): the job id is the check name, with no job name and no paths filter (0.333292ms)
+✔ workflow (this repository): pull_request only, never pull_request_target, read-only token (0.204334ms)
+✔ workflow (this repository): checks out the PR head with full history and runs Node 22 (0.193542ms)
+✔ workflow (the setup template): the job id is the check name, with no job name and no paths filter (0.170708ms)
+✔ workflow (the setup template): pull_request only, never pull_request_target, read-only token (0.153834ms)
+✔ workflow (the setup template): checks out the PR head with full history and runs Node 22 (0.134417ms)
+✔ workflow (this repository): runs the checker from the checkout with --ci (0.10775ms)
+✔ workflow (the setup template): downloads the checker from chacal88/devkit/{{ref}} into $RUNNER_TEMP only and runs it from there (0.176542ms)
+✔ mergeSetup: all four facts met is ok, with the default branch and the exact gh calls (AC-6) (745.628541ms)
+✔ mergeSetup: each fact missing alone is listed with its exact text and the /devkit setup pointer (AC-6) (2223.41775ms)
+✔ mergeSetup: the merge method must be allowed, per method (AC-8) (1454.651917ms)
+✔ mergeSetup: several facts missing are all listed, in the table order (363.829792ms)
+✔ mergeSetup: classic branch protection naming devkit-reviews counts, by contexts or by checks[].context (1013.178916ms)
+✔ mergeSetup: classic protection answering 404 or 403 is "none", not an error (1052.595125ms)
+✔ mergeSetup: any other gh error fails closed as "cannot read the repository settings" (design D4) (1096.000125ms)
+✔ mergeSetup: gh missing from PATH fails closed (98.92775ms)
+✔ requiredChecks: the rule and classic contexts of a branch, unique; an error object when gh fails (571.403167ms)
+✔ workflow (the setup template): deliver-check --ci and guard.mjs ci run from only the files the template downloads (408.176292ms)
+✔ release-note AC-9 boundary: deliver-check --ci and guard.mjs ci run from the three downloaded files for a noted change (3422.27975ms)
+✔ guard.mjs ci with deliver-check.mjs but without merge-setup.mjs fails closed naming the missing files (130.704459ms)
+✔ gh-version 1: parseGhVersion reads only the first line (0.222583ms)
+✔ gh-version 2: parseGhVersion gives null for odd input (0.065709ms)
+✔ gh-version 3: versionOlder compares numbers and the minimum is 2.50.0 (0.0665ms)
+✔ gh-version 4: ghVersion runs gh --version once and sorts the answer (0.132875ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12635.638125
+=== plugins/openspec/hooks/merge-setup.test.mjs: pass 12.7s
+=== plugins/openspec/hooks/status-line.test.mjs
+▶ run-status-bar AC-1 input: workspace.current_dir wins over cwd
+  ✔ inputOf (0.603041ms)
+  ✔ main runs state in that folder (292.631708ms)
+✔ run-status-bar AC-1 input: workspace.current_dir wins over cwd (294.115459ms)
+▶ run-status-bar AC-1 input: cwd is the folder when workspace is missing, empty or no string
+  ✔ workspace missing (0.126417ms)
+  ✔ workspace.current_dir empty (0.058416ms)
+  ✔ workspace.current_dir a number (0.043625ms)
+  ✔ workspace not an object (0.039625ms)
+  ✔ a session_id that is empty or no string is no session (0.063792ms)
+  ✔ every other field is ignored, the transcript included (0.079542ms)
+✔ run-status-bar AC-1 input: cwd is the folder when workspace is missing, empty or no string (0.781959ms)
+✔ run-status-bar AC-1 input: empty standard input reads as the process folder and no session (0.073208ms)
+✔ run-status-bar AC-1 input: input that is not JSON reads as no fields (0.048625ms)
+✔ run-status-bar AC-1 input: an unclosed object reads as no fields, whatever it already shows (0.039958ms)
+▶ run-status-bar AC-1 input: JSON that is no object reads as no fields
+  ✔ [1,2] (0.041417ms)
+  ✔ ["cwd"] (0.031542ms)
+  ✔ "cwd" (0.042042ms)
+  ✔ null (0.02825ms)
+  ✔ 7 (0.027459ms)
+  ✔ true (0.032917ms)
+✔ run-status-bar AC-1 input: JSON that is no object reads as no fields (0.358625ms)
+▶ run-status-bar AC-3 choice: the coordinator session prints the counts line from any of its folders
+  ✔ the main checkout (168.354625ms)
+  ✔ a change worktree (the coordinator wins over the change) (198.071583ms)
+✔ run-status-bar AC-3 choice: the coordinator session prints the counts line from any of its folders (366.719042ms)
+▶ run-status-bar AC-4 choice: another session id, no session id and no run file print no counts line
+  ✔ another session id (166.453125ms)
+  ✔ no session id (148.970959ms)
+  ✔ a run file whose session is null and an input with no session: no session equals no session (162.027125ms)
+  ✔ no run file (145.309625ms)
+  ✔ in a change worktree another session reads the change, not the listing (237.937ms)
+✔ run-status-bar AC-4 choice: another session id, no session id and no run file print no counts line (861.206834ms)
+▶ run-status-bar AC-1 choice: a change worktree on its branch prints its line
+  ✔ the line (191.786458ms)
+  ✔ the entry's root is compared through realpath (a link to the worktree) (211.265208ms)
+  ✔ a subfolder of the worktree is the same checkout (224.496167ms)
+✔ run-status-bar AC-1 choice: a change worktree on its branch prints its line (627.968ms)
+✔ run-status-bar AC-1 choice: an archive branch reads its change and prints its line, the one call not offline (228.806708ms)
+▶ run-status-bar AC-4 choice: a branch with no change folder, a detached HEAD and main print nothing and run no state
+  ✔ a branch with no change folder (180.937333ms)
+  ✔ a detached HEAD (175.204667ms)
+  ✔ main (123.933667ms)
+  ✔ an archive branch of an unusable id (190.269209ms)
+✔ run-status-bar AC-4 choice: a branch with no change folder, a detached HEAD and main print nothing and run no state (670.85ms)
+▶ run-status-bar AC-4 choice: an entry with another root or branch prints nothing
+  ✔ another root (212.398959ms)
+  ✔ no root (194.692584ms)
+  ✔ another branch (187.456583ms)
+  ✔ no branch (216.455375ms)
+  ✔ an archive branch whose entry names the plain branch (200.928708ms)
+  ✔ no entry for the change (218.42525ms)
+✔ run-status-bar AC-4 choice: an entry with another root or branch prints nothing (1231.062542ms)
+▶ run-status-bar AC-4 choice: a folder that is no git checkout, or has no openspec folder, prints nothing and exits 0
+  ✔ not a git folder (27.934916ms)
+  ✔ not a git folder, and a session id (36.44075ms)
+  ✔ a git folder on a branch with no openspec folder (83.834375ms)
+  ✔ a folder that does not exist (22.921125ms)
+✔ run-status-bar AC-4 choice: a folder that is no git checkout, or has no openspec folder, prints nothing and exits 0 (171.476917ms)
+▶ run-status-bar AC-5 calls: each refresh makes at most one state call
+  ✔ the coordinator (157.023417ms)
+  ✔ a change worktree (187.817875ms)
+  ✔ the coordinator inside a change worktree (208.402916ms)
+  ✔ a session that conducts nothing makes none (151.883625ms)
+✔ run-status-bar AC-5 calls: each refresh makes at most one state call (705.555958ms)
+▶ run-status-bar AC-5 calls: a plan-stage state --change in a real process makes no gh call
+  ✔ the state command (1748.478125ms)
+  ✔ the bar (1811.50875ms)
+✔ run-status-bar AC-5 calls: a plan-stage state --change in a real process makes no gh call (3560.250292ms)
+▶ run-status-bar AC-5 failure: state exits 3 and the bar prints nothing, exit 0
+  ✔ the coordinator (165.332917ms)
+  ✔ a change worktree (184.822208ms)
+✔ run-status-bar AC-5 failure: state exits 3 and the bar prints nothing, exit 0 (350.441417ms)
+▶ run-status-bar AC-5 failure: state prints no JSON, or a JSON that is no listing, and the bar prints nothing
+  ✔ text, the coordinator (158.551167ms)
+  ✔ text, a change worktree (182.725708ms)
+  ✔ nothing, the coordinator (168.852542ms)
+  ✔ nothing, a change worktree (176.069333ms)
+  ✔ an array, the coordinator (147.940125ms)
+  ✔ an array, a change worktree (168.352166ms)
+  ✔ an object with no changes, the coordinator (162.332292ms)
+  ✔ an object with no changes, a change worktree (181.056583ms)
+  ✔ changes that are no list, the coordinator (157.898666ms)
+  ✔ changes that are no list, a change worktree (182.19025ms)
+✔ run-status-bar AC-5 failure: state prints no JSON, or a JSON that is no listing, and the bar prints nothing (1686.956417ms)
+▶ run-status-bar AC-5 failure: a state that passes the bound is killed, the bar prints nothing and exits 0
+  ✔ the coordinator (442.724167ms)
+  ✔ a change worktree (461.994958ms)
+✔ run-status-bar AC-5 failure: a state that passes the bound is killed, the bar prints nothing and exits 0 (905.010666ms)
+▶ run-status-bar AC-5 failure: an abort of the signal ends the state process before main returns
+  ✔ the coordinator (156.304583ms)
+  ✔ a change worktree (184.314ms)
+  ✔ a signal already aborted runs no state at all (177.267708ms)
+✔ run-status-bar AC-5 failure: an abort of the signal ends the state process before main returns (518.246ms)
+▶ run-status-bar AC-5 failure: the bound and an abort also end the processes the state call started
+  ✔ the coordinator, at the bound (1647.895ms)
+  ✔ the coordinator, at an abort (173.166792ms)
+  ✔ a change worktree, at the bound (1652.206291ms)
+  ✔ a change worktree, at an abort (197.710542ms)
+✔ run-status-bar AC-5 failure: the bound and an abort also end the processes the state call started (3671.452125ms)
+▶ run-status-bar AC-5 failure: SIGTERM, SIGINT and SIGHUP end the real bar and the real openspec its state is waiting on
+  ✔ SIGTERM (796.290708ms)
+  ✔ SIGINT (805.2875ms)
+  ✔ SIGHUP (814.328125ms)
+✔ run-status-bar AC-5 failure: SIGTERM, SIGINT and SIGHUP end the real bar and the real openspec its state is waiting on (2416.35925ms)
+▶ run-status-bar AC-1 snippet: the README command starts the newest installed copy, and with none prints nothing and exits 0
+  ✔ the docs carry the same entry as the README (0.418375ms)
+  ✔ it is a command entry (0.07875ms)
+  ✔ two versions: 0.10.0 is newer than 0.9.0 (the sort -V case) (33.8715ms)
+  ✔ one version (32.569375ms)
+  ✔ no copy of the plugin: nothing on either stream, exit 0 (6.939ms)
+  ✔ the plugin folder holds no version: nothing, exit 0 (7.28ms)
+  ✔ with no CLAUDE_CONFIG_DIR the copy is under $HOME/.claude (30.80825ms)
+✔ run-status-bar AC-1 snippet: the README command starts the newest installed copy, and with none prints nothing and exits 0 (112.440292ms)
+✔ run-status-bar AC-1 line: running has no state icon and no reason (0.111375ms)
+✔ run-status-bar AC-1 line: waiting-for-owner has the owner icon and the reason (0.075791ms)
+✔ run-status-bar AC-1 line: waiting-on-github has the hourglass and the reason (0.057959ms)
+✔ run-status-bar AC-1 line: blocked has the stop icon and the reason (0.059042ms)
+✔ run-status-bar AC-1 line: archived shows its icon once, no strip and no progress (0.040459ms)
+▶ run-status-bar AC-1 line: a running change with the reason ready, or a held one, shows no reason
+  ✔ ready (0.05425ms)
+  ✔ held for a place (0.042625ms)
+✔ run-status-bar AC-1 line: a running change with the reason ready, or a held one, shows no reason (0.19425ms)
+▶ run-status-bar AC-1 strip: the first stage, a middle one and the last one
+  ✔ first (0.07925ms)
+  ✔ middle (0.051709ms)
+  ✔ last (0.053458ms)
+✔ run-status-bar AC-1 strip: the first stage, a middle one and the last one (0.285125ms)
+▶ run-status-bar AC-1 strip: stages null, and a stage the list does not hold, draw neither strip nor progress
+  ✔ stages null (0.321625ms)
+  ✔ a stage outside the list (0.066166ms)
+  ✔ an empty list (0.036667ms)
+  ✔ no stage title and a reason (0.051417ms)
+✔ run-status-bar AC-1 strip: stages null, and a stage the list does not hold, draw neither strip nor progress (0.62625ms)
+▶ run-status-bar AC-1 width: columns counts the emoji two and the rest one
+  ✔ "🛠️" (0.033791ms)
+  ✔ "🙋" (0.021792ms)
+  ✔ "■" (0.033875ms)
+  ✔ "…" (0.021167ms)
+  ✔ "ç" (0.01975ms)
+  ✔ "" (0.019625ms)
+  ✔ "é" (0.0205ms)
+  ✔ "a‍b" (0.023583ms)
+  ✔ "feat" (0.032167ms)
+✔ run-status-bar AC-1 width: columns counts the emoji two and the rest one (0.412625ms)
+▶ run-status-bar AC-1 cut: step 1 drops the reason's last words and ends it in an ellipsis
+  ✔ words dropped one at a time until the line fits (0.089459ms)
+  ✔ the first word is kept when it fits with the ellipsis (exactly 100) (0.052125ms)
+✔ run-status-bar AC-1 cut: step 1 drops the reason's last words and ends it in an ellipsis (0.2025ms)
+▶ run-status-bar AC-1 cut: step 2 drops the reason with its separator
+  ✔ a first word that does not fit with the ellipsis (0.2195ms)
+  ✔ a reason of one word that is too long (0.04475ms)
+✔ run-status-bar AC-1 cut: step 2 drops the reason with its separator (0.32225ms)
+▶ run-status-bar AC-1 cut: step 3 cuts the id at its end, keeping at least 20 columns, and never the rest
+  ✔ a 60-letter id keeps 50 letters and the ellipsis, the line is exactly 100 (0.082334ms)
+  ✔ a 60-letter stage title leaves the id its 20 letters; the line, 116 wide, is printed as it is (0.055916ms)
+  ✔ a 70-letter id with the reason: the reason goes first, then the id (0.118959ms)
+✔ run-status-bar AC-1 cut: step 3 cuts the id at its end, keeping at least 20 columns, and never the rest (0.343041ms)
+✔ run-status-bar AC-1 cut: a line of exactly 100 columns is not cut (0.055ms)
+✔ run-status-bar AC-3 counts: the mix of the criterion (0.075834ms)
+✔ run-status-bar AC-3 counts: an empty listing prints the four zeros (0.057167ms)
+✔ run-status-bar AC-3 counts: waiting-on-github and archived count in play only (0.044417ms)
+▶ run-status-bar AC-3 counts: a listing that fails prints nothing
+  ✔ exit 3 (34.645ms)
+  ✔ text (34.206209ms)
+  ✔ changes that are no list (35.472916ms)
+✔ run-status-bar AC-3 counts: a listing that fails prints nothing (238.392458ms)
+▶ run-status-bar AC-6 language: of/de, the counts words and the singular of blocked follow the language
+  ✔ of and de, the rest equal (0.1475ms)
+  ✔ a language that is neither is Brazilian Portuguese, as everywhere (0.05675ms)
+  ✔ 0 blocked (0.073833ms)
+  ✔ 1 blocked (0.047375ms)
+  ✔ 2 blocked (0.035541ms)
+✔ run-status-bar AC-6 language: of/de, the counts words and the singular of blocked follow the language (0.6325ms)
+✔ run-status-bar AC-6 language: the four new message keys exist in both languages, with the words of the design (0.077084ms)
+▶ run-status-bar AC-6 language: the language reaches the state call of the coordinator and of a change worktree
+  ✔ --lang pt-BR, the coordinator (163.50175ms)
+  ✔ --lang pt-BR, a change worktree (175.094542ms)
+  ✔ --lang fr, the coordinator (157.304666ms)
+  ✔ --lang fr, a change worktree (177.096667ms)
+  ✔ --lang en, the coordinator (149.825916ms)
+  ✔ --lang en, a change worktree (182.095167ms)
+✔ run-status-bar AC-6 language: the language reaches the state call of the coordinator and of a change worktree (1005.521ms)
+▶ run-status-bar AC-2 budget: a cap in the config and a transcript on the input give no percentage and no word about it
+  ✔ en, the coordinator (157.678208ms)
+  ✔ en, a change worktree (176.800583ms)
+  ✔ pt-BR, the coordinator (153.792083ms)
+  ✔ pt-BR, a change worktree (189.788083ms)
+✔ run-status-bar AC-2 budget: a cap in the config and a transcript on the input give no percentage and no word about it (678.874125ms)
+▶ run-status-bar AC-5 read-only: git status, the run file and the worktree list are as they were, and no loop marker is printed
+  ✔ the coordinator (272.64825ms)
+  ✔ a change worktree (294.677708ms)
+✔ run-status-bar AC-5 read-only: git status, the run file and the worktree list are as they were, and no loop marker is printed (567.63425ms)
+▶ run-status-bar AC-5 read-only: the source writes nothing, spawns only node and git, and never reads a transcript or a cap
+  ✔ the only fs functions are read-only ones (0.153625ms)
+  ✔ no write call but the two standard streams (0.115125ms)
+  ✔ every spawned program is node, git or the injected state command (0.157125ms)
+  ✔ no read of a transcript, a cap or a spent count, and no loop marker (0.082208ms)
+✔ run-status-bar AC-5 read-only: the source writes nothing, spawns only node and git, and never reads a transcript or a cap (0.755333ms)
+▶ run-status-bar AC-7 mock: each line of the lone-change mock-up, in both languages and with the long id
+  ✔ en (0.249042ms)
+  ✔ pt-BR (0.06275ms)
+  ✔ the long id of the mock: the reason is cut by step 1 to exactly 100 columns (0.08ms)
+  ✔ the widths the mock states: 97 and 98 cut, 104 whole (0.065875ms)
+✔ run-status-bar AC-7 mock: each line of the lone-change mock-up, in both languages and with the long id (0.584292ms)
+▶ run-status-bar AC-7 mock: each line of the roadmap-run mock-up
+  ✔ ten changes, all running (0.051083ms)
+  ✔ the mix of the criterion (0.053708ms)
+✔ run-status-bar AC-7 mock: each line of the roadmap-run mock-up (0.170708ms)
+✔ run-status-bar AC-4 mock: a session that conducts nothing prints the empty bar of the mock-up (124.275334ms)
+▶ run-status-bar AC-1 usage: an unknown option prints nothing on standard output, one line on standard error, exit 0
+  ✔ --frobnicate (128.718459ms)
+  ✔ --lang en --frobnicate (125.781167ms)
+  ✔ stray (131.480666ms)
+  ✔ --lang (128.511167ms)
+✔ run-status-bar AC-1 usage: an unknown option prints nothing on standard output, one line on standard error, exit 0 (514.83725ms)
+✔ run-status-bar AC-1 input: a standard input left open is read as no fields after one second and the process exits 0 (1368.934708ms)
+ℹ tests 184
+ℹ suites 0
+ℹ pass 184
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 22937.717042
+=== plugins/openspec/hooks/status-line.test.mjs: pass 23.0s
+=== plugins/openspec/hooks/guard.test.mjs
+✔ readValue: unfilled template line is not a value; full token kept (47.358459ms)
+✔ forced-merge-path 1: V1 valueIn reads a text as readValue reads the same file, and an empty text is null (50.77ms)
+✔ sanitize drops heredoc bodies and quoted text (0.387334ms)
+✔ bashWrites finds redirections, tee, sed -i, cp/mv (0.897625ms)
+✔ no open change: nothing gated (77.444541ms)
+✔ devkit: code closed until readiness APPROVED; planning always open (140.219459ms)
+✔ devkit: after approval, only tdd-implementer writes code (146.404708ms)
+✔ devkit-lite: no readiness, main session may code (68.582042ms)
+✔ shell writes are gated like Write (211.50025ms)
+✔ readiness.md is written only by plan-readiness-reviewer (177.465375ms)
+✔ each reviewer writes only its own verdict file (220.787791ms)
+✔ evidence.md is written only by pr-verifier (147.009416ms)
+✔ several changes: branch selects, otherwise code is blocked (208.749458ms)
+✔ resolveChange: DEVKIT_CHANGE, then GITHUB_HEAD_REF (34.523542ms)
+✔ reviewConsensus needs the required reviewers, all approved (30.62575ms)
+✔ gh pr create needs approved reviews and evidence (181.591542ms)
+✔ AC-5 guards-kept: gh pr create is refused with evidence first and no reviews, and with approved reviews and no evidence (design D4) (181.514542ms)
+✔ destructive git is refused, quoted mentions are not (0.5315ms)
+✔ bypass only from the hook process env (82.252708ms)
+✔ ci mode runs the devkit-reviews check: current reviews and evidence pass, a later product commit makes them stale, bypass is ignored (AC-5) (2375.193959ms)
+✔ ci mode: a repository without openspec/ passes with a note, so the devkit-reviews job never breaks a repo that has not adopted OpenSpec (R-3) (79.267625ms)
+✔ ci mode: guard.mjs alone fails closed naming deliver-check.mjs; a symlinked guard.mjs works (design D3) (572.36875ms)
+✔ ci mode passes its arguments on: --json prints the deliver-check report (573.408208ms)
+✔ readRoadmap parses rounds, ticks and dependencies, skipping junk (61.740708ms)
+✔ session prints the current round with one state per pending change (AC-1) (710.334459ms)
+✔ a pending change waiting on a dependency is reported as waiting, even if open (714.582917ms)
+✔ roadmap is printed with no change, one change, or several (AC-1) (836.8135ms)
+✔ without a roadmap the session output is unchanged; all ticked adds one line (AC-2) (1494.872292ms)
+✔ the roadmap never blocks and never breaks the hook (AC-3) (4888.945417ms)
+✔ archived means the exact id after the date prefix, never a suffix match (59.318167ms)
+✔ an unreadable roadmap prints nothing and keeps the change report (674.364083ms)
+✔ guard run through a symlinked path still gates code (exit 2) (68.089417ms)
+✔ importing guard.mjs runs no mode: no exit, no output, even with DEVKIT_BYPASS=1 and argv ci (21.957875ms)
+✔ guard exports findRoot, changeSchema and changeDir (24.395292ms)
+✔ archiveBranchChange: chore/archive-<x> names x while x is active or archived, an exact suffix only (45.887417ms)
+✔ resolveChange on an archive branch: the change while active, null once it moved, never another change (97.929959ms)
+✔ hooks on an archive branch: another open change gates neither gh pr create nor product edits (AC-7) (135.977791ms)
+✔ before the move, the archive branch still gates its change: product code to tdd-implementer, gh pr create to reviews (AC-7) (139.262583ms)
+✔ ADR 0003 exists with Status: accepted, ADR 0002 points to it and has no "until round 3", and the places that list ADRs name it (3.6, 3.7, AC-8) (0.73125ms)
+✔ not opted in: a folder with no openspec/ and a spec-driven repo are silent in every mode (AC-1) (370.282083ms)
+✔ not opted in: no config.yaml, a custom schema name, and a comment-only devkit are silent (AC-1) (545.011458ms)
+✔ spec-driven: the main session writes the gate files and opens a PR; session prints no [devkit] line (AC-2) (111.907417ms)
+✔ opted in with a quoted schema and a change on another schema: still gated (AC-3) (230.725417ms)
+✔ opted in: a subdirectory cwd is gated, and so is a repo with no active change (AC-3) (118.999542ms)
+✔ a nested checkout with its own spec-driven config is judged by its own config, not the outer repo (AC-3) (209.415292ms)
+✔ optedIn and projectSchema read the config.yaml next to openspec/changes (D2, D3) (6.065459ms)
+✔ DEVKIT_BYPASS and ci keep their meaning in an opted-in project (D3) (24.161ms)
+✔ ADR 0004 exists with its sections and the places that list ADRs name it (1.6) (0.676ms)
+✔ the hook docs say where the hooks act (1.7) (0.660375ms)
+✔ setup skill: the Setup section teaches the per-project opt-in (2.4) (0.233875ms)
+✔ this repository opts in through .claude/settings.json (2.5, ADR 0004) (24.164208ms)
+✔ install-scope lint: a user-scope install passes only in the migration doc (80.040459ms)
+✔ install-scope lint: the migration doc itself needs --scope user (36.91175ms)
+✔ install-scope lint: /plugin install and no scope fail, --scope project passes, fenced blocks count (153.514458ms)
+✔ install-scope lint: change folders, worktrees, generated skills and commands are ignored (43.685125ms)
+✔ changelog lint: the marketplace version needs a "## <version>" heading in CHANGELOG.md (79.966917ms)
+✔ language lint: a pt-BR marker inside backticks or a fenced block is a quotation; outside them it is refused, with the line number kept (162.186542ms)
+✔ README and getting-started say the packs load only in the projects that chose them and link the migration doc (3.1) (0.260875ms)
+✔ migration doc: rule, preconditions, four items with Command/Check/Undo (3.3) (0.4715ms)
+✔ migration doc: it passes the install-scope lint (3.3) (740.619625ms)
+✔ migration doc: every fenced bash block parses, and the jq filters work on fixtures (3.4) (133.772584ms)
+✔ migration items 3 and 4 keep the first backup (cp -n) and write through a temp file then mv (0.467084ms)
+✔ commandSegments: yields text and dir per segment, following cd; bashWrites output is unchanged (0.205875ms)
+✔ worktree: an Edit of a file in a worktree is gated by the worktree change, whatever the session cwd (D5) (269.009833ms)
+✔ worktree: a shell write through cd <wt> is gated by the worktree change (D5) (292.991708ms)
+✔ worktree: gh pr create after cd <wt> is checked against the worktree change (D5) (272.925375ms)
+✔ worktree: with readiness APPROVED the tdd-implementer may edit and the main session may not (D5) (429.369542ms)
+✔ worktree: a devkit-lite change refuses nothing to a child session with no agent_type (conduct-sessions D4) (210.772375ms)
+✔ worktree + opt-in: the opt-in check applies to each target root, not to the session cwd (D5, ADR 0004) (488.747375ms)
+✔ approval.md: classify gives a gate with no agent owner (0.162125ms)
+✔ approval.md: only the main session writes it, by Write and by shell redirect (D7) (306.029417ms)
+✔ approval.md: main-session only even with several active changes or in another change folder (D7) (483.951375ms)
+✔ guard compozy approval: the Write tool of the main session is refused in a CompozyOS session (60.135625ms)
+✔ guard compozy approval: a Bash redirect of the main session is refused in a CompozyOS session (62.143792ms)
+✔ guard compozy approval: a subagent is refused in a CompozyOS session with the same reason (59.864583ms)
+✔ guard compozy approval: the main session outside a CompozyOS session still writes it (89.957916ms)
+✔ guard compozy approval: a subagent outside a CompozyOS session is refused with the reason of the main-session rule (59.026ms)
+✔ gh pr create after cd to a directory with no project still meets the session root gate (D5) (67.357875ms)
+✔ readRoadmap keeps the description as text and the indented lines as notes (22.986584ms)
+✔ ship-change SKILL.md pins the stop-plan-approval row: only the owner's own message writes approval.md (0.133417ms)
+✔ README and the pack README describe how one change runs, with no cron (0.261583ms)
+✔ ADR 0010 is accepted, supersedes ADR 0001 and ADR 0007, and the config names it (0.261708ms)
+✔ config.yaml rules: no list item is an unquoted string holding ": " (YAML would read a mapping) (0.219417ms)
+✔ ADR 0006 supersedes ADR 0005, and ADR 0001 and the config point to it (0.448583ms)
+✔ ADR 0008 records the reviewer round as a Workflow script; ADR 0001 and the config point to it (0.157ms)
+✔ no test env blanks DEVKIT_BRANCH without also blanking GITHUB_HEAD_REF (11.784833ms)
+✔ suite-speed AC-3 the branch-blank scan reads test-fixtures.mjs and every *-fixtures.mjs (0.722125ms)
+✔ field-fixes 6 cli: a checkout's node_modules/.bin/openspec wins over the one on PATH (38.620542ms)
+✔ field-fixes 6 cli: a worktree with none finds the main checkout's (155.588208ms)
+✔ field-fixes 6 cli: a package.json declaring the pin with nothing installed is an error naming the file, the range and the install (41.034167ms)
+✔ field-fixes 6 cli: no pin gives the openspec on PATH (40.155708ms)
+✔ field-fixes 6 cli: the session text runs the pinned CLI, never the one on PATH (362.070875ms)
+✔ field-fixes 6 cli: the session text over a pinned 1.16.0 is one line naming the version, the path and the move to 2.x (373.609041ms)
+✔ field-fixes 6 cli: the session text over a declared, uninstalled pin is one line naming the install and starts no openspec (83.714458ms)
+✔ field-fixes 12 roadmap: the round 17b line is read before round 18 (0.306708ms)
+✔ field-fixes 10 verdict: readValue returns the first Verdict line whichever order the two come in (AC-3) (23.304458ms)
+✔ field-fixes 10 verdict: reviewConsensus passes on approved then rejected and fails on the reverse, naming the reviewer (AC-3) (23.089292ms)
+✔ field-fixes 10 verdict: gh pr create is not refused for a reviewer whose first Verdict line approves, and is refused naming one whose first rejects (AC-3) (144.661166ms)
+✔ delivery-models P11 classify: reviews/resolution/<name>.md belongs to the reviewer <name> (0.150458ms)
+✔ delivery-models P11 classify: another path under reviews/ keeps its rule (neg) (0.0665ms)
+✔ delivery-models P11 the hook: a reviewer writes its own resolution verdict only (131.478583ms)
+✔ stage-roles guard: isDecisionRecord holds for a Markdown file in an adr, adrs or decisions folder in any letter case (0.224917ms)
+✔ stage-roles guard: isTestFile holds for a test folder or a test file name (0.203375ms)
+✔ stage-roles guard: adr-author is allowed a decision record before the readiness review and after the approval, on both scripts (463.575875ms)
+✔ stage-roles guard: adr-author is refused a product file, naming what it writes (187.986084ms)
+✔ stage-roles guard: adr-author is refused a file that is not Markdown in the folder (98.195667ms)
+✔ stage-roles guard: adr-author keeps writing the change's own files and is refused the gate files of others (94.320834ms)
+✔ stage-roles guard: shell writes of adr-author follow the same rule (94.99375ms)
+✔ stage-roles guard: e2e-tester is allowed a test file past the approved readiness, in each folder name and each file form (555.6535ms)
+✔ stage-roles guard: e2e-tester is refused a product file past the approved readiness, naming the implementer (57.604292ms)
+✔ stage-roles guard: e2e-tester is refused a test file before the approved readiness, with the reason product code is refused today (115.637541ms)
+✔ stage-roles guard: e2e-tester is unrestricted on devkit-lite, as every agent is (94.508708ms)
+✔ stage-roles guard: shell writes of e2e-tester follow the same rule (99.908541ms)
+✔ stage-roles guard: the test runner and the screen designer are refused a code path past the approval, naming the implementer (181.334708ms)
+✔ stage-roles guard: the test runner and the screen designer keep writing the change's own folder (122.43125ms)
+✔ stage-roles guard: the implementer is unchanged, and the main session is still refused code past the approval (124.708959ms)
+✔ stage-roles setup: step 5 fills the four test keys from the repository and asks the owner to confirm each (0.185709ms)
+✔ stage-roles setup: step 5 keeps every value the block already holds and says that a stage with no command does not run (0.077542ms)
+✔ stage-roles setup: the starting config shows the four test keys as a commented block with its heading (0.169125ms)
+✔ stage-roles gates: the stop-mockup-approval row comes after stop-plan-approval and is written only from the owner's own message (0.085834ms)
+✔ stage-roles gates: the mock-up row shows each file mockup.md lists, an .html one by its path (0.066584ms)
+✔ stage-roles gates: an approved mock-up sets result=passed with the same attempt and the current commit, and records the owner's words (0.052208ms)
+✔ stage-roles gates: changes asked for set result=failed with the same attempt and append the owner's notes (0.047292ms)
+✔ stage-roles gates: an approved mock-up adds what it revealed to the requirements (0.048333ms)
+✔ stage-roles gates: the stop-plan-approval row names the records the approval accepts and the loop's accept-decisions step, keeping what it pinned (0.063458ms)
+✔ stage-roles gates: the verify row allows no pull-request comment (0.228625ms)
+✔ stage-roles gates: the devkit skill names the mock-up among the owner's gates and the accept-decisions step (0.147125ms)
+✔ upfront AC-2 guard: startedTaskOf and firstMessageOf read only the first message's started form (1.966166ms)
+✔ upfront AC-2 guard: namesEntrySkill reads the entry skill's name from any string field and nothing else (0.067625ms)
+✔ upfront AC-1 guard: startedTaskOf skips the host's leading notes and nothing else (0.111042ms)
+✔ upfront AC-6 guard: approval.md refuses a write by devkit-core:requirements-triage (124.44175ms)
+✔ upfront AC-5 skill: the grill rule of config.yaml and of the four schema files names the triage and forbids answering yourself (1.419417ms)
+✔ upfront AC-5 docs: the flow doc names the released flow versions, the 0.37.0 entry names flow version 2, and ADR 0021's Note names flow 1 (0.510083ms)
+✔ coordinator-loop-fixes AC-1 T18 a subagent write of the active change's declared.json is refused, by edit and by shell redirect (93.42275ms)
+✔ coordinator-loop-fixes AC-1 T19 declared.json is a main-session gate, and the main session's write of it is allowed (93.854041ms)
+✔ coordinator-loop-fixes AC-2 T20 runOf: an end line naming the run's change sets ended (0.38325ms)
+✔ coordinator-loop-fixes AC-2 T21 runOf: an end line naming another change leaves ended null (0.100042ms)
+✔ coordinator-loop-fixes AC-1 T98 guardBash: a subagent running change-loop.mjs declare is refused, naming the main session (50.246208ms)
+✔ coordinator-loop-fixes AC-1 T99 guardBash: a quoted plugin path, a node option and a cd before the call are refused too, and the main session's are allowed (262.783834ms)
+✔ coordinator-loop-fixes AC-1 T100 guardBash: the main session's declare commands are allowed (71.095708ms)
+✔ coordinator-loop-fixes AC-1 T101 guardBash: a subagent running next or reply of change-loop.mjs is allowed (73.327959ms)
+✔ coordinator-loop-fixes AC-1 T102 guardBash: a commit message and a heredoc body naming the declare command are allowed (86.416083ms)
+✔ coordinator-loop-fixes AC-1 T103 guardBash: in a project with no devkit schema a subagent's declare command is allowed (48.549958ms)
+✔ coordinator-loop-fixes AC-1 T104 another change's declared.json is refused to a subagent, and declareViolation lets the main session through (99.001792ms)
+✔ coordinator-loop-fixes AC-12 T70 pr-verifier writes proof/run.txt and proof/runs/a.jsonl of the active change: allowed (98.9415ms)
+✔ coordinator-loop-fixes AC-12 T71 pr-verifier redirects into proof/out.txt: allowed; into design.md: refused (98.021ms)
+✔ coordinator-loop-fixes AC-12 T72 pr-verifier writes proposal.md, other/proof/a.txt and src/a.ts: each refused (165.494125ms)
+✔ coordinator-loop-fixes AC-12 T73 tdd-implementer and the main session write under proof/ as before; change-planner writing evidence.md is still refused (188.489875ms)
+✔ coordinator-loop-fixes AC-19 T135 changeDevkitBlock reads the x-devkit block, else the devkit block, and the flat keys open none (0.45525ms)
+✔ setup AC-1 guard: a typed /devkit setup ends a /devkit change run (1.137625ms)
+✔ setup AC-1 guard: a typed /devkit setup ends a /devkit roadmap run and /devkit status does not (0.9685ms)
+✔ setup AC-1 skill: the hint lists setup right after status, the description names /devkit setup, the skill stays not model-invocable, and Start sends setup to the Setup section on every driver (0.197291ms)
+✔ setup AC-6 skill: step 8 asks the kit apart from the driver, runs kit-installer on yes and enables devkit-compozy, writes nothing on no, and the compozy driver installs the kit (0.102958ms)
+✔ setup AC-5 skill: the Setup section copies no checker, names the version, the packs not enabled and a CI pin that differs (0.183334ms)
+✔ setup AC-7 skill: step 5 asks the ship mode with merge suggested and step 7 asks one question per item (0.093833ms)
+✔ setup AC-7 skill: a blocked ruleset tells the owner the written ship map stays merge and is changed to pr or plan by hand (0.065416ms)
+✔ setup AC-8 old project: the configuration the old skill wrote opens a change with no setup step and its readout reads (2641.839542ms)
+✔ setup AC-4 skill: step 5 writes schema, context, rules and operations only where fill names them, and the block only through setup-block.mjs apply (0.207458ms)
+✔ setup AC-2 records: ADR 0026 notes the two moved suite folders and is amended by the setup record (0.321875ms)
+✔ setup AC-2 tree: no file outside the history names the removed setup skills, and neither skill folder exists (59.082333ms)
+ℹ tests 160
+ℹ suites 0
+ℹ pass 160
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 29888.986625
+=== plugins/openspec/hooks/guard.test.mjs: pass 29.9s
+=== plugins/openspec/hooks/change-state-stages.test.mjs
+✔ run-status-bar AC-3 stages: a devkit change with the flags ui and contract and no test settings lists the 15 ids (1852.913208ms)
+✔ run-status-bar AC-3 stages: without the ui flag and no mockup.md, mockup is not listed (3609.463542ms)
+✔ run-status-bar AC-3 stages: with tests.unit set, unit-tests is listed and e2e-tests is not (3548.357834ms)
+✔ run-status-bar AC-3 stages: a decisions.md with result not-applicable keeps decisions in the list (3450.470417ms)
+▶ run-status-bar AC-3 stages: stages is null for an archived change, a start with no folder and a previous-script change
+  ✔ archived (343.614208ms)
+  ✔ a start the run file names with no folder (582.904834ms)
+  ✔ a change begun under the previous script (368.646417ms)
+  ✔ a current change, as the contrast (1679.929375ms)
+✔ run-status-bar AC-3 stages: stages is null for an archived change, a start with no folder and a previous-script change (2975.624209ms)
+✔ run-status-bar AC-3 stages: next prints no stages key (1535.46325ms)
+▶ run-status-bar AC-5 offline: --offline makes no gh call, listing and --change, at a plan stage and at the delivery
+  ✔ the logging gh sees the delivery calls without the flag (3176.136375ms)
+  ✔ a plan stage, --change (1742.165916ms)
+  ✔ a plan stage, the listing (1868.602084ms)
+  ✔ the delivery, --change (2167.737709ms)
+  ✔ the delivery, the listing (2316.042875ms)
+✔ run-status-bar AC-5 offline: --offline makes no gh call, listing and --change, at a plan stage and at the delivery (11271.188125ms)
+✔ run-status-bar AC-5 offline: at the plan approval --offline gives the same state, reason, stage and title (3156.391916ms)
+✔ run-status-bar AC-5 offline: at the delivery checks --offline reads waiting-on-github, silent (4639.205167ms)
+✔ run-status-bar AC-3 offline: at the code review of a merge-mode change --offline reads waiting-on-github, silent; online a failed setup read stays blocked (5190.959958ms)
+✔ run-status-bar AC-5 offline: --offline yes exits 3 with the plain reply and prints no state (137.642709ms)
+✔ run-status-bar AC-5 offline: roadmap-loop defines no offline stub of its own and imports OFFLINE_GH from merge-setup (1.067083ms)
+✔ run-status-bar AC-1 stages: the list follows the classification line, from 14 stages to 15 (3224.734042ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 44645.616792
+=== plugins/openspec/hooks/change-state-stages.test.mjs: pass 44.7s
+pass 44.7s plugins/openspec/hooks/change-state-stages.test.mjs
+pass 4.2s plugins/openspec/hooks/compozy-driver.test.mjs
+pass 29.9s plugins/openspec/hooks/guard.test.mjs
+pass 12.7s plugins/openspec/hooks/merge-setup.test.mjs
+pass 23.0s plugins/openspec/hooks/status-line.test.mjs
+pass 12.4s plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs
+pass 1.7s plugins/openspec/skills/devkit/scripts/gh-version.test.mjs
+suite: 7 files, 419 tests, 419 pass, 0 fail, 44.7s, concurrency 14
+exit: 0
