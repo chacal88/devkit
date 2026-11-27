@@ -1,10 +1,10 @@
-Verdict: rejected
-Commit: 7b7355566114e74e8a61ed712bb6227c8c5cdc34
+Verdict: approved
+Commit: 1fdee51eb04cd8265f05149d6e827d0289aaacf8
 
-## Architecture review — selective-tests-by-map-2 (origin/main...HEAD)
+## Architecture review — selective-tests-by-map-2 (round 2, 7b73555..HEAD)
 
 ### Findings
-- [important] scripts/test-suite.mjs:466 — headBranch() re-implements deliver-check's exported currentBranch (which also honours DEVKIT_BRANCH) in the same function that already imports deliver-check; use the owner and drop the copy.
+- [important] scripts/test-suite.mjs:487 — headBranch() re-implemented deliver-check's exported currentBranch (which also honours DEVKIT_BRANCH) in the function that already imports deliver-check; use the owner and drop the copy. · fixed in 30a7136f
 - [nit] scripts/test-map.json — One hand-kept 1394-line map that M5/M6 force every added script or test to edit is a likely merge-conflict hot spot across parallel changes; D-3 accepts it, noted for later.
 
-Analyzed: owners, boundaries, contract consumers and deletion tests; the structural decisions are recorded in the unnumbered ADR that amends 0022, 0025 and 0026.
+Analyzed: owners (branch resolution now on deliver-check's currentBranch; suite-folder file listing stays in test-suite.mjs); boundaries (deliver-check loaded lazily only for --own-files runs; git access for M5 confined to trackedSuitePaths with a walk fallback); contract consumers enumerated (mapProblems gained an optional trailing env parameter, so no existing caller changes; currentBranch signature unchanged); deletion tests (trackedSuitePaths passes). Re-review scope: only the previous findings and the lines changed since 7b73555 in scripts/test-suite.mjs; the test and OpenSpec document changes were not reviewed for design.

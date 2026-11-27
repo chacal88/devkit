@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=1 commit=7b7355566114e74e8a61ed712bb6227c8c5cdc34 -->
+<!-- devkit-stage review result=passed attempt=2 commit=1fdee51eb04cd8265f05149d6e827d0289aaacf8 -->
 # Review: selective-tests-by-map-2, round 1
 
 Path: agents · range `origin/main...HEAD` · structural: PASS
@@ -29,3 +29,31 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: selective-tests-by-map-2, round 2
+
+Path: agents · range `origin/main...HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 1fdee51 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 1fdee51 |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 1fdee51 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 1fdee51 |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 1fdee51 |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Path: agents (the turn that ran the round began with a background-task notice, not the owner's own message, so the Workflow path did not run).
+- Round 2 re-checked only each reviewer's previous findings and the lines changed since 7b735556; every previous important finding was dispositioned fixed (30a7136f, 4ae8dd5d, 6ffbe2f2, 1fdee51e) and no verifier was needed.
+
+## Next
+Ready to ship.
+
