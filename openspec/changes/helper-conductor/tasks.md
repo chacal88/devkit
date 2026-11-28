@@ -78,7 +78,7 @@ to the planner, the readiness review and the owner's approval before anything el
   background `sleep` lived. The task is a one-time task: it is not deleted by any session (the owner
   removes it with one click, `proof/p0-delete.md`). Check: the file holds every key of the prompt's
   six steps (a `fail:` value counts) and the run's status line.
-- [ ] 1.4 Conductor: append to `proof/decision.md` a section "Probe 2" naming, each with its
+- [x] 1.4 Conductor: append to `proof/decision.md` a section "Probe 2" naming, each with its
   `p2-result.md` line, the values D-1 settled: the envelope (header, tag, the line
   `devkit-roadmap-tick: <root>`) for D-4 and D-11, prompt form S-B with no entry skill
   (`slash_command: no`), the review round's `workflow` path (`workflow_ran: yes`), every hand-off in

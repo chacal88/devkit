@@ -40,3 +40,20 @@ decision 3 does not allow that without a revision.
   whose files are all under `openspec/`).
 
 Envelope regex, cron, remove tool and notification tool: not settled; they wait for the probes above.
+
+## Probe 2
+
+Values settled from `p2-result.md` (owner's Mac, 2026-11-28), each with its line:
+
+| Value | Settled as | Source line in `p2-result.md` |
+|---|---|---|
+| The envelope (D-4, D-11) | the first message holds the header `[SCHEDULED TASK - AUTOMATED FIRING OF A CONFIGURED PROMPT]`, then `<scheduled-task name="<taskId>" file="<path>/SKILL.md">` wrapping the stored prompt, whose first line is `devkit-roadmap-tick: <root>` | `envelope:`, `envelope_tag:` |
+| The prompt form | S-B, no entry skill: a slash command in the prompt arrives as plain text | `slash_command: no` |
+| The review round | the `review-change` Workflow path runs in a task's session | `workflow_ran: yes` |
+| Every hand-off | in the background, returning by completion notice; one level below works | `nested_agent:` |
+| The stop hook | no refusal of a turn that ended while an agent ran | `stop_hook_seen: none` |
+| A run's status | no lock: a run reads `succeeded` while its background command lives | `## list_task_runs` section |
+
+With these the D-1 pick is final: the tick's own session conducts its claimed change (Helper A's
+place, ADR [helper-conductor] decision 3), the prompt form is S-B, and the cost of a blocked firing
+is measured by task 3.6 before phase 4.
