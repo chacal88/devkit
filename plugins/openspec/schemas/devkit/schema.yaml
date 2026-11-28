@@ -146,7 +146,7 @@ artifacts:
       devkit: build on requirements.md. Copy its acceptance criteria, with
       their ids, into an "## Acceptance criteria" section of the proposal.
 
-      Gate: `openspec validate <id> --strict` passes.
+      Gate: `openspec validate <id> --type change --strict` passes.
     requires:
       - requirements
 
@@ -272,7 +272,7 @@ artifacts:
 
       Every spec file carries the stage header on line 1, above `# Spec Delta`; the stage takes the worst result of its files.
 
-      Gate: `openspec validate <id> --strict` passes.
+      Gate: `openspec validate <id> --type change --strict` passes.
     requires:
       - proposal
 
@@ -317,7 +317,7 @@ artifacts:
 
       Good design docs explain the "why" behind technical decisions.
 
-      Gate: `openspec validate <id> --strict` passes.
+      Gate: `openspec validate <id> --type change --strict` passes.
     requires:
       - proposal
 
@@ -405,7 +405,7 @@ artifacts:
       Every acceptance criterion id from requirements.md is covered by at
       least one task.
 
-      Gate: `openspec validate <id> --strict` passes.
+      Gate: `openspec validate <id> --type change --strict` passes.
     requires:
       - specs
       - design

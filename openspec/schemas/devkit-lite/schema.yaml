@@ -104,7 +104,7 @@ artifacts:
       specified behavior), skip Capabilities and set `skip_specs: true` in
       the change's .openspec.yaml.
 
-      Gate: `openspec validate <id> --strict` passes.
+      Gate: `openspec validate <id> --type change --strict` passes.
     requires:
       - requirements
 
@@ -233,7 +233,7 @@ artifacts:
 
       Every spec file carries the stage header on line 1, above `# Spec Delta`; the stage takes the worst result of its files.
 
-      Gate: `openspec validate <id> --strict` passes.
+      Gate: `openspec validate <id> --type change --strict` passes.
     requires:
       - proposal
 
@@ -319,7 +319,7 @@ artifacts:
       Every acceptance criterion id from requirements.md is covered by at
       least one task.
 
-      Gate: `openspec validate <id> --strict` passes.
+      Gate: `openspec validate <id> --type change --strict` passes.
     requires:
       - proposal
 
