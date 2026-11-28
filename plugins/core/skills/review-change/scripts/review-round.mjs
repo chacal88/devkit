@@ -11,7 +11,7 @@ export const SCRIPT_FILE = join(here, 'review-round.workflow.js');
 
 const NAMES = [
   'VERIFIERS', 'verifyJobs', 'groupVotes', 'writeMismatch', 'STAGE1_SCHEMA', 'VOTE_SCHEMA', 'WRITE_SCHEMA', 'validateArgs', 'validateStage1', 'needsVerification', 'isRefutation',
-  'decide', 'oneLine', 'findingLine', 'outcomeOf', 'consensusOf', 'reviewerPrompt', 'verifierPrompt', 'writerPrompt', 'consolidate', 'isHeaderLine', 'withoutHeaderLines', 'writeJobs',
+  'decide', 'oneLine', 'findingLine', 'outcomeOf', 'consensusOf', 'reviewerPrompt', 'verifierPrompt', 'writerPrompt', 'consolidate', 'isHeaderLine', 'withoutHeaderLines', 'withoutSummary', 'summaryLine', 'writeJobs',
 ];
 const BEGIN = /^\/\/ ---- rules: begin.*$/m;
 const END = /^\/\/ ---- rules: end.*$/m;
@@ -35,7 +35,7 @@ export function loadRules(file = SCRIPT_FILE) {
 
 export const {
   VERIFIERS, verifyJobs, groupVotes, writeMismatch, STAGE1_SCHEMA, VOTE_SCHEMA, WRITE_SCHEMA, validateArgs, validateStage1, needsVerification, isRefutation,
-  decide, oneLine, findingLine, outcomeOf, consensusOf, reviewerPrompt, verifierPrompt, writerPrompt, consolidate, isHeaderLine, withoutHeaderLines, writeJobs,
+  decide, oneLine, findingLine, outcomeOf, consensusOf, reviewerPrompt, verifierPrompt, writerPrompt, consolidate, isHeaderLine, withoutHeaderLines, withoutSummary, summaryLine, writeJobs,
 } = loadRules();
 
 // ---- the CLI --------------------------------------------------------------

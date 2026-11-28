@@ -444,7 +444,7 @@ The `review-change` skill runs the reviewer round in three stages, each with all
 
 1. **review**: every reviewer of the bench reviews and returns its findings, the commit `git rev-parse HEAD` printed and the files it read and those of its remit it did not read. It writes no file. An answer at another commit than the round's `head`, or a partial one, fails its review stage before the verify stage.
 2. **verify**: for each `blocking` or `important` finding with no disposition, three `finding-verifier` agents try to refute it, each in its own context. `nit` and `praise` are never verified. A finding is refuted when at least 2 of 3 refute it with evidence; it stays in the verdict file as ` · refuted: <evidence>` and does not count as open.
-3. **write**: each reviewer writes its own `reviews/<reviewer>.md`, the verdict by its own rules from the lines it is given.
+3. **write**: each reviewer writes its own `reviews/<reviewer>.md`, the verdict by its own rules from the lines it is given. Each disposition is whole, and the file ends with a `### Summary` line the round builds from the outcome (counts, then the open, fixed and refuted ids); the reviewer's own summary is left out.
 
 There are two paths that run the same stages and rules (one rules section, in `plugins/core/skills/review-change/scripts/review-round.workflow.js`, read by `review-round.mjs` on the second path):
 
