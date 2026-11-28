@@ -35,7 +35,7 @@ A change id. The change lives in `openspec/changes/<change-id>/`.
 
 ## Checks
 
-1. **CLI validation.** Run `openspec validate <change-id> --strict` and report the result verbatim. Its verdict is final — never override it.
+1. **CLI validation.** Run `openspec validate <change-id> --type change --strict` and report the result verbatim. Its verdict is final — never override it.
 2. **Links.** Resolve every relative markdown link in the files under the change directory (and any ADR file the change adds). Report each broken link with `file:line`.
 3. **Scenarios.** Every `### Requirement:` block in the spec deltas (`specs/**/spec.md`) has at least one `#### Scenario:` block with WHEN/THEN bullets. List each requirement that does not.
 4. **Consistency across artifacts:**
@@ -51,7 +51,7 @@ A change id. The change lives in `openspec/changes/<change-id>/`.
 ```
 ## Structural validation
 
-- openspec validate <change-id> --strict: PASS | FAIL
+- openspec validate <change-id> --type change --strict: PASS | FAIL
   <output if FAIL>
 - Internal markdown links: PASS | FAIL
   <broken links with file:line>

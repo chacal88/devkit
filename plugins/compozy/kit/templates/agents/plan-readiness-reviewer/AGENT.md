@@ -38,7 +38,7 @@ You decide whether a planned change can be implemented without guessing. You did
 
 1. Load the `plan-readiness-review` skill and follow its method and its report template (`templates/report.md` in the skill).
 2. Check the plan's claims about the current code yourself, citing `file:line`, the way the `plan-reality-auditor` agent does: what the plan says exists, is there; what it says is missing, is missing.
-3. Run `openspec validate <id> --strict` when the project uses OpenSpec, and count its errors as findings.
+3. Run `openspec validate <id> --type change --strict` when the project uses OpenSpec, and count its errors as findings.
 4. If the project's `openspec/config.yaml` has `rules.readiness`, apply them.
 
 ## Budget

@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.55.6 — a change's validation names its type
+
+- **devkit-core** 0.18.3: the `plan-readiness-reviewer` and `change-planner` agents and the `plan-readiness-review`
+  and `review-change` skills run `openspec validate <id> --type change --strict` (the skills with
+  `--no-interactive`), so a change whose id is also a spec's name no longer fails with `ambiguous_item`.
+  The skills drop their fallback to the form without `--type change`.
+- **devkit-openspec** 0.50.4: the `openspec-validator` agent runs and reports `openspec validate <change-id> --type change --strict`,
+  and the plan stages of the `devkit` and `devkit-lite` schemas gate on `openspec validate <id> --type change --strict`.
+  No flow version changes.
+- **devkit-compozy** 0.6.2: the CompozyOS agents `change-planner`, `plan-readiness-reviewer` and `openspec-validator`
+  are regenerated from those agents.
+- Repository: `scripts/check.py` fails, naming the file and the line, on an `openspec validate` command that
+  names an id without `--type change` in an agent, skill, schema or CompozyOS agent file. The new
+  `plugins/openspec/hooks/validate-type.test.mjs` tests the check and the texts, and it shows on the real CLI that a change and a spec of one id
+  are ambiguous without the type.
+
+## 0.55.5 — an empty train keeps the failure of each change it left
+
+- **devkit-openspec** 0.50.3: when every boarded change leaves a train (`result: empty`),
+  `train-loop.mjs depart` keeps each left change's `failure` in its JSON output (the failing suite
+  output for a `red` change, `null` for a `conflict`) and writes the train record, with
+  `result=empty`, uncommitted at `<git common dir>/devkit-trains/<n>.md`, named in a new `record`
+  field and in the new reply `train-empty`. An empty train still creates no branch, worktree,
+  commit or pull request and takes no train number. The `passed`, `nothing` and `base-red` ends are
+  unchanged.
+- Docs: `docs/openspec-flow.md` says where an empty train's record is written; the delivery-train
+  spec gains the requirement.
+
+## 0.55.4 — the review writer gets the whole disposition and the round's own summary
+
+- **devkit-core** 0.18.2: the review round's writer prompt keeps every disposition whole. A reviewer's own
+  `refuted: <evidence>` and each refuting verifier's evidence are no longer cut at 400 characters; the
+  text stays one line. The prompt leaves out the reviewer's own `## Summary` or `### Summary` section
+  and asks for a last `### Summary` line built from the outcome:
+  `- N findings (B blocking, I important, T nit) + P praise; open: <ids>; fixed: <ids>; refuted: <ids>`.
+  The `workflow` path, the `agents` path and the CompozyOS review loop all get it from the one rules
+  section. Tests in `review-round.test.mjs`.
+
 ## 0.55.3 — selective-tests-by-map retro
 
 - **devkit-core** 0.18.1: the stage 1 prompt of the review round tells a reviewer to open every path of its remit,
