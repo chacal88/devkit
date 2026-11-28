@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=2 commit=a0e9efb9e046bf0cfe6f88199fbe8d334ea0b11b -->
+<!-- devkit-stage specs result=passed attempt=3 commit=a0e9efb9e046bf0cfe6f88199fbe8d334ea0b11b -->
 # Spec Delta
 
 ## MODIFIED Requirements
@@ -96,13 +96,18 @@ delivery check and exit 3 when no words are recorded.
 
 ### Requirement: The round's section quotes the owner's words
 For a round above 2, the section the round consolidates for `review.md`, or for `resolution.md` in a
-resolution call, SHALL hold one line `Owner's words for round <n>: "<words>"` after its `Consensus:`
-line, the words of `args.owner` with each run of white space made one space. A round of 1 or 2 SHALL
+resolution call, SHALL hold one line `` Owner's words for round <n>: "`<words>`" `` after its
+`Consensus:` line: the words of `args.owner`, with each run of white space made one space and each
+backtick printed as `'`, inside a backtick span within the double quotes. A round of 1 or 2 SHALL
 print the section it prints today, with no such line.
 
 #### Scenario: An authorized third round
 - **WHEN** a round runs with `round: 3`, `limit: 3` and `args.owner` holding `Sim, libera`
-- **THEN** its section reads `Consensus: <PASS|FAIL> (round 3/3)`, then a blank line, then `Owner's words for round 3: "Sim, libera"`, and holds no other line starting `Owner's words`
+- **THEN** its section reads `Consensus: <PASS|FAIL> (round 3/3)`, then a blank line, then `` Owner's words for round 3: "`Sim, libera`" ``, and holds no other line starting `Owner's words`
+
+#### Scenario: A backtick inside the words
+- **WHEN** a round runs with `round: 3`, `limit: 3` and `args.owner` holding `` Sim, `libera` ``
+- **THEN** its line reads `` Owner's words for round 3: "`Sim, 'libera'`" ``, with no backtick inside the span
 
 #### Scenario: Two authorized rounds
 - **WHEN** round 3 runs with the words recorded for round 3 and round 4 runs with the words recorded for round 4, each appending its section

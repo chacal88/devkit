@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "steps": [
+    {
+      "key": "review-round",
+      "scope": "review",
+      "round": 3,
+      "words": "Pode rodar mais uma rodada da revisão, eu autorizo.",
+      "at": "2026-11-28T16:06:47.244Z"
+    },
+    {
+      "key": "review-round",
+      "scope": "review",
+      "round": 4,
+      "words": "Mais uma, a quarta rodada, também autorizo.",
+      "at": "2026-11-28T16:06:47.615Z"
+    },
+    {
+      "key": "review-round",
+      "scope": "resolution",
+      "round": 3,
+      "words": "Autorizo a `terceira` rodada da revisão da resolução.",
+      "at": "2026-11-28T16:06:48.650Z"
+    }
+  ]
+}

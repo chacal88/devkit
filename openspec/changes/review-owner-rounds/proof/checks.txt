@@ -1,0 +1,5 @@
+rr1 authorized round 3 on the agents path quotes the owner's words: pass
+rr2 rounds 3 and 4 each quote their own words: pass
+rr3 a round above 2 without its words is refused and writes nothing: pass
+rr4 rounds 1 and 2 print what the base prints: pass
+rr5 a resolution round 3 quotes the resolution words: pass

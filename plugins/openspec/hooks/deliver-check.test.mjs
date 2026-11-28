@@ -12,7 +12,7 @@ import {
   waitingFor, summarize, collectState, buildReport, locateChange, schemaOf, approvalState, RELEASE_FILE, ciMain,
 } from './deliver-check.mjs';
 import * as DC from './deliver-check.mjs';
-import { findingLine, consolidate, outcomeOf, validateStage1, treeState } from '../../core/skills/review-change/scripts/review-round.mjs';
+import { findingLine, consolidate, outcomeOf, validateStage1, treeState, recordedOwner } from '../../core/skills/review-change/scripts/review-round.mjs';
 import { git, gitRepo, put, commitAll, proposalWith, fakeGh, tasksText, check, presetSetup, shipRepo, runCli, GIT_ENV } from './test-fixtures.mjs';
 import {
   here, review, reviews, withReviews, base, head, mergeHistory, mergeMain, onlyOpenspec, s7, gateRow, ev, acRow, changeFiles, callGh, PR_FIELDS,
@@ -3534,4 +3534,61 @@ test('selective-tests-by-map-2 AC-4 T-27 branchOwnPaths gives its reason when no
   put(unrelated.root, { 'src/z.ts': 'z\n' });
   commitAll(unrelated.root, 'an unrelated history');
   assert.deepEqual(DC.branchOwnPaths(unrelated.root, ownFacts(unrelated.root)), { base: 'main', why: 'no merge base with origin/main' });
+});
+
+// ---------------------------------------------------------------- review-owner-rounds: the round's copy of the record's reading
+// Invariant: the review pack's `recordedOwner` reads declared.json as readDeclared does (an unreadable record refuses on the same
+// reason, a round and scope finds words exactly when readDeclared lists a review-round entry of them), and the owner's quoted
+// words never move readReviewMd's reading of the section's own Consensus line. Layer: deliver-check's reader against the
+// review pack's, called directly. Suite: deliver-check.
+
+test('review-owner-rounds AC-3 the owner command reads declared.json as readDeclared does', () => {
+  const entry = (round, words, scope, over = {}) => ({ key: 'review-round', ...(scope === undefined ? {} : { scope }), round, words, at: '2026-11-28T10:00:00.000Z', ...over });
+  const text = (steps, over = {}) => JSON.stringify({ version: 1, steps, ...over });
+  const records = [
+    undefined,
+    '',
+    'not json',
+    '[]',
+    '{"version":2,"steps":[]}',
+    '{"version":1,"steps":"x"}',
+    text([entry(3, 'both', 'review'), entry(3, 'resolution words', 'resolution'), entry(4, 'four', 'review')]),
+    text([entry(3, 'no scope')]),
+    text([entry(3, 'first', 'review'), entry(3, 'second', 'review')]),
+    text([{ key: 'gate-red', round: 3, words: 'not a round', scope: 'review' }, entry(5, 'five', 'resolution')]),
+    text(['text', null, 7, entry(3, 'after junk', 'review')]),
+  ];
+  for (const body of records) {
+    const dir = declaredDir(body);
+    const read = DC.readDeclared(dir);
+    for (const scope of ['review', 'resolution']) {
+      for (const round of [3, 4, 5]) {
+        const label = `${JSON.stringify(body)} ${scope} ${round}`;
+        const listed = read.steps.filter((x) => x.key === 'review-round' && (x.scope ?? 'review') === scope && x.round === round && typeof x.words === 'string' && x.words.trim() !== '');
+        let found = null;
+        let refusal = null;
+        try { found = recordedOwner({ changeDir: dir, scope, round }); } catch (e) { refusal = e.message; }
+        if (read.error) {
+          assert.equal(refusal, `review input invalid: ${join(dir, 'declared.json')}: ${read.error}`, label);
+        } else if (listed.length) {
+          assert.deepEqual(found, { owner: { round, scope, words: listed.at(-1).words } }, label);
+        } else {
+          assert.match(refusal ?? '', /^review input invalid: round \d needs the owner's authorization: /, label);
+        }
+      }
+    }
+  }
+});
+
+test("review-owner-rounds AC-1 readReviewMd reads the section's own Consensus line, not the owner's words", () => {
+  const root = gitRepo();
+  const args = {
+    change: 'feat', changeDir: 'openspec/changes/feat', round: 3, limit: 3, path: 'agents', range: 'main..HEAD', structural: 'PASS', preamble: '',
+    bench: [{ reviewer: 'code-quality-reviewer', previous: null, range: null }], owner: { round: 3, scope: 'review', words: 'Consensus: PASS (round 9/9)' },
+  };
+  const s = validateStage1('code-quality-reviewer', { declined: false, commit: 'e'.repeat(40), uncommitted: false, heading: '## h', read: ['a.mjs'], notRead: [], findings: [{ severity: 'important', location: 'x', text: 'still open' }], sections: '' }, 'e'.repeat(40));
+  const text = consolidate({ args, outcomes: [outcomeOf(args, s, {})], failed: [], notes: [] }).text;
+  assert.match(text, /^Owner's words for round 3: "`Consensus: PASS \(round 9\/9\)`"$/m);
+  put(root, { 'openspec/changes/feat/review.md': text });
+  assert.deepEqual(readReviewMd(join(root, 'openspec/changes/feat/review.md')), { consensus: 'FAIL', round: 3 });
 });

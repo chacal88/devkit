@@ -1319,8 +1319,8 @@ test('jira-entry-followups docs: the review skill and the ship-change review row
 // Invariant: `args.limit` (optional, a whole number of 2 or more, 2 when absent) bounds `args.round`, and every text that counts
 // rounds counts to it. Layer: the round's rules (validateArgs, the prompts, consolidate). Suite: review-round.
 
-test('coordinator-loop-fixes AC-7 T41 validateArgs: round 3 under a limit of 3 is accepted', () => {
-  const args = baseArgs({ round: 3, limit: 3 });
+test("coordinator-loop-fixes AC-7 T41 validateArgs: round 3 under a limit of 3 is accepted with the owner's words", () => {
+  const args = baseArgs({ round: 3, limit: 3, owner: { round: 3, scope: 'review', words: 'Sim, libera' } });
   assert.equal(validateArgs(args), args);
 });
 
@@ -1351,4 +1351,178 @@ test('coordinator-loop-fixes AC-7 T43 the texts count to the limit: the consensu
   const two = consolidate({ args: baseArgs({ round: 2, limit: 3 }), outcomes: [outcomeOf(baseArgs({ round: 2, limit: 3 }), s, { F1: [keep(), keep(), keep()] })], failed: [], notes: [] });
   assert.match(two.text, /^Consensus: FAIL \(round 2\/3\)$/m);
   assert.match(two.text, /run review-change again \(round 3\)\.$/m, 'round 2 of 3 is no deadlock');
+});
+
+// ---- review-owner-rounds: the owner's words in the round (D-1 to D-3) ----
+// Invariant: a round above 2 passes only with the words the owner recorded for its round and scope (args.owner), the section
+// quotes them once, and rounds 1 and 2 stay as they are. Layer: the round's rules (validateArgs, consolidate), the CLI that
+// reads the record (`owner`), and the Workflow script. Suite: review-round.
+
+const ownerOf = (round, words = 'Sim, libera', scope = 'review') => ({ round, scope, words });
+const roundOutcome = (args) => {
+  const s = validateStage1(cq, stage1Of(cq, [finding()]), SHA);
+  return outcomeOf(args, s, { F1: [keep(), keep(), keep()] });
+};
+const sectionOf = (args) => consolidate({ args, outcomes: [roundOutcome(args)], failed: [], notes: [] });
+const refusedWith = (args, message) => assert.throws(() => validateArgs(args), (e) => e.message === `review input invalid: ${message}`, message);
+
+test("review-owner-rounds AC-1 consolidate quotes the owner's words under the Consensus line of round 3", () => {
+  const args = baseArgs({ round: 3, limit: 3, owner: ownerOf(3) });
+  const lines = sectionOf(args).text.split('\n');
+  const at = lines.indexOf('Consensus: FAIL (round 3/3)');
+  assert.ok(at >= 0);
+  assert.deepEqual(lines.slice(at, at + 5), ['Consensus: FAIL (round 3/3)', '', 'Owner\'s words for round 3: "`Sim, libera`"', '', '## Open findings']);
+  assert.equal(lines.filter((l) => l.startsWith("Owner's words")).length, 1);
+  const spaced = sectionOf(baseArgs({ round: 3, limit: 3, owner: ownerOf(3, 'a\n  b') })).text;
+  assert.match(spaced, /^Owner's words for round 3: "`a b`"$/m);
+  const ticked = sectionOf(baseArgs({ round: 3, limit: 3, owner: ownerOf(3, 'a `b` c') })).text;
+  assert.match(ticked, /^Owner's words for round 3: "`a 'b' c`"$/m);
+});
+
+test("review-owner-rounds AC-1 the Workflow script returns the owner's line in reviewMd", async () => {
+  const args = baseArgs({ round: 3, limit: 3, owner: ownerOf(3) });
+  const h = harness({ respond: responder({ stage1: { [cq]: stage1Of(cq, [finding({ severity: 'nit' })]) } }) });
+  const result = await h.run(args);
+  assert.match(result.reviewMd, /^Owner's words for round 3: "`Sim, libera`"$/m);
+  assert.equal(result.reviewMd, consolidate({ args: { ...args, path: 'workflow' }, outcomes: result.outcomes, failed: [], notes: [] }).text);
+  const cliText = cli('consolidate', { args, outcomes: result.outcomes });
+  assert.equal(cliText.status, 0);
+  assert.match(cliText.json.text, /^Owner's words for round 3: "`Sim, libera`"$/m);
+});
+
+test('review-owner-rounds AC-2 rounds 3 and 4 each quote their own words', () => {
+  const three = sectionOf(baseArgs({ round: 3, limit: 4, owner: ownerOf(3, 'words three') })).text;
+  const four = sectionOf(baseArgs({ round: 4, limit: 4, owner: ownerOf(4, 'words four') })).text;
+  const joined = `${three}\n${four}`;
+  assert.equal(joined.split('\n').filter((l) => l.startsWith("Owner's words")).length, 2);
+  assert.match(three, /^Owner's words for round 3: "`words three`"$/m);
+  assert.ok(!three.includes('words four'));
+  assert.match(four, /^Owner's words for round 4: "`words four`"$/m);
+  assert.ok(!four.includes('words three'));
+});
+
+test("review-owner-rounds AC-3 validateArgs refuses a round above 2 without the owner's words", () => {
+  const none = (round, scope = 'review', change = 'demo') => `round ${round} needs the owner's authorization: args.owner holds no words recorded for round ${round} of scope ${scope} (change-loop.mjs declare ${change} review-round)`;
+  refusedWith(baseArgs({ round: 3, limit: 3 }), none(3));
+  refusedWith(baseArgs({ round: 3, limit: 3, owner: null }), none(3));
+  refusedWith(baseArgs({ round: 3, limit: 3, verdictDir: 'reviews/resolution' }), none(3, 'resolution'));
+  refusedWith(baseArgs({ round: 3, limit: 3, owner: 'Sim' }), 'args.owner must be an object');
+  refusedWith(baseArgs({ round: 3, limit: 3, owner: [ownerOf(3)] }), 'args.owner must be an object');
+  refusedWith(baseArgs({ round: 3, limit: 3, owner: ownerOf(4) }), 'args.owner.round must be 3, the round');
+  refusedWith(baseArgs({ round: 3, limit: 3, owner: ownerOf(3, 'x', 'resolution') }), 'args.owner.scope must be review');
+  const words = "args.owner.words must be the owner's words, 1 to 200 characters";
+  for (const bad of [undefined, 7, '', '   \n', 'x'.repeat(201)]) {
+    refusedWith(baseArgs({ round: 3, limit: 3, owner: { round: 3, scope: 'review', words: bad } }), words);
+  }
+  const edge = baseArgs({ round: 3, limit: 3, owner: ownerOf(3, 'x'.repeat(200)) });
+  assert.equal(validateArgs(edge), edge);
+  assert.throws(() => validateArgs(baseArgs({ round: 3 })), /^Error: review input invalid: args\.round must be from 1 to 2$/);
+});
+
+test('review-owner-rounds AC-3 the Workflow script starts no agent without the owner\'s words', async () => {
+  const h = harness({ respond: responder({ stage1: { [cq]: stage1Of(cq, []) } }) });
+  await assert.rejects(h.run(baseArgs({ round: 3, limit: 3 })), (e) => /^review input invalid: round 3 needs the owner's authorization: args\.owner holds no words recorded for round 3 of scope review \(change-loop\.mjs declare demo review-round\)$/.test(e.message));
+  assert.equal(h.calls.length, 0);
+  assert.deepEqual(h.phases, []);
+});
+
+test("review-owner-rounds AC-3 every args command exits 3 without the owner's words", () => {
+  const args = baseArgs({ round: 4, limit: 4 });
+  const message = "review input invalid: round 4 needs the owner's authorization: args.owner holds no words recorded for round 4 of scope review (change-loop.mjs declare demo review-round)";
+  const inputs = { stage1: { args }, verify: { args, stage1: {} }, outcomes: { args, stage1: {} }, consolidate: { args, outcomes: [] } };
+  for (const [sub, input] of Object.entries(inputs)) {
+    const r = cli(sub, input);
+    assert.equal(r.status, 3, sub);
+    assert.equal(r.stdout, '', sub);
+    assert.equal(r.stderr.trim(), message, sub);
+  }
+});
+
+function ownerRecord(entries, over = {}) {
+  const dir = tmpFolder('devkit-review-owner-');
+  writeFileSync(join(dir, 'declared.json'), JSON.stringify({ version: 1, steps: entries, ...over }));
+  return dir;
+}
+const declaredEntry = (round, words, scope, over = {}) => ({ key: 'review-round', ...(scope === undefined ? {} : { scope }), round, words, at: '2026-11-28T00:00:00Z', ...over });
+const ownerCli = (changeDir, scope, round) => cli('owner', { changeDir, scope, round });
+
+test('review-owner-rounds AC-3 the owner command reads the record and refuses a round with no words', () => {
+  const found = (r, round, scope, words) => { assert.equal(r.status, 0, r.stderr); assert.deepEqual(r.json, { owner: { round, scope, words } }); };
+  const refused = (r, text) => { assert.equal(r.status, 3); assert.equal(r.stdout, ''); assert.equal(r.stderr.trim(), `review input invalid: ${text}`); };
+  const dir = ownerRecord([
+    declaredEntry(3, 'old three', 'review'), declaredEntry(3, 'last three'), declaredEntry(3, 'resolution three', 'resolution'),
+    declaredEntry(4, '   ', 'review'), declaredEntry(5, undefined, 'review'), { key: 'gate-red', round: 6, words: 'not a round' }, 'text',
+  ]);
+  const file = join(dir, 'declared.json');
+  const base = dir.split('/').at(-1);
+  const none = (round, scope) => `round ${round} needs the owner's authorization: ${file} records no words for round ${round} of scope ${scope} (change-loop.mjs declare ${base} review-round)`;
+  found(ownerCli(dir, 'review', 3), 3, 'review', 'last three');
+  found(ownerCli(dir, 'resolution', 3), 3, 'resolution', 'resolution three');
+  refused(ownerCli(dir, 'review', 4), none(4, 'review'));
+  refused(ownerCli(dir, 'review', 5), none(5, 'review'));
+  refused(ownerCli(dir, 'review', 6), none(6, 'review'));
+  refused(ownerCli(dir, 'resolution', 4), none(4, 'resolution'));
+  const empty = tmpFolder('devkit-review-owner-empty-');
+  assert.deepEqual(ownerCli(empty, 'review', 1).json, { owner: null });
+  assert.deepEqual(ownerCli(empty, 'resolution', 2).json, { owner: null });
+  refused(ownerCli(empty, 'review', 3), `round 3 needs the owner's authorization: ${join(empty, 'declared.json')} records no words for round 3 of scope review (change-loop.mjs declare ${empty.split('/').at(-1)} review-round)`);
+  const unreadable = (content, reason) => {
+    const d = tmpFolder('devkit-review-owner-bad-');
+    writeFileSync(join(d, 'declared.json'), content);
+    refused(ownerCli(d, 'review', 3), `${join(d, 'declared.json')}: ${reason}`);
+  };
+  unreadable('', 'declared.json is empty');
+  unreadable('{nope', 'declared.json is not JSON');
+  unreadable('[]', 'declared.json holds no object');
+  unreadable('{"version":2,"steps":[]}', 'declared.json has version 2, not 1');
+  unreadable('{"version":1,"steps":"x"}', 'declared.json has no list of steps');
+  const badInput = [
+    [{ scope: 'review', round: 3 }, 'changeDir must be a path'],
+    [{ changeDir: '', scope: 'review', round: 3 }, 'changeDir must be a path'],
+    [{ changeDir: dir, scope: 'other', round: 3 }, 'scope must be review or resolution'],
+    [{ changeDir: dir, scope: 'review', round: 0 }, 'round must be a whole number of 1 or more'],
+    [{ changeDir: dir, scope: 'review', round: 2.5 }, 'round must be a whole number of 1 or more'],
+    [{ changeDir: dir, scope: 'review', round: '3' }, 'round must be a whole number of 1 or more'],
+  ];
+  for (const [input, text] of badInput) refused(cli('owner', input), text);
+});
+
+test('review-owner-rounds AC-4 rounds 1 and 2 print no owner\'s line and refuse an owner', () => {
+  for (const round of [1, 2]) {
+    const plain = sectionOf(baseArgs({ round })).text;
+    assert.equal(sectionOf(baseArgs({ round, owner: null })).text, plain);
+    assert.ok(!plain.includes("Owner's words"));
+    refusedWith(baseArgs({ round, owner: ownerOf(round) }), 'args.owner is only for a round above 2');
+  }
+});
+
+test('review-owner-rounds AC-5 a resolution round takes and quotes the words of scope resolution', () => {
+  const resolution = { verdictDir: 'reviews/resolution', round: 3, limit: 3 };
+  const ok = baseArgs({ ...resolution, owner: ownerOf(3, 'resolution words', 'resolution') });
+  assert.equal(validateArgs(ok), ok);
+  assert.match(sectionOf(ok).text, /^Owner's words for round 3: "`resolution words`"$/m);
+  refusedWith(baseArgs({ ...resolution, owner: ownerOf(3, 'review words', 'review') }), 'args.owner.scope must be resolution');
+  const dir = ownerRecord([declaredEntry(3, 'review words', 'review')]);
+  const r = ownerCli(dir, 'resolution', 3);
+  assert.equal(r.status, 3);
+  assert.match(r.stderr, /records no words for round 3 of scope resolution/);
+});
+
+test('review-owner-rounds AC-1 text the review skill, the ship-change rows and the flow page name review-round.mjs owner', () => {
+  const skill = readRoot('plugins/core/skills/review-change/SKILL.md');
+  const argsLine = skill.split('\n').find((l) => l.startsWith('Build `args` first'));
+  assert.match(argsLine, /For a round above 2, add `owner`: run `node <skill-dir>\/scripts\/review-round\.mjs owner --input <json>` with `\{ changeDir, scope, round \}`/);
+  assert.match(argsLine, /the scope `review`, or `resolution` in a resolution call/);
+  assert.match(argsLine, /put the `owner` it prints into `args` unchanged, never written by hand/);
+  const bullet = skill.split('\n').find((l) => l.startsWith('- No convergence after the round limit'));
+  assert.match(bullet, /with `args\.owner` as the `args` sentence says: the round's section quotes the owner's words itself, on its line `` Owner's words for round N: "`<words>`" `` \(each backtick of the words printed as `'`\), and the notes never copy them\./);
+  assert.ok(!skill.includes("quoting the owner's words"), 'the session no longer copies the words');
+  const ship = readRoot('plugins/openspec/skills/ship-change/SKILL.md').split('\n');
+  const review = ship.find((l) => l.startsWith('| `review` |'));
+  assert.match(review, /and, for a round above 2, `args\.owner` as its `review-round\.mjs owner` prints it with the scope `review`/);
+  const resolution = ship.find((l) => l.startsWith('| `review-resolution` |'));
+  assert.match(resolution, /with `args\.owner` as the review skill's `review-round\.mjs owner` prints it with the scope `resolution` when the round is above 2/);
+  const flow = readRoot('docs/openspec-flow.md');
+  assert.match(flow, /`Consensus: PASS \| FAIL \(round N\/<limit>\)` line, for a round above 2 one line quoting the owner's words recorded for it \(`review-round\.mjs owner` reads them from `declared\.json` into `args\.owner`, and a round above 2 without them is refused\), the open findings,/);
+  assert.ok(!flow.includes('round N/2'));
 });

@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=2 commit=a0e9efb9e046bf0cfe6f88199fbe8d334ea0b11b -->
+<!-- devkit-stage design result=passed attempt=3 commit=a0e9efb9e046bf0cfe6f88199fbe8d334ea0b11b -->
 # Design
 
 Change: `review-owner-rounds` · Date: 2026-11-28 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -35,8 +35,8 @@ A drift of `requirements.md` resolved here without asking (not a contradiction f
 the grill): its assumption says a backtick "is already replaced by `'` at record time", but
 `declare review-round` keeps the words as typed apart from the 200-character cut (`words.slice(0, 200)`
 in `change-loop.mjs#declaredStep`; only `wordsOf`, used by the plan and mock-up approvals, replaces
-backticks). The printed line therefore wraps the words in double quotes, never in backticks (D-3), so
-no backtick of the owner's words can close a quote the line opened.
+backticks). The printed line therefore replaces each backtick itself, at print time, by `'` (D-3), so
+no backtick of the owner's words can close the backtick span the line opens around them.
 
 ## Goals / Non-Goals
 
@@ -119,18 +119,31 @@ calls); importing `readDeclared` from devkit-openspec (rejected: devkit-core ins
 
 A pure helper of the rules section, `ownerLine(args)`, added to `NAMES` in `review-round.mjs`:
 `null` when `args.round <= 2` or `args.owner` is `undefined` or `null`; otherwise
-`"Owner's words for round " + args.round + ': "' + String(args.owner.words).replace(/\s+/g, ' ').trim() + '"'`.
-No other character is changed (no `·` swap, no cut: the words are at most 200 characters). In
+
+```js
+"Owner's words for round " + args.round + ': "`' + String(args.owner.words).replace(/\s+/g, ' ').trim().replace(/`/g, "'") + '`"'
+```
+
+The words sit in a backtick span inside the double quotes, the form of `approval.md`'s
+`- Owner's words:` line (`ship-change`'s `stop-plan-approval` row). The span is what lets the line
+hold the owner's own language: `scripts/check.py#check_language` refuses a Markdown line with
+Portuguese words outside a backtick span, so the plain-quoted form of attempt 2 failed the gate on
+`proof/rr2-review.md` and would fail CI's `check` on the `review.md` of any authorized round of this
+repository. `check.py` gets no exemption. Each backtick of the words prints as `'`, so the words can
+neither close the span early nor open another; after `trim()` the span never starts or ends with a
+space. No other character is changed (no `·` swap, no cut: the words are at most 200 characters). In
 `consolidate`'s text, right after the `Consensus:` line and its blank line, the line and one blank
 line are inserted when `ownerLine(args)` is not `null`:
 
 ```
 Consensus: FAIL (round 3/3)
 
-Owner's words for round 3: "Sim, libera"
+Owner's words for round 3: "`Sim, libera`"
 
 ## Open findings
 ```
+
+Words `` Sim, `libera` `` print `` Owner's words for round 3: "`Sim, 'libera'`" ``.
 
 `consolidate` itself refuses nothing (the existing `coordinator-loop-fixes AC-7 T43` calls it with a
 round 3 and no owner, unvalidated, and keeps passing with no line); the refusal is `validateArgs`'
@@ -156,7 +169,15 @@ Every edit keeps each literal a test pins (D-6, "Pinned rules").
    ` For a round above 2, add \`owner\`: run \`node <skill-dir>/scripts/review-round.mjs owner --input <json>\` with \`{ changeDir, scope, round }\` (the change folder's absolute path, the scope \`review\`, or \`resolution\` in a resolution call, and the round) and put the \`owner\` it prints into \`args\` unchanged, never written by hand; it refuses when the owner's words for that round are not recorded, and the round refuses a round above 2 without them.`
 2. The same file, the rounds bullet starting `- No convergence after the round limit`: replace
    `, and write in the section's notes that it is the owner's further round, quoting the owner's words.`
-   with `, with \`args.owner\` as the \`args\` sentence says: the round's section quotes the owner's words itself, on its line \`Owner's words for round N: "<words>"\`, and the notes never copy them.`
+   with the text of this block (one line in the file; a double-backtick span holds the line, since
+   the line itself holds backticks):
+
+   ```
+   , with `args.owner` as the `args` sentence says: the round's section quotes the owner's words itself, on its line `` Owner's words for round N: "`<words>`" `` (each backtick of the words printed as `'`), and the notes never copy them.
+   ```
+
+   Attempt 2 of this plan ended the clause `` on its line `Owner's words for round N: "<words>"`, ``;
+   task 3.3 changes the delivered text to the block's.
 3. `plugins/openspec/skills/ship-change/SKILL.md`, the `review` row: after
    `and \`args.dirty\`, both as the review skill's \`review-round.mjs tree\` prints them` insert
    `, and, for a round above 2, \`args.owner\` as its \`review-round.mjs owner\` prints it with the scope \`review\``.
@@ -179,7 +200,7 @@ round's rules, the CLI, and the skill texts):
 
 | Test | Invariant | Shows |
 |---|---|---|
-| `AC-1 consolidate quotes the owner's words under the Consensus line of round 3` | a round above 2's section holds exactly one owner's line, right after its Consensus line, with the recorded words and white space collapsed | `Consensus: FAIL (round 3/3)`, blank, `Owner's words for round 3: "Sim, libera"`; words `"a\n  b"` print `"a b"`; one `^Owner's words` line |
+| `AC-1 consolidate quotes the owner's words under the Consensus line of round 3` | a round above 2's section holds exactly one owner's line, right after its Consensus line, with the recorded words and white space collapsed | `Consensus: FAIL (round 3/3)`, blank, `` Owner's words for round 3: "`Sim, libera`" ``; words `"a\n  b"` print `` "`a b`" ``; words `` a `b` c `` print `` "`a 'b' c`" ``; one `^Owner's words` line |
 | `AC-1 the Workflow script returns the owner's line in reviewMd` | the Workflow path prints the same line as the CLI from the same `args` | harness run, round 3, limit 3, an owner: `reviewMd` holds the line; the CLI `consolidate` of the same outcomes holds the same text |
 | `AC-2 rounds 3 and 4 each quote their own words` | each section quotes the words of its own round only | two `consolidate` texts (limit 4) joined: round 3's section holds only round 3's words, round 4's only round 4's |
 | `AC-3 validateArgs refuses a round above 2 without the owner's words` | no round above 2 passes without words of its round and scope | each row of D-1's table, the exact messages, and `round: 3` with no `limit` still `args.round must be from 1 to 2` |
@@ -188,10 +209,30 @@ round's rules, the CLI, and the skill texts):
 | `AC-3 the owner command reads the record and refuses a round with no words` | the words come from the record of the round and scope only | D-2's cases in a temporary change folder (`tmpFolder`), each through the CLI by process (`spawnSync` of `review-round.mjs owner`, as the file's other CLI tests do), never by importing `recordedOwner`: found; no scope reads as `review`; two entries, the last; another round; another scope; an entry with blank words skipped; no file; each unreadable record; round 1 and 2 `null` with no file; each malformed input |
 | `AC-4 rounds 1 and 2 print no owner's line and refuse an owner` | the early rounds are unchanged | `consolidate` of rounds 1 and 2 with `owner` absent and `null`: same text, no `Owner's words`; an owner object refused |
 | `AC-5 a resolution round takes and quotes the words of scope resolution` | the resolution call has its own scope | `verdictDir: "reviews/resolution"`: an owner of scope `resolution` accepted and quoted, one of scope `review` refused; `owner` with scope `resolution` reads only resolution entries |
-| `AC-1 text the review skill, the ship-change rows and the flow page name review-round.mjs owner` | the texts that build `args` say where the words come from | D-5's five edits: `review-round.mjs owner`, `{ changeDir, scope, round }`, `args.owner`, the scopes, `(round N/<limit>)`; the skill no longer holds `quoting the owner's words` |
+| `AC-1 text the review skill, the ship-change rows and the flow page name review-round.mjs owner` | the texts that build `args` say where the words come from | D-5's five edits: `review-round.mjs owner`, `{ changeDir, scope, round }`, `args.owner`, the scopes, `(round N/<limit>)`, the rounds bullet's clause of D-5 2 with the line of D-3; the skill no longer holds `quoting the owner's words` |
 
 `coordinator-loop-fixes AC-7 T41` (D-7) changes. No other existing test changes; the tests of rounds
 1 and 2 stay as they are (AC-4).
+
+**The line's form, attempt 3.** Phase 1 delivered these tests with the plain-quoted line of attempt 2;
+phase 3 changes each assertion of the old literal to D-3's line, and nothing else in them (their
+names, invariants, layers and suites stay):
+
+| Test (file) | Old literal it pins | New literal |
+|---|---|---|
+| `review-owner-rounds AC-1 consolidate quotes ...` (`review-round.test.mjs`) | `Owner's words for round 3: "Sim, libera"`, `"a b"` | `` "`Sim, libera`" ``, `` "`a b`" ``, and the new backtick case `` a `b` c `` → `` "`a 'b' c`" `` |
+| `review-owner-rounds AC-1 the Workflow script returns ...` (`review-round.test.mjs`) | `"Sim, libera"` in `reviewMd` and in the CLI text | `` "`Sim, libera`" `` in both |
+| `review-owner-rounds AC-2 rounds 3 and 4 ...` (`review-round.test.mjs`) | `"words three"`, `"words four"` | `` "`words three`" ``, `` "`words four`" `` |
+| `review-owner-rounds AC-5 a resolution round ...` (`review-round.test.mjs`) | `"resolution words"` | `` "`resolution words`" `` |
+| `review-owner-rounds AC-1 text the review skill, ...` (`review-round.test.mjs`) | the rounds bullet's `` on its line `Owner's words for round N: "<words>"`, `` | the clause of D-5 2's block |
+| `review-owner-rounds AC-1 readReviewMd reads ...` (`deliver-check.test.mjs`) | `Owner's words for round 3: "Consensus: PASS (round 9/9)"` | `` Owner's words for round 3: "`Consensus: PASS (round 9/9)`" `` |
+
+`grep -rn "Owner's words for round" --include=*.mjs --include=*.js --include=*.md plugins docs`
+lists, besides the rules section's `ownerLine`, exactly these tests and the rounds bullet of
+`plugins/core/skills/review-change/SKILL.md`; `plugins/openspec/skills/ship-change/SKILL.md` and
+`docs/openspec-flow.md` state no literal of the line (D-5 3 to 5 name `args.owner` and "one line
+quoting the owner's words"), so they keep the text phase 1 wrote. Phase 3 runs the grep again and
+changes any other hit it lists the same way.
 
 `plugins/openspec/hooks/deliver-check.test.mjs` (suite `deliver-check`; layer: the delivery check's
 reading of the record and of `review.md`, against the round's):
@@ -199,7 +240,7 @@ reading of the record and of `review.md`, against the round's):
 | Test | Invariant | Shows |
 |---|---|---|
 | `review-owner-rounds AC-3 the owner command reads declared.json as readDeclared does` | the pack's copy of the reading never drifts from the delivery check's | for each record of D-2 (no file, empty, not JSON, an array, version 2, `steps` not a list, entries of both scopes, with no scope, a `gate-red`, a non-object), written with the file's `declaredAt` helper pattern: `recordedOwner` refuses exactly when `readDeclared(dir).error` is set, and finds words for a round and scope exactly when `readDeclared(dir).steps` lists a `review-round` entry of them with a non-blank string `words`; the fixtures hold no `review-round` entry with blank or missing words, which `readDeclared` lists and `recordedOwner` skips (D-2), so that case is outside the "exactly when" claim and is pinned by the owner-command `AC-3` test instead |
-| `review-owner-rounds AC-1 readReviewMd reads the section's own Consensus line, not the owner's words` | the quoted words never move the deadlock reading | a `review.md` written from `consolidate` for round 3 with words `Consensus: PASS (round 9/9)` reads `{ consensus: 'FAIL', round: 3 }` |
+| `review-owner-rounds AC-1 readReviewMd reads the section's own Consensus line, not the owner's words` | the quoted words never move the deadlock reading | a `review.md` written from `consolidate` for round 3 with words `Consensus: PASS (round 9/9)` (printed `` Owner's words for round 3: "`Consensus: PASS (round 9/9)`" ``) reads `{ consensus: 'FAIL', round: 3 }` |
 
 **Pinned rules** (each test that reads a text this plan edits, and the literal kept):
 
@@ -246,17 +287,23 @@ Outputs go to `openspec/changes/review-owner-rounds/proof/`, scrubbed (`<scratch
 
 | Run | Case | Who | Files | Check |
 |---|---|---|---|---|
-| RR1 | AC-1: an authorized round 3 of the code review, on the `agents` path | the conducting session, running the `review-change` skill's agents path scoped to `code-quality-reviewer`, round 3, limit 3 | `rr1-declared.json`, `rr1-owner.json` (the command's stdout), `rr1-args.json`, `rr1-review.md` | `args.owner` equals `rr1-owner.json`'s `owner`; `review.md` holds `Consensus: (PASS\|FAIL) (round 3/3)` once and `Owner's words for round 3: "<the recorded words>"` once, right after it |
+| RR1 | AC-1: an authorized round 3 of the code review, on the `agents` path | the conducting session, running the `review-change` skill's agents path scoped to `code-quality-reviewer`, round 3, limit 3 | `rr1-declared.json`, `rr1-owner.json` (the command's stdout), `rr1-args.json`, `rr1-review.md` | `args.owner` equals `rr1-owner.json`'s `owner`; `review.md` holds `Consensus: (PASS\|FAIL) (round 3/3)` once and `` Owner's words for round 3: "`<the recorded words>`" `` once, right after it |
 | RR2 | AC-2: a second authorization, round 4 | the conducting session, CLI only: `owner` round 4, `consolidate` with limit 4 and RR1's `outcomes`, appended | `rr2-declared.json`, `rr2-owner.json`, `rr2-review.md` | round 3's section quotes only round 3's words, round 4's only round 4's |
 | RR3 | AC-3: no words | CLI: `owner` round 5; `stage1` with round 4, limit 4 and no `owner`; `stage1` with round 4 and RR1's owner | `rr3-owner.txt`, `rr3-stage1.txt`, `rr3-stage1-other.txt` | each exits 3 with its message and empty stdout; `sha256sum` of `review.md` and the `reviews/` listing are the same before and after |
 | RR4 | AC-4: rounds 1 and 2 | CLI: `consolidate` of rounds 1 and 2 with RR1's outcomes, by this worktree's script and by the base's (`git show origin/main:plugins/core/skills/review-change/scripts/review-round.workflow.js` and `review-round.mjs` into `/var/tmp/devkit-ror/base/`) | `rr4-round1.diff`, `rr4-round2.diff` | each diff is empty; no `Owner's words` line |
-| RR5 | AC-5: a resolution round 3 | CLI: a `resolution` authorization recorded; `owner` with scope `resolution`; `consolidate` with `verdictDir: "reviews/resolution"`, round 3, limit 3, appended to `resolution.md`; `owner` with scope `review` round 5 | `rr5-declared.json`, `rr5-owner.json`, `rr5-resolution.md`, `rr5-owner-review.txt` | `resolution.md` quotes the resolution words and not the review words; the review-scope call exits 3 |
+| RR5 | AC-5: a resolution round 3 | CLI: a `resolution` authorization recorded, its words holding one pair of backticks; `owner` with scope `resolution`; `consolidate` with `verdictDir: "reviews/resolution"`, round 3, limit 3, appended to `resolution.md`; `owner` with scope `review` round 5 | `rr5-declared.json`, `rr5-owner.json`, `rr5-resolution.md`, `rr5-owner-review.txt` | `resolution.md` quotes the resolution words, each backtick printed as `'`, and not the review words; the review-scope call exits 3 |
 
 Why RR2 to RR5 run the CLI and not a whole bench: the line and the refusals depend on `args` only,
 never on the agents' answers, and the `agents` path runs exactly these commands; RR1 is the full
 round with a real reviewer and the session's own part. The Workflow path cannot be started by this
 run (it needs a turn the owner typed, ADR 0008 decision 5); the harness test of D-6 runs the actual
 Workflow script body with the same rules. When a check fails, the run stops and the plan is revised.
+
+Attempt 3: RR1, RR2 and RR5 ran on phase 1's plain-quoted line, and `python3 scripts/check.py`
+refused `proof/rr2-review.md` for its Portuguese words outside a backtick span. Phase 3 re-runs those
+three on D-3's line, on a scratch project the fixture builds again, and their files and their
+`proof/checks.txt` lines replace the old ones (one line per run stays). RR3 and RR4 print no owner's
+line (refusals, and rounds 1 and 2), so their proof stays.
 
 ## Risks / Trade-offs
 
@@ -298,7 +345,7 @@ command → the tests of both and T41 → the parity test → the texts → the 
     the plan;
   - leave to the delivery: the manifests, `CHANGELOG.md`, `docs/catalog.md` and the CI pin lines;
   - delete nothing; `scripts/test-map.json` is not edited (no script or test is added or moved).
-- **Estimate**: optimistic 4 h, likely 6 h, pessimistic 10 h.
+- **Estimate**: optimistic 5 h, likely 7.5 h, pessimistic 12 h (attempt 3 adds 1.5 h).
 
 | Component | Hours | Type | Risk |
 |---|---|---|---|
@@ -309,11 +356,15 @@ command → the tests of both and T41 → the parity test → the texts → the 
 | Texts (two skills, flow page) and their text test | 0.5 | Documentation | LOW |
 | Text readers' run and gates | 0.5 | Testing | MEDIUM |
 | Real runs RR1 to RR5 and their proof | 1.5 | Integration | MEDIUM |
+| The line's backtick span (D-3), its tests and the bullet, attempt 3 | 0.5 | Core | LOW |
+| Re-run of RR1, RR2 and RR5 and the gate, attempt 3 | 1 | Integration | MEDIUM |
 
 - **Risks** (probability × impact, mitigation):
   - a refused mid-review round after the merge (LOW × MEDIUM): see Risks / Trade-offs, first item;
   - the copy of the record reading drifts (LOW × MEDIUM): the parity test;
   - a reader test missed by the selective gate (MEDIUM × LOW): task 1.8's run by name;
+  - a copy of the old plain-quoted literal left in a test, a text or the proof (LOW × MEDIUM): task
+    3.3's and 3.5's greps and `python3 scripts/check.py` in the gate of phase 3;
   - RR1's real reviewer takes long or fails its stage (MEDIUM × LOW): a one-line diff and one
     reviewer; a failed stage is re-run once as the skill says;
   - a sibling change edits `SKILL.md` or the `ship-change` rows first (LOW × LOW): merge

@@ -1,4 +1,4 @@
-<!-- devkit-stage proposal result=passed attempt=2 commit=a0e9efb9e046bf0cfe6f88199fbe8d334ea0b11b -->
+<!-- devkit-stage proposal result=passed attempt=3 commit=a0e9efb9e046bf0cfe6f88199fbe8d334ea0b11b -->
 # Proposal
 
 Change: `review-owner-rounds` · Date: 2026-11-28 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -28,8 +28,11 @@ above 2 that has none.
   unchanged, as it does with `tree`'s `head` and `dirty`, so the words never pass through the
   session's own retelling.
 - **The consolidated section quotes them**: for a round above 2, the section `consolidate` writes for
-  `review.md` (or `resolution.md`) holds one line `Owner's words for round N: "<words>"` under its
-  `Consensus: ... (round N/<limit>)` line (AC-1, AC-2, AC-5). Rounds 1 and 2 print exactly what they
+  `review.md` (or `resolution.md`) holds one line `` Owner's words for round N: "`<words>`" `` under
+  its `Consensus: ... (round N/<limit>)` line (AC-1, AC-2, AC-5): the words sit in a backtick span
+  inside the double quotes, the form of `approval.md`'s `- Owner's words:` line, so the language
+  check of `scripts/check.py` skips the owner's own language, and each backtick of the words prints
+  as `'` so the span cannot break. Rounds 1 and 2 print exactly what they
   print today (AC-4).
 - **The texts follow**: the `review-change` skill's `args` sentence and rounds rule (the session no
   longer copies the words into the notes), the `review` and `review-resolution` rows of the
@@ -103,8 +106,9 @@ line, or numbers an ADR: the delivery writes them at the merge.
 
 ## Exit criteria
 
-- `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` exits 0 (both phase gates).
+- `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` exits 0 (the gate of each phase, 1.9, 2.4 and 3.7).
 - The text readers' run of `tasks.md` task 1.8 exits 0.
 - `openspec validate review-owner-rounds --strict`, `python3 scripts/gen-catalog.py --check`,
   `node plugins/compozy/kit/scripts/gen-agents.mjs --check` and `claude plugin validate .` exit 0.
-- The real runs RR1 to RR5 (`design.md`, D-8) each have a `pass` line in `proof/checks.txt`.
+- The real runs RR1 to RR5 (`design.md`, D-8) each have a `pass` line in `proof/checks.txt`, those
+  of RR1, RR2 and RR5 from their re-run with the line of D-3 (`tasks.md` phase 3).
