@@ -1,9 +1,9 @@
-<!-- devkit-stage tasks result=passed attempt=4 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
+<!-- devkit-stage tasks result=passed attempt=5 commit=0c64ce1bf67c10215f0db9357142192c2b28fcdd -->
 # Tasks
 
 Change: `helper-conductor` · Date: 2026-11-28 · Owner: Kaue (chacal88) · Base: `origin/main` at
 `6f03a57` (the branch was opened on it and has merged nothing yet) · PRD / tech spec: n/a
-(`proposal.md`, `design.md`, `requirements.md` at attempt 6, `decisions.md`, `release.md`, the phase 1
+(`proposal.md`, `design.md`, `requirements.md` at attempt 7, `decisions.md`, `release.md`, the phase 1
 proof under `proof/`). This is the revision phase 1's decision point asked for (`proof/decision.md`).
 
 "The record" is `docs/adr/helper-conductor.md`, cited `ADR [helper-conductor]` everywhere outside
@@ -329,6 +329,11 @@ to the planner, the readiness review and the owner's approval before anything el
   AC-3, AC-6, AC-8, AC-11 (the runs at once), AC-14, AC-15 (the cron).
 
 ## 4. The tick's drive and the texts (phase 4)
+
+Before task 4.1, and again before the delivery, merge `origin/main` into this branch (since `6f03a57`
+it changed `plugins/core/skills/review-change/SKILL.md` and `review-round.*`, which task 4.1 edits),
+re-read `openspec/config.yaml`, and in the same commit edit this file's header ("has merged nothing
+yet") and any task the merge supersedes (CLAUDE.md).
 
 - [ ] 4.1 The review round in a tick's session (D-7, D-9; probe 2 ran the Workflow):
   `plugins/core/skills/review-change/SKILL.md` "Which path runs" gains D-9's sentence for the

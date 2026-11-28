@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=4 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
+<!-- devkit-stage specs result=passed attempt=5 commit=0c64ce1bf67c10215f0db9357142192c2b28fcdd -->
 # Spec Delta
 
 ## Purpose
@@ -38,6 +38,10 @@ nothing SHALL be written or started.
 #### Scenario: A host without scheduled tasks
 - **WHEN** the owner types `/devkit roadmap` in a host that offers no scheduled-tasks tool
 - **THEN** one line says the roadmap needs scheduled tasks, no run file is written, no change is opened and no stage is handed
+
+#### Scenario: The app refuses the task
+- **WHEN** the owner types `/devkit roadmap` and the app answers the creation of the run's scheduled task with an error, as it does in a session on an SSH host
+- **THEN** the run file records no task, one line says the app refused the run's scheduled task and nothing was started (the reply `roadmap-no-task`), no change is opened and no stage is handed
 
 ### Requirement: An empty tick is refused before the model
 A prompt hook SHALL recognise only the scheduled task's prompt envelope for this project. For it the
@@ -390,6 +394,18 @@ wait without a dispatch.
 #### Scenario: A train already runs
 - **WHEN** `b` boards while the train's helper has a live claim
 - **THEN** no second train is dispatched, and `b` leaves on the next one
+
+#### Scenario: A departed train with its checks running
+- **WHEN** the train's helper departs the train and its pull request's checks are running
+- **THEN** the run file records the train waiting on GitHub with the time of its next look, the train's claim is released, and no further train is dispatched while that wait stands
+
+#### Scenario: A merged train
+- **WHEN** a later look finds the train's pull request merged
+- **THEN** the train's wait is cleared, the changes it carried are recorded archived, and a further train is dispatched only for a change boarded since
+
+#### Scenario: A change that leaves the train on a conflict
+- **WHEN** the train leaves `b` behind because `b` conflicts with the train
+- **THEN** `b` no longer waits as boarded, the next tick claims `b`, and its helper merges the base into `b` as for any change
 
 #### Scenario: A train that needs the owner
 - **WHEN** the train's helper reaches a merge that the project's model leaves to the owner, or finds the base itself red

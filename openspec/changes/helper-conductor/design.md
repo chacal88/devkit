@@ -1,8 +1,8 @@
-<!-- devkit-stage design result=passed attempt=4 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
+<!-- devkit-stage design result=passed attempt=5 commit=0c64ce1bf67c10215f0db9357142192c2b28fcdd -->
 # Design
 
 Change: `helper-conductor` · Date: 2026-11-28 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
-(`proposal.md`, `requirements.md` at attempt 6 with its field facts 1 to 12 and AC-14 to AC-22, `decisions.md`, `release.md`,
+(`proposal.md`, `requirements.md` at attempt 7 with its field facts 1 to 12 and AC-14 to AC-22, `decisions.md`, `release.md`,
 the record `docs/adr/helper-conductor.md` with its 13 decisions, cited `ADR [helper-conductor]`, and the phase 1 proof:
 `proof/p0-delete.md`, `proof/p1-hooks.md`, `proof/decision.md`, `proof/probe-2-prompt.md`). Base: `origin/main` at
 `6f03a57`. This is the revision that phase 1's decision point asked for (`proof/decision.md`, "Stop and revise").
@@ -201,7 +201,7 @@ and starts no process (no `git`, no `gh`), so the hook and the tick build the sa
   checkout and of every linked worktree, a linked worktree being the parent folder of the path that
   `<common dir>/worktrees/<name>/gitdir` names, skipped when that path does not exist: the same list
   as `git worktree list --porcelain` minus prunable and bare entries (`listWorktrees`,
-  `deliver-check.mjs:244`), which the tick keeps using for everything but these facts.
+  `deliver-check.mjs:246`), which the tick keeps using for everything but these facts.
 - `load` from `os.loadavg()[0] / os.cpus().length * 100`; `limit` from
   `limitOf(env.CLAUDE_PLUGIN_OPTION_LOAD_LIMIT)`, as `roadmap-loop.mjs:891` reads it. `limitOf` and
   `DEFAULT_LIMIT` move from `roadmap-loop.mjs:62-71` to `run-file.mjs`, and `roadmap-loop.mjs`
@@ -630,7 +630,7 @@ conductor. Its changes are claimed and driven by the conductor on the owner's ma
 pushed branch, or not at all; no step ever runs on another machine from this one.
 
 - **A tick opens every item on this machine.** In a conducted run, `open` never takes `--machine`:
-  the placement of ADR 0020 decision 2 over the `machines` setting (the fewest open changes) is not
+  the placement of ADR 0020 decision 3 over the `machines` setting (the fewest open changes) is not
   used, and a loaded machine holds the item (the `load` hold) instead of placing it elsewhere. The
   `machines` setting is still read, for the board's machines block and for the claims on `origin`.
   `remoteSessionStartOf` goes, and the conductor no longer calls `checkout`; the verb stays for the
@@ -1119,7 +1119,7 @@ conducted run only.
   delivery train, a pull request whose every changed file is under `openspec/` (an archive, a roadmap
   edit, a change with no file outside `openspec/`) does not board: `collectState` of
   `plugins/openspec/hooks/deliver-check.mjs` leaves the `train` facts out (`deliver-check.mjs:3099`
-  for the archive, `:3152` for the change) when the run is conducted and `prFiles` (`:786`, paginated)
+  for the archive, `:3152` for the change) when the run is conducted and `prFiles` (`:788`, paginated)
   of the open pull request lists no path outside `openspec/`, and records `openspecOnly: true`. The
   conducted fact is `conductedOf(root)`, new in `guard.mjs`: the file at `localRunFilePath(root)`
   (D-3) parses and holds an object `task`, read with `node:fs` only; any error is `false` (the train

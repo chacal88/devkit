@@ -1,8 +1,8 @@
-<!-- devkit-stage proposal result=passed attempt=4 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
+<!-- devkit-stage proposal result=passed attempt=5 commit=0c64ce1bf67c10215f0db9357142192c2b28fcdd -->
 # Proposal
 
 Change: `helper-conductor` · Date: 2026-11-28 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
-(`requirements.md` at attempt 6, `decisions.md`, `release.md`, the phase 1 proof under `proof/`).
+(`requirements.md` at attempt 7, `decisions.md`, `release.md`, the phase 1 proof under `proof/`).
 This revision follows phase 1's decision point, "stop and revise" (`proof/decision.md`), and folds in
 probe 2's result (`proof/p2-result.md`). Base: `origin/main` at `6f03a57`; the
 branch merged nothing yet. "The record" is `docs/adr/helper-conductor.md`, cited `ADR
