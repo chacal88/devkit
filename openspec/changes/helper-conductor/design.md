@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=6 commit=a1afda47249cd413f543afbd7c9c8feada0d2ea5 -->
+<!-- devkit-stage design result=passed attempt=7 commit=db6342b8aa8a1ef653e7729f1f1eb883c68419ed -->
 # Design
 
 Change: `helper-conductor` · Date: 2026-11-28 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -207,6 +207,8 @@ and starts no process (no `git`, no `gh`), so the hook and the tick build the sa
   `limitOf(env.CLAUDE_PLUGIN_OPTION_LOAD_LIMIT)`, as `roadmap-loop.mjs:891` reads it. `limitOf` and
   `DEFAULT_LIMIT` move from `roadmap-loop.mjs:62-71` to `run-file.mjs`, and `roadmap-loop.mjs`
   re-exports `limitOf` as it re-exports `readRun` and `runFilePath`, so its importers are unchanged.
+  Until task 2.1, D-4's interim copy in `tick-gate.mjs` holds its own `limitOf` and `DEFAULT_LIMIT`
+  (the same lines as `roadmap-loop.mjs:62-71`) and imports nothing from `roadmap-loop.mjs`.
 - `heldPlaces`: the count of the ids of `run.occupied` that are in `open`. `run.occupied` is the
   record the place rule already writes: `sessionDecide`'s `placeDecision` (`roadmap-loop.mjs:1070-1079`)
   adds a change when it reaches a part of `LOAD_PARTS` (`build`, `after`: the implementation, a test
@@ -246,8 +248,13 @@ It returns `{ ready: <id> | null, why }`:
    fetched from its pushed branch, D-13), so the tick, which may use the network, decides.
 6. None → `{ ready: null, why: 'nothing-ready' }`.
 
-Unterminated input: a missing, empty or non-JSON run file is `emptyRun()` (no task, rule 1); a queue
-id that is not a change id is skipped.
+Input that cannot be used, one rule for each reader. A missing run file reads as no run:
+`emptyRun()`, no task, rule 1 (`no-task`), for the hook (which then blocks, D-4) as for the verbs. A run
+file that exists but does not parse to a JSON object (empty, not JSON, JSON that is not an object, or
+unreadable) is `emptyRun()` for `readRun` (`run-file.mjs:32-35`), so for the `tick` verb and the other
+verbs it is `no-task` too; the hook does not use `readRun` for that case: it keeps its own read and
+parse of the file and prints nothing for it (D-4), calling `tickReady` only for a missing file or one
+that parses. A queue id that is not a change id is skipped.
 
 ### D-4 The tick's prompt hook: `plugins/openspec/hooks/tick-gate.mjs` (AC-3)
 
@@ -257,16 +264,25 @@ id that is not a change id is skipped.
 - It reads stdin (at most 64 KiB) and tests the raw text first, with no import, for the envelope
   probe 2 recorded (`proof/p2-result.md`, `envelope`, `envelope_tag`): the payload's `prompt` field,
   anchored on `[{,]\s*"prompt"\s*:\s*"` as genesi's is, holds the tag `<scheduled-task
-  name="devkit-roadmap-tick-<slug>-<hash>"` (D-5's task id for `findRoot(payload.cwd)`), and after
-  it, at the start of a line, `devkit-roadmap-tick: <root>` with that same root. Probe 2 read the
+  name="devkit-roadmap-tick-<slug>-<hash>"` (D-5's task id for that `<root>`), and after
+  it, at the start of a line, `devkit-roadmap-tick: <root>` with that same root (the raw match takes
+  `<root>` from that line and computes D-5's task id from it with `node:crypto`; once it matched, and
+  after the dynamic `import()` below, `findRoot(payload.cwd)` must be that root). Probe 2 read the
   envelope as the model sees the first message; whether the hook's payload holds the tag or only the
   stored prompt is not known, so the regex also accepts a `prompt` whose first line is exactly
   `devkit-roadmap-tick: <root>`. Task 3.6 logs the payload of real firings; the form it does not
   see is dropped in that task, with its test. The test fixtures copy probe 2's text.
-- Anything else, any parse error, a project that has not opted in, or a root that does not match:
-  exit 0, print nothing.
-- For the envelope: `readRun(localRunFilePath(root))` (a null path → print nothing),
-  `localFacts(root, run, process.env)` and `tickReady` of D-3. `ready` not null, or `why` in `done`,
+- Anything else, a payload that does not parse, a project that has not opted in, or a root that does
+  not match: exit 0, print nothing.
+- For the envelope, the hook reads the run file itself, with `node:fs`, at `localRunFilePath(root)`
+  (a null path → print nothing): a file that does not exist (`ENOENT`) reads as no run, `emptyRun()`,
+  so `tickReady` gives `no-task` and the hook blocks (D-3); a file that exists but cannot be read or
+  does not parse to a JSON object (empty, not JSON, JSON that is not an object) prints nothing, fail
+  open, and the tick decides. Only for a missing file or one that parses does it go on:
+  `readRun(localRunFilePath(root))` for the fields D-2 keeps (a file removed between the two reads
+  reads as missing), then `localFacts(root, run, process.env)` and `tickReady` of D-3. This split is
+  the hook's own and stays after task 2.1; `readRun`'s `emptyRun()` for a broken file is the rule of
+  the `tick` verb and the other verbs only. `ready` not null, or `why` in `done`,
   `stopping`: exit 0 and print the tick's note (below). Otherwise (`no-task`, `stopping-busy`, `helpers-full`,
   `nothing-ready`) print `{"decision":"block","reason":"devkit roadmap: nothing is ready (<why>)"}`
   and exit 0; after the run's end (`run.ended` set, `why` `no-task`) the reason reads `devkit roadmap:
@@ -284,8 +300,12 @@ id that is not a change id is skipped.
   `CLAUDE_PLUGIN_ROOT`, so it names the installed pack version at each firing. Every prompt that is
   not the envelope still gets no output.
 - Its imports: Node built-ins at the top; `guard.mjs` (`findRoot`, `optedIn`) and `run-file.mjs`
-  (`readRun`, `localRunFilePath`, `localFacts`, `tickReady`) by a dynamic `import()` only once the raw
-  text matched, so any other prompt loads nothing. `run-file.mjs` imports `change-loop.mjs`
+  (`readRun`, `localRunFilePath`, `localFacts`, `tickReady`, and with them `limitOf`, which
+  `localFacts` calls inside `run-file.mjs` since task 2.1) by a dynamic `import()` only once the raw
+  text matched, so any other prompt loads nothing. The dynamic `import()` is awaited on the hook's
+  main path, which is asynchronous (the module's top-level `await`); the synchronous functions
+  (`commonDirOf`, `localFacts`, `tickReady`) never import, so whatever they call is in their own
+  module. `run-file.mjs` imports `change-loop.mjs`
   (`run-file.mjs:9`), and through it that module's imports (`flow-check.mjs`, `deliver-check.mjs`,
   `compozy-driver.mjs` and the others of `change-loop.mjs:43-50`); `change-loop.mjs` "runs nothing
   when imported" (`change-loop.mjs:6`), and no function of D-3 that the hook calls starts a process.
@@ -295,12 +315,22 @@ id that is not a change id is skipped.
   recorded tick").
 - **The interim copy (task 2.17, the coordinator's add-only order).** Before `multi-roadmaps` merges,
   `tick-gate.mjs` itself holds and exports `commonDirOf`, `localRunFilePath`, `localFacts` and
-  `tickReady` with D-3's rules, and reads the run file's JSON raw (fields as D-2 names them; a file
-  that does not parse prints nothing, as above), so the hook and its tests exist with no edit of
-  `guard.mjs` or `run-file.mjs`. Task 2.1 (not 2.15) moves `commonDirOf` and `localRunFilePath` to
-  `guard.mjs` and `localFacts` and `tickReady` to `run-file.mjs`, and deletes the copy in the same
-  commit, so one copy exists at every commit after 2.1; the hook then gets them by the dynamic
-  `import()` above, and the unit cases of `tick-gate.test.mjs` change only their import line. The
+  `tickReady` with D-3's rules. Since `localFacts` and `tickReady` are synchronous, the copy also
+  holds its own unexported minimal copies of what they call: `limitOf` and `DEFAULT_LIMIT` (the same
+  lines as `roadmap-loop.mjs:62-71`), `isChangeId` (the same line as `guard.mjs:1503`) and
+  `CLAIM_STALE_MS` with its `DEVKIT_CLAIM_STALE_MS` override (D-2); it imports nothing from
+  `roadmap-loop.mjs` or `run-file.mjs`, and `findRoot` and `optedIn` come from `guard.mjs` only by
+  the dynamic `import()` on the main path, as above. It reads the run file with the split above (a
+  missing file is no run and blocks; a file that exists but does not parse to a JSON object prints
+  nothing) and, in place of `readRun`, builds the run from the parsed object with D-2's type rules
+  for the fields D-3 reads, so the hook and its tests exist with no edit of `guard.mjs`,
+  `run-file.mjs` or `roadmap-loop.mjs`. Task 2.1 (not 2.15) moves `commonDirOf` and
+  `localRunFilePath` to `guard.mjs` and `localFacts` and `tickReady` to `run-file.mjs`, and deletes
+  the copy in the same commit, with its minimal copies of `limitOf`, `DEFAULT_LIMIT`, `isChangeId`
+  and `CLAIM_STALE_MS` and its building of the run, so one copy exists at every commit after 2.1; the
+  hook then gets them and `readRun` by the dynamic `import()` above (`limitOf` with `run-file.mjs`),
+  keeps its own read and parse of the file before it calls `readRun`, and the unit cases of
+  `tick-gate.test.mjs` change only their import line. The
   conductor test (Assumptions) checks `commonDirOf` against `git rev-parse --git-common-dir` in
   either home.
 

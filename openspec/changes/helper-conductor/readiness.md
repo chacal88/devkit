@@ -1,75 +1,67 @@
-<!-- devkit-stage readiness result=failed attempt=5 commit=a1afda47249cd413f543afbd7c9c8feada0d2ea5 -->
+<!-- devkit-stage readiness result=failed attempt=6 commit=db6342b8aa8a1ef653e7729f1f1eb883c68419ed -->
 # Readiness review: helper-conductor
 
 ## 1. Decision
 - Status: NEEDS-REVISION
 - Confidence: high
-- Ready to implement: no, until the three blockers of section 9 are fixed in `tasks.md` (and one line in `design.md`)
+- Ready to implement: no, until the two blockers of section 9 are fixed in `design.md` and `tasks.md`
 
-Round 5, on a1afda4 (the commit "order the add-only tasks of helper-conductor first"). Only `tasks.md` changed since round 4 (36423ba): the order paragraph of phase 2, tasks 2.14a, 2.14, 2.17, 2.18, the tick of 1.4 and 1.10, and the Workflow follow-up line. `openspec validate helper-conductor --strict` passes. No fetch was run.
+Round 6, on db6342b (the commit "fix the add-only split of helper-conductor"). Changed since round 5 (a1afda4): `design.md` (D-3 and D-4 interim-copy lines), `tasks.md` (2.1, 2.14, 2.14a, 2.17). `openspec validate helper-conductor --strict` passes. No fetch was run.
 
 ## 2. Scope validation
-Classification: correct. The reorder adds no behaviour. 2.17 and 2.14a move work earlier; the scope of the change is unchanged.
+Classification: correct. The edits move work between tasks and add no behaviour.
 
 ## 3. Proposal review
-No findings. `proposal.md` lists `tick-gate.mjs` and `test-slots.mjs` as new files; the split does not change that.
+No findings.
 
 ## 4. Design review
-Re-derived against code and design:
-- `withLockFile` is exported from `plugins/openspec/hooks/change-loop.mjs:2388`, so 2.14a can import it with no edit of that file.
-- `tickReady` and `localFacts` do not exist anywhere in `plugins/openspec/hooks/` today (grep: no match). They are new, and D-3 (`design.md:185-194`) puts them in `run-file.mjs` (after task 2.1), with `commonDirOf` and `localRunFilePath` in `guard.mjs`. D-4 (`design.md:251-270`) has the hook import them by dynamic `import()`.
-- 2.17's own fs-only `commonDirOf` contradicts `design.md:190-194` ("Both live in `plugins/openspec/hooks/guard.mjs`") until 3.1; `design.md` needs one line on the interim copy (finding 3).
+Round 5's three blockers, re-checked:
+- Interim copy: D-3 (`design.md:196-197`) and the new D-4 bullet (`design.md:296-305`) say `commonDirOf`, `localRunFilePath`, `localFacts` and `tickReady` live in `tick-gate.mjs` until 2.1, and 2.1 (`tasks.md:112-137`) moves them and deletes the copy. Closed.
+- Ledger split: 2.14a owns `test-slots.mjs` and all eight ledger cases; the export list matches D-25's "ledger module's contract" (`design.md:1116-1130`); `withLockFile` is exported from `change-loop.mjs:2388`. 2.14 adds no ledger case. Closed.
+- The pointer fix reads correctly. Closed.
+
+The tension the planner flagged is real and is blocker 1. The new interim copy also opens blocker 2.
 
 ## 5. Specs review
-No findings. The spec delta is unchanged since round 4. AC-3, AC-6, AC-14 and AC-22 keep their scenarios.
+No findings. The spec delta did not change.
 
 ## 6. Tasks review
-What the split keeps:
-- 2.2, 2.3, 2.14a and 2.17 create only new files and `scripts/test-map.json` keys. None of them edits `guard.mjs`, `run-file.mjs`, `roadmap-loop.mjs`, `change-loop.mjs`, `deliver-check.mjs`, `conduct-check.mjs`, `status-line.mjs`, the devkit or ship-change `SKILL.md`, or `docs/openspec-flow.md`; 2.14a imports `withLockFile` only. This part of the request holds.
-- 2.14a keeps the eight ledger cases of the original 2.14 (second whole suite, train first, new gate waits, train waits for gates in flight, third gate at `gates` 2, dead pid, broken ledger, two clones on one `DEVKIT_STATE_DIR`), but drops the stderr line `waiting for the train's suite` and the "starts after the train's ends" and "starts when they end" halves (finding 2).
-- 2.14 keeps the cases of the `test-run` verb (no run file, exit code, `SIGTERM`, no `--` exits 3), the `conductor AC-22 ` and `suite-capacity AC-22 ` tests, and every other edit. No AC of the original 2.14 loses its task.
-- 2.18 gates the add-only tasks; its `--concurrency=2` flag exists on the base runner.
-
-What does not hold: findings 1 to 3 of section 9.
-
-`release.md` exists and reads; no task bumps a version, edits a CHANGELOG line or numbers a record.
+Add-only check: 2.2, 2.3, 2.14a, 2.17 and gate 2.18 create only new files and `scripts/test-map.json` keys. Imports come from `change-loop.mjs`, `roadmap-loop.mjs` and `guard.mjs`, and none of those files is edited. This holds. `plugins/openspec/hooks/standing-answers.mjs`, `request-file.mjs`, `tick-gate.mjs` and `test-slots.mjs` do not exist yet, so they are new. `release.md` exists and no task bumps a version.
 
 ## 7. Omission detection
-- No contract for the ledger module's functions (finding 2).
-- Test-first order of 2.14 versus 2.14a (finding 2).
+See findings 1 and 2.
 
-## 8. Execution risks (top 5 failures)
-1. 2.17's test cannot pass: the hook needs `tickReady` and `localFacts` and the new run file shape, which only 2.1 (after the `multi-roadmaps` merge) adds. The implementer either stops or writes a second copy of D-3's rules, which drifts from 2.1's.
-2. Two copies of `commonDirOf` outlive 3.1 because 2.17's text sends the move to the wrong task (2.15 does not do it).
-3. Two developers write different ledger APIs for 2.14a, and 2.14's `test-run` verb then has to be bent to them.
-4. The same ledger cases are written twice (2.14a and 2.14), or the second author skips "tests first, seen failing".
-5. The hook's file-only facts differ from the tick's facts (D-15's one-fixture parity) when the hook carries its own copy.
+## 8. Claims against code
+- `readRun` (`run-file.mjs:32-35`) returns `emptyRun()` on a missing file, a parse error or a non-object. It cannot tell "missing" from "broken".
+- `limitOf` is at `roadmap-loop.mjs:66`, exported; `DEFAULT_LIMIT` at `:63` is not exported. `roadmap-loop.mjs` imports `guard`, `flow-check`, `deliver-check`, `merge-setup` and `compozy-driver` (`:45-55`).
+- `findRoot` (`guard.mjs:81`) and `optedIn` (`guard.mjs:432`) are exported.
 
-## 9. Mandatory fixes before implementation
-1. **Critical, Mandatory before implementation.** `tasks.md:268-274` (task 2.17) says the new `tick-gate.mjs` has `localRunFilePath`, `localFacts` and `tickReady`, and its test runs "every case 3.1 names" with no `hooks.json` entry. D-3 and D-4 put `tickReady` and `localFacts` in `run-file.mjs` and the hook imports them dynamically; task 2.1 (`tasks.md:114-131`) builds them and the run file's new fields (`task`, `ended`, `claims`, `holds`, `train`) in `run-file.mjs`, which the order paragraph (`tasks.md:105-110`) keeps for after the merge. Today none of them exists. The cases of 3.1 (`stopping-busy`, `no-task`, `ended`, a held place) need those rules and fields, so the test cannot pass add-only unless 2.17 copies D-3's rules into the module, which the plan neither says nor limits, and which splits D-15's parity test. Smallest correction: choose one and write it. Either (a) 2.17 carries an interim, fs-only copy of the D-3 rules and of the run file's reading in `tick-gate.mjs` (name which cases it tests), and 3.1 replaces it by the dynamic imports and deletes the copy, naming the parity test; or (b) 2.17 builds only the raw-envelope match, the output shapes and the cases that need no run facts, and 3.1 keeps the rest.
-2. **High, Mandatory before implementation.** `tasks.md:211-222` (2.14a) and `:223-251` (2.14) overlap. 2.14 still says it creates `test-slots.mjs`, still lists the full ledger case list and the `files` map key, and keeps "tests first, seen failing" over cases 2.14a already wrote; 2.14a drops from its list the stderr line `devkit-test: waiting for the train's suite` and the "starts after the train's ends" and "starts when they end" halves. Also neither task nor `design.md:1073-1100` names the module's functions (acquire, release, read, the wait loop and its 15-second step), so "driving the module's own functions" has no contract. Smallest correction: in 2.14a, name the exports and their arguments (the caps `gates` and the state folder in; a slot or a "wait" out) and list every ledger case in full, stderr line included; in 2.14, cut the module, the ledger cases and the map key, and say it extends `test-slots.test.mjs` with the verb's cases and calls the module.
-3. **Medium, Mandatory before implementation.** `tasks.md:270-272` says "2.15 moves [commonDirOf] into `guard.mjs` when `deliver-check.mjs` needs it". Task 2.15 (`tasks.md:252-264`) only adds `conductedOf` to `guard.mjs` over `localRunFilePath`; the task that places `commonDirOf` and `localRunFilePath` in `guard.mjs` is 2.1 (`tasks.md:118`). Also `design.md:190-194` says both live in `guard.mjs` with no word on 2.17's interim copy. Smallest correction: say "2.1 moves it" in 2.17 and 3.1, and add one line to D-4 or the risks of `design.md`: the hook's `commonDirOf` is its own fs-only copy from task 2.17 until task 2.1 puts the single copy in `guard.mjs` and 3.1's dynamic import replaces it, and the conductor test of `design.md:1344` checks both against `git rev-parse --git-common-dir`.
+## 9. Findings
 
-## 10. Optional improvements (within scope)
-- [ ] Fix during implementation: 2.18's `selected` lines go in `evidence.md` as their own `pass` row (CLAUDE.md); the task may say so.
+### Finding 1: a broken run file is `no-task` (block) in D-3 and "prints nothing" in D-4 and 3.1
+- Severity: Critical. Fix class: Mandatory before implementation.
+- Artifacts: `design.md:249` (D-3: "a missing, empty or non-JSON run file is `emptyRun()` (no task, rule 1)"); `design.md:262-264` (D-4: the envelope path calls `readRun(localRunFilePath(root))`; "any parse error ... print nothing"); `tasks.md:330` (3.1: "a broken run file ... print nothing"); `tasks.md:291` and `design.md:299` (2.17: raw read, broken prints nothing); `tasks.md:129-131` (2.1: the hook's process cases "pass unchanged" after it switches to `readRun`).
+- Why it matters: 2.17 can satisfy the case, because it parses the JSON itself. After 2.1 the hook gets `readRun`, which maps a broken file to `emptyRun()`, so `tickReady` gives `no-task` and the hook blocks. The "broken run file prints nothing" process case then fails. 2.1 says that case passes unchanged, so 2.1 cannot be done as written. A developer has to choose between changing `readRun`, keeping a second raw parse in the hook, or changing the case.
+- Smallest correction: pick one rule and write it in D-3, D-4, 2.1 and 3.1. Either (a) a broken file blocks like a missing one, and the case moves to the blocking list in 2.17 and 3.1, or (b) the hook keeps its own `JSON.parse` of the file (missing gives the empty run, unparseable prints nothing) and only then calls `tickReady`, with 2.1 saying so, and D-3's line reads "a missing or empty file; the hook prints nothing for a file that does not parse". The planner may judge which one the owner wants; (b) keeps the tested behaviour of 2.17 and the fail-open posture of a gate hook.
 
-## 11. Explicitly out of scope
-- [ ] The CompozyOS driver, `multi-roadmaps` parsing, starting work over SSH, a phone channel beyond the host's notification tool.
-- [ ] The `flow-check.mjs` defect (its own follow-up change; the plan keeps it in the Workflow follow-up, as it should).
+### Finding 2: 2.17's `limitOf` import has no form that fits D-4 and `localFacts`
+- Severity: High. Fix class: Mandatory before implementation.
+- Artifacts: `tasks.md:291-292` ("`limitOf` imported from `roadmap-loop.mjs`", while `findRoot` and `optedIn` are said to be dynamic); `design.md:257-258` ("Node built-ins at the top; ... by a dynamic `import()` only once the raw text matched, so any other prompt loads nothing"); `design.md:179-181` (D-3: `localFacts(root, run, env)` is synchronous and calls `limitOf`).
+- Why it matters: a static import of `roadmap-loop.mjs` at the top of `tick-gate.mjs` loads the whole `change-loop` import graph on every prompt of every session, which breaks D-4's no-load rule. A dynamic import cannot feed a synchronous `localFacts`. Two developers will choose differently, and the test of "any other prompt loads nothing" has nothing to check against.
+- Smallest correction: state the form. For example, the interim copy holds its own three-line `limitOf` and `DEFAULT_LIMIT` (deleted by 2.1 with the rest), or `tick-gate.mjs` takes `limit` as a parameter of `localFacts` that the hook passes after its dynamic import. Add the line to 2.17 and to the D-4 interim bullet.
 
-## 12. Mandatory review questions
-1. Is the problem objectively defined? Yes.
-2. Is the result measurable? Yes.
-3. Are error behaviors defined? Yes.
-4. Are edge cases covered? Yes, apart from the dropped halves of finding 2.
-5. Are dependencies clear? No: 2.17 depends on 2.1 and says it does not (finding 1).
-6. Are contracts defined? Not the ledger module's functions (finding 2).
-7. Can two developers interpret this differently? Yes, on 2.17's copy of the rules and on the ledger API.
-8. Are any decisions implicit? The interim copy of `commonDirOf` and of the hook's facts.
-9. Do the tasks fully deliver the outcome? Yes once the split is fixed; no AC lost its task.
-10. What will be discovered too late? That the hook's test needs run-file code that waits for the merge.
+## 10. Execution-readiness test
+Two major doubts for phase 2's add-only part (findings 1 and 2). Under the limit of three, but both change behaviour, so neither can wait.
 
-## 13. Final conclusion
-- Can we start? Not on 2.17 and 2.14a. 2.2, 2.3 are clear; phase 1 is done.
-- What must be fixed? Findings 1 to 3 of section 9, all in `tasks.md` plus one line of `design.md`.
-- Main risk if ignored? A second, drifting copy of D-3's rules in the hook.
+## 11. Top production risks
+1. A broken run file blocks every prompt in a project, or lets a dead run fire ticks, depending on which reading wins (finding 1).
+2. The hook loads the whole loop module graph on each prompt and slows every session's prompts (finding 2).
+3. Interim and final copies of `localFacts` drift if 2.1 does not run in the same commit as the deletion; D-4 and 2.1 both require that, so the risk is covered.
+4. Ledger waits of 15 seconds hold gates while a train waits: covered by 2.14a's cases.
+5. The hook's 10-second timeout with the fixture of a slow disk: 3.1 records the time; covered.
+
+## 12. Mandatory questions
+1. Problem objectively defined: yes. 2. Result measurable: yes. 3. Error behaviours defined: no for a broken run file (finding 1). 4. Edge cases covered: yes apart from finding 1. 5. Dependencies clear: yes, order paragraph of phase 2. 6. Contracts defined: yes, D-25's ledger contract; the hook's `limitOf` source is not (finding 2). 7. Two developers differ: yes, on findings 1 and 2. 8. Implicit decisions: the same two. 9. Tasks deliver the outcome: yes once fixed. 10. Found too late: the broken-file case failing when 2.1 lands.
+
+## 13. Verdict
+NEEDS-REVISION. Fix findings 1 and 2 in `design.md` and `tasks.md`; no other change is needed, and the add-only split itself holds.

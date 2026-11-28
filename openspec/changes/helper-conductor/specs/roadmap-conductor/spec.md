@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=5 commit=56502a1785405dde2e11721c8c9de1076474903f -->
+<!-- devkit-stage specs result=passed attempt=6 commit=db6342b8aa8a1ef653e7729f1f1eb883c68419ed -->
 # Spec Delta
 
 ## Purpose
@@ -47,8 +47,8 @@ nothing SHALL be written or started.
 A prompt hook SHALL recognise only the scheduled task's prompt envelope for this project. For it the
 hook SHALL read only local files, start no process and call no model, and SHALL block when no item is
 ready, unless the roadmap is done or the run is stopping with no helper in flight. After the run's
-recorded end it SHALL block every firing. Every other prompt, and any error, SHALL pass with no
-output.
+recorded end, and with no run file, it SHALL block every firing. Every other prompt, and any error,
+SHALL pass with no output.
 
 #### Scenario: Nothing is ready
 - **WHEN** the task fires while the queue's only open item has a live claim and the other waits for its dependency, which is not due for a new look
@@ -78,8 +78,12 @@ output.
 - **WHEN** the task fires with nothing ready, in a linked worktree of the project, and the `git` and `gh` on the hook's path exit with an error
 - **THEN** the hook prints `{"decision":"block"}`, having read the run file of the repository's common git folder and the change folders of every worktree
 
+#### Scenario: No run file
+- **WHEN** the task fires and the project's run file does not exist
+- **THEN** the hook prints `{"decision":"block"}`, as for a run with no task, and no model call is made
+
 #### Scenario: A run file that cannot be read
-- **WHEN** the task fires and the run file is missing, empty or not JSON
+- **WHEN** the task fires and the run file exists but is empty, is not JSON or is JSON that is not an object
 - **THEN** the hook prints nothing
 
 ### Requirement: A tick claims at most one item

@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=6 commit=a1afda47249cd413f543afbd7c9c8feada0d2ea5 -->
+<!-- devkit-stage tasks result=passed attempt=7 commit=db6342b8aa8a1ef653e7729f1f1eb883c68419ed -->
 # Tasks
 
 Change: `helper-conductor` · Date: 2026-11-28 · Owner: Kaue (chacal88) · Base: `origin/main` at
@@ -121,11 +121,17 @@ merge and the coordinator's word.
   `helper-next` run before `placeDecision`; `limitOf` and `DEFAULT_LIMIT` moved from
   `roadmap-loop.mjs` and re-exported there. The move of 2.17's interim copy (D-4): `commonDirOf`
   and `localRunFilePath` go from `tick-gate.mjs` to `guard.mjs`, `localFacts` and `tickReady` to
-  `run-file.mjs`, and `tick-gate.mjs` deletes its copy and its raw read of the run file and gets them
-  and `readRun` by its dynamic `import()` (D-4), so one copy is left; the unit cases of
-  `tick-gate.test.mjs` change only their import line to `guard.mjs` and `run-file.mjs` and pass with
-  their bodies unchanged, and its process cases pass unchanged. Tests in the new `plugins/openspec/hooks/roadmap-loop-conductor.test.mjs`
-  (`conductor AC-4 `, `AC-11 `): each D-3 rule, a broken run file, a non-id queue entry; on one
+  `run-file.mjs`, and `tick-gate.mjs` deletes its copy, with its minimal copies of `limitOf`,
+  `DEFAULT_LIMIT`, `isChangeId` and `CLAIM_STALE_MS` and its building of the run from the parsed
+  object, and gets the four functions and `readRun` by its dynamic `import()` after the raw match
+  (D-4), `limitOf` coming with `run-file.mjs`, so one copy is left. The hook still reads and parses
+  the run file itself before it calls the moved functions: a missing file reads as no run (`no-task`,
+  block), a file that exists but does not parse to a JSON object prints nothing, and only a missing
+  file or one that parses goes on to `readRun`, `localFacts` and `tickReady` (D-3, D-4); so the
+  process cases of `tick-gate.test.mjs` pass unchanged, and its unit cases change only their import
+  line to `guard.mjs` and `run-file.mjs` and pass with their bodies unchanged. Tests in the new `plugins/openspec/hooks/roadmap-loop-conductor.test.mjs`
+  (`conductor AC-4 `, `AC-11 `): each D-3 rule, a broken run file read by `readRun` as `emptyRun()`
+  (`no-task` for the `tick` verb, D-3), a non-id queue entry; on one
   fixture repository (a main checkout, two worktrees, one removed folder) `localRunFilePath` equals
   `runFilePath` from the main checkout and from a worktree, `localFacts`' `open` equals the change
   folders of `listWorktrees`' paths, and it reads the same with a `PATH` whose `git` exits 1;
@@ -286,11 +292,18 @@ merge and the coordinator's word.
 - [ ] 2.17 The tick's hook module, add-only part of 3.1 (D-4): `plugins/openspec/hooks/tick-gate.mjs`
   with the interim home of D-3's functions (D-4, "The interim copy"): `commonDirOf`,
   `localRunFilePath`, `localFacts` and `tickReady`, exported from `tick-gate.mjs` itself with D-3's
-  rules and signatures, reading the run file's JSON raw with `node:fs` (the fields as D-2 names them;
-  `tickReady` of a missing run gives `no-task`, D-3's last paragraph; at the hook, a run file that
-  does not parse prints nothing, as 3.1's cases list), and `limitOf` imported from `roadmap-loop.mjs`, where it lives today; `findRoot`
-  and `optedIn` imported from `guard.mjs` by the dynamic `import()` after the raw match. Task 2.1
-  moves the four functions to their D-3 homes and leaves one copy. Tests first, seen failing, in the
+  rules and signatures. It reads the run file itself with `node:fs` and builds the run from the
+  parsed object with D-2's type rules for the fields D-3 reads: a missing run file reads as no run, so
+  `tickReady` gives `no-task` and the hook blocks; a run file that exists but does not parse to a JSON
+  object (empty, not JSON, an array) prints nothing (D-3's last paragraph, D-4). Since `localFacts`
+  and `tickReady` are synchronous, the module holds its own unexported minimal copies of what they
+  call: `limitOf` and `DEFAULT_LIMIT` (the same lines as `roadmap-loop.mjs:62-71`), `isChangeId`
+  (as `guard.mjs:1503`) and `CLAIM_STALE_MS` with its `DEVKIT_CLAIM_STALE_MS` override (D-2); it has
+  no import from `roadmap-loop.mjs` or `run-file.mjs`. Its imports follow D-4: Node built-ins at the
+  top, and `findRoot` and `optedIn` from `guard.mjs` by the dynamic `import()` awaited on the hook's
+  asynchronous main path after the raw match (no synchronous function calls them). Task 2.1 moves the
+  four functions to their D-3 homes, deletes the minimal copies and the building of the run, and
+  leaves one copy. Tests first, seen failing, in the
   new `plugins/openspec/hooks/tick-gate.test.mjs` (`tick-gate AC-3 `): the unit cases on fixture run
   files, each D-3 rule of `tickReady` (`no-task` before the task and after `ended`, `stopping-busy`
   with a live claim and with a live `train.claim`, `stopping`, `done` with `archived` and `skipped`
@@ -305,8 +318,8 @@ merge and the coordinator's word.
   `PATH` whose `git` and `gh` stubs exit 1: every case 3.1 lists except the held place checked
   against the conductor test's `tick`, which needs the `tick` verb and stays in 3.1. No `hooks.json`
   entry yet (3.1 adds it), so nothing of the repository fires the hook. Map: a `files` key for
-  `tick-gate.mjs` linking `tick-gate.test.mjs`, and `guard.mjs`'s and `roadmap-loop.mjs`'s lists
-  gain `tick-gate.test.mjs` (the module imports from them). Check:
+  `tick-gate.mjs` linking `tick-gate.test.mjs`, and `guard.mjs`'s list gains `tick-gate.test.mjs`
+  (the module imports from it; it imports nothing from `roadmap-loop.mjs`). Check:
   `node scripts/test-suite.mjs --test-name-pattern="^tick-gate "` passes.
 - [ ] 2.18 Gate of the add-only tasks: `node scripts/test-suite.mjs --own-files --concurrency=2 && python3 scripts/check.py`
   green, its `selected` lines recorded. AC-3 (the hook's part), AC-6 and AC-14 (the modules' part),
@@ -317,8 +330,10 @@ merge and the coordinator's word.
 - [ ] 3.1 The tick's prompt hook (D-4), what 2.17 and 2.1 left: the first `UserPromptSubmit` entry
   of `plugins/openspec/hooks/hooks.json` naming `plugins/openspec/hooks/tick-gate.mjs` (built-ins at
   the top, `guard.mjs` and `run-file.mjs` by dynamic `import()` after the raw match; `readRun`,
-  `localRunFilePath`, `localFacts`, `tickReady` from their D-3 homes since task 2.1, which moved
-  `commonDirOf` and the other three out of `tick-gate.mjs`), and the last case of
+  `localRunFilePath`, `localFacts`, `tickReady` (and `limitOf` with `run-file.mjs`) from their D-3
+  homes since task 2.1, which moved `commonDirOf` and the other three out of `tick-gate.mjs` and
+  deleted its minimal copies; the hook's own read and parse of the run file before `readRun` kept,
+  D-4), and the last case of
   `plugins/openspec/hooks/tick-gate.test.mjs`: a held place blocks as the conductor test's `tick`
   claims nothing on the same run file. The cases 2.17 wrote, listed here as the hook's whole
   contract, pass unchanged: run as a
@@ -327,12 +342,12 @@ merge and the coordinator's word.
   the stored prompt) as the fixture payload's `prompt`, and again with the bare stored prompt, on a fixture repository with a main checkout and a
   linked worktree, and with a `PATH` whose `git` and `gh` stubs exit 1 in every case: the envelope
   with nothing ready blocks (from the main checkout and from the worktree), `stopping-busy` blocks,
-  `no-task` blocks, a run file with `ended` set blocks with the reason naming the deletion in the
+  `no-task` blocks (a run file with no `task`, and a missing run file), a run file with `ended` set blocks with the reason naming the deletion in the
   app; an item ready, done and stopping with no live claim print only the tick's note (its
   `additionalContext` naming the payload's session id, the hook's own `CLAUDE_PLUGIN_ROOT` paths, the
   settings from `CLAUDE_PLUGIN_OPTION_*`, and an unset setting left out of the call); any other
-  prompt, a tag of another task's name, a first line naming another root, a broken run file, no
-  common git folder and another root print nothing; the envelope run ends within the hook's 10-second
+  prompt, a tag of another task's name, a first line naming another root, a run file that exists
+  but does not parse to a JSON object (empty, not JSON, an array), no common git folder and another root print nothing; the envelope run ends within the hook's 10-second
   timeout, its time recorded in the test's message. Map: `hooks.json`'s list links
   `tick-gate.test.mjs` (the `tick-gate.mjs` key and `run-file.mjs`'s link are 2.17's and 2.1's).
   Check: `node scripts/test-suite.mjs --test-name-pattern="^tick-gate "` passes.
