@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=5 commit=56502a1785405dde2e11721c8c9de1076474903f -->
+<!-- devkit-stage tasks result=passed attempt=6 commit=a1afda47249cd413f543afbd7c9c8feada0d2ea5 -->
 # Tasks
 
 Change: `helper-conductor` · Date: 2026-11-28 · Owner: Kaue (chacal88) · Base: `origin/main` at
@@ -35,7 +35,7 @@ to the planner, the readiness review and the owner's approval before anything el
 |---|---|---|
 | AC-1 | `first-real-run` | 1.1 to 1.4, 1.8, 1.9, 3.6 |
 | AC-2 | `one-typed-command` | 2.4, 4.2, 6.1 |
-| AC-3 | `empty-tick-refused` | 3.1, 3.6, 6.1 |
+| AC-3 | `empty-tick-refused` | 2.17, 3.1, 3.6, 6.1 |
 | AC-4 | `tick-claims-one` | 2.5, 2.6, 4.1, 6.1 |
 | AC-5 | `resume-from-files` | 2.5, 2.6, 6.2 |
 | AC-6 | `no-owner-box` | 2.6, 3.3, 4.2, 4.3, 6.1 |
@@ -54,7 +54,7 @@ to the planner, the readiness review and the owner's approval before anything el
 | AC-19 | `open-precheck` | 2.10, 4.2, 6.4 |
 | AC-20 | `escalation-rehand` | 2.11, 4.2, 6.4 |
 | AC-21 | `machine-split` | 2.12, 6.4 |
-| AC-22 | `test-capacity` | 2.14, 2.15, 4.2, 4.6, 6.4, 6.5 |
+| AC-22 | `test-capacity` | 2.14a, 2.14, 2.15, 4.2, 4.6, 6.4, 6.5 |
 
 ## 1. The real run and the decision point (phase 1)
 
@@ -119,7 +119,12 @@ merge and the coordinator's word.
   `run-file.mjs`, and `localFacts(root, run, env)` with `node:fs` only, `heldPlaces` the
   `run.occupied` ids that are open, and the prune of `run.occupied` to the open ids that `tick` and
   `helper-next` run before `placeDecision`; `limitOf` and `DEFAULT_LIMIT` moved from
-  `roadmap-loop.mjs` and re-exported there. Tests in the new `plugins/openspec/hooks/roadmap-loop-conductor.test.mjs`
+  `roadmap-loop.mjs` and re-exported there. The move of 2.17's interim copy (D-4): `commonDirOf`
+  and `localRunFilePath` go from `tick-gate.mjs` to `guard.mjs`, `localFacts` and `tickReady` to
+  `run-file.mjs`, and `tick-gate.mjs` deletes its copy and its raw read of the run file and gets them
+  and `readRun` by its dynamic `import()` (D-4), so one copy is left; the unit cases of
+  `tick-gate.test.mjs` change only their import line to `guard.mjs` and `run-file.mjs` and pass with
+  their bodies unchanged, and its process cases pass unchanged. Tests in the new `plugins/openspec/hooks/roadmap-loop-conductor.test.mjs`
   (`conductor AC-4 `, `AC-11 `): each D-3 rule, a broken run file, a non-id queue entry; on one
   fixture repository (a main checkout, two worktrees, one removed folder) `localRunFilePath` equals
   `runFilePath` from the main checkout and from a worktree, `localFacts`' `open` equals the change
@@ -127,8 +132,9 @@ merge and the coordinator's word.
   `heldPlaces` counts an `occupied` entry of an open change with no claim, and leaves out one of a
   change no longer open; with an `occupied` entry of a removed change and one place, `placeDecision`
   after the prune gives the place to the next change, as the hook's `tickReady` does. The existing tests that import `limitOf` from `roadmap-loop.mjs` pass
-  unchanged. Map: the new test linked to `run-file.mjs` and `roadmap-loop.mjs`, and marked `slow`.
-  Check: `node scripts/test-suite.mjs --test-name-pattern="^(conductor |roadmap-loop setting:)"` passes.
+  unchanged. Map: the new test linked to `run-file.mjs` and `roadmap-loop.mjs`, and marked `slow`;
+  `run-file.mjs`'s list gains `tick-gate.test.mjs` (the hook calls its functions).
+  Check: `node scripts/test-suite.mjs --test-name-pattern="^(conductor |roadmap-loop setting:|tick-gate )"` passes.
 - [ ] 2.2 The standing answers (D-8): `plugins/openspec/hooks/standing-answers.mjs` and
   `plugins/openspec/hooks/standing-answers.test.mjs` with the seven cases of D-15. Map: a `files` key
   for the module. Check: `node scripts/test-suite.mjs --test-name-pattern="^standing "` passes.
@@ -208,45 +214,56 @@ merge and the coordinator's word.
 - [ ] 2.13 ADR 0013's Note (D-2) and the class M test "followups AC-3 run file" reading it. Grep the
   tests for `0013-the-roadmap-coordinator-is-the-owners-session.md` first (D-15's pin rule). Check:
   `node scripts/test-suite.mjs --test-name-pattern="^followups (AC-3|ADR 0014) "` passes.
-- [ ] 2.14a The test-slot ledger, add-only part of 2.14 (D-25): the new
-  `plugins/openspec/hooks/test-slots.mjs` (the ledger under `withLockFile` imported from where it
-  lives today, the dead-pid drop, the train's `trainWaiting`, which holds the gates as well as a
-  change's whole suite) and `plugins/openspec/hooks/test-slots.test.mjs` with the ledger cases of
-  2.14 (`capacity AC-22 `: a second whole suite waits until the first exits; a train's suite waiting
-  keeps a change's suite from starting and starts before it; while the train's suite runs or waits a
-  new gate waits; the train's suite waits for the gates in flight; a third gate waits at `gates` 2; a
-  dead pid's slot is taken; a ledger that does not parse is empty; two clones on one
-  `DEVKIT_STATE_DIR` share the whole-suite slot), driving the module's own functions (the `test-run`
-  verb, `capacity` in the run file, the settings and `DEVKIT_TEST_CONCURRENCY` stay in 2.14). Map: a
-  `files` key for `test-slots.mjs` linking `test-slots.test.mjs`. Check:
-  `node scripts/test-suite.mjs --test-name-pattern="^capacity "` passes.
-- [ ] 2.14 The test capacity (D-25), the rest once 2.14a is done: `capacity` in `emptyRun`/`readRun` with `gatesOf` and
-  `concurrencyOf` in `plugins/openspec/hooks/run-file.mjs`; `run --test-gates --test-concurrency`;
-  the two `userConfig` settings in `plugins/openspec/.claude-plugin/plugin.json`; the new
-  `plugins/openspec/hooks/test-slots.mjs` (the ledger under `withLockFile`, the dead-pid drop, the
-  train's `trainWaiting`, which holds the gates as well as a change's whole suite, D-25) and the
-  `test-run` verb of `roadmap-loop.mjs`; the ceiling of
-  `DEVKIT_TEST_CONCURRENCY` in `scripts/test-suite.mjs`; the cap sentence `helper-next` appends to
-  every `agent` brief. Tests first, seen failing: `plugins/openspec/hooks/test-slots.test.mjs`
-  (`capacity AC-22 `: a second whole suite waits until the first exits; a train's suite waiting
-  keeps a change's suite from starting and starts before it; while the train's suite runs or
-  waits, a new gate waits (stderr `waiting for the train's suite`) and starts after the train's
-  ends; the train's suite waits for the gates already in flight and starts when they end; a third
-  gate waits at `gates` 2; a
-  dead pid's slot is taken; a ledger that does not parse is empty; two clones' run files on one
-  `DEVKIT_STATE_DIR` share the whole-suite slot; no run file or no `task` runs at once with no
-  slot; the child's exit code is `test-run`'s, and `SIGTERM` frees the slot; no `--` exits 3);
-  `conductor AC-22 ` in `roadmap-loop-conductor.test.mjs` (`run` records the defaults, the
-  settings' values, and the defaults for `0`, `x` and an unfilled `${user_config.test_gates}`; a
-  typed `run` again rewrites `capacity`; every `agent` action of `helper-next` carries the sentence
-  with `--concurrency=<c>`, and a lone change's `next` brief does not; a change at its review
-  waiting on GitHub with no claim holds a place, a helper at a grill holds none); `suite-capacity
-  AC-22 ` in `plugins/openspec/hooks/test-suite.test.mjs` (`DEVKIT_TEST_CONCURRENCY=1` with
-  `--concurrency=2` runs one file at a time and the `suite:` line reads `concurrency 1`; `0`, `x`
-  and empty are ignored). The class E rows of D-15 for `roadmap-loop setting: the load_limit user
-  setting` and `test-suite.test.mjs`'s `BLANK_ENV` in the same commit. Map: a `files` key for
-  `test-slots.mjs` linking `test-slots.test.mjs`, and `plugin.json` linking
-  `roadmap-loop-followups.test.mjs`. Check:
+- [ ] 2.14a The test-slot ledger, add-only part of D-25: the new
+  `plugins/openspec/hooks/test-slots.mjs` with the exports D-25 names ("The ledger module's
+  contract": `SLOTS_LOCK`, `SLOT_STEP_MS`, `slotsPaths`, `readSlots`, `tryTakeSlot`, `releaseSlots`,
+  `waitForSlot`), the ledger under `withLockFile` imported from `change-loop.mjs`, where it lives
+  today, the dead-pid drop and the train's `trainWaiting`, which holds the gates as well as a change's
+  whole suite. This task owns the module and every ledger case; 2.14 adds none. Tests first, seen
+  failing, in the new `plugins/openspec/hooks/test-slots.test.mjs` (`capacity AC-22 `), driving the
+  module's exports with `DEVKIT_STATE_DIR` a fixture folder, `gates` passed in, an injected `alive`
+  and `sleep` and a recording `log`: a second whole suite gets `wait` (`devkit-test: waiting for a
+  whole-suite slot (<owner>)`) while the first holds the slot and takes it after `releaseSlots` of
+  the first's pid; a train's suite waiting (`trainWaiting` written with its pid) keeps a change's
+  suite from taking the slot, and the train takes it first once the slot is free; while the train's
+  suite runs or waits a new gate gets `wait` with the line `devkit-test: waiting for the train's
+  suite`, and takes a slot after the train's entries are released; the train's suite waits for the
+  gates in flight (`devkit-test: the train waits for <n> test runs to end`) and takes the slot when
+  they are released, clearing its `trainWaiting`; a third gate waits at `gates` 2 (`devkit-test:
+  waiting for a gate slot (2 of 2 in flight)`); `waitForSlot` logs its first wait line once and
+  nothing on later rounds, and sleeps `SLOT_STEP_MS` (15 seconds) between rounds; a dead pid's slot
+  is taken (with `alive` the default `process.kill(pid, 0)`, on a child that has exited); a ledger
+  that does not parse, and a missing one, read as empty; two clones (two `clone` roots) on one
+  `DEVKIT_STATE_DIR` share the whole-suite slot; `releaseSlots(pid)` removes that pid's `suite`,
+  gate and `trainWaiting` entries and no other. The `test-run` verb, `capacity` in the run file, the
+  settings, `DEVKIT_TEST_CONCURRENCY` and the brief's sentence are 2.14's. Map: a `files` key for
+  `test-slots.mjs` linking `test-slots.test.mjs`, and `change-loop.mjs`'s list gains
+  `test-slots.test.mjs` (the module imports `withLockFile`). Check:
+  `node scripts/test-suite.mjs --test-name-pattern="^capacity AC-22 "` passes.
+- [ ] 2.14 The test capacity (D-25), the rest once 2.14a is done: `capacity` in `emptyRun`/`readRun`
+  with `gatesOf` and `concurrencyOf` in `plugins/openspec/hooks/run-file.mjs`; `run --test-gates
+  --test-concurrency`; the two `userConfig` settings in `plugins/openspec/.claude-plugin/plugin.json`;
+  the `test-run` verb of `roadmap-loop.mjs`, which calls 2.14a's `waitForSlot` with
+  `capacity.gates` (D-25's defaults when `capacity` is null) and `releaseSlots` and creates no other
+  ledger code; the ceiling of `DEVKIT_TEST_CONCURRENCY` in `scripts/test-suite.mjs`; the cap sentence
+  `helper-next` appends to every `agent` brief. Tests first, seen failing: the verb's cases extend
+  `plugins/openspec/hooks/test-slots.test.mjs` (`capacity AC-22 test-run `), run as a process on a
+  fixture clone with `DEVKIT_STATE_DIR` a fixture folder: no run file or no `task` runs the command
+  at once with no slot; with a run file whose `task` is set it takes its slot, the child sees
+  `DEVKIT_TEST_CONCURRENCY=<concurrency>`, and the child's exit code is `test-run`'s; `SIGTERM` to
+  `test-run` frees its slot (the ledger has no entry of its pid after it exits); no `--`
+  or an empty command exits 3 with nothing taken. `conductor AC-22 ` in
+  `roadmap-loop-conductor.test.mjs` (`run` records the defaults, the settings' values, and the
+  defaults for `0`, `x` and an unfilled `${user_config.test_gates}`; a typed `run` again rewrites
+  `capacity`; every `agent` action of `helper-next` carries the sentence with `--concurrency=<c>`,
+  and a lone change's `next` brief does not; a change at its review waiting on GitHub with no claim
+  holds a place, a helper at a grill holds none); `suite-capacity AC-22 ` in
+  `plugins/openspec/hooks/test-suite.test.mjs` (`DEVKIT_TEST_CONCURRENCY=1` with `--concurrency=2`
+  runs one file at a time and the `suite:` line reads `concurrency 1`; `0`, `x` and empty are
+  ignored). The class E rows of D-15 for `roadmap-loop setting: the load_limit user setting` and
+  `test-suite.test.mjs`'s `BLANK_ENV` in the same commit. Map: `roadmap-loop.mjs`'s list gains
+  `test-slots.test.mjs`, and `plugin.json` links `roadmap-loop-followups.test.mjs` (the
+  `test-slots.mjs` key is 2.14a's). Check:
   `node scripts/test-suite.mjs --test-name-pattern="^(capacity |conductor AC-22 |suite-capacity |roadmap-loop setting:)"`
   passes.
 - [ ] 2.15 The `openspec/`-only pull request (D-25): `conductedOf(root)` in
@@ -267,12 +284,29 @@ merge and the coordinator's word.
   AC-4, AC-5, AC-7, AC-8, AC-9, AC-11, AC-14 to AC-22 (their code).
 
 - [ ] 2.17 The tick's hook module, add-only part of 3.1 (D-4): `plugins/openspec/hooks/tick-gate.mjs`
-  with `localRunFilePath`, `localFacts` and `tickReady`, and the common git folder read from `.git`
-  and `commondir` by `node:fs` in the module itself (`commonDirOf`, exported; 2.15 moves it into
-  `guard.mjs` when `deliver-check.mjs` needs it, and 3.1 keeps one copy), plus
-  `plugins/openspec/hooks/tick-gate.test.mjs` with every case 3.1 names, run as a process with a
-  payload on stdin. No `hooks.json` entry yet (3.1 adds it), so nothing of the repository fires the
-  hook. Map: a `files` key for `tick-gate.mjs` linking `tick-gate.test.mjs`. Check:
+  with the interim home of D-3's functions (D-4, "The interim copy"): `commonDirOf`,
+  `localRunFilePath`, `localFacts` and `tickReady`, exported from `tick-gate.mjs` itself with D-3's
+  rules and signatures, reading the run file's JSON raw with `node:fs` (the fields as D-2 names them;
+  `tickReady` of a missing run gives `no-task`, D-3's last paragraph; at the hook, a run file that
+  does not parse prints nothing, as 3.1's cases list), and `limitOf` imported from `roadmap-loop.mjs`, where it lives today; `findRoot`
+  and `optedIn` imported from `guard.mjs` by the dynamic `import()` after the raw match. Task 2.1
+  moves the four functions to their D-3 homes and leaves one copy. Tests first, seen failing, in the
+  new `plugins/openspec/hooks/tick-gate.test.mjs` (`tick-gate AC-3 `): the unit cases on fixture run
+  files, each D-3 rule of `tickReady` (`no-task` before the task and after `ended`, `stopping-busy`
+  with a live claim and with a live `train.claim`, `stopping`, `done` with `archived` and `skipped`
+  holds, `helpers-full`, each hold kind of rule 5, rule 4a with `train.hold`, `nothing-ready`, a
+  non-id queue entry skipped), and on one fixture repository (a main checkout, two worktrees, one
+  removed folder) `commonDirOf` from the main checkout and from a worktree equal to the real
+  `git rev-parse --git-common-dir` (the one case that runs `git`), `localRunFilePath` null
+  with no common git folder, `localFacts`' `archived`, `open` (the removed folder left out) and
+  `heldPlaces` (an `occupied` entry of an open change counted, one of a change no longer open left
+  out); and the process cases, the hook run with a payload on stdin, with the envelope of
+  `proof/p2-result.md` and again with the bare stored prompt, on that fixture repository and with a
+  `PATH` whose `git` and `gh` stubs exit 1: every case 3.1 lists except the held place checked
+  against the conductor test's `tick`, which needs the `tick` verb and stays in 3.1. No `hooks.json`
+  entry yet (3.1 adds it), so nothing of the repository fires the hook. Map: a `files` key for
+  `tick-gate.mjs` linking `tick-gate.test.mjs`, and `guard.mjs`'s and `roadmap-loop.mjs`'s lists
+  gain `tick-gate.test.mjs` (the module imports from them). Check:
   `node scripts/test-suite.mjs --test-name-pattern="^tick-gate "` passes.
 - [ ] 2.18 Gate of the add-only tasks: `node scripts/test-suite.mjs --own-files --concurrency=2 && python3 scripts/check.py`
   green, its `selected` lines recorded. AC-3 (the hook's part), AC-6 and AC-14 (the modules' part),
@@ -280,24 +314,28 @@ merge and the coordinator's word.
 
 ## 3. The tick's hook, the locks and the blocked firing (phase 3)
 
-- [ ] 3.1 The tick's prompt hook (D-4), what 2.17 left: `plugins/openspec/hooks/tick-gate.mjs` (built-ins at the
-  top, `guard.mjs` and `run-file.mjs` by dynamic `import()` after the raw match; `localRunFilePath`,
-  `localFacts`, `tickReady`), the first `UserPromptSubmit` entry of
-  `plugins/openspec/hooks/hooks.json`, and `plugins/openspec/hooks/tick-gate.test.mjs`, run as a
+- [ ] 3.1 The tick's prompt hook (D-4), what 2.17 and 2.1 left: the first `UserPromptSubmit` entry
+  of `plugins/openspec/hooks/hooks.json` naming `plugins/openspec/hooks/tick-gate.mjs` (built-ins at
+  the top, `guard.mjs` and `run-file.mjs` by dynamic `import()` after the raw match; `readRun`,
+  `localRunFilePath`, `localFacts`, `tickReady` from their D-3 homes since task 2.1, which moved
+  `commonDirOf` and the other three out of `tick-gate.mjs`), and the last case of
+  `plugins/openspec/hooks/tick-gate.test.mjs`: a held place blocks as the conductor test's `tick`
+  claims nothing on the same run file. The cases 2.17 wrote, listed here as the hook's whole
+  contract, pass unchanged: run as a
   process with the envelope of `proof/p2-result.md` (`envelope:`, `envelope_tag:`: the scheduler's
   header, the `<scheduled-task name="devkit-roadmap-tick-…" file="…">` tag, the host's sentence,
   the stored prompt) as the fixture payload's `prompt`, and again with the bare stored prompt, on a fixture repository with a main checkout and a
   linked worktree, and with a `PATH` whose `git` and `gh` stubs exit 1 in every case: the envelope
   with nothing ready blocks (from the main checkout and from the worktree), `stopping-busy` blocks,
   `no-task` blocks, a run file with `ended` set blocks with the reason naming the deletion in the
-  app, a held place blocks as the conductor test's `tick` claims nothing on the same run
-  file; an item ready, done and stopping with no live claim print only the tick's note (its
+  app; an item ready, done and stopping with no live claim print only the tick's note (its
   `additionalContext` naming the payload's session id, the hook's own `CLAUDE_PLUGIN_ROOT` paths, the
   settings from `CLAUDE_PLUGIN_OPTION_*`, and an unset setting left out of the call); any other
   prompt, a tag of another task's name, a first line naming another root, a broken run file, no
   common git folder and another root print nothing; the envelope run ends within the hook's 10-second
-  timeout, its time recorded in the test's message. Map: the hook's `files` key, `hooks.json`'s
-  list, and `run-file.mjs`'s list (the hook calls its functions) link `tick-gate.test.mjs`. Check: `node scripts/test-suite.mjs --test-name-pattern="^tick-gate "` passes.
+  timeout, its time recorded in the test's message. Map: `hooks.json`'s list links
+  `tick-gate.test.mjs` (the `tick-gate.mjs` key and `run-file.mjs`'s link are 2.17's and 2.1's).
+  Check: `node scripts/test-suite.mjs --test-name-pattern="^tick-gate "` passes.
 - [ ] 3.2 The stop and hand-off locks of a conducted run (D-11): `roadmapStopDecision` with the
   tick's stop rule (a live claim of its session with no hold and no background task refused once
   naming `helper-next` and `helper-release`; a background stage agent or review round allowed, its

@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=5 commit=56502a1785405dde2e11721c8c9de1076474903f -->
+<!-- devkit-stage design result=passed attempt=6 commit=a1afda47249cd413f543afbd7c9c8feada0d2ea5 -->
 # Design
 
 Change: `helper-conductor` · Date: 2026-11-28 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -193,7 +193,8 @@ and starts no process (no `git`, no `gh`), so the hook and the tick build the sa
   `<commonDirOf(root)>/devkit/roadmap-run.json`, null with no common dir. Both live in
   `plugins/openspec/hooks/guard.mjs`, which `run-file.mjs` (`run-file.mjs:8`) and `deliver-check.mjs`
   (`deliver-check.mjs:19`) already import, and `run-file.mjs` re-exports them, so `deliver-check.mjs`
-  reads whether a run is conducted with no import cycle (D-25). `runFilePath` (`git rev-parse
+  reads whether a run is conducted with no import cycle (D-25); until task 2.1 they and the two
+  functions below live in `tick-gate.mjs` as D-4's interim copy. `runFilePath` (`git rev-parse
   --git-common-dir`, `run-file.mjs:24-28`) stays for every other caller.
 - `archived`: the ids `<id>` of the folders `openspec/changes/archive/<date>-<id>/` of the main
   checkout (the parent of the common dir when its name is `.git`, else `root`).
@@ -292,6 +293,16 @@ id that is not a change id is skipped.
   envelope with nothing ready still blocks (task 3.1). With `DEVKIT_HOOK_LOG` set it appends one JSON
   line `{ at, mode: 'prompt', session, change: null, decision: 'block'|'allow', why }` (the spec's "A
   recorded tick").
+- **The interim copy (task 2.17, the coordinator's add-only order).** Before `multi-roadmaps` merges,
+  `tick-gate.mjs` itself holds and exports `commonDirOf`, `localRunFilePath`, `localFacts` and
+  `tickReady` with D-3's rules, and reads the run file's JSON raw (fields as D-2 names them; a file
+  that does not parse prints nothing, as above), so the hook and its tests exist with no edit of
+  `guard.mjs` or `run-file.mjs`. Task 2.1 (not 2.15) moves `commonDirOf` and `localRunFilePath` to
+  `guard.mjs` and `localFacts` and `tickReady` to `run-file.mjs`, and deletes the copy in the same
+  commit, so one copy exists at every commit after 2.1; the hook then gets them by the dynamic
+  `import()` above, and the unit cases of `tick-gate.test.mjs` change only their import line. The
+  conductor test (Assumptions) checks `commonDirOf` against `git rev-parse --git-common-dir` in
+  either home.
 
 ### D-5 The typed command and the scheduled task (AC-2, AC-9)
 
@@ -672,7 +683,7 @@ scripts linked; `slow` for `roadmap-loop-conductor.test.mjs`):
 | File | Covers | Names start |
 |---|---|---|
 | `plugins/openspec/hooks/roadmap-loop-conductor.test.mjs` | D-2, D-3 (with `localFacts` against `runFilePath` and `listWorktrees` on a fixture repository: a main checkout, two worktrees, one removed folder), D-5, D-6 (the end recorded, no removal call), D-7, D-8 (verbs), D-11 (the tick's stop and hand-off with `task`), D-13, D-14, D-18 to D-23, D-25 (the caps recorded, the brief sentence, the places, the train's hold of the gates) | `conductor AC-<n> ` |
-| `plugins/openspec/hooks/tick-gate.test.mjs` | D-4, the hook run as a process with a fixture payload copied from `proof/p2-result.md`, on a fixture repository with a main checkout and a linked worktree, with a `PATH` whose `git` and `gh` exit 1 | `tick-gate AC-3 ` |
+| `plugins/openspec/hooks/tick-gate.test.mjs` | D-4, the unit cases of D-3's functions on fixture run files (task 2.17's interim copy, then their D-3 homes after task 2.1), and the hook run as a process with a fixture payload copied from `proof/p2-result.md`, on a fixture repository with a main checkout and a linked worktree, with a `PATH` whose `git` and `gh` exit 1 | `tick-gate AC-3 ` |
 | `plugins/openspec/hooks/request-file.test.mjs` | D-17's shape, the refusals, the 12-line summary, the answer's parse | `request AC-14 `, `request AC-16 ` |
 | `plugins/openspec/hooks/standing-answers.test.mjs` | D-8's parser: no file, empty, two sections, an unknown gate, a delegation with no quote, a closed fence, an unclosed fence | `standing AC-6 `, `standing AC-8 ` |
 | `plugins/openspec/hooks/test-slots.test.mjs` | D-25's ledger and `test-run`: one whole suite at a time, the train first, the gates cap, a dead pid dropped, a broken ledger, two clones sharing the ledger, no slot outside a conducted run, the exit code and the release on a signal | `capacity AC-22 ` |
@@ -1102,6 +1113,25 @@ conducted run only.
   or on `SIGINT`/`SIGTERM`, and exits with the child's code (128 plus the signal's number for a
   signal). A `test-run` killed with `SIGKILL` leaves a dead pid, which the next read drops.
   Unterminated input: no `--` or an empty command is a usage error, exit 3, nothing taken.
+- **The ledger module's contract** (`plugins/openspec/hooks/test-slots.mjs`, task 2.14a; the
+  `test-run` verb of task 2.14 is its only caller and holds no ledger code). Every function takes
+  `env` (default `process.env`) for the state folder and `alive` (default `(pid) =>` true unless
+  `process.kill(pid, 0)` throws `ESRCH`) for the dead-pid drop:
+  - `SLOTS_LOCK = { stepMs: 100, waitMs: 5_000, staleMs: 60_000 }` and `SLOT_STEP_MS = 15_000`.
+  - `slotsPaths(env)` → `{ dir, ledger, lock }`: `DEVKIT_STATE_DIR`, else `$XDG_STATE_HOME/devkit`,
+    else `~/.local/state/devkit`; `ledger` is `test-slots.json`, `lock` `test-slots.lock` in it.
+  - `readSlots({ env, alive })` → the ledger, dead pids dropped; missing or not parsing →
+    `{ version: 1, suite: null, trainWaiting: null, gates: [] }`. No lock, no write.
+  - `tryTakeSlot({ owner, kind, clone, pid, gates, env, alive, now })`, `owner` a change id or
+    `@train`, `kind` `suite` or `gate`, `gates` the cap: one round under `withLockFile` with
+    `SLOTS_LOCK`, the rules of the three bullets above. It returns `{ taken: true }` with the entry
+    written (and its own `trainWaiting` cleared), or `{ taken: false, wait: '<the stderr line>' }`,
+    having written `trainWaiting` for `@train` `suite` when that rule says so.
+  - `releaseSlots({ pid, env })`: under the lock, removes that pid's `suite`, gate and `trainWaiting`
+    entries and no other; a missing ledger is no error.
+  - `waitForSlot({ owner, kind, clone, pid, gates, env, alive, sleep, log, stepMs = SLOT_STEP_MS })`:
+    calls `tryTakeSlot` until `taken`, `sleep(stepMs)` between rounds, and `log(wait)` on the first
+    `wait` only (`log` defaults to a stderr write); it resolves when the slot is taken.
 - **The ceiling in the repository's runner.** `scripts/test-suite.mjs` reads
   `DEVKIT_TEST_CONCURRENCY`: a whole number from 1 makes the run's concurrency the smaller of it and
   the `--concurrency` given (or `availableParallelism()`); any other value, the empty one included, is
@@ -1341,7 +1371,8 @@ stop-and-revise at task 3.6, or a host behaviour found only in phase 6).
   `CLAUDE_PLUGIN_OPTION_LOAD_LIMIT`, which `roadmap-loop.mjs:891` already reads.
 - A linked worktree's `.git` file is `gitdir: <common>/worktrees/<name>`, and that folder holds
   `commondir` and `gitdir` (git's documented layout since 2.5, `git help repository-layout`); the
-  conductor test checks `commonDirOf` against `git rev-parse --git-common-dir` on the machine.
+  conductor test checks `commonDirOf` against `git rev-parse --git-common-dir` on the machine, and
+  `tick-gate.test.mjs` does so for task 2.17's interim copy before task 2.1 moves it to `guard.mjs`.
 
 **Dependencies:**
 - `multi-roadmaps` (roadmap Round 29, not merged): `<name>` and `round <k>`.
