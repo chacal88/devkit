@@ -1,10 +1,11 @@
-<!-- devkit-stage design result=passed attempt=3 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
+<!-- devkit-stage design result=passed attempt=4 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
 # Design
 
 Change: `helper-conductor` · Date: 2026-11-28 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
-(`proposal.md`, `requirements.md` at attempt 4 with its field facts 1 to 11 and AC-14 to AC-22, `decisions.md`, `release.md`,
-the record `docs/adr/helper-conductor.md` with its 13 decisions, cited `ADR [helper-conductor]`). Base: `origin/main` at
-`6f03a57`.
+(`proposal.md`, `requirements.md` at attempt 6 with its field facts 1 to 12 and AC-14 to AC-22, `decisions.md`, `release.md`,
+the record `docs/adr/helper-conductor.md` with its 13 decisions, cited `ADR [helper-conductor]`, and the phase 1 proof:
+`proof/p0-delete.md`, `proof/p1-hooks.md`, `proof/decision.md`, `proof/probe-2-prompt.md`). Base: `origin/main` at
+`6f03a57`. This is the revision that phase 1's decision point asked for (`proof/decision.md`, "Stop and revise").
 
 ## Context
 
@@ -33,10 +34,18 @@ See `proposal.md` (Why) for the motivation. The code this design changes, at `6f
 Constraints that shape the approach:
 
 - The host's scheduled-tasks tool (`mcp__scheduled-tasks__create_scheduled_task`, `list_…`,
-  `update_…`) starts a session of the project on a schedule. Whether that session loads the devkit
-  plugin, fires its hooks, expands a slash command in its prompt, lets a subagent dispatch subagents,
-  and what an empty firing costs is not documented: `ADR [helper-conductor]` decision 3 and ADR 0010
-  decision 8 (nesting proved live before it is trusted) make phase 1 a real run before the rest.
+  `update_…`, `delete_…`, `run_…`) starts a session of the project on a schedule. Phase 1 showed
+  (`proof/p0-delete.md`, `proof/p1-hooks.md`): a task runs on the owner's own computer, never on an
+  SSH host; its session starts at the project root with the devkit plugin, its `SessionStart` hook,
+  its skills and agents, and can run the loop script and hand a stage to an agent through the Agent
+  tool; it has the Workflow tool and cannot start sessions; a task created on a turn the owner did
+  not type runs in the default mode; and delete, pause and run need the owner's click in the app and
+  are refused in auto and bypass mode, so no task removes itself unattended. Probe 2
+  (`proof/p2-result.md`) showed the prompt's envelope, that a slash command in the prompt does not
+  run, that agents and Workflows run only in the background and return by a completion notice, that
+  an agent can hand an agent one level below, and that a run reads `succeeded` while a background
+  command it started lives. Not shown yet: what a blocked firing costs, the hook's note in the
+  session, the cron and the notification tool (task 3.6).
 - The model of the empty-tick refusal is the genesi unstick gate
   (`~/.claude/plugins/cache/genesi/genesi/0.451.0/bin/genesi-unstick-gate.sh`, mode `prompt`): a
   `UserPromptSubmit` hook, first of its list, matches only the envelope `<scheduled-task
@@ -52,7 +61,8 @@ Constraints that shape the approach:
 ## Goals / Non-Goals
 
 **Goals:**
-- A phase-1 real run that settles the helper and the tick's prompt form before any code (D-1).
+- Phase 1's real runs, which settled the tick's prompt form and the review round's path before any
+  code, and a phase-3 real run that measures a blocked firing with the real hook (D-1).
 - One run file shape for a conducted run (D-2), one readiness rule shared by the hook and the tick
   (D-3), and every owner gate in one place (D-8).
 - The removal of every ticket, entry, change-session and session-cron path (D-12), with each test
@@ -69,60 +79,56 @@ Constraints that shape the approach:
 
 ## Decisions
 
-### D-1 Phase 1: the real run and its decision point (AC-1)
+### D-1 Phase 1: the real runs and their decision points (AC-1)
 
-Phase 1 runs before any product code, in a scratch project outside the repository:
-`/var/tmp/devkit-hc-probe/project`, a `git clone` of this repository at the branch's head with
-`openspec/` intact (an opted-in devkit project), using the devkit packs as installed on the machine.
-Its `.claude/settings.local.json` holds one probe hook, `UserPromptSubmit`, whose script lives in
-`/var/tmp/devkit-hc-probe/bin/probe-gate.mjs` (scratch, never committed): it appends the hook's whole
-stdin to `/var/tmp/devkit-hc-probe/log/prompt.jsonl` and, when the file
-`/var/tmp/devkit-hc-probe/empty` exists and the prompt is the probe task's envelope, prints
-`{"decision":"block","reason":"probe: nothing ready"}`. The probe sets `DEVKIT_HOOK_LOG` in that
-settings file's `env` so the devkit locks record their decisions.
+Phase 1 ran on 2026-11-28 (`proof/p0-delete.md`, `proof/p1-hooks.md`, then probe 2,
+`proof/p2-result.md`). Its first decision point, `proof/decision.md`, picked **stop and revise**;
+this design is that revision, with probe 2's answers folded in as settled facts. What phase 1 found,
+case by case:
 
-The probes, each a file under `openspec/changes/helper-conductor/proof/`:
-
-| Id | What it proves | How | Kept as |
+| Case | Value | Source | What this design does with it |
 |---|---|---|---|
-| P-0 | The session can delete what it creates | `list_scheduled_tasks`, then the tool that removes a task (delete, or `update_scheduled_task` with `enabled: false` when no delete exists) on a throwaway task `devkit-hc-probe-0` | `proof/p0-delete.md` |
-| P-1 | A scheduled session loads the plugin and its hooks fire | a task `devkit-hc-probe-1` (one firing) whose prompt asks the session to run `git clean -n` and `git stash list` and report the refusals; the devkit `SessionStart` report and the `bash` guard's refusal appear in its transcript; `prompt.jsonl` holds the payload | `proof/p1-hooks.md`, the payload's first 400 characters with the session id masked |
-| P-2 | The envelope the host gives a task's prompt | the payload of P-1: does `prompt` begin with `<scheduled-task name="…">`, and with what id | in `p1-hooks.md` |
-| P-3 | A slash command in a task's prompt runs as typed | a task whose prompt's second line is `/devkit-openspec:devkit status`; the transcript holds `<command-name>` and the board | `proof/p3-slash.md` |
-| P-4a | An agent helper can dispatch a stage agent and the review bench with the hooks active | in a P-3-style session, one `Agent` call to a probe agent (`/var/tmp/devkit-hc-probe/project/.claude/agents/probe-helper.md`, tools `Agent, Bash, Read`) that hands `devkit-openspec:openspec-validator` one validation of a scratch change and then runs one `review-change` round on a two-file scratch change; `DEVKIT_HOOK_LOG` shows `subagent-stop` decisions for the nested agents | `proof/p4-helper.md` |
-| P-4b | A Workflow helper can do the same | the same session runs a scratch Workflow script that starts the validator and the `review-round.workflow.js` stages for the same scratch change | in `p4-helper.md` |
-| P-5 | What an empty tick costs | with `/var/tmp/devkit-hc-probe/empty` present, three firings of a task with the probe envelope; their transcripts hold no assistant message and the host's usage reads 0 tokens; one firing without the file, for comparison, with its tokens | `proof/p5-empty-tick.md` |
-| P-6 | Overlap and background | while a firing's session runs a background `sleep 900` (`run_in_background`), the next firing still opens a session; the first one's turn ended | `proof/p6-overlap.md` |
-| P-7 | The notification tool | `ToolSearch` for the host's push tool (`select:PushNotification`, else the query `notification`): its name, or none | in `p6-overlap.md` |
+| P-0: the session removes a task it created | false unattended: delete, pause and run need the owner's click in the app and are refused in auto and bypass mode; an SSH-host session creates nothing | `proof/p0-delete.md`, "What the host's tool descriptions state" | The task never removes itself: the run records its end, the hook blocks every later firing, and the owner list says once that the owner deletes the task with one click (D-5, D-6). A machine the app reaches as an SSH host holds no task and runs no conductor (D-13) |
+| P-1: a scheduled session loads the plugin and its hooks fire | true for `SessionStart`, the skills, the agents and the loop script | `proof/p1-hooks.md`, `session_start_hook`, `loop_script`; `proof/p2-result.md`, `session_start_seen` | The tick runs the loop scripts in the task's session |
+| P-2: the envelope of a task's prompt | the first user message holds the host's notes, then `[SCHEDULED TASK - AUTOMATED FIRING OF A CONFIGURED PROMPT]` and a short preamble, then `<scheduled-task name="<taskId>" file="<path>/SKILL.md">` wrapping a host sentence and the stored prompt | `proof/p2-result.md`, `envelope`, `envelope_tag` | D-4's regex and D-11's run detection read the tag and the line `devkit-roadmap-tick: <root>` inside it; the hook's own payload form is logged in task 3.6 |
+| P-3: a slash command in a task's prompt runs as typed | false: it reaches the session as plain text inside the tag, and `devkit-openspec:devkit` is not model-invocable | `proof/p2-result.md`, `slash_command`, `slash_board: none` | Prompt form S-B, with no entry skill (below) |
+| P-4a: an agent dispatches an agent one level below | true (the nested validator answered `VERDICT: PASS`) | `proof/p2-result.md`, `nested_agent` | Not used: the tick's own session hands each stage one level below it (D-7); no agent helper |
+| P-4b: the Workflow tool in a task's session | true: it ran in the background and returned its result | `proof/p2-result.md`, `workflow_ran` | The review round takes the `workflow` path in a tick's session (D-7, task 4.1) |
+| Foreground agents | none: the Agent tool has no foreground option in a task's session; a result comes by a completion notice (about 22 s for the probe's) | `proof/p2-result.md`, `nested_agent` | Every hand-off of a tick is in the background; the session ends its turn and each notice wakes it, so one drive spans several turns (D-7) |
+| A stop hook while an agent runs | no devkit stop hook refused a turn that ended while the agent ran | `proof/p2-result.md`, `stop_hook_seen` | The tick's stop rule refuses only a turn's end with a live claim, no wait recorded and nothing of the claim in flight (D-11); its refusal is proved in task 6.1 |
+| P-6: a run's status while a background command lives | the run read `succeeded` while the `sleep 600` it started still lived | `proof/p2-result.md`, `list_task_runs` | A run's status is no lock: overlap is guarded only by the run file's claims under its lock (D-2, D-6); task 3.6 records two runs at once |
+| P-5: a blocked firing makes no model call | not measured | `proof/p1-hooks.md`, conclusions | Task 3.6, with the real `tick-gate.mjs` in a scratch project |
+| P-7: the notification tool | not measured | none | Task 3.6 |
+| The task keeps the creating session's permission mode | false: a task created on a turn the owner did not type runs in the default mode; the task is created on the owner's typed turn and its approvals live on the task; no permission prompt held either probe | `proof/p1-hooks.md`, "Host facts known before the probe"; `proof/p2-result.md`, consequences | `install-task` is given only on a typed `run` (D-5) |
+| A task's session can start sessions | false (`mcp__ccd_session__start_session` absent) | `proof/p1-hooks.md`, `tools` | Nothing starts a session (decision 8) |
 
-Every probe task is deleted at the probe's end with P-0's tool, and `list_scheduled_tasks` shows
-none (memory rule: check the delete before creating).
+**The pick (coordinator's decision of 2026-11-28, `ADR [helper-conductor]` decision 3).** The helper
+is the tick's own session: it drives its claimed change through `change-loop.mjs` and hands each
+stage to its role as an agent one level below it, as a lone `/devkit change` session does today, and
+runs the review bench as the `review-change` Workflow (D-7). No agent sits between the tick's session
+and the stage agents: no `plugins/openspec/agents/roadmap-helper.md`, no change-helper Workflow. In
+this design "the helper" and "a helper in flight" name that drive of one claimed change by a tick's
+session (a live claim); the verbs keep their names (`helper-next`, `helper-release`).
 
-The decision point, `proof/decision.md`, written by the conducting session from P-0 to P-7:
+**Prompt form S-B (coordinator's decision on probe 2).** The tick's prompt carries no slash command
+and no entry skill is added (the change removes `devkit-session` and adds no other). It is two lines:
+`devkit-roadmap-tick: <root>`, then `Run the devkit roadmap tick as the devkit tick note of this
+prompt says, and follow its output. With no note, change nothing and end the turn.` The note is the
+tick hook's own output on a firing it lets through (D-4): it names the session id, the pack's live
+paths (so a pack update never leaves a stale path in a task no session may edit) and the exact
+`roadmap-loop.mjs tick` call, and points to the part "A tick" of the `devkit` skill, which the
+session reads as a file. What coordination-locks needs: `roadmapRunOf` counts a session whose first
+user message carries the scheduler's header, a `<scheduled-task name="devkit-roadmap-tick-…">` tag
+and, inside it, the line `devkit-roadmap-tick: <root>` for this project's root, as a typed
+`/devkit roadmap tick`; the run then starts with the `devkit-roadmap:` line `tick` prints, as for a
+typed command (D-11). An owner who types `/devkit roadmap tick` gets the same tick through the skill.
 
-- **Helper A (agent)** when P-4a passes: the helper is `plugins/openspec/agents/roadmap-helper.md`
-  (D-7). ADR 0008 is unchanged.
-- **Helper B (Workflow)** when P-4a fails and P-4b passes: the helper is
-  `plugins/openspec/skills/devkit/scripts/change-helper.workflow.js`, which runs the same loop as D-7
-  with `agent()` steps; `ADR [helper-conductor]`'s amendment of ADR 0008 decision 1 applies. What
-  changes in the later phases: task 4.1 writes the Workflow file in place of the agent file and its
-  test map entry; D-11's hand-off rule names the Workflow's stage agents as the tick session's own
-  hand-offs (the hook sees them with no `agent_type`); D-10's `AskUserQuestion` refusal still holds;
-  the tick's stop rule "a helper in the background" reads the Workflow's background task.
-- **Prompt S-A** when P-3 passes: the task's prompt is two lines, `devkit-roadmap-tick: <root>` then
-  `/devkit-openspec:devkit roadmap tick`; `roadmapRunOf` reads it as a typed `/devkit roadmap tick`
-  with no change.
-- **Stop and revise** (no later phase starts; the plan goes back to the planner, the readiness review
-  and the owner's approval, as a revision of the specs) when any of these holds: P-1 shows no devkit
-  hook firing; P-5 shows a model call on a blocked firing; P-0 finds no way to remove a task; P-3
-  fails (the tick would need a model-invocable skill and a guarded entry, which changes
-  `coordination-locks`); both P-4a and P-4b fail (the candidate then is the tick's own session
-  conducting its claimed change on its main thread, which `ADR [helper-conductor]` decision 3 does not
-  allow without a revision). `decision.md` names which case holds.
-
-The record is revised with the pick (its decision 3 names the helper, and with Helper B its ADR 0008
-amendment stands) before the plan's approval is recorded again: the adr-author's work, not the
-planner's.
+**The second decision point, task 3.6.** Stop and revise (no later phase starts; the plan goes back
+to the planner, the readiness review and the owner's approval) when task 3.6 shows a model call or
+tokens on a blocked firing (decision 2 fails), or shows that the hook's note does not reach the
+firing's session (S-B then has no way to name the session and the paths). A refused `*/5 * * * *` is
+no stop: the shortest interval the host accepts is recorded in `proof/decision.md` and brought to the
+owner as a revision of AC-15 before phase 4.
 
 ### D-2 The run file of a conducted run
 
@@ -131,12 +137,13 @@ decision 8 removes (`tickets`, `changeSessions`, `startedSessions`, `turn`, `cro
 gains:
 
 ```js
-task: null,        // { id, cron, at } once the scheduled task is installed; null otherwise
+task: null,        // { id, cron, at } once the scheduled task is installed; null otherwise, and null again at the end
+ended: null,       // { why: 'done' | 'stopped', at, task } once the run ended; `task` the id the owner deletes in the app
 queue: [],         // the change ids of the run's roadmap lines, in file order, as `run` built them
-claims: {},        // { <id>: { session, at, heartbeat, helper } }; helper: null | 'started' | 'ended'
-holds: {},         // { <id>: { kind, at, recheckAt, params } } the wait each item ended its helper at
-ownerWaits: {},    // { <id>: { gate, questions, request, summary, at, shown, pushedAt } } the lines for the owner
-train: null,       // { claim: { session, at, heartbeat, helper } | null, hold: { kind, at, recheckAt } | null } (D-21)
+claims: {},        // { <id>: { session, at, heartbeat } }: the tick session driving <id>
+holds: {},         // { <id>: { kind, at, recheckAt, params } } the wait each item's drive ended at
+ownerWaits: {},    // { <id> | '@train' | '@run': { gate, questions, request, summary, at, shown, pushedAt } } the lines for the owner
+train: null,       // { claim: { session, at, heartbeat } | null, hold: { kind, at, recheckAt } | null } (D-21)
 capacity: null,    // { suites: 1, gates, concurrency, at } the machine's test caps, recorded by `run` (D-25)
 ```
 
@@ -145,7 +152,8 @@ capacity: null,    // { suites: 1, gates, concurrency, at } the machine's test c
   change: 10 minutes after `at` for `github`, 30 minutes for `after` and `elsewhere`, null for the others. `params`
   holds the gate (`owner`, `delegated`), the dependency (`after`) or the reason (`blocked`).
 - `ownerWaits[id].gate` is one of `grill`, `mockup`, `approval`, `retro`, `review-round`,
-  `pr-decision`, `merge`, `decision`, `budget`, the gates of `gate.*` in the message table;
+  `pr-decision`, `merge`, `decision`, `budget`, `task-left`, the gates of `gate.*` in the message
+  table (`gate.task-left` is new, D-9); `task-left` is written only under the key `@run` (D-6 rule 3);
   `questions` is a list of strings (the grill's), empty for the other gates; `shown` is the list of
   session ids that showed it; `pushedAt` is null until its push.
 - `readRun` keeps an entry only when it is whole and of the right type, as `readUpfront` does today;
@@ -159,8 +167,10 @@ capacity: null,    // { suites: 1, gates, concurrency, at } the machine's test c
   AC-3 run file" compares that list with the file's keys. A dated Note is added under ADR 0013's
   Decision: `Note (helper-conductor, <the date of the task>): ADR [helper-conductor] decisions 8 and
   13 remove the fields `tickets`, `changeSessions`, `startedSessions`, `turn`, `cron` and `check`,
-  and add `task`, `queue`, `claims`, `holds`, `ownerWaits`, `train` and `capacity`.` The test reads
+  and add `task`, `ended`, `queue`, `claims`, `holds`, `ownerWaits`, `train` and `capacity`.` The test reads
   decision 4's list, removes the Note's removed fields and adds its added ones before it compares.
+- `readRun` keeps `ended` only when `why` is `done` or `stopped` and `at` and `task` are strings, and
+  the `@train` and `@run` keys of `ownerWaits` beside the change ids.
 - `readRun` keeps `capacity` only when `suites` is 1 and `gates` and `concurrency` are whole numbers
   in D-25's ranges; any other value reads as `null`, and a `null` capacity is read as D-25's
   defaults wherever a cap is needed.
@@ -180,7 +190,10 @@ and starts no process (no `git`, no `gh`), so the hook and the tick build the sa
 - **The common git directory**, `commonDirOf(root)`: `<root>/.git` a folder → that folder; a file
   `gitdir: <path>` → `<path>/commondir` resolved against `<path>` when that file exists, else
   `<path>`; anything unreadable → null. `localRunFilePath(root)` is
-  `<commonDirOf(root)>/devkit/roadmap-run.json`, null with no common dir. `runFilePath` (`git rev-parse
+  `<commonDirOf(root)>/devkit/roadmap-run.json`, null with no common dir. Both live in
+  `plugins/openspec/hooks/guard.mjs`, which `run-file.mjs` (`run-file.mjs:8`) and `deliver-check.mjs`
+  (`deliver-check.mjs:19`) already import, and `run-file.mjs` re-exports them, so `deliver-check.mjs`
+  reads whether a run is conducted with no import cycle (D-25). `runFilePath` (`git rev-parse
   --git-common-dir`, `run-file.mjs:24-28`) stays for every other caller.
 - `archived`: the ids `<id>` of the folders `openspec/changes/archive/<date>-<id>/` of the main
   checkout (the parent of the common dir when its name is `.git`, else `root`).
@@ -198,15 +211,19 @@ and starts no process (no `git`, no `gh`), so the hook and the tick build the sa
   adds a change when it reaches a part of `LOAD_PARTS` (`build`, `after`: the implementation, a test
   stage, the evidence, the review) and deletes it when the change leaves those parts or is archived;
   `helper-next` keeps that rule (D-7). The count leaves out an id no longer open, as the prune of
-  `roadmap-loop.mjs:1240` does, without writing. No stage header is read for it. `helper-next`'s own
-  place check (`placeDecision`) counts the same entries, so the hook and the tick agree.
+  `roadmap-loop.mjs:1240` does, without writing. No stage header is read for it. `placeDecision`
+  counts every `occupied` entry (`roadmap-loop.mjs:1024`) and `pruneRecords` (`:1236`) runs today only
+  for `run.changeSessions`, which this change removes; so `tick` and `helper-next` prune
+  `run.occupied` to the open ids, in the same `updateRun` and before `placeDecision`, the one place
+  the rule lives (readiness finding of attempt 2). The hook's count and the tick's then agree.
 
 It returns `{ ready: <id> | null, why }`:
 
-1. `run.task` null → `{ ready: null, why: 'no-task' }`.
+1. `run.task` null → `{ ready: null, why: 'no-task' }`. This holds before the task is installed and
+   after the run's end (D-6 rule 3), so every firing after the end is blocked before the model.
 2. `run.stopping` with a live claim or a live `train.claim` → `{ ready: null, why: 'stopping-busy' }`
-   (the hook blocks: the helper in flight releases its claim itself); `run.stopping` with neither →
-   `{ ready: null, why: 'stopping' }` (the hook passes, for the tick to delete the task, D-6 rule 3).
+   (the hook blocks: the drive in flight releases its claim itself); `run.stopping` with neither →
+   `{ ready: null, why: 'stopping' }` (the hook passes, for the tick to record the end, D-6 rule 3).
 3. Every id of `run.queue` in `archived`, or held `archived` or `skipped` → `{ ready: null, why:
    'done' }` (the hook passes).
 4. Live claims ≥ `run.places` → `{ ready: null, why: 'helpers-full' }`.
@@ -236,19 +253,35 @@ id that is not a change id is skipped.
 `hooks.json` gains, first in a new `UserPromptSubmit` list:
 `{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/tick-gate.mjs\"", "timeout": 10 }`.
 
-- It reads stdin (at most 64 KiB) and tests the raw text first, with no import: the payload's
-  `prompt` field begins (after blanks) with the envelope P-2 recorded, followed by a line
-  `devkit-roadmap-tick: <root>` where `<root>` is `findRoot(payload.cwd)`. The regex is anchored on
-  `[{,]\s*"prompt"\s*:\s*"` as genesi's is. Until P-2 records the wrapper, the plan's form is
-  `<scheduled-task name="devkit-roadmap-<slug>">` (D-5's id); task 3.1 writes the regex from
-  `proof/p1-hooks.md`, and the test fixtures copy that payload.
+- It reads stdin (at most 64 KiB) and tests the raw text first, with no import, for the envelope
+  probe 2 recorded (`proof/p2-result.md`, `envelope`, `envelope_tag`): the payload's `prompt` field,
+  anchored on `[{,]\s*"prompt"\s*:\s*"` as genesi's is, holds the tag `<scheduled-task
+  name="devkit-roadmap-tick-<slug>-<hash>"` (D-5's task id for `findRoot(payload.cwd)`), and after
+  it, at the start of a line, `devkit-roadmap-tick: <root>` with that same root. Probe 2 read the
+  envelope as the model sees the first message; whether the hook's payload holds the tag or only the
+  stored prompt is not known, so the regex also accepts a `prompt` whose first line is exactly
+  `devkit-roadmap-tick: <root>`. Task 3.6 logs the payload of real firings; the form it does not
+  see is dropped in that task, with its test. The test fixtures copy probe 2's text.
 - Anything else, any parse error, a project that has not opted in, or a root that does not match:
   exit 0, print nothing.
 - For the envelope: `readRun(localRunFilePath(root))` (a null path → print nothing),
   `localFacts(root, run, process.env)` and `tickReady` of D-3. `ready` not null, or `why` in `done`,
-  `stopping`: exit 0, print nothing. Otherwise (`no-task`, `stopping-busy`, `helpers-full`,
+  `stopping`: exit 0 and print the tick's note (below). Otherwise (`no-task`, `stopping-busy`, `helpers-full`,
   `nothing-ready`) print `{"decision":"block","reason":"devkit roadmap: nothing is ready (<why>)"}`
-  and exit 0.
+  and exit 0; after the run's end (`run.ended` set, `why` `no-task`) the reason reads `devkit roadmap:
+  the run is over; delete its scheduled task in the app`.
+- **The tick's note** (prompt form S-B, D-1): on a firing it lets through, the hook prints
+  `{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"<note>"}}`, the
+  note being, in English: `devkit tick note: session <payload.session_id>. Run: node
+  "<CLAUDE_PLUGIN_ROOT>/hooks/roadmap-loop.mjs" tick --session <payload.session_id> --lang <l>
+  --load-limit <x> --machines '<m>'. Then read the part "A tick" of
+  <CLAUDE_PLUGIN_ROOT>/skills/devkit/SKILL.md and carry out the tick's output as it says; never ask
+  anything.`, where `<l>`, `<x>` and `<m>` are the pack's settings as the hook's process receives
+  them (`CLAUDE_PLUGIN_OPTION_LANGUAGE`, `CLAUDE_PLUGIN_OPTION_LOAD_LIMIT`,
+  `CLAUDE_PLUGIN_OPTION_MACHINES`, each as `roadmap-loop.mjs:891` reads the load limit; an unset one
+  is left out of the call, and the script takes its default). The note is built from the hook's own
+  `CLAUDE_PLUGIN_ROOT`, so it names the installed pack version at each firing. Every prompt that is
+  not the envelope still gets no output.
 - Its imports: Node built-ins at the top; `guard.mjs` (`findRoot`, `optedIn`) and `run-file.mjs`
   (`readRun`, `localRunFilePath`, `localFacts`, `tickReady`) by a dynamic `import()` only once the raw
   text matched, so any other prompt loads nothing. `run-file.mjs` imports `change-loop.mjs`
@@ -262,77 +295,101 @@ id that is not a change id is skipped.
 
 ### D-5 The typed command and the scheduled task (AC-2, AC-9)
 
-- Task id: `devkit-roadmap-<basename of root, lowercased, outside [a-z0-9-] made `-`, cut to 24>-<first
-  8 hex of sha256(root)>`. Cron: `*/5 * * * *` (`ADR [helper-conductor]` decision 1, AC-15), unless P-6 shows the host refuses
-  it: then the shortest interval it accepts, recorded in `decision.md` and brought to the owner as a
-  revision of AC-15 before phase 2 starts. `notifyOnCompletion: false`.
-- Prompt (S-A), exactly two lines: `devkit-roadmap-tick: <root>` and
-  `/devkit-openspec:devkit roadmap tick`.
+- Task id: `devkit-roadmap-tick-<basename of root, lowercased, outside [a-z0-9-] made `-`, cut to 24>-<first
+  8 hex of sha256(root)>`. Cron: `*/5 * * * *` (`ADR [helper-conductor]` decision 1, AC-15), unless
+  task 3.6 shows the host refuses it: then the shortest interval it accepts, recorded in
+  `decision.md` and brought to the owner as a revision of AC-15 before phase 4 starts.
+  `notifyOnCompletion: false`.
+- Prompt, exactly two lines (S-B, D-1): `devkit-roadmap-tick: <root>`, then `Run the devkit roadmap
+  tick as the devkit tick note of this prompt says, and follow its output. With no note, change
+  nothing and end the turn.` It names no path and no version, so a pack update needs no change to
+  the task.
+- The task is created only on the owner's typed turn, so that it keeps the session's permission mode
+  and its tool approvals are stored on the task (`proof/p1-hooks.md`, host fact 2): `install-task` is
+  printed only by `run` (the verb behind a typed `/devkit roadmap [<n>]`), never by `tick`, `next` or
+  a firing; the skill carries it out in the same turn, before the turn's end, and never on a
+  continuation or a task notification.
 - `roadmap-loop.mjs run --test-gates <g> --test-concurrency <c>` (no `--change-sessions`, no
   `--cron`; both flags are now unknown options) records `places`, `queue` (from `classifyLines`: the
   unticked, unarchived lines, in file order), `session` and `capacity` (D-25), every typed `run`
-  writing `capacity` again from the settings, as it writes `places`; and prints `devkit-roadmap: <n>` then the decision JSON with one action:
-  `{ kind: 'install-task', input: { taskId, title, description, cronExpression, prompt,
+  writing `capacity` again from the settings, as it writes `places`, and clears `ended` and the
+  `@run` line of a run that ended; it prints `devkit-roadmap: <n>` then the decision JSON with one
+  action: `{ kind: 'install-task', input: { taskId, title, description, cronExpression, prompt,
   notifyOnCompletion } }` when `run.task` is null, else none. `--after task=installed:<id>` or
-  `--after task=exists:<id>` (a new key of `run`'s and `next`'s `--after`) records
-  `task: { id, cron, at }`; `--after task=refused` records nothing and prints the reply
-  `roadmap-no-task`.
+  `--after task=exists:<id>` (a new key of `run`'s `--after`) records `task: { id, cron, at }`;
+  `--after task=refused` records nothing and prints the reply `roadmap-no-task`.
 - The skill (D-9): before `run`, load the host's tools with `ToolSearch`
   (`select:mcp__scheduled-tasks__list_scheduled_tasks,mcp__scheduled-tasks__create_scheduled_task`);
   when none loads, run `roadmap-loop.mjs reply roadmap-no-scheduler`, say it, end the turn (nothing is
-  written). For `install-task`: `list_scheduled_tasks`; a task with the action's `taskId` →
-  `--after task=exists:<id>`; else `create_scheduled_task` with `input` exactly →
-  `--after task=installed:<id>`, or `task=refused` on an error.
-- `stop`: `run` with `stop` sets `stopping` and prints `{ kind: 'delete-task', id }`; the skill
-  removes it with P-0's tool and reports `--after task=deleted`, which sets `task: null`. A task
-  already gone is no error. The `tick` that finds `done`, or `stopping` with no live claim, prints
-  the same action and the end reply `roadmap-ended-done` or `roadmap-ended-stopped` (D-6 rule 3), so
-  the task is deleted even when the typed session closed before it removed it. `tick`'s own
-  `--after` takes `task=deleted` and `task=delete-refused` (D-6).
+  written). For `install-task`: `list_scheduled_tasks`; a task with the action's `taskId` (the task
+  a finished run left, which the owner did not delete yet, included) → `--after task=exists:<id>`,
+  so a run typed again after its end reuses that task and creates no second one; else
+  `create_scheduled_task` with `input` exactly → `--after task=installed:<id>`, or `task=refused` on
+  an error (an SSH-host session's refusal, `proof/p0-delete.md`, included).
+- No session of the conductor calls `delete_scheduled_task`, `update_scheduled_task` or
+  `run_scheduled_task`: the host takes them only with the owner's click and refuses them in auto and
+  bypass mode (`proof/p0-delete.md`). There is no `delete-task` action and no `--after task=deleted`.
+- `stop`: `run` with `stop` sets `stopping`. With no live claim and no live `train.claim` it records
+  the end at once, as D-6 rule 3 does (`why: 'stopped'`), and prints the reply `roadmap-ended-stopped`
+  and the `@run` line's words, which the typed session says and marks shown (`owner-waits --session`),
+  so the owner reads them once, in that session. With a claim live it prints the stopping reply; the
+  hook then blocks the firings (`stopping-busy`) until the drive in flight releases its claim, and
+  the next firing's tick records the end (D-6 rule 3), even when the typed session closed.
 
-### D-6 The tick: `roadmap-loop.mjs tick --session <id>` (AC-4, AC-5, AC-11)
+### D-6 The tick: `roadmap-loop.mjs tick --session <id>` (AC-4, AC-5, AC-9, AC-11)
 
-Reached through `/devkit roadmap tick` (the `devkit` skill's `## Roadmap`, D-9). It prints
-`devkit-roadmap: <places>` then one JSON:
+Reached from a firing through the hook's note (D-4), whose call the session runs, or from the
+owner's typed `/devkit roadmap tick` through the `devkit` skill (D-9). It prints `devkit-roadmap:
+<places>` then one JSON:
 
-1. No `run.task` → `{ end: { reply: 'roadmap-no-run' } }`, nothing written.
+1. No `run.task` → `{ end: { reply: 'roadmap-no-run' } }`, nothing written (after the run's end the
+   hook blocks the firing before this point; an owner who types `/devkit roadmap tick` gets the reply).
 2. A hold of kind `delegated` whose item has no live claim → `{ action: { kind: 'record-delegated',
-   change, gate, quote, line, who } }`: the tick's own session records it (D-8) and calls
-   `tick-recorded --change <id> --gate <g>`, which clears the hold.
-3. `tickReady` says `done` → `{ action: { kind: 'delete-task', id }, end: { reply:
-   'roadmap-ended-done' } }`; `stopping` (no live claim left) → `{ action: { kind: 'delete-task', id },
-   end: { reply: 'roadmap-ended-stopped' } }`, so a run whose typed session closed before it deleted
-   the task (D-5's `stop`) still loses it; `stopping-busy` → nothing to claim, `{ end: null }` (the
-   hook blocks those ticks, so they cost no model call). A `stopping` run is bounded: the helper's
-   next `helper-next` releases its claim (D-7), and a helper that died leaves a claim stale after
-   `CLAIM_STALE_MS`, after which the next tick finds `stopping`. The tick's session carries out
-   `delete-task` as the typed session does (D-5) and reports `tick --session <id> --after
-   task=deleted`, which sets `task: null`; a task already gone reports the same. Any other error of the
-   tool reports `--after task=delete-refused`, which also sets `task: null` (so every later firing is
-   blocked by the hook on `no-task` with no model call) and prints the reply `roadmap-task-left` naming
-   the task id for the owner to remove by hand; `stopping` and `done` keep their reply after it.
+   change, gate, quote, line, who } }`: this tick's session records it (D-8), calls `tick-recorded
+   --change <id> --gate <g>`, which clears the hold, and runs `tick` again. This sweep is the only
+   place a tick writes a gate file or an answer: never in the drive that reached the gate
+   (`ADR [helper-conductor]` decision 3), so a drive that ends at a delegated gate ends there, and
+   a later tick records it.
+3. The end. `tickReady` says `done`, or `stopping` (no live claim left): in one `updateRun`, `ended =
+   { why: 'done' | 'stopped', at: now, task: run.task.id }`, `task = null`, `stopping` cleared, and
+   the line `ownerWaits['@run'] = { gate: 'task-left', questions: [<task id>], request: null, at: now,
+   shown: [], pushedAt: null }`; it prints `{ end: { reply: 'roadmap-ended-done' |
+   'roadmap-ended-stopped', task: <id> } }`. No call removes, pauses or runs the task (D-5): from
+   then on rule 1 of D-3 holds and the hook blocks every later firing before the model. The `@run`
+   line is the one place the owner reads, once, that the task is to be deleted with one click in the
+   app (`roadmap-task-left`, D-9): the typed session's watch shows it and marks it shown, the push
+   sends it once (D-8), and `/devkit status` lists it under the owner's block until a typed
+   `/devkit roadmap` starts a run again (D-5) or the owner says the task is deleted (`answered
+   --change @run --gate task-left`). `stopping-busy` → nothing to claim, `{ end: null }` (the hook
+   blocks those firings, so they cost no model call). A `stopping` run is bounded: the drive in
+   flight releases its claim at its next `helper-next` (D-7), and a drive that died leaves a claim
+   stale after `CLAIM_STALE_MS`, after which the next firing passes the hook and its tick records the
+   end.
 4. Otherwise the decision core runs as `next` does (`decideRoadmap` over the facts, with its fetch of
    the base, `fresh-base` rule), and the tick takes the first item of `run.queue`, in order, that
-   `tickReady` would accept and whose decided action is not a wait; under `updateRun` it re-reads the
-   run file, checks that item still has no live claim and that live claims are below `places`, and
-   writes `claims[id] = { session, at: now, heartbeat: now, helper: null }` and deletes `holds[id]`.
-   It prints `{ claim: { change, root, model, brief } }`: `root` the change's worktree (or the main
-   checkout when the change is not open yet), `model` from D-14, `brief` the helper's prompt (D-7).
+   `tickReady` would accept and whose decided action is not a wait; under `updateRun` it prunes
+   `run.occupied` to the open ids (D-3), re-reads the run file, checks that item still has no live
+   claim and that live claims are below `places`, and writes `claims[id] = { session, at: now,
+   heartbeat: now }` and deletes `holds[id]`. It prints `{ claim: { change, root } }`: `root` the
+   change's worktree (or the main checkout when the change is not open yet).
 5. Nothing claimable → `{ claim: null, why }`.
 
-`tick-started --change <id>` sets `claims[id].helper = 'started'` (the stop lock's fact, D-11). The
-tick's session starts the helper in the background, ends its turn, and on the helper's end runs
-`tick-ended --change <id>`, then carries out a `record-delegated` the helper's end named, then the
-pushes of new owner lines (D-8).
+On a claim, the tick's session drives the claimed change itself (D-7), over as many turns as its
+background hand-offs need: it starts no helper agent and no session. When the drive ends, it runs
+the pushes of new owner lines (D-8) and ends its turn; a delegated gate the drive reached waits for a
+later tick's rule 2. Two firings at once are told apart only by the claims: a run's status reads
+`succeeded` while its session still waits for a notice (`proof/p2-result.md`), so the next firing's
+tick may start while a drive goes on, and its claim under `updateRun` skips the claimed item.
 
-### D-7 The helper's loop: `roadmap-loop.mjs helper-next` (AC-4 to AC-6, AC-11)
+### D-7 The helper is the tick's own session: `roadmap-loop.mjs helper-next` (AC-4 to AC-6, AC-11)
 
 `helper-next --change <id> --session <tick session> [--after <key>]` replaces `session-next`: the
 same reading of `change-loop.mjs next` for the change in its worktree, the same place, load and
 dependency holds (`held` with `why` `place`, `load`, `after`), the same `merge-base` step before the
 first plan file, the same budget end; minus the ticket, the session title and the session-model
-switch. Every call renews `claims[id].heartbeat`. It prints `devkit-run: <id>` and the action, or,
-when the action is a wait or an end, records it and releases the claim in one `updateRun`:
+switch. Every call renews `claims[id].heartbeat` and prunes `run.occupied` to the open ids before
+`placeDecision` (D-3). It prints `devkit-run: <id>` and the action, or, when the action is a wait or
+an end, records it and releases the claim in one `updateRun`:
 
 | Action from the change loop | Recorded | Printed |
 |---|---|---|
@@ -342,6 +399,7 @@ when the action is a wait or an end, records it and releases the claim in one `u
 | end `waiting-for-owner` at any other gate | `ownerWaits[id] = { gate, questions: [], … }`, `holds[id] = { kind: 'owner' }` | `{ kind: 'end', state: 'waiting-for-owner', gate }` |
 | end `blocked` | `holds[id] = { kind: 'blocked', params: { why } }` and `ownerWaits[id] = { gate: 'decision', questions: [<why>], … }` | `{ kind: 'end', state: 'blocked', why }` |
 | end `archived` | `holds[id] = { kind: 'archived' }`; no owner line | `{ kind: 'end', state: 'archived' }` |
+| `run.stopping` set, before any new action | no hold | `{ kind: 'end', state: 'stopping' }` |
 | `grill` | nothing | the action, with `standing` (D-8's parse) and `conducted: true` |
 | any other stage or step | nothing | the action, unchanged but for the dropped `sessionTitle` and, on an `agent` action, D-25's cap sentence appended to its `brief` |
 
@@ -357,32 +415,41 @@ and once every queued item is archived or held `archived` the tick ends the run 
 
 `owner-wait --change <id> --gate grill --question <q>...` (repeatable) is the grill's exit for the
 questions nothing settles: it writes the owner line with those questions and the `owner` hold, and
-releases the claim. `helper-release --change <id>` releases a claim with no hold (the helper's last
-call when it was stopped by `stopping`).
+releases the claim. `helper-release --change <id>` releases a claim with no hold: the stop lock names
+it (D-11) for a drive that cannot go on (its worktree unreadable, the loop exiting 3).
 
-The helper, Helper A (`plugins/openspec/agents/roadmap-helper.md`):
+**The drive.** There is no helper agent (`proof/decision.md`, "Pick"; `ADR [helper-conductor]`
+decision 3). The tick's session carries out the loop of `## Loop` item 2 of the devkit skill for its
+one claimed change, as a lone `/devkit change` session does, with these differences, written into
+the "A tick" part of the skill (D-9):
 
-```yaml
-name: roadmap-helper
-description: "Drives one change of a /devkit roadmap run to its next wait, for the tick of the run's scheduled task that claimed it: runs helper-next, hands each stage to its role, runs the grill from the files and the standing answers, never asks the owner. Use only when a tick's brief names a claimed change."
-tools: Agent, Bash, Read, Write, Edit, Glob, Grep
-model: sonnet
-skills:
-  - requirements-grill
-```
-
-Its body: the loop of `## Loop` item 2 of the devkit skill, carried out for one change, with these
-differences: every `next` is `helper-next`; the grill runs the requirements-grill skill's conducted
-branch (D-9), writing triage answers and standing answers with their sources and calling
-`owner-wait` for the rest; a session step it cannot carry out without the owner is never attempted
-(the loop gives it as an end); it writes no `approval.md`, no retro answer and no file the guard
-reserves to the main session; it calls no AskUserQuestion (not in its tools) and starts no session;
-every test command it runs itself goes through `test-run` as D-25 says, and the cap sentence of
-D-25 is on every brief it hands; its last call is the `end` of `helper-next`, or `helper-release`
-when `stopping`. Its final message is
-one JSON line `{ "change": <id>, "end": <the end's state>, "delegated": <the delegated object or
-null> }`. The model passed on its Agent call is the tick's `claim.model` with any `[1m]` dropped
-(D-14).
+- Every `next` is `helper-next`; a stage action is handed to its role with the Agent tool, the
+  action's `brief` as the prompt and the action's model with any `[1m]` dropped (D-14), one level
+  below the tick's session. No agent it hands dispatches the stage further for it.
+- Every hand-off is in the background: a task's session has no foreground Agent call, and the
+  agent's result comes as a completion notice (`proof/p2-result.md`, `nested_agent`). After a
+  hand-off the session ends its turn; the notice wakes it, and it calls `helper-next --after <key>`
+  as the Loop says. One drive therefore spans several turns of the same session, and the claim's
+  heartbeat is renewed at each `helper-next` call.
+- The grill runs in the tick's session through the requirements-grill skill's conducted branch
+  (D-9): the triage agent, then the standing answers, each answer with its source, and `owner-wait`
+  for the rest.
+- The review round runs in the tick's session as `review-change` says (the `review` step of
+  `ship-change`): on the `workflow` path, `plugins/core/skills/review-change/scripts/review-round.workflow.js`
+  (probe 2's step 4 ran the Workflow in a task's session, in the background), so `review-change`'s
+  "Which path runs" counts the turn a conducted run's scheduled prompt began (task 4.1); on the
+  `agents` path whenever the skill's own rows send it there (the tool refuses, the result is invalid,
+  the round is lost). The
+  reviewers' files are written by their own agent types, as ADR 0008 decision 4 keeps.
+- The session steps the loop gives (the commits and pushes of the delivery, `merge-base`, the
+  answer of a review thread) are the tick's session's own, as for a lone change. A step that needs
+  the owner is never attempted: the loop gives it as an end, which `helper-next` turns into a line.
+- It never calls AskUserQuestion (D-10), starts no session, writes no gate file (`approval.md`, a
+  retro answer) and no request answer, and writes no product code. A gate the standing answers
+  delegate ends the drive with its `delegated` hold; a later tick's sweep records it (D-6 rule 2).
+- Every test command it runs itself goes through `test-run` as D-25 says, and the cap sentence of
+  D-25 is on every brief it hands.
+- Its drive ends at the `end` of `helper-next` (a `stopping` end included).
 
 ### D-8 The owner's one place: lines, the typed session, the push, the delegations (AC-6 to AC-8)
 
@@ -397,7 +464,8 @@ null> }`. The model passed on its Agent call is the tick's `claim.model` with an
   (` ``` ` or `~~~`) is ignored, and an unclosed fence ignores every line after it. Missing file, empty
   file, unreadable file → no answers, no delegations. A delegation line with no quote or an unknown
   gate is ignored.
-- **A line for the owner** is written only by `helper-next` and `owner-wait` (D-7). `owner-waits
+- **A line for the owner** is written only by `helper-next` and `owner-wait` (D-7), by `train-end`
+  (D-21), and by the end of the run (`@run`, D-6 rule 3). `owner-waits
   [--session <id>]` prints the lines as JSON, in roadmap order, each with the message of
   `roadmap-gate` and its questions; with `--session` it adds the id to each line's `shown`.
 - **The typed session** (D-9): after `run`, it starts `roadmap-loop.mjs owner-watch --session
@@ -407,12 +475,15 @@ null> }`. The model passed on its Agent call is the tick's `claim.model` with an
   as the owner's gate, one change at a time, and records the owner's own answer as `## Owner gates`
   of the skill says for that gate (the `ship-change` row of the gate, the grill answers into
   `requirements.md`), then `answered --change <id> --gate <g>`, which deletes `ownerWaits[id]` and
-  `holds[id]`; it starts the watch again. The watch is recorded in `waits` with kind `watch`.
-- **The push**: after `tick-ended`, the tick's session runs `owner-waits` and, for each line whose
-  `pushedAt` is null, when P-7 named a tool, sends one notification (`<id>: <gate phrase>`) and runs
+  `holds[id]`; it starts the watch again. The `@run` line asks nothing: the session says its words
+  once (`roadmap-task-left`) and the watch ends, since `run.task` is null. The watch is recorded in
+  `waits` with kind `watch`.
+- **The push**: at the drive's end (D-6) and after a tick that recorded the run's end, the tick's
+  session runs `owner-waits` and, for each line whose `pushedAt` is null, when task 3.6 named a
+  notification tool, sends one notification (`<id>: <gate phrase>`) and runs
   `pushed --change <id> --gate <g>`, which sets `pushedAt`. A line is pushed once.
-- **A delegated gate** is recorded by the tick's session (`record-delegated`, D-6), never by the
-  helper: for `approval`, the `ship-change` row `stop-plan-approval` with the owner's words replaced
+- **A delegated gate** is recorded by a tick's session in its sweep (`record-delegated`, D-6 rule 2),
+  never in the drive that reached it and never by a stage agent: for `approval`, the `ship-change` row `stop-plan-approval` with the owner's words replaced
   by `delegated to <who> in openspec/standing-answers.md:<line>: "<quote>"`; for `retro`, the
   `stop-retro-answers` row the same way; for the other gates, the reply the skill's `## Owner gates`
   names with the same words. A gate with no delegation is never recorded by a tick (the hook rule of
@@ -423,19 +494,30 @@ null> }`. The model passed on its Agent call is the tick's `claim.model` with an
 
 - `plugins/openspec/skills/devkit/SKILL.md` `## Roadmap` is rewritten as three parts: "The typed
   command" (D-5's tool loading and `install-task`, the owner watch and the lines of D-8, `stop`, the
-  start-anyway), "A tick" (`/devkit roadmap tick`: run `tick`, carry out `record-delegated` and
-  `delete-task`, start the helper in the background with the claim's brief and model, `tick-started`,
-  end the turn; on the helper's end `tick-ended`, the delegated gate, the pushes; never ask the owner,
-  never call AskUserQuestion, never write a gate file but a delegated one; every test command through
-  `test-run`, D-25), and "What stays" (the places, the load, the machines, and the test caps with
-  their two settings). The settings list at the skill's top gains `test_gates` and
+  start-anyway, the `@run` line said once after the end), "A tick" (run `tick` as the hook's note
+  or the typed `/devkit roadmap tick` gives it; carry out `record-delegated` in the sweep and run
+  `tick` again; on an end, the pushes and end the turn; on a claim, drive the change as D-7's "The
+  drive" says, every hand-off in the background, ending the turn after each and going on at its
+  notice, then the pushes; never ask the owner, never call AskUserQuestion, never write a gate file
+  but in the sweep, never call `delete_scheduled_task`, `update_scheduled_task` or
+  `run_scheduled_task`; every test command through `test-run`, D-25), and "What stays" (the places,
+  the load, the machines, and the test caps with their two settings). A tick's session reads "A
+  tick" as a file, at the path the hook's note names: the skill stays not model-invocable and no
+  entry skill is added (D-1). "A tick" is written so it reads whole on its own, with every path
+  given relative to the note's pack root. The settings list at the skill's top gains `test_gates` and
   `test_concurrency` beside `load_limit`, and `run`'s call carries `--test-gates` and
   `--test-concurrency` (D-25). "A session per change", "Every change in this session" and "The
   periodic check" are deleted, and so is item 1a of `## Loop`, the `session-next` mention of the grill
   item, and the `Never` items about change sessions, the session-start tool and the periodic check;
   the `Never` item about crons becomes: "Create a cron or any scheduled wake-up, except the one
-  scheduled task of a roadmap run that `roadmap-loop.mjs` asks for, which `stop` and the run's end
-  delete." The frontmatter's `argument-hint` reads `roadmap [<n> | stop | tick]`.
+  scheduled task of a roadmap run that `roadmap-loop.mjs run` asks for on the owner's typed
+  `/devkit roadmap`; never delete, pause or run a task: at the run's end the owner deletes it in the
+  app." The frontmatter's `argument-hint` reads `roadmap [<n> | stop | tick]`.
+- `plugins/core/skills/review-change/SKILL.md`, "Which path runs" (`:77`; probe 2's step 4 ran the
+  Workflow, D-1): the condition "the current turn began with the owner's own typed message
+  (not ... a scheduled prompt)" gains "or with the scheduled prompt of a conducted `/devkit roadmap`
+  run (its first line `devkit-roadmap-tick: <root>`), in that run's tick session"; the skill's
+  `Never` item "Use the Workflow tool for anything but this round" stays as written.
 - `plugins/core/skills/requirements-grill/SKILL.md` gains, at the end of step 2b, "### 2c. A
   conducted grill": when the action carries `conducted: true`, the questions the triage leaves go to
   the action's `standing.answers` (each answer quoted with `openspec/standing-answers.md:<line>` as
@@ -461,41 +543,61 @@ null> }`. The model passed on its Agent call is the tick's `claim.model` with an
   refused the run's scheduled task: nothing was started."), `roadmap-task-installed` ("The run is
   under way: a scheduled task of this project moves each change by itself, and what needs you is
   asked here."), `roadmap-no-run` ("No roadmap run is under way here: type /devkit roadmap to start
-  one."), `roadmap-task-left` ("The app would not remove the run's scheduled task {task}: remove it
-  in the app's scheduled tasks; the run is over."), `roadmap-owner-line` ("{id} waits for {gate}:
+  one."), `roadmap-task-left` ("The run is over. Delete its scheduled task {task} with one click in
+  the app's scheduled tasks; until then each of its firings is refused before the model and costs
+  nothing."), `gate.task-left` ("the run's scheduled task, to delete in the app"), `roadmap-owner-line` ("{id} waits for {gate}:
   answer here, and the run goes on."),
   `status-owner-here` ("answer in the session the run was typed in"), each with its `pt-BR` text
   written in the same plain register as its neighbours.
 
-### D-10 The helper never asks (AC-6)
+### D-10 A tick's session never asks (AC-6)
 
-Besides the helper's tools, `hooks.json` gains a `PreToolUse` matcher `AskUserQuestion` →
+`hooks.json` gains a `PreToolUse` matcher `AskUserQuestion` →
 `guard.mjs ask`: in a session whose run is a tick (`roadmapRunOf` gives `command: 'roadmap tick'`),
-from the main thread or a subagent, the call is refused with "a roadmap tick never asks the owner:
+from the main thread, a stage agent it handed or an agent of the review round's Workflow, the call is
+refused with "a roadmap tick never asks the owner:
 write the question as a line for the owner (owner-wait)". Every other session passes. It fails open
 as every lock does.
 
 ### D-11 The locks (coordination-locks)
 
-- `roadmapRunOf` is unchanged under S-A: `/devkit roadmap tick` is a typed `/devkit roadmap` with the
-  argument `tick`, and `tick` prints its `devkit-roadmap:` line.
-- `roadmapStopDecision`: when the run file records `task`, the typed session (command not `roadmap
-  tick`) is allowed; a tick's session is refused once (progress key `tick:<id>:<helper>`) while it
-  holds a claim with `helper: null`, or with `helper: 'ended'` and a `delegated` hold still on that
-  item; otherwise allowed. With no `task` the existing rules hold unchanged.
+- Run detection of a tick's session (prompt form S-B, D-1). `roadmapRunOf` (`guard.mjs:1302`) gains
+  one event: the session's first user message, read as `firstMessageOf` reads the started form,
+  counts as a typed `/devkit roadmap tick` when it holds the scheduler's header line `[SCHEDULED TASK
+  - AUTOMATED FIRING OF A CONFIGURED PROMPT]`, then a `<scheduled-task name="devkit-roadmap-tick-…"`
+  tag, and inside it, at the start of a line, `devkit-roadmap-tick: <root>` with `<root>` the
+  session's own `findRoot(cwd)` (`proof/p2-result.md`, `envelope`). As for a typed command, the run
+  starts only once the `devkit-roadmap:` line that `tick` prints follows it. Another scheduled task,
+  a tag of another name, or a line naming another root is no roadmap run; a typed later message
+  replaces it as today. An owner's typed `/devkit roadmap tick` is read as before. The new read
+  fails open as every lock does (an unreadable transcript is no run). No `Skill` entry is added.
+- `roadmapStopDecision`, the tick's stop rule: when the run file records `task` (or `ended`), the
+  typed session (command not `roadmap tick`) is allowed. A tick's session is refused once (progress
+  key `tick:<id>:<the claim's heartbeat>`) while it holds a live claim (`claims[id].session` is its
+  session id) and the stop's input lists no background task: the drive must reach a wait, and the
+  reason names `helper-next --change <id>` (which records the wait or the `stopping` end and releases
+  the claim) and `helper-release` for a drive that cannot go on. Otherwise it is allowed: while a
+  background stage agent or review round of its claim runs (every hand-off of a tick is in the
+  background, and its completion notice wakes the session; probe 2 saw no stop hook refuse such a
+  turn's end, `stop_hook_seen`), after a drive that ended at a delegated gate (a later tick's sweep
+  records it), with nothing claimed, and on a repeat with nothing changed.
+  With no `task` and no `ended` the existing rules hold unchanged.
 - `roadmapAgentDecision`: with `task` recorded, the typed session's hand-offs are refused (reason
-  `conducted`); a tick's session is allowed the helper (`devkit-openspec:roadmap-helper`) or a role of
-  its claimed change's script, the brief naming that change, else refused naming the claimed change.
-  Subagents' own hand-offs stay allowed, and `roadmapSubagentStopDecision` judges each stage agent
-  against its change as today. The helper's own stop: a `subagent-stop` of `roadmap-helper` is
-  refused once while its claim has no hold and the run is not stopping (it must end at a wait).
+  `conducted`); a tick's session is allowed a role of its claimed change's script (the triage, the
+  stage roles, the review round's reviewers and verifiers on the `agents` path), or
+  `devkit-core:codebase-researcher` for the precheck (D-22), the brief naming that change, else
+  refused naming the claimed change; a tick's session with no live claim hands nothing. There is no
+  helper agent to allow. Subagents' own hand-offs stay allowed, and `roadmapSubagentStopDecision`
+  judges each stage agent against its change as today, so a stage agent that stops without its stage
+  file is refused once, handed again a model up, then ends `role-failed` (ADR 0023 decision 5).
 - `guard.mjs`: `ENTRY_SKILL`, `namesEntrySkill`, `skillEntry`, `START_LINE` and the `skill` mode go,
   with the `PreToolUse` `Skill` entry of `hooks.json`; the `lock` dispatcher's
   `changeSessionStopDecision` branch goes (a stop outside a roadmap run is the change loop's).
   `startedTaskOf`, `STARTED_BY_SESSION` and `firstMessageOf` stay (ADR 0014 decision 4 and the child
   phase sessions of ADR 0006 still read the started form). `classify` gains
   `openspec/standing-answers.md` as owner-only (D-8), and the rule that a tick's session writes a gate
-  file only after its `record-delegated` action.
+  file or a delegated answer only after its sweep's `record-delegated` action for that change and
+  gate.
 
 ### D-12 What is removed (AC-10)
 
@@ -509,7 +611,7 @@ as every lock does.
 | `sessionMode` and `started` of `runFactsOf`, the `own` entry state | `change-loop.mjs`, `roadmap-loop.mjs` | the claims and holds |
 | the message keys of D-9 | `change-loop.mjs` | D-9's new keys |
 | `ENTRY_SKILL`, `namesEntrySkill`, `skillEntry`, `START_LINE`, mode `skill`, `PreToolUse` `Skill` | `guard.mjs`, `hooks.json` | none |
-| `plugins/openspec/skills/devkit-session/` | the skill | the helper (D-7) |
+| `plugins/openspec/skills/devkit-session/` | the skill | the tick's drive (D-7) |
 | "A session per change", "Every change in this session", "The periodic check", item 1a | `skills/devkit/SKILL.md` | D-9's parts |
 
 `placed`, `checkout`, `occupied`, `queued`, `anyway`, `waits` (its kind `session` goes, `github` stays,
@@ -522,35 +624,45 @@ devkit skill, the `devkit-session` skill and four test files, each a row above, 
 
 ### D-13 The machines: the split by the pushed branch (ADR 0020, AC-21)
 
-A tick may open an item for another machine as ADR 0020 places it (`placed`, the claim naming that
-machine, as `change-loop.mjs open --machine` writes it). Right after `open`, on every machine, the
-helper's first step pushes the change's branch (`git push -u origin <id>`, the `push` step with
-`--what open`, a new value beside `grill` and `plan`); a failed push is said once and tried at the
-next tick. No session is started on the other machine and no step runs there from this one:
-`remoteSessionStartOf` goes, and the conductor no longer calls `checkout`; the verb stays for the
-owner's own use (`ADR [helper-conductor]` decision 10; requirements, question 2).
+Conservative by design (`ADR [helper-conductor]` decision 10 as revised; `proof/p0-delete.md`): a
+machine the app reaches as an SSH host (`avel`) cannot hold a scheduled task, so it runs no
+conductor. Its changes are claimed and driven by the conductor on the owner's machine through the
+pushed branch, or not at all; no step ever runs on another machine from this one.
 
-On the other machine, its own run (its owner typed `/devkit roadmap` there, with its own task and run
-file) finds the item in its queue with no local folder and no hold: the hook passes (D-3), the tick
-fetches `origin/<id>`, reads the claim; a claim naming `thisMachine()` with no worktree here →
-`git worktree add .claude/worktrees/<id> <id>` from the fetched branch (the `checkout` code's
-local part, `worktreeOn`, reused), then the usual claim and helper. A claim naming another machine →
-hold `elsewhere` with `recheckAt` 30 minutes, which the tick writes itself (no helper is started,
-no worktree added, no place taken); at `recheckAt` the hook passes (D-3 rule 5), the tick fetches and
-reads the claim again: still another machine's → a new `elsewhere` hold; released or stale → the
-claim is this machine's to take, as for any item. The places of this machine are counted over its run
-file's held places; another machine's from the claims on `origin`, as today. Every change of this
-machine is conducted, so the old split between a change on the run's ticket and one counted from
-`origin` goes.
+- **A tick opens every item on this machine.** In a conducted run, `open` never takes `--machine`:
+  the placement of ADR 0020 decision 2 over the `machines` setting (the fewest open changes) is not
+  used, and a loaded machine holds the item (the `load` hold) instead of placing it elsewhere. The
+  `machines` setting is still read, for the board's machines block and for the claims on `origin`.
+  `remoteSessionStartOf` goes, and the conductor no longer calls `checkout`; the verb stays for the
+  owner's own use (requirements, question 2).
+- **The push after open.** Right after `open` the drive's first step pushes the change's branch
+  (`git push -u origin <id>`, the `push` step with `--what open`, a new value beside `grill` and
+  `plan`); a failed push is said once and tried at the next tick. The claim on `origin` (ADR 0020
+  decision 1) names this machine.
+- **A change claimed by another machine.** An item of the queue with no local folder whose claim on
+  `origin` names another machine (a change opened there by hand, or by an earlier run) gets the hold
+  `elsewhere` with `recheckAt` 30 minutes, which the tick writes itself: no drive, no worktree, no
+  place taken. At `recheckAt` the hook passes (D-3 rule 5) and the tick fetches and reads the claim
+  again: still that machine's → a new `elsewhere` hold; released (no claim keys on the branch) or
+  stale as ADR 0020 reads it → this machine claims it, fetches `origin/<id>`, runs `git worktree add
+  .claude/worktrees/<id> <id>` from it (the `checkout` code's local part, `worktreeOn`, reused) and
+  drives it as its own.
+- **Another conductor.** A second machine that can hold a task (the owner's other desktop, where the
+  owner typed `/devkit roadmap`) runs the same rules: it opens only unclaimed items and takes over a
+  released or stale claim from the pushed branch; the claims on `origin` keep the two apart.
+- The places of this machine are counted over its run file's held places; a change claimed by
+  another machine fills none of them.
 
-### D-14 The helper's model (stage-models)
+### D-14 The models of a tick (stage-models)
 
-`helperModel(stage, table)`: the strongest of `table[stage]` and the table's model of every stage of
-`SESSION_RUN_STAGES` (`change-loop.mjs`: requirements, approval, review, delivery, retro) from that
-stage on up to the next stage where the change waits (approval for the stages before it, the
-review's end for the build stages, the archive after it), `[1m]` kept on the value and dropped on the
-Agent call. It replaces the session floor function; the step-down actions go (D-12).
-`SESSION_RUN_STAGES`' comment is reworded: "the stages a helper performs itself".
+There is no helper agent to start on a model, so the session floor function and `helperModel` are
+not written, and the step-down actions go (D-12). The tick's session runs on the model the host
+starts the task's session on (the task's own setting in the app); the stages it performs itself
+(`SESSION_RUN_STAGES` of `change-loop.mjs`: requirements, approval, review, delivery, retro) run on
+it, and task 3.6 records which model that is. Each stage agent it hands gets its stage's model from
+the action, as a lone change's Loop passes it, with any `[1m]` dropped on the Agent call (ADR 0023
+decision 5's retry a model up unchanged). No action of a conducted run switches a session's model.
+`SESSION_RUN_STAGES`' comment stays as it is.
 
 ### D-15 Tests
 
@@ -559,11 +671,17 @@ scripts linked; `slow` for `roadmap-loop-conductor.test.mjs`):
 
 | File | Covers | Names start |
 |---|---|---|
-| `plugins/openspec/hooks/roadmap-loop-conductor.test.mjs` | D-2, D-3 (with `localFacts` against `runFilePath` and `listWorktrees` on a fixture repository: a main checkout, two worktrees, one removed folder), D-5, D-6, D-7, D-8 (verbs), D-11 (stop and hand-off with `task`), D-13, D-14, D-18 to D-23, D-25 (the caps recorded, the brief sentence, the places) | `conductor AC-<n> ` |
-| `plugins/openspec/hooks/tick-gate.test.mjs` | D-4, the hook run as a process with a fixture payload copied from `proof/p1-hooks.md`, on a fixture repository with a main checkout and a linked worktree, with a `PATH` whose `git` and `gh` exit 1 | `tick-gate AC-3 ` |
+| `plugins/openspec/hooks/roadmap-loop-conductor.test.mjs` | D-2, D-3 (with `localFacts` against `runFilePath` and `listWorktrees` on a fixture repository: a main checkout, two worktrees, one removed folder), D-5, D-6 (the end recorded, no removal call), D-7, D-8 (verbs), D-11 (the tick's stop and hand-off with `task`), D-13, D-14, D-18 to D-23, D-25 (the caps recorded, the brief sentence, the places, the train's hold of the gates) | `conductor AC-<n> ` |
+| `plugins/openspec/hooks/tick-gate.test.mjs` | D-4, the hook run as a process with a fixture payload copied from `proof/p2-result.md`, on a fixture repository with a main checkout and a linked worktree, with a `PATH` whose `git` and `gh` exit 1 | `tick-gate AC-3 ` |
 | `plugins/openspec/hooks/request-file.test.mjs` | D-17's shape, the refusals, the 12-line summary, the answer's parse | `request AC-14 `, `request AC-16 ` |
 | `plugins/openspec/hooks/standing-answers.test.mjs` | D-8's parser: no file, empty, two sections, an unknown gate, a delegation with no quote, a closed fence, an unclosed fence | `standing AC-6 `, `standing AC-8 ` |
 | `plugins/openspec/hooks/test-slots.test.mjs` | D-25's ledger and `test-run`: one whole suite at a time, the train first, the gates cap, a dead pid dropped, a broken ledger, two clones sharing the ledger, no slot outside a conducted run, the exit code and the release on a signal | `capacity AC-22 ` |
+
+D-25's pull request whose files are all under `openspec/` is tested in the existing
+`plugins/openspec/hooks/delivery-train.test.mjs` (names `train AC-22 openspec-only `), on its
+fixtures of a train project, and D-9's `review-change` sentence in
+`plugins/core/skills/review-change/scripts/review-round.test.mjs` (names `review-round conductor `),
+after a grep of that file for the "Which path runs" sentence it may pin.
 
 `scripts/test-suite.mjs`'s ceiling (D-25) is tested in the existing
 `plugins/openspec/hooks/test-suite.test.mjs` (names `suite-capacity AC-22 `), and the caps' recording,
@@ -769,17 +887,20 @@ delivery's, once the record has its number), so the guard test that reads ADR 00
   [helper-conductor] (helper-conductor.md)`.
 - `- Amended by ADR [helper-conductor] (helper-conductor.md)`, after the last `- Amended by` line of
   the header, in ADR 0004, 0006, 0010, 0011, 0013, 0014, 0017, 0020, 0022, 0023 and 0026 (the
-  record's Amends list), and in ADR 0008 only with Helper B (D-1); ADR 0013 also gets D-2's Note.
+  record's Amends list), and in ADR 0008 (decision 1 for a roadmap run: the review round's Workflow
+  from the tick's session, D-1); ADR 0013 also
+  gets D-2's Note.
   ADR 0022 is amended in decision 4 (the tick dispatches the train, D-21) and ADR 0026 in decision 1
   and its Negative consequence's mitigation (the cap, D-25).
 - `docs/openspec-flow.md`: the roadmap paragraphs "Opening every change at the start", "The periodic
   check and the cleanup", "What it decides and says" and "The locks" are rewritten for the conductor
-  (the task, the tick, the gate, the helper, the lines, the standing answers); `docs/coordination-design.md`'s
+  (the task, the tick, the gate, the tick's drive, the lines, the standing answers, the end the owner
+  deletes the task at); `docs/coordination-design.md`'s
   paragraph "Opening every change at the start" gets a dated line saying `ADR [helper-conductor]`
-  supersedes it and how a run goes now; `docs/roles.md`'s coordinator row names the tick's session and
-  the helper; `plugins/openspec/README.md` drops the `devkit-session` rows and the `Skill` hook row and
+  supersedes it and how a run goes now; `docs/roles.md`'s coordinator row names the tick's session
+  and its drive of one claimed change; `plugins/openspec/README.md` drops the `devkit-session` rows and the `Skill` hook row and
   adds `tick-gate.mjs`, `standing-answers.mjs`, `test-slots.mjs`, the two settings of D-25 and the
-  helper; `docs/openspec-flow.md` also gains the test capacity (the caps, their settings, `test-run`,
+  tick's drive (the hook's note, the run detection by the envelope); `docs/openspec-flow.md` also gains the test capacity (the caps, their settings, `test-run`,
   the ledger) in its roadmap part; `docs/catalog.md` is regenerated with
   `python3 scripts/gen-catalog.py`.
 - No task numbers the record, bumps a version, writes `CHANGELOG.md` or moves a CI pin: `release.md`
@@ -857,8 +978,8 @@ a conductor test pins that.
 `helper-next` maps the boarded end (`waiting-for-owner` with the reason `boarded`, which the loop
 gives in a train project) to the hold `boarded`, not to an owner line. `tickReady` gives `@train`
 before any change (D-3 rule 4a); `tick` then claims `train.claim` (same live and stale rules) and
-prints `{ claim: { train: true, root, model: 'sonnet', brief } }`. The helper drives `train-loop.mjs`
-as the `## Train` part of the devkit skill does for `/devkit train`, up to the train's end, records it
+prints `{ claim: { train: true, root } }`. The tick's session drives `train-loop.mjs` itself, as the
+`## Train` part of the devkit skill does for `/devkit train`, up to the train's end, records it
 with `train-end --kind <k> [--change <id> --why <w>]...` and releases the claim in that one
 `updateRun`. The train's ends (`train-loop.mjs`'s `result` and `left`, `train-loop.mjs:346-400`):
 
@@ -877,8 +998,8 @@ dispatches a train only while no `train.claim` is live, so "a change that boards
 waits for the next" (ADR 0022 decision 4) holds. `ADR [helper-conductor]` decision 12 amends ADR 0022
 decision 4 for a conducted run only: a run file with no `task` dispatches nothing, and outside a
 conducted run the train departs only on a typed `/devkit train`. The train's `depart` and
-`update-train` commands run inside the whole-suite slot of D-25 with the train's priority: the helper
-runs `detail.command` as `roadmap-loop.mjs test-run --train --kind suite -- <detail.command>`, with the
+`update-train` commands run inside the whole-suite slot of D-25 with the train's priority: the tick's
+session runs `detail.command` as `roadmap-loop.mjs test-run --train --kind suite -- <detail.command>`, with the
 Bash tool's background option as the `## Train` part says.
 
 ### D-22 The check before an opening (AC-19)
@@ -910,16 +1031,22 @@ new item, into `requirements.md` under `## Reopened` (`- <question> → <answer>
 and its helper's first call is `helper-next` with no `--after`, which hands the stage again from the
 files (the loop's plain `next`, as the field fact 9 observed).
 
-### D-24 Phase-1 additions
+### D-24 What the host still has to show
 
-P-6 also checks that `*/5 * * * *` is accepted. Nothing else of D-17 to D-23 and D-25 depends on the
-host.
+Probe 2 (task 1.3, `proof/p2-result.md`) settled the envelope, the prompt form, the background
+hand-offs, the Workflow and the run's status; the phase 3 real run (task 3.6) measures what D-1's
+table still leaves open (the blocked firing's cost, the hook's note in the session, the hook's
+payload form, two runs at once); the cron, the notification tool and the model of the task's session come from task 3.6.
+Nothing else of D-17 to D-23 and D-25 depends on the host.
 
 ### D-25 The machine's test capacity (AC-22)
 
 `ADR [helper-conductor]` decision 13 (field fact 11: load 124 on a 14-core machine, from two whole
-suites at concurrency 14 and four gates). It amends ADR 0026 decision 1 and its mitigation "the
-runner's concurrency follows the core count" for a conducted run only.
+suites at concurrency 14 and four gates; field fact 12: train 22 ran two 25-minute whole suites for an
+archive pull request of `openspec/` files only, ended red with no failure text while five gates
+loaded the machine). It amends ADR 0026 decision 1 and its mitigation "the runner's concurrency
+follows the core count", and ADR 0022 decisions 2 and 5 for an `openspec/`-only pull request, for a
+conducted run only.
 
 - **The caps and their defaults.** `capacity = { suites: 1, gates, concurrency, at }`. `suites` is
   always 1: decision 13 fixes it, and no setting changes it. `gates`, the selective runs in flight at
@@ -957,13 +1084,18 @@ runner's concurrency follows the core count" for a conducted run only.
   slot (a lone `/devkit change` is not capped, as decision 13 scopes the cap to a conducted run).
   Otherwise it reads `capacity` (D-25's defaults when null) and, every 15 seconds until a slot is
   taken, under the ledger's lock:
-  - `--kind gate`: takes a slot when the live gates are fewer than `capacity.gates`;
-  - `--train --kind suite`: takes the slot when `suite` is null; else writes `trainWaiting` with its
-    own pid, so no change's whole suite starts meanwhile, and waits only for the run already started;
+  - `--kind gate`: takes a slot when the live gates are fewer than `capacity.gates`, no live
+    `trainWaiting` is recorded and `suite` is not the train's (`suite.owner` `@train`): while a train
+    departs, no gate starts on the machine (field fact 12);
+  - `--train --kind suite`: takes the slot when `suite` is null and no live gate is recorded; else
+    writes `trainWaiting` with its own pid, so no change's whole suite and no gate starts meanwhile,
+    and waits only for the runs already started to end;
   - `--change <id> --kind suite`: takes the slot when `suite` is null and no live `trainWaiting` is
     recorded.
-  Its first wait prints one line on stderr, `devkit-test: waiting for a whole-suite slot (<owner>)` or
-  `devkit-test: waiting for a gate slot (<n> of <g> in flight)`, and later rounds print nothing. With
+  Its first wait prints one line on stderr, `devkit-test: waiting for a whole-suite slot (<owner>)`,
+  `devkit-test: waiting for a gate slot (<n> of <g> in flight)`, `devkit-test: waiting for the
+  train's suite` (a gate or a change's suite held by the train) or `devkit-test: the train waits for
+  <n> test runs to end`, and later rounds print nothing. With
   the slot taken (its entry's `pid` is `test-run`'s own, which lives as long as its child), it clears
   its `trainWaiting`, runs `sh -c <command>` in its cwd with `DEVKIT_TEST_CONCURRENCY=<concurrency>`
   added to the environment and stdio inherited, removes its entry under the lock when the child exits
@@ -980,9 +1112,25 @@ runner's concurrency follows the core count" for a conducted run only.
   command through node <hooks>/roadmap-loop.mjs test-run --change <id> --kind gate -- <command>, a
   whole-suite run with --kind suite, and give the test runner at most <c> files at once
   (--concurrency=<c>).`, `<hooks>` the pack's hooks folder and `<c>` the capacity's concurrency. The
-  helper's own text (D-7), the train's helper (D-21) and the tick's part of the skill (D-9) carry the
+  drive's rules (D-7), the train's drive (D-21) and the tick's part of the skill (D-9) carry the
   same rule. The sentence is fixed for fixed caps, so `handOffKey` of a retried brief stays stable
   while the caps do.
+- **An `openspec/`-only pull request boards no train.** In a conducted run of a project with a
+  delivery train, a pull request whose every changed file is under `openspec/` (an archive, a roadmap
+  edit, a change with no file outside `openspec/`) does not board: `collectState` of
+  `plugins/openspec/hooks/deliver-check.mjs` leaves the `train` facts out (`deliver-check.mjs:3099`
+  for the archive, `:3152` for the change) when the run is conducted and `prFiles` (`:786`, paginated)
+  of the open pull request lists no path outside `openspec/`, and records `openspecOnly: true`. The
+  conducted fact is `conductedOf(root)`, new in `guard.mjs`: the file at `localRunFilePath(root)`
+  (D-3) parses and holds an object `task`, read with `node:fs` only; any error is `false` (the train
+  path, as today). `nextStep` then takes the path of a project with no train: under `trunk-auto`,
+  `enable-auto-merge` then `wait-merge`, so GitHub merges it on its required checks (`check`,
+  `devkit-reviews`); under `trunk`, `archive-pr-ready` (or the change's merge step) for the owner, a
+  line like any gate's. No step sends it to `update-branch` beyond what that path already does.
+  `boardedSet` (`train-loop.mjs:261`) reads each pull request's step through the same `nextStep`, in a
+  scratch worktree of the same clone (so `localRunFilePath` finds the same run file), and never
+  boards one either. Outside a conducted run nothing changes: such a pull request boards as
+  ADR 0022 decision 2 says.
 - **The places count test load.** The run's places already count only the changes whose stage holds
   a place (D-3's `heldPlaces`, the `run.occupied` entries of open changes, written for the parts of
   `LOAD_PARTS`: the implementation, a test stage, the evidence, the review), whether a
@@ -994,7 +1142,12 @@ runner's concurrency follows the core count" for a conducted run only.
 
 | Option | Why not |
 |---|---|
-| A model-invocable `devkit-tick` skill with a guarded entry (no slash command in the prompt) | The `devkit-session` pattern this change removes; only if P-3 fails, through a revision (D-1) |
+| A model-invocable `devkit-tick` skill with a guarded entry (no slash command in the prompt) | The `devkit-session` pattern this change removes; the coordinator's decision on probe 2 adds no entry skill (D-1) |
+| The prompt naming the pack's absolute path and the `tick` call | The path changes with each pack version, and no session may edit the task (`proof/p0-delete.md`); the hook's note names the live path at each firing |
+| A nested agent helper (`roadmap-helper`) between the tick and the stage agents | Nesting works (`proof/p2-result.md`, `nested_agent`) but is not needed, and every hop is one more background notice: the tick's session hands each stage one level below it, as a lone change session does (`proof/decision.md`) |
+| A Workflow helper driving the whole change | ADR 0008 keeps the Workflow tool to the review bench; a long-lived script would hold the change's state in one session |
+| The task deletes or pauses itself at the end | The host refuses an unattended delete, pause or run (`proof/p0-delete.md`); the hook's block after the end costs nothing, and the owner deletes the task with one click |
+| Every `openspec/`-only pull request skips the train, conducted or not | `ADR [helper-conductor]` decision 13 scopes it to a conducted run; outside one ADR 0022 decision 2 stands |
 | The hook writes a "tick passed" record that the `tick` verb checks | `ADR [helper-conductor]` decision 2: the hook reads only; the `tick` verb's rules (no task, no claim) already make an owner-typed tick harmless |
 | A background keepalive process renewing the heartbeat | A process that outlives a killed helper keeps its claim live; a heartbeat per `helper-next` call with a two-hour bound is simpler and loses at most two hours |
 | Remove `decideRoadmap`, `next` and the legacy locks now | The tick reuses the decision core; the legacy rules serve a run file from before the change; removing them doubles the test churn |
@@ -1007,10 +1160,28 @@ runner's concurrency follows the core count" for a conducted run only.
 
 ## Risks / Trade-offs
 
-- [A scheduled session does not load the plugin or its hooks] → P-1; the stop-and-revise case of D-1.
-- [The block does not prevent the model call] → P-5; stop and revise; the record's review trigger.
-- [A helper cannot dispatch subagents (no `Agent` inside a subagent)] → P-4a/P-4b pick the helper;
-  both failing stops the plan.
+- [A scheduled session does not load the plugin or its hooks] → P-1 and probe 2 showed it does
+  (`session_start_hook`, `session_start_seen`).
+- [The block does not prevent the model call] → task 3.6 measures three blocked firings with the real
+  hook; a model call is a stop-and-revise case before phase 4; the record's review trigger.
+- [The hook's note does not reach the firing's session (the host drops a `UserPromptSubmit`
+  `additionalContext` in a task's session)] → task 3.6 checks it before phase 4; a note that does not
+  arrive is a stop-and-revise case (D-1), and the prompt's second line makes such a session end at
+  once (one model call per firing, no wrong step).
+- [A firing while an earlier tick's session still drives] → a run's status is no lock
+  (`proof/p2-result.md`); the claims under `updateRun` keep the two apart, and a conductor test runs
+  two `tick` processes at once.
+- [A drive's turns wait on notices] → every hand-off is in the background (probe 2); the claim's
+  heartbeat is renewed at each `helper-next`, and a notice that never comes leaves a claim stale
+  after `CLAIM_STALE_MS`, which the next tick takes over (AC-5).
+- [A tick's session grows a long context over one drive (a grill and a plan, or an implementation,
+  its review and its pull request)] → every drive ends at its next wait (the plan approval, GitHub's
+  checks), the stages' work stays in their agents, and the next drive is a new session reading the
+  files; the host's compaction keeps a long drive going.
+- [The Workflow does not run in a task's session, or its notice never comes] → the review round's
+  `agents` path, `review-change`'s own fallback rows.
+- [A task's session pauses for a tool approval] → the task is created on the owner's typed turn, so
+  its approvals live on the task (`proof/p1-hooks.md`, host fact 2); task 3.6 records any pause.
 - [A stage longer than two hours makes a live claim stale] → the heartbeat renews at every
   `helper-next` call, between stages; an implementation phase is one hand-off, so the bound is set
   above the longest phase the repository's evidence records (about 70 minutes); a takeover hands the
@@ -1019,10 +1190,12 @@ runner's concurrency follows the core count" for a conducted run only.
   conductor test runs two `tick` processes at once.
 - [The owner never opens the typed session again] → `/devkit status` and the push show the lines; the
   task keeps ticking and costs nothing while idle.
+- [The owner never deletes the ended run's task] → every firing is blocked by the hook before the
+  model (D-3 rule 1); a later typed `/devkit roadmap` finds and reuses it (D-5).
 - [A delegation recorded where none was meant] → only the owner writes the file (D-8's owner-only
   path); the gate file quotes the line; D-11 refuses a gate file a tick writes without its action.
 - [Other plugins' prompt hooks call a model on the tick's prompt] → a block from any hook stops the
-  prompt; P-5 measures with the machine's real plugin set, genesi included.
+  prompt; task 3.6 measures with the machine's real plugin set, genesi included.
 - [An agent runs its tests without `test-run`] → the brief says it at every hand-off; in this
   repository the runner's ceiling still caps its files when the variable is set by an outer
   `test-run`, and the evidence's `suite:` line shows the concurrency; the record's review trigger
@@ -1039,22 +1212,25 @@ runner's concurrency follows the core count" for a conducted run only.
   task.
 - A change session still open from an older run stays a plain session: typing `/devkit change <id>`
   in it runs the change as any lone change.
-- Rollback: revert the merge; the scheduled task left by a run is deleted with
-  `list_scheduled_tasks` and its remove tool (P-0), and the run file's new fields are ignored by the
-  old `readRun`.
+- Rollback: revert the merge; the owner deletes the scheduled task a run left with one click in the
+  app (no session can, `proof/p0-delete.md`), and the run file's new fields are ignored by the old
+  `readRun`. Until it is deleted the old packs' hooks do not know its envelope, so each firing reaches
+  the model once and the old `/devkit roadmap tick` answers it as an unknown argument.
 
 ## Implementation plan
 
-Order: the proof (phase 1); the data and the verbs (phase 2); the hook and the locks (phase 3); the
-helper and the texts (phase 4); the removal (phase 5); the real run and the checks (phase 6).
+Order: the proof (phase 1, probe 2 still owed); the data and the verbs (phase 2); the hook, the locks
+and the blocked firing's real run (phase 3); the tick's drive and the texts (phase 4); the removal
+(phase 5); the real run and the checks (phase 6).
 
 **Per surface.**
-- `plugins/openspec/hooks`: D-2 to D-8, D-10 to D-14, D-25 (`test-slots.mjs`, `test-run`).
+- `plugins/openspec/hooks`: D-2 to D-8, D-10 to D-14, D-25 (`test-slots.mjs`, `test-run`, the
+  `openspec/`-only pull request in `deliver-check.mjs`, `conductedOf` in `guard.mjs`).
 - `plugins/openspec/.claude-plugin/plugin.json`: the two settings of D-25.
 - `scripts/test-suite.mjs`: D-25's ceiling.
-- `plugins/openspec/agents`, `plugins/openspec/skills`: D-7's helper, D-9's skill text, the removed
-  `devkit-session`.
-- `plugins/core/skills/requirements-grill`: D-9.
+- `plugins/openspec/skills`: D-9's skill text (the tick's drive of D-7), the removed
+  `devkit-session`. No agent file and no skill is added.
+- `plugins/core/skills/requirements-grill`: D-9; `plugins/core/skills/review-change`: D-9's sentence.
 - Repository: `openspec/config.yaml`, `openspec/schemas/*/schema.yaml`, `scripts/test-map.json`,
   `docs/`, the ADRs (D-16).
 
@@ -1062,10 +1238,12 @@ helper and the texts (phase 4); the removal (phase 5); the real run and the chec
 - Create: `plugins/openspec/hooks/tick-gate.mjs`, `plugins/openspec/hooks/standing-answers.mjs`,
   `plugins/openspec/hooks/request-file.mjs` (D-17's writer and parser),
   `plugins/openspec/hooks/test-slots.mjs` and `plugins/openspec/hooks/test-slots.test.mjs` (D-25),
-  `plugins/openspec/agents/roadmap-helper.md` (Helper A) or
-  `plugins/openspec/skills/devkit/scripts/change-helper.workflow.js` (Helper B), the other new test files
-  of D-15, `openspec/changes/helper-conductor/proof/*`.
-- Modify: `plugins/openspec/hooks/{roadmap-loop,run-file,guard,change-loop}.mjs`,
+  the other new test files of D-15,
+  `openspec/changes/helper-conductor/proof/*` (`p2-result.md`, `p5-empty-tick.md`, `run-1.md` to
+  `run-5.md`).
+- Modify: `plugins/openspec/hooks/{roadmap-loop,run-file,guard,change-loop,deliver-check}.mjs`,
+  `plugins/openspec/hooks/delivery-train.test.mjs`,
+  `plugins/core/skills/review-change/SKILL.md` and `scripts/review-round.test.mjs`,
   `plugins/openspec/hooks/hooks.json`, `plugins/openspec/hooks/roadmap-loop-fixtures.mjs`,
   `plugins/openspec/.claude-plugin/plugin.json` (`userConfig`), `scripts/test-suite.mjs`, the test
   files of D-15's table, `plugins/openspec/skills/devkit/SKILL.md`,
@@ -1077,20 +1255,22 @@ helper and the texts (phase 4); the removal (phase 5); the real run and the chec
   `docs/catalog.md`, the ADRs of D-16.
 - Delete: `plugins/openspec/skills/devkit-session/SKILL.md`.
 
-**Estimate.** Optimistic 58 h · likely 84 h (the sum of the table below) · pessimistic 125 h (a revision at D-1's decision point,
-or a host behaviour found only in phase 6).
+**Estimate.** Optimistic 60 h · likely 91.5 h (the sum of the table below) · pessimistic 130 h (a
+stop-and-revise at task 3.6, or a host behaviour found only in phase 6).
 
 | Component | Hours | Type | Risk |
 |---|---|---|---|
-| Phase 1 probes P-0 to P-7 and `decision.md` | 5 | Integration | HIGH |
+| Phase 1: P-0, P-1 (done), probe 2 and `decision.md` | 3 | Integration | HIGH |
 | Run file fields, `tickReady`, `localFacts` and `commonDirOf` with no process, `limitOf` moved, `CLAIM_STALE_MS` (D-2, D-3) | 5.5 | Core | MEDIUM |
 | `run` with the task, `stop`, `tick`, `tick-*` verbs (D-5, D-6) | 6 | Core | MEDIUM |
 | `helper-next`, `owner-wait`, `helper-release`, `owner-waits`, `owner-watch`, `answered`, `pushed` (D-7, D-8) | 6 | Core | MEDIUM |
 | `standing-answers.mjs` and its tests (D-8) | 2 | Core | LOW |
-| `tick-gate.mjs`, `hooks.json`, its tests (D-4) | 3 | Core | MEDIUM |
-| Locks: stop, hand-off, helper stop, `ask` mode, owner-only path (D-10, D-11) | 4 | Core | MEDIUM |
+| `tick-gate.mjs` with its note, `hooks.json`, its tests (D-4) | 4 | Core | MEDIUM |
+| Locks: the tick's run detection by its envelope, stop, hand-off, `ask` mode, owner-only path (D-10, D-11) | 6 | Core | MEDIUM |
 | Conductor tests (`roadmap-loop-conductor.test.mjs`) | 6 | Testing | MEDIUM |
-| Helper file and the devkit skill's Roadmap rewrite (D-7, D-9) | 4 | Core | MEDIUM |
+| The devkit skill's Roadmap rewrite with the tick's drive (D-7, D-9), the `review-change` sentence | 4.5 | Core | MEDIUM |
+| Phase 3 real run: three blocked firings, the note, the payload's form, two runs at once, cron, notification tool, model (task 3.6) | 3 | Integration | HIGH |
+| The `openspec/`-only pull request: `conductedOf`, `collectState`, its tests (D-25) | 2 | Core | MEDIUM |
 | Grill skill, rule in five files, messages, status board, change-state facts (D-9) | 3 | Core | LOW |
 | Removal and the pinned tests of D-15 (171 rows) | 8 | Migration | HIGH |
 | Docs and records (D-16), catalog, test map | 2 | Documentation | LOW |
@@ -1102,11 +1282,13 @@ or a host behaviour found only in phase 6).
 | `precheck`, `skip`, the delivered check (D-22) | 2 | Core | MEDIUM |
 | Escalation re-hand (D-23) | 1.5 | Core | LOW |
 | Machine split by the pushed branch (D-13) | 2 | Integration | MEDIUM |
-| Test capacity: settings, `capacity`, `test-slots.mjs`, `test-run`, the runner's ceiling, the brief's sentence (D-25) | 5 | Core | MEDIUM |
+| Test capacity: settings, `capacity`, `test-slots.mjs`, `test-run` with the train's hold of the gates, the runner's ceiling, the brief's sentence (D-25) | 6 | Core | MEDIUM |
 | Phase 6 real run and the whole suite | 7 | Integration | HIGH |
 
 **Risks** (probability × impact, mitigation):
-- Host behaviour differs from the plan (MEDIUM × HIGH): phase 1 first, stop-and-revise cases named.
+- Host behaviour differs from the plan (MEDIUM × HIGH): probe 2 settled the prompt form and the
+  background hand-offs before phase 2; task 3.6 before phase 4 has its stop-and-revise cases named
+  (D-1).
 - The removal breaks a test outside the table (MEDIUM × MEDIUM): the class rule of D-15 and the
   implementer's own grep in the same commit; the phase 5 gate runs every mapped test.
 - `roadmap-loop.mjs` grows further (HIGH × LOW): the conductor verbs go in the same file beside the
@@ -1123,20 +1305,30 @@ or a host behaviour found only in phase 6).
   `listWorktrees` on one fixture repository (D-15), and a layout it cannot read gives no run file
   path, so the hook prints nothing and the tick decides (one model call, never a wrong block).
 - A stopping run outlives its typed session (MEDIUM × MEDIUM: a model call every five minutes): the
-  tick that finds `stopping` with no live claim deletes the task (D-6 rule 3), `stopping-busy` ticks
-  are blocked by the hook, and a refused deletion clears `task` so the hook blocks every later firing.
+  tick that finds `stopping` with no live claim records the end (D-6 rule 3), `stopping-busy` firings
+  are blocked by the hook, and after the end `task` is null, so the hook blocks every later firing.
+- A tick's session ends its turn mid-drive with nothing in flight (MEDIUM × MEDIUM: the claim stays
+  live for up to two hours): D-11's stop rule refuses that once; a drive that still dies leaves a
+  stale claim the next tick takes over (AC-5).
 - Loading `run-file.mjs`'s import graph in the hook is slow (LOW × LOW): it loads only for the
   envelope, once per five minutes; the hook's test records the envelope run's time under the
   10-second timeout.
 
 **Assumptions** (each the place the plan breaks if reality differs):
-- The scheduled-tasks tool's names are `mcp__scheduled-tasks__{create,list,update}_scheduled_task`
-  (the genesi hooks' matchers, `~/.claude/plugins/cache/genesi/genesi/0.451.0/hooks/hooks.json`); a
-  remove tool exists or `enabled: false` removes the task from the list (P-0).
+- The scheduled-tasks tool's names are `mcp__scheduled-tasks__{create,list}_scheduled_task`, and
+  `delete_`, `update_` and `run_` need the owner's click (`proof/p0-delete.md`); the conductor calls
+  only the first two.
 - A `UserPromptSubmit` block stops the prompt before the model (genesi's measured 0 tokens,
-  `commands/unstick.md`; P-5 again here).
-- A scheduled session's `cwd` is the project root the task was created from (genesi reads it the
-  same way; P-1).
+  `commands/unstick.md`; task 3.6 again here).
+- A scheduled session's `cwd` is the project root the task was created from (`proof/p1-hooks.md`,
+  `start_cwd`).
+- A task created on the owner's typed turn runs its firings without pausing for the tools a tick
+  uses (`proof/p1-hooks.md`, host fact 2 and `permission_mode`); task 3.6 records it.
+- The host starts a firing of the task while an earlier run's session still waits on a notice (a
+  run reads `succeeded` then, `proof/p2-result.md`; task 3.6 records it).
+- A `UserPromptSubmit` hook's `additionalContext` reaches a task's session, and a hook's process
+  gets every pack setting as `CLAUDE_PLUGIN_OPTION_<KEY>`, as it gets `load_limit` (task 3.6 checks
+  both).
 - `updateRun`'s lock serializes writers across processes of one clone (`roadmap-loop.mjs`, the lock
   of `roadmap-run.lock`; requirements triage item 3).
 - The phases of this repository's own changes stay under two hours each (the evidence files of the
@@ -1153,13 +1345,18 @@ or a host behaviour found only in phase 6).
 
 **Dependencies:**
 - `multi-roadmaps` (roadmap Round 29, not merged): `<name>` and `round <k>`.
-- `ADR [helper-conductor]` (proposed, 13 decisions): revised with D-1's pick before the plan's
-  approval stands; its amendments of ADR 0022 (decision 12) and ADR 0026 (decision 13) are already in
-  it.
+- `ADR [helper-conductor]` (13 decisions): revised by the adr-author with this revision's decisions
+  (decision 1, the task that does not remove itself; decision 3, the tick's own session as the
+  helper; decision 13, field fact 12; the ADR 0008 and ADR 0022 amendments) before the plan's approval
+  is recorded again.
+- Probe 2's result, `proof/p2-result.md` (task 1.3), run by the coordinator's session on the owner's
+  Mac.
 - ADR 0034 and ADR 0035 (`release.md`, the merge numbering); ADR 0036 (the gates).
 
 ## Open Questions
 
-- The exact envelope text and the task's id form come from P-2; they change the hook's regex and the
-  test fixtures, not the specs or the task list.
-- The cron interval is `*/5` unless P-6 shows the host needs another; that would revise AC-15.
+- Whether the hook's payload holds the scheduler's tag or only the stored prompt: task 3.6 logs it,
+  and the regex keeps the form seen (D-4).
+- The cron interval is `*/5` unless task 3.6 shows the host needs another; that would revise AC-15.
+- A blocked firing's cost and the note's arrival are measured in task 3.6; either failing stops the
+  plan before phase 4 (D-1).

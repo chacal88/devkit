@@ -1,4 +1,4 @@
-<!-- devkit-stage requirements result=passed attempt=6 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
+<!-- devkit-stage requirements result=passed attempt=7 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
 # Requirements
 
 ## Request
@@ -61,7 +61,7 @@ Relayed by the coordinator's session from the run of 12 changes on two machines;
 
 ## Acceptance criteria
 
-- AC-1 `first-real-run`: before the design is final, `evidence.md` (or the change's `proof/`) holds one real run showing a scheduled task of the project opening a session in which the devkit plugin's hooks fire, and the measured cost of one empty tick (tokens or model calls) with the refusal hook in place.
+- AC-1 `first-real-run`: before the design is final, the change's `proof/` holds the real runs showing a scheduled task of the project opening a session in which the devkit plugin's hooks fire (`p1-hooks.md`, `p2-result.md`); before phase 4 starts, `proof/` holds the measured cost of three empty ticks (model calls and tokens) with the real refusal hook installed in a scratch project.
 - AC-2 `one-typed-command`: `/devkit roadmap <name> [round <k>] [<n>]` typed once records the queue in the run file and creates exactly one scheduled task of the project; typing it again while the task exists creates no second task.
 - AC-3 `empty-tick-refused`: a tick firing when no item is ready is blocked by the `UserPromptSubmit` hook before any model call; a test feeds the hook the tick's envelope with an empty-ready run file and gets `{"decision":"block"}`, and feeds it any other prompt and gets no output.
 - AC-4 `tick-claims-one`: a tick with a ready item records a claim for exactly one item in the run file, runs that change's loop through a helper in the change's own worktree up to its next wait, records the state and ends; a second tick during a live claim leaves that item alone.
@@ -81,7 +81,7 @@ Relayed by the coordinator's session from the run of 12 changes on two machines;
 - AC-18 `train-dispatch`: when a change boards the train, the next tick dispatches the train; no boarded change waits without a dispatch.
 - AC-19 `open-precheck`: before opening an item, the conductor checks for a parked branch of the same id (local or on `origin`) and for an item the code already delivers, and records `skipped: delivered` or reuses the branch instead of opening a duplicate.
 - AC-20 `escalation-rehand`: a planner escalation ends that change's loop `blocked: not-delivered` with a request file; once requirements.md holds the decision, the next tick runs a plain `next` and the stage is handed again.
-- AC-21 `machine-split`: after `open`, the change's branch is pushed; a conductor on another machine claims it and adds a worktree from that branch.
+- AC-21 `machine-split`: after `open`, the change's branch is pushed; a change claimed by another machine waits as `elsewhere`, and once that claim is released or stale the conductor takes it over by adding a worktree from the pushed branch. A machine the app reaches as an SSH host holds no task and runs no conductor.
 - AC-22 `test-capacity`: on one machine at most one whole-suite run is in flight at a time, the train's run first; concurrent gates and each gate's `--concurrency` are capped by values the run file records; a stage agent's brief carries the cap; a run's places count the changes in a test-loading stage, not sessions. While a train departs, no other test run of the machine starts (gates wait); a pull request whose files are all under `openspec/` (an archive or a roadmap edit) boards no whole-suite train and merges on its required checks (field fact 12).
 
 ## Out of scope

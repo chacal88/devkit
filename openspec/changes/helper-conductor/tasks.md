@@ -1,9 +1,10 @@
-<!-- devkit-stage tasks result=passed attempt=3 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
+<!-- devkit-stage tasks result=passed attempt=4 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
 # Tasks
 
 Change: `helper-conductor` · Date: 2026-11-28 · Owner: Kaue (chacal88) · Base: `origin/main` at
 `6f03a57` (the branch was opened on it and has merged nothing yet) · PRD / tech spec: n/a
-(`proposal.md`, `design.md`, `requirements.md` at attempt 4, `decisions.md`, `release.md`)
+(`proposal.md`, `design.md`, `requirements.md` at attempt 6, `decisions.md`, `release.md`, the phase 1
+proof under `proof/`). This is the revision phase 1's decision point asked for (`proof/decision.md`).
 
 "The record" is `docs/adr/helper-conductor.md`, cited `ADR [helper-conductor]` everywhere outside
 test and fixture files; no task numbers it, renames it, bumps a version, writes a `CHANGELOG.md`
@@ -23,34 +24,37 @@ selective part is its own `pass` row in `evidence.md`, with the run's `selected`
 line (CLAUDE.md). Run each whole-suite run (6.7) as a background command of the tool, never with a
 shell `&`, with no other suite on the machine, and record `uptime` beside it.
 
-Phase 1 is a decision point: phases 2 to 6 start only once `proof/decision.md` names Helper A or
-Helper B and prompt S-A (D-1). A stop-and-revise case sends the plan back to the planner, the
-readiness review and the owner's approval before anything else runs.
+Phase 1 is a decision point. Probe 2 has run (`proof/p2-result.md`) and its answers are settled
+facts of D-1: prompt form S-B with no entry skill, the envelope, every hand-off in the background,
+the review round's `workflow` path, a run's status that is no lock. Phases 2 to 6 start once task
+1.4 has recorded them in `proof/decision.md` and the plan's approval of this revision is recorded.
+Task 3.6 is a second decision point, before phase 4. A stop-and-revise case of D-1 sends the plan back
+to the planner, the readiness review and the owner's approval before anything else runs.
 
 | Id | Slug | Tasks |
 |---|---|---|
-| AC-1 | `first-real-run` | 1.1 to 1.9 |
+| AC-1 | `first-real-run` | 1.1 to 1.4, 1.8, 1.9, 3.6 |
 | AC-2 | `one-typed-command` | 2.4, 4.2, 6.1 |
-| AC-3 | `empty-tick-refused` | 1.6, 3.1, 6.1 |
+| AC-3 | `empty-tick-refused` | 3.1, 3.6, 6.1 |
 | AC-4 | `tick-claims-one` | 2.5, 2.6, 4.1, 6.1 |
 | AC-5 | `resume-from-files` | 2.5, 2.6, 6.2 |
-| AC-6 | `no-owner-box` | 2.6, 3.3, 4.1, 4.3, 6.1 |
+| AC-6 | `no-owner-box` | 2.6, 3.3, 4.2, 4.3, 6.1 |
 | AC-7 | `waits-for-owner-one-place` | 2.6, 2.7, 2.9, 4.2, 4.5, 6.1 |
 | AC-8 | `delegation-quoted` | 2.2, 2.7, 3.4, 4.4, 6.3 |
-| AC-9 | `task-removes-itself` | 1.2, 2.4, 2.5, 3.1, 4.2, 6.1 |
+| AC-9 | `task-ends-blocked` | 1.2, 2.4, 2.5, 2.7, 3.1, 4.2, 4.5, 6.1 |
 | AC-10 | `sessions-removed` | 5.1 to 5.5, 6.6 |
-| AC-11 | `places-cap` | 2.1, 2.5, 3.1, 6.1 |
-| AC-12 | `adr-recorded` | 1.10, 4.3, 5.6 |
+| AC-11 | `places-cap` | 2.1, 2.5, 3.1, 3.6, 6.1 |
+| AC-12 | `adr-recorded` | 1.10, 4.1, 4.3, 5.6 |
 | AC-13 | `compozy-untouched` | 5.7, 6.7 |
 | AC-14 | `request-file-channel` | 2.3, 2.7, 3.4, 6.3 |
-| AC-15 | `periodic-check` | 1.8, 2.4, 2.5, 6.2 |
+| AC-15 | `periodic-check` | 2.4, 2.5, 3.6, 6.2 |
 | AC-16 | `approval-summary` | 2.3, 2.7, 4.4, 6.3 |
 | AC-17 | `sibling-order` | 2.8, 4.4, 6.3 |
-| AC-18 | `train-dispatch` | 2.9, 4.1, 6.4 |
-| AC-19 | `open-precheck` | 2.10, 4.1, 6.4 |
-| AC-20 | `escalation-rehand` | 2.11, 4.1, 6.4 |
+| AC-18 | `train-dispatch` | 2.9, 4.2, 6.4 |
+| AC-19 | `open-precheck` | 2.10, 4.2, 6.4 |
+| AC-20 | `escalation-rehand` | 2.11, 4.2, 6.4 |
 | AC-21 | `machine-split` | 2.12, 6.4 |
-| AC-22 | `test-capacity` | 2.14, 4.1, 4.2, 4.6, 6.5 |
+| AC-22 | `test-capacity` | 2.14, 2.15, 4.2, 4.6, 6.4, 6.5 |
 
 ## 1. The real run and the decision point (phase 1)
 
@@ -63,26 +67,25 @@ readiness review and the owner's approval before anything else runs.
   Write `openspec/changes/helper-conductor/proof/p0-delete.md` (the tool names, the calls, the list
   before and after). Check: the last list shows no `devkit-hc-probe-` task; on no way to remove a task,
   stop at 1.9 with the stop-and-revise case.
-- [ ] 1.3 Conductor: P-1 and P-2, a one-firing task whose session runs `git clean -n` and
-  `git stash list`. Write `proof/p1-hooks.md`: the devkit `SessionStart` report seen, the `bash`
-  guard's refusals, `DEVKIT_HOOK_LOG` lines, the first 400 characters of the `UserPromptSubmit`
-  payload with the session id masked, and the envelope's exact form. Check: the file holds a guard
-  refusal and the payload.
-- [ ] 1.4 Conductor: P-3, a task whose prompt's second line is `/devkit-openspec:devkit status`. Write
-  `proof/p3-slash.md` with the transcript's `<command-name>` line and the board's first line. Check:
-  both present, or the file says it failed.
-- [ ] 1.5 Conductor: P-4a and P-4b, the agent and the Workflow helpers dispatching
-  `devkit-openspec:openspec-validator` and one `review-change` round on a scratch change in the probe
-  project. Write `proof/p4-helper.md`: for each helper, the nested agents' `subagent-stop` log lines,
-  whether a missing stage file was refused, and the round's files. Check: each helper reads `pass` or
-  `fail` with its lines.
-- [ ] 1.6 Conductor: P-5, three blocked firings and one passing firing. Write
-  `proof/p5-empty-tick.md`: per firing, the transcript's assistant-message count and the host's
-  usage, with the machine's real plugin set (genesi included). Check: the three blocked firings show
-  0 model calls and 0 tokens, or the file says otherwise.
-- [ ] 1.7 Conductor: P-6 and P-7: overlap with a background `sleep 900`, the `*/5 * * * *` schedule
-  accepted or refused, and the notification tool's name. Write `proof/p6-overlap.md`. Check: the file
-  names each answer.
+- [x] 1.3 Coordinator's session: probe 2 on the owner's Mac (done 2026-11-28:
+  `openspec/changes/helper-conductor/proof/p2-result.md`, run `local_b35eeb53-…`, status
+  `succeeded`). A one-time task
+  `devkit-helper-conductor-probe-2`, working folder `/Users/kauesantos/Documents/devkit`, with the
+  prompt of `openspec/changes/helper-conductor/proof/probe-2-prompt.md` verbatim (the envelope, the
+  slash command, the nested agent, the Workflow, the hooks, the overlap). Write
+  `openspec/changes/helper-conductor/proof/p2-result.md` with the result file's lines verbatim and,
+  from `list_task_runs`, the run's status and times and whether it read `running` while step 6's
+  background `sleep` lived. The task is a one-time task: it is not deleted by any session (the owner
+  removes it with one click, `proof/p0-delete.md`). Check: the file holds every key of the prompt's
+  six steps (a `fail:` value counts) and the run's status line.
+- [ ] 1.4 Conductor: append to `proof/decision.md` a section "Probe 2" naming, each with its
+  `p2-result.md` line, the values D-1 settled: the envelope (header, tag, the line
+  `devkit-roadmap-tick: <root>`) for D-4 and D-11, prompt form S-B with no entry skill
+  (`slash_command: no`), the review round's `workflow` path (`workflow_ran: yes`), every hand-off in
+  the background (`nested_agent`), no stop hook refusal seen (`stop_hook_seen: none`), and a run's
+  status that is no lock (`list_task_runs`). Check: each of the six is named with its source line.
+- 1.5 to 1.7: removed in the revision of 2026-11-28; their probes are task 1.3 (P-2, P-3, P-4a,
+  P-4b, P-6's background) and task 3.6 (P-5, P-6's two runs, the cron, P-7).
 - [x] 1.8 Conductor: remove every probe task (P-0's tool), list, and delete
   `/var/tmp/devkit-hc-probe` only after checking the session created it. Append the final list to
   `proof/p0-delete.md`. Check: no `devkit-hc-probe-` task in the list.
@@ -91,27 +94,32 @@ readiness review and the owner's approval before anything else runs.
   tool, each with the proof file and line it rests on. Check: every case of D-1's list is named true
   or false with its source.
 - [ ] 1.10 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (it
-  selects no test: only `openspec/` files changed); `proof/decision.md` picks a helper and S-A; and
-  the record is revised by the adr-author with that pick (its decision 3, and its ADR 0008 amendment
-  with Helper B), before the plan's approval is recorded again. The record's amendments of ADR 0022
-  and ADR 0026 are already in it and wait for nothing. AC-1, AC-12 (in part).
+  selects no test: only `openspec/` files changed); `proof/decision.md` names the prompt form and the
+  review round's path from `proof/p2-result.md` (task 1.4); the record holds this revision's decisions
+  (the adr-author's revision of decisions 1, 3, 9, 10 and 13 and the ADR 0008 and ADR 0022
+  amendments), and the plan's approval of this revision is recorded. AC-1 (in part), AC-12 (in
+  part).
 
 ## 2. The bookkeeping and the verbs (phase 2)
 
 - [ ] 2.1 The run file (D-2, D-3): in `plugins/openspec/hooks/run-file.mjs`, `emptyRun` and `readRun`
-  with `task`, `queue`, `claims`, `holds` (`elsewhere` with its 30-minute `recheckAt`), `ownerWaits`
-  (the `@train` key kept), `train` (its `hold` with `recheckAt`); the removed fields not read;
-  `CLAIM_STALE_MS`; `tickReady(run, facts, now)` with every rule of D-3 (`stopping` and
-  `stopping-busy`, `archived` holds counting for `done`, rule 4a with `train.hold`); `commonDirOf`,
-  `localRunFilePath` and `localFacts(root, run, env)` with `node:fs` only, `heldPlaces` the
-  `run.occupied` ids that are open; `limitOf` and `DEFAULT_LIMIT` moved from `roadmap-loop.mjs` and
-  re-exported there. Tests in the new `plugins/openspec/hooks/roadmap-loop-conductor.test.mjs`
+  with `task`, `ended`, `queue`, `claims` (`{ session, at, heartbeat }`), `holds` (`elsewhere` with
+  its 30-minute `recheckAt`, `delegated` with its gate and quote), `ownerWaits` (the `@train` and
+  `@run` keys kept), `train` (its `hold` with `recheckAt`); the removed fields not read;
+  `CLAIM_STALE_MS`; `tickReady(run, facts, now)` with every rule of D-3 (`no-task` after the end,
+  `stopping` and `stopping-busy`, `archived` holds counting for `done`, rule 4a with `train.hold`);
+  `commonDirOf` and `localRunFilePath` in `plugins/openspec/hooks/guard.mjs`, re-exported by
+  `run-file.mjs`, and `localFacts(root, run, env)` with `node:fs` only, `heldPlaces` the
+  `run.occupied` ids that are open, and the prune of `run.occupied` to the open ids that `tick` and
+  `helper-next` run before `placeDecision`; `limitOf` and `DEFAULT_LIMIT` moved from
+  `roadmap-loop.mjs` and re-exported there. Tests in the new `plugins/openspec/hooks/roadmap-loop-conductor.test.mjs`
   (`conductor AC-4 `, `AC-11 `): each D-3 rule, a broken run file, a non-id queue entry; on one
   fixture repository (a main checkout, two worktrees, one removed folder) `localRunFilePath` equals
   `runFilePath` from the main checkout and from a worktree, `localFacts`' `open` equals the change
   folders of `listWorktrees`' paths, and it reads the same with a `PATH` whose `git` exits 1;
   `heldPlaces` counts an `occupied` entry of an open change with no claim, and leaves out one of a
-  change no longer open. The existing tests that import `limitOf` from `roadmap-loop.mjs` pass
+  change no longer open; with an `occupied` entry of a removed change and one place, `placeDecision`
+  after the prune gives the place to the next change, as the hook's `tickReady` does. The existing tests that import `limitOf` from `roadmap-loop.mjs` pass
   unchanged. Map: the new test linked to `run-file.mjs` and `roadmap-loop.mjs`, and marked `slow`.
   Check: `node scripts/test-suite.mjs --test-name-pattern="^(conductor |roadmap-loop setting:)"` passes.
 - [ ] 2.2 The standing answers (D-8): `plugins/openspec/hooks/standing-answers.mjs` and
@@ -121,39 +129,52 @@ readiness review and the owner's approval before anything else runs.
   12-line summary refusal, the answer file, the 200-character cut of an approval's words) and
   `plugins/openspec/hooks/request-file.test.mjs`. Map: its `files` key. Check:
   `node scripts/test-suite.mjs --test-name-pattern="^request "` passes.
-- [ ] 2.4 The typed command and the task (D-5): `run` records the queue and prints `install-task`;
-  `--after task=installed|exists|refused|deleted`; `stop` prints `delete-task`; the reply
-  `roadmap-task-left` in both languages of `change-loop.mjs` (grep the tests for the message
-  table's key lists first, CLAUDE.md); the task id, the
-  `*/5` cron (or `decision.md`'s) and the two-line prompt; `--change-sessions` and `--cron` refused as
-  unknown options. Tests `conductor AC-2 `, `AC-9 `: typed twice gives one `install-task`; stop and
-  done give `delete-task`. Check: as in 2.1.
-- [ ] 2.5 The tick, its claim and its sweep (D-6, D-18): `tick --session`, `tick-started`,
-  `tick-ended`, `tick-recorded`; the sweep; the claim under `updateRun`; the stale takeover; the
-  places cap; rule 3's `stopping` and `stopping-busy`, and `tick --after task=deleted|delete-refused`.
-  Tests `conductor AC-4 `, `AC-5 `, `AC-9 `, `AC-11 `, `AC-15 `: two items one claim, a live claim
-  left alone, every place with a helper, two `tick` processes at once leave one claim, a stale claim
-  taken over, a merged pull request swept; a stopping run with no live claim gives `delete-task` and
-  `roadmap-ended-stopped`, with a live claim `{ end: null }`, and with a stale claim `delete-task`;
-  `task=delete-refused` sets `task: null` and prints `roadmap-task-left`. Check: as in 2.1.
-- [ ] 2.6 The helper's verbs (D-7, D-14): `helper-next` from `session-next`'s place, load, dependency,
+- [ ] 2.4 The typed command and the task (D-5): `run` records the queue and prints `install-task`
+  (only `run` prints it); `--after task=installed|exists|refused`; a typed `run` clears `ended` and
+  the `@run` line; `stop` sets `stopping`, and with no live claim records the end at once (D-6 rule
+  3's record) and prints `roadmap-ended-stopped` with the `@run` line's words; the replies
+  `roadmap-task-left` (D-9's new words) and `gate.task-left` in both languages of `change-loop.mjs`
+  (grep the tests for the message table's key lists first, CLAUDE.md); the task id, the `*/5` cron
+  (or `decision.md`'s) and D-5's two-line S-B prompt, with the task id `devkit-roadmap-tick-…`; `--change-sessions`,
+  `--cron` and `--after task=deleted` refused as unknown. Tests `conductor AC-2 `, `AC-9 `: typed
+  twice gives one `install-task`; typed after an end with the old task listed gives `install-task`
+  whose `exists` report records the same id (no second task); `tick` and `next` never print
+  `install-task`; stop with no live claim records `ended` and `task: null`; no decision of `run`,
+  `stop` or `tick` names a delete, an update or a run of a task. Check: as in 2.1.
+- [ ] 2.5 The tick, its claim and its sweep (D-6, D-18): `tick --session`, `tick-recorded`; the
+  sweep; the claim under `updateRun` (`{ claim: { change, root } }`, no model and no brief); the stale
+  takeover; the places cap; rule 3's end (`ended`, `task: null`, the `@run` line) for `done` and for
+  `stopping`, and `stopping-busy`. Tests `conductor AC-4 `, `AC-5 `, `AC-9 `, `AC-11 `, `AC-15 `: two
+  items one claim, a live claim left alone, every place with a drive in flight, two `tick` processes
+  at once leave one claim, a stale claim taken over, a merged pull request swept; the last archive
+  gives `roadmap-ended-done` with `ended.why` `done`, `task: null` and one `@run` line of gate
+  `task-left` naming the task id; a stopping run with no live claim gives `roadmap-ended-stopped`
+  the same way, with a live claim `{ end: null }`, and with a stale claim the end; after the end
+  `tickReady` gives `no-task` and `tick` replies `roadmap-no-run`. Check: as in 2.1.
+- [ ] 2.6 The drive's verbs (D-7, D-14): `helper-next` from `session-next`'s place, load, dependency,
   merge-base and budget logic, with D-7's table of ends (a `blocked` end writes its hold and the
-  owner line of gate `decision`; an `archived` end its hold and no line); `helper-release`;
-  `helperModel`. Tests `conductor AC-7 blocked`: the blocked end's line and hold, `answered --gate
+  owner line of gate `decision`; an `archived` end its hold and no line; a `delegated` end its hold
+  and no gate file written; `run.stopping` the `stopping` end that releases the claim);
+  `helper-release`; every `agent` action carrying its stage's model as a lone change's does (no
+  `helperModel`). Tests `conductor AC-7 blocked`: the blocked end's line and hold, `answered --gate
   decision` deleting both, the next `tick` claiming the item; an archived end with no line, and the
-  last archived end making `tickReady` give `done`. Rewrite the
+  last archived end making `tickReady` give `done`; `conductor AC-9 stopping`: a `helper-next` call on
+  a stopping run releases the claim and hands nothing. Rewrite the
   class M tests of D-15 that drive `session-next` onto `helper-next` (in
   `roadmap-loop-followups.test.mjs`, `roadmap-loop-upfront.test.mjs`, `change-loop-remote-state.test.mjs`,
   `change-loop-declared.test.mjs`), each keeping its invariant. Check: as in 2.1, and
   `node scripts/test-suite.mjs --test-name-pattern="^upfront AC-(8|9|10) "` passes.
 - [ ] 2.7 The owner's place (D-8, D-17, D-19): `request`, `answer`, `owner-waits [--session]`,
-  `owner-watch`, `answered`, `pushed`, `record-delegated`; a grill line holds its questions; an
-  approval line its summary. Tests `conductor AC-7 `, `AC-8 `, `AC-14 `, `AC-16 `. Check: as in 2.1.
+  `owner-watch`, `answered` (`--change @run --gate task-left` included), `pushed`, `record-delegated`;
+  a grill line holds its questions; an approval line its summary; the `@run` line shown once and
+  pushed once. Tests `conductor AC-7 `, `AC-8 `, `AC-9 line`, `AC-14 `, `AC-16 `: `owner-watch` exits
+  on a new `@run` line and when `task` is null; `owner-waits --session` marks it shown. Check: as in
+  2.1.
 - [ ] 2.8 The siblings (D-20): `siblings --change`, and the `- Siblings:` line the approval adds. Tests
   `conductor AC-17 `, with a test that `deliver-check.mjs` answers the same with and without the line.
   Check: as in 2.1.
 - [ ] 2.9 The train's claim (D-21, its CLI part): the `boarded` hold, `@train` readiness (rule 4a with
-  `train.hold`), the train's claim, and `train-end` with every row of D-21's table of ends; `answered`
+  `train.hold`), the train's claim (`{ claim: { train: true, root } }`), and `train-end` with every row of D-21's table of ends; `answered`
   and `pushed` with `--change @train`. Tests `conductor AC-18 `: a boarded change gives a train claim
   before any change; no second train while one is live; a departed train's `github` hold dispatches
   nothing before its `recheckAt`; an owner end writes `ownerWaits['@train']` (gate `merge`, and gate
@@ -165,12 +186,18 @@ readiness review and the owner's approval before anything else runs.
   records `skipped` and its request. Check: as in 2.1.
 - [ ] 2.11 The escalation's re-hand (D-23): the `escalated` hold, its request, readiness on the
   answer file, the plain `helper-next`. Tests `conductor AC-20 `. Check: as in 2.1.
-- [ ] 2.12 The machines (D-13): the push after `open` (`push --what open`), the fetch and worktree on
-  the other machine, the `elsewhere` hold; `remoteSessionStartOf` no longer called. Tests
-  `conductor AC-21 ` with two clones of one bare `origin` in the test's folder: the claim naming
-  `avel` gives this machine an `elsewhere` hold with `recheckAt` 30 minutes, no worktree, no helper
-  and no `occupied` entry, `tickReady` not ready before `recheckAt`; at `recheckAt` with the claim
-  released the tick claims it. Check: as in 2.1.
+- [ ] 2.12 The machines (D-13, conservative): in a conducted run `open` never takes `--machine` and
+  a loaded machine holds the item; the push after `open` (`push --what open`); the `elsewhere` hold;
+  the takeover of a released or stale claim by a fetch and a worktree from the pushed branch;
+  `remoteSessionStartOf` no longer called. Tests `conductor AC-21 ` with two clones of one bare
+  `origin` in the test's folder: with the machines setting listing `avel` and this machine loaded,
+  the item is held `load` and never opened for `avel`; with this machine holding more open changes
+  than `avel`, the item opens here; the claim naming `avel` gives this machine an `elsewhere` hold
+  with `recheckAt` 30 minutes, no worktree, no drive and no `occupied` entry, `tickReady` not ready
+  before `recheckAt`; at `recheckAt` with the claim released the tick claims it and the worktree is
+  added from `origin/<id>`. The class M tests of D-15 that place a change on `avel` in a run with a
+  task are rewritten to the same rule (the legacy run file with no task keeps ADR 0020's placement).
+  Check: as in 2.1.
 - [ ] 2.13 ADR 0013's Note (D-2) and the class M test "followups AC-3 run file" reading it. Grep the
   tests for `0013-the-roadmap-coordinator-is-the-owners-session.md` first (D-15's pin rule). Check:
   `node scripts/test-suite.mjs --test-name-pattern="^followups (AC-3|ADR 0014) "` passes.
@@ -178,11 +205,15 @@ readiness review and the owner's approval before anything else runs.
   `concurrencyOf` in `plugins/openspec/hooks/run-file.mjs`; `run --test-gates --test-concurrency`;
   the two `userConfig` settings in `plugins/openspec/.claude-plugin/plugin.json`; the new
   `plugins/openspec/hooks/test-slots.mjs` (the ledger under `withLockFile`, the dead-pid drop, the
-  train's `trainWaiting`) and the `test-run` verb of `roadmap-loop.mjs`; the ceiling of
+  train's `trainWaiting`, which holds the gates as well as a change's whole suite, D-25) and the
+  `test-run` verb of `roadmap-loop.mjs`; the ceiling of
   `DEVKIT_TEST_CONCURRENCY` in `scripts/test-suite.mjs`; the cap sentence `helper-next` appends to
   every `agent` brief. Tests first, seen failing: `plugins/openspec/hooks/test-slots.test.mjs`
   (`capacity AC-22 `: a second whole suite waits until the first exits; a train's suite waiting
-  keeps a change's suite from starting and starts before it; a third gate waits at `gates` 2; a
+  keeps a change's suite from starting and starts before it; while the train's suite runs or
+  waits, a new gate waits (stderr `waiting for the train's suite`) and starts after the train's
+  ends; the train's suite waits for the gates already in flight and starts when they end; a third
+  gate waits at `gates` 2; a
   dead pid's slot is taken; a ledger that does not parse is empty; two clones' run files on one
   `DEVKIT_STATE_DIR` share the whole-suite slot; no run file or no `task` runs at once with no
   slot; the child's exit code is `test-run`'s, and `SIGTERM` frees the slot; no `--` exits 3);
@@ -199,31 +230,64 @@ readiness review and the owner's approval before anything else runs.
   `roadmap-loop-followups.test.mjs`. Check:
   `node scripts/test-suite.mjs --test-name-pattern="^(capacity |conductor AC-22 |suite-capacity |roadmap-loop setting:)"`
   passes.
-- [ ] 2.15 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green; AC-2,
-  AC-4, AC-5, AC-7, AC-8, AC-11, AC-14 to AC-22 (their code).
+- [ ] 2.15 The `openspec/`-only pull request (D-25): `conductedOf(root)` in
+  `plugins/openspec/hooks/guard.mjs` (`node:fs` only, over `localRunFilePath`); in
+  `plugins/openspec/hooks/deliver-check.mjs` `collectState` leaves the `train` facts out and records
+  `openspecOnly: true` for a conducted run whose open pull request's files (`prFiles`) are all under
+  `openspec/`, at the archive (`:3099`) and the change (`:3152`) sites. Tests first, seen failing, in
+  `plugins/openspec/hooks/delivery-train.test.mjs` (`train AC-22 openspec-only `), on its train
+  fixtures with a run file whose `task` is set: an archive pull request of `openspec/` files only
+  gives `enable-auto-merge` under `trunk-auto` and `archive-pr-ready` under `trunk`, never
+  `boarded`; `boardedSet` leaves it out; a change pull request with a file outside `openspec/` still
+  boards; with no run file, a run file with no `task`, or one that does not parse, the archive boards
+  as before. Grep the delivery-train and deliver-check tests for `boarded` on an archive first; a
+  test that pins the archive's boarding in a fixture with a run file is a row of D-15 edited in this
+  commit. Map: `guard.mjs` and `deliver-check.mjs` already link `delivery-train.test.mjs`. Check:
+  `node scripts/test-suite.mjs --test-name-pattern="^(train AC-22 |delivery-train )"` passes.
+- [ ] 2.16 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green; AC-2,
+  AC-4, AC-5, AC-7, AC-8, AC-9, AC-11, AC-14 to AC-22 (their code).
 
-## 3. The tick's hook and the locks (phase 3)
+## 3. The tick's hook, the locks and the blocked firing (phase 3)
 
 - [ ] 3.1 The tick's prompt hook (D-4): `plugins/openspec/hooks/tick-gate.mjs` (built-ins at the
   top, `guard.mjs` and `run-file.mjs` by dynamic `import()` after the raw match; `localRunFilePath`,
   `localFacts`, `tickReady`), the first `UserPromptSubmit` entry of
   `plugins/openspec/hooks/hooks.json`, and `plugins/openspec/hooks/tick-gate.test.mjs`, run as a
-  process with the payload of `proof/p1-hooks.md`, on a fixture repository with a main checkout and a
+  process with the envelope of `proof/p2-result.md` (`envelope:`, `envelope_tag:`: the scheduler's
+  header, the `<scheduled-task name="devkit-roadmap-tick-…" file="…">` tag, the host's sentence,
+  the stored prompt) as the fixture payload's `prompt`, and again with the bare stored prompt, on a fixture repository with a main checkout and a
   linked worktree, and with a `PATH` whose `git` and `gh` stubs exit 1 in every case: the envelope
   with nothing ready blocks (from the main checkout and from the worktree), `stopping-busy` blocks,
-  `no-task` blocks, a held place blocks as the conductor test's `tick` claims nothing on the same run
-  file; an item ready, done, stopping with no live claim, any other prompt, a broken run file, no
+  `no-task` blocks, a run file with `ended` set blocks with the reason naming the deletion in the
+  app, a held place blocks as the conductor test's `tick` claims nothing on the same run
+  file; an item ready, done and stopping with no live claim print only the tick's note (its
+  `additionalContext` naming the payload's session id, the hook's own `CLAUDE_PLUGIN_ROOT` paths, the
+  settings from `CLAUDE_PLUGIN_OPTION_*`, and an unset setting left out of the call); any other
+  prompt, a tag of another task's name, a first line naming another root, a broken run file, no
   common git folder and another root print nothing; the envelope run ends within the hook's 10-second
   timeout, its time recorded in the test's message. Map: the hook's `files` key, `hooks.json`'s
   list, and `run-file.mjs`'s list (the hook calls its functions) link `tick-gate.test.mjs`. Check: `node scripts/test-suite.mjs --test-name-pattern="^tick-gate "` passes.
-- [ ] 3.2 The stop and hand-off locks of a conducted run (D-11): `roadmapStopDecision`,
-  `roadmapAgentDecision`, the helper's `subagent-stop`. Tests `conductor locks ` for each scenario of
-  "A conducted run's sessions stop as its ticks need" and the new hand-off scenarios; the class K
-  `roadmap-loop lock stop: RS…` and `lock agent: RH…` tests pass unchanged. Check:
+- [ ] 3.2 The stop and hand-off locks of a conducted run (D-11): `roadmapStopDecision` with the
+  tick's stop rule (a live claim of its session with no hold and no background task refused once
+  naming `helper-next` and `helper-release`; a background stage agent or review round allowed, its
+  notice waking the session; a drive ended at a delegated gate allowed; nothing claimed allowed; a repeat allowed; the
+  typed session allowed with `task` or `ended`), and `roadmapAgentDecision` (a role of the claimed
+  change's script and `devkit-core:codebase-researcher` with the claimed change's brief allowed;
+  another change's brief, a general-purpose agent and any hand-off with no live claim refused; no
+  helper agent allowed). Tests `conductor locks ` for each scenario of "A conducted run's sessions
+  stop as its ticks need" and the hand-off scenarios of "In a roadmap run a hand-off names its
+  change"; the class K `roadmap-loop lock stop: RS…` and `lock agent: RH…` tests pass unchanged.
+  The run detection of a tick's session (D-11): `roadmapRunOf` reads the first user message's
+  scheduler header, `devkit-roadmap-tick-…` tag and `devkit-roadmap-tick: <root>` line as a typed
+  `/devkit roadmap tick`; tests `conductor locks envelope `: probe 2's first message plus the
+  `devkit-roadmap:` line is a run in `roadmap tick`; without that line, with another task's tag,
+  another root, the line outside the tag, or the text typed in a later message, it is no run; an
+  unreadable transcript is no run; the AskUserQuestion refusal of 3.3 holds in that session. No
+  `Skill` entry is added. Check:
   `node scripts/test-suite.mjs --test-name-pattern="^(conductor locks|roadmap-loop lock) "` passes.
 - [ ] 3.3 No question box (D-10): the `PreToolUse` `AskUserQuestion` entry and `guard.mjs ask`. Tests
-  in `guard.test.mjs` (`conductor AC-6 ask`): refused in a tick's session, main thread and subagent;
-  allowed elsewhere; an error lets it through. Check:
+  in `guard.test.mjs` (`conductor AC-6 ask`): refused in a tick's session, from its main thread, a
+  stage agent and a review round's agent; allowed elsewhere; an error lets it through. Check:
   `node scripts/test-suite.mjs --test-name-pattern="^conductor AC-6 "` passes.
 - [ ] 3.4 The writers (D-8, D-11, D-17): `classify` in `guard.mjs` makes
   `openspec/standing-answers.md` owner-only, `requests/*.answer.md` main-session only, and refuses a
@@ -233,25 +297,64 @@ readiness review and the owner's approval before anything else runs.
 - [ ] 3.5 The state (change-state delta): `runFactsOf` and `changeState` read claims, holds and lines;
   the class E tests of `change-loop-remote-state.test.mjs` in D-15 edited. Check:
   `node scripts/test-suite.mjs --test-name-pattern="^change-state "` passes.
-- [ ] 3.6 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green; AC-3,
-  AC-6, AC-8, AC-14.
+- [ ] 3.6 Coordinator's session, on the owner's Mac: the blocked firing and the runs at once, with the
+  real hook. A scratch project `/var/tmp/devkit-hc-tick/project` (a clone of this branch's head,
+  `openspec/` intact), never this repository's settings: its `.claude/settings.local.json` holds one
+  `UserPromptSubmit` hook running this branch's `plugins/openspec/hooks/tick-gate.mjs` by its
+  absolute path and sets `DEVKIT_HOOK_LOG=/var/tmp/devkit-hc-tick/log/hook.jsonl`; its run file
+  (`<common dir>/devkit/roadmap-run.json`) records a `task` and a queue whose only item has a live
+  claim (nothing ready). Then, each a task of that project created on the owner's typed turn:
+  (a) three one-time firings with the D-5 prompt: per firing, the hook log line (`block`), the run's
+  transcript assistant-message count, and the host's usage (tokens) from `list_task_runs` or the
+  app; (b) one firing with the run file made ready, for comparison, with its tokens and the model the
+  session ran on; (c) a recurring task with `*/5 * * * *`: accepted or refused (and the shortest
+  interval accepted), and, with the run file ready and the first firing's session running a
+  Bash `sleep 420` run with a 600000 ms timeout (not in the background), whether the next firing starts a second run while the first is in flight;
+  (d) in one firing's session, `ToolSearch` for the host's notification tool (`select:PushNotification`,
+  else the query `notification`); (e) any pause for a tool approval in any firing; (f) in the
+  passing firing, the hook's note in the session (its `additionalContext` seen by the model, quoted
+  by it into the scratch project's log) and the tick call it names run; (g) the hook's payload
+  `prompt` as `DEVKIT_HOOK_LOG` records it: the tag form or the bare stored prompt (the form not seen
+  is dropped from the hook's regex and from `tick-gate.test.mjs` in this task, D-4). Write
+  `openspec/changes/helper-conductor/proof/p5-empty-tick.md` with each observation, then append
+  "Phase 3 real run" to `proof/decision.md` with the cron, the notification tool and whether a
+  stop-and-revise case of D-1 holds. Before any create, check the session can list the project's
+  tasks; nothing created is deleted by a session (the owner deletes the tasks with one click; the
+  folder `/var/tmp/devkit-hc-tick` is removed after checking the session created it). Check: the three
+  blocked firings read 0 model calls and 0 tokens and the note reached the passing firing's
+  session, or `decision.md` names the stop-and-revise case (whether a second run started is
+  recorded, no stop case: the claims guard overlap); `git status --short` in this worktree lists nothing of the scratch
+  project.
+- [ ] 3.7 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green; AC-1,
+  AC-3, AC-6, AC-8, AC-11 (the runs at once), AC-14, AC-15 (the cron).
 
-## 4. The helper and the texts (phase 4)
+## 4. The tick's drive and the texts (phase 4)
 
-- [ ] 4.1 The helper (D-7): Helper A `plugins/openspec/agents/roadmap-helper.md`, or Helper B
-  `plugins/openspec/skills/devkit/scripts/change-helper.workflow.js` with its `files` key in the map,
-  as `proof/decision.md` picked; it covers the change loop, the grill's exit, the precheck, the
-  escalation, the push after open, the train with its `depart` through `test-run --train --kind
-  suite` (D-21, D-22, D-23) and its own test commands through `test-run` (D-25). Tests
-  (`conductor AC-6 helper`, `conductor AC-22 helper`): the file names `helper-next`, `request`,
-  `helper-release` and `test-run`, never AskUserQuestion, and its tools (A) hold no
-  AskUserQuestion. Check: `claude plugin validate .` exits 0 and the test passes.
-- [ ] 4.2 The devkit skill (D-9): `plugins/openspec/skills/devkit/SKILL.md` `## Roadmap` rewritten as
-  "The typed command", "A tick", "What stays"; the `Never` item on crons; the `argument-hint`; the
+- [ ] 4.1 The review round in a tick's session (D-7, D-9; probe 2 ran the Workflow):
+  `plugins/core/skills/review-change/SKILL.md` "Which path runs" gains D-9's sentence for the
+  scheduled prompt of a conducted run. Grep
+  `plugins/core/skills/review-change/scripts/review-round.test.mjs` and the other tests for that
+  sentence first; an asserting test is edited in this commit with its invariant named. Tests
+  `review-round conductor `: the sentence names `devkit-roadmap-tick:` and keeps "Use the Workflow
+  tool for anything but this round" in `Never`. Map: `review-change/SKILL.md` already links
+  `review-round.test.mjs`. Check:
+  `node scripts/test-suite.mjs --test-name-pattern="^review-round "` passes.
+- [ ] 4.2 The devkit skill and the tick's drive (D-7, D-9): `plugins/openspec/skills/devkit/SKILL.md`
+  `## Roadmap` rewritten as "The typed command" (the task created on the typed turn, the `@run` line
+  said once), "A tick" (the drive of D-7: every rule of "The drive", the precheck, the escalation,
+  the push after open, the train with its `depart` through `test-run --train --kind suite` (D-21,
+  D-22, D-23), its own test commands through `test-run` (D-25), every hand-off in the background
+  with the turn ended after it and the drive going on at its notice, the sweep as the only place a
+  gate file is written), "What stays"; "A tick" readable whole as a file at the note's path; the `Never` item on crons and tasks; the `argument-hint`; the
   settings list's `test_gates` and `test_concurrency` and `run`'s `--test-gates`/`--test-concurrency`
-  (D-25). Tests `conductor skill ` for each sentence D-9 names; the `roadmap-loop setting` test's
-  loop over `${user_config.*}` keys passes. Check:
-  `node scripts/test-suite.mjs --test-name-pattern="^conductor skill "` passes.
+  (D-25). No skill is added and `devkit` keeps `disable-model-invocation: true`. Tests
+  `conductor skill ` for each sentence D-9 names, and `conductor AC-6 skill` / `conductor AC-22
+  skill`: the tick's part names `helper-next`, `request`, `helper-release` and `test-run`, never
+  names AskUserQuestion but as forbidden, and names no `delete_scheduled_task`,
+  `update_scheduled_task` or `run_scheduled_task` but as forbidden; no file of `plugins/openspec/agents/`
+  is named `roadmap-helper` and no `plugins/openspec/skills/devkit-tick/` exists; the `roadmap-loop setting` test's loop over `${user_config.*}` keys
+  passes. Check: `claude plugin validate .` exits 0 and
+  `node scripts/test-suite.mjs --test-name-pattern="^conductor (skill|AC-6 skill|AC-22 skill)"` passes.
 - [ ] 4.3 The grill and its rule (D-9): step 2c of `plugins/core/skills/requirements-grill/SKILL.md`;
   the rule in `openspec/config.yaml`, `plugins/openspec/schemas/devkit/schema.yaml`,
   `plugins/openspec/schemas/devkit-lite/schema.yaml`, `openspec/schemas/devkit/schema.yaml`,
@@ -260,20 +363,22 @@ readiness review and the owner's approval before anything else runs.
   of `change-loop-compozy.test.mjs`. Check:
   `node scripts/test-suite.mjs --test-name-pattern="^upfront AC-5 "` passes.
 - [ ] 4.4 The `ship-change` rows (D-19, D-20): `plugins/openspec/skills/ship-change/SKILL.md`
-  `stop-plan-approval` and `stop-retro-answers`: the summary, the delegated words, the siblings line,
-  the cron-started sentence. Tests `conductor AC-16 rows`. Check: as in 4.2, and the class K test
+  `stop-plan-approval` and `stop-retro-answers`: the summary, the delegated words (written by a
+  tick's session in its sweep, after its `record-delegated` action, never in the drive that reached
+  the gate), the siblings line, the cron-started sentence. Tests `conductor AC-16 rows`. Check: as in 4.2, and the class K test
   "stage-roles gates: an approved mock-up..." passes unchanged.
 - [ ] 4.5 The messages and the board (D-9, the roadmap-coordination delta): the new keys in both
   languages in `change-loop.mjs` (before adding them, grep the tests for the key names and for the
   helpers and sample tables that render every key, CLAUDE.md); `boardOf`'s owner block from `ownerWaits` with
-  `status-owner-here`, the "goes on at the next tick" row. Tests `conductor AC-7 board`; the
+  `status-owner-here`, the `@run` line (`gate.task-left` with the task id), the "goes on at the next
+  tick" row. Tests `conductor AC-7 board`; the
   message-table parity tests pass. Check: as in 4.2.
 - [ ] 4.6 The docs (D-16): `docs/openspec-flow.md` (with D-25's test capacity),
   `docs/coordination-design.md`, `docs/roles.md`, `plugins/openspec/README.md` (with
   `test-slots.mjs` and the two settings). Grep the tests for each paragraph's old sentences first; an asserting
   test is a row of D-15 edited in this commit. Check: `python3 scripts/check.py` exits 0.
 - [ ] 4.7 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green; AC-2,
-  AC-4, AC-6, AC-7, AC-8, AC-9, AC-12 (rule), AC-16 to AC-20 and AC-22 (texts).
+  AC-4, AC-6, AC-7, AC-8, AC-9, AC-12 (rule, ADR 0008's sentence), AC-16 to AC-20 and AC-22 (texts).
 
 ## 5. The removal (phase 5)
 
@@ -303,8 +408,8 @@ readiness review and the owner's approval before anything else runs.
   `grep -rn 'roadmap-session-\|roadmap-waits-turn\|roadmap-check-\|session-held-owner\|roadmap-woken' plugins/`
   prints nothing, and `grep -rln 'devkit-session' plugins/` prints nothing.
 - [ ] 5.6 The records (D-16): ADR 0021's status line, the `- Amended by ADR [helper-conductor]` lines
-  of ADR 0004, 0006, 0010, 0011, 0013, 0014, 0017, 0020, 0022, 0023 and 0026 (ADR 0008 only with
-  Helper B), after the pin rule's grep; the class E test "upfront ADR 0021: the documents follow";
+  of ADR 0004, 0006, 0008, 0010, 0011, 0013, 0014, 0017, 0020,
+  0022, 0023 and 0026, after the pin rule's grep; the class E test "upfront ADR 0021: the documents follow";
   the class K tests of ADR 0022 and ADR 0026 (`guard.test.mjs` "setup AC-2 records",
   `release-note.test.mjs` "release-note AC-14 texts", its subtest "records: ADR 0022 and ADR 0025")
   run unchanged. Check:
@@ -319,34 +424,46 @@ readiness review and the owner's approval before anything else runs.
 
 ## 6. The real run and the checks (phase 6)
 
-- [ ] 6.1 Conductor: the real run, in a scratch project with a roadmap of three small items (`a`,
-  `b` after `a`, `c`), on the installed packs built from this branch: type `/devkit roadmap 1` twice
-  (one task, AC-2), see a blocked empty tick in `DEVKIT_HOOK_LOG` (AC-3), a claim and a helper per
-  tick (AC-4), never more than one helper (AC-11), no question box (AC-6), `a`'s plan approval as one
-  line shown in the typed session and answered there (AC-7), then `/devkit roadmap stop` and the list
-  without the task (AC-9). Write `proof/run-1.md` with the run file at each step, the hook log and the
-  task lists. Check: the file shows each AC's observation.
-- [ ] 6.2 Conductor: in the same run, kill `b`'s helper mid-stage; after the stale bound (lowered for
-  the run with `DEVKIT_CLAIM_STALE_MS`, an env override `run-file.mjs` reads for tests and proofs only),
-  the next tick takes the claim over and the stage is handed again from the files; a five-minute tick
-  sweeps the run (AC-5, AC-15). The failure path names the hook that sees it (the prompt hook passes on
-  the stale claim; `subagent-stop` refuses the killed stage agent's missing file at its next stop) and
-  the files left (the claim's old heartbeat, the partial stage file). `proof/run-2.md`. Check: the file
-  shows the takeover and the re-hand.
+- [ ] 6.1 Conductor (the coordinator's session on the owner's Mac, where scheduled tasks run): the
+  real run, in a scratch project with a roadmap of three small items (`a`, `b` after `a`, `c`), on the
+  installed packs built from this branch: type `/devkit roadmap 1` twice (one task, AC-2), see a
+  blocked empty firing in `DEVKIT_HOOK_LOG` (AC-3), a claim per tick and its drive in the tick's own
+  session handing each stage one level below it (AC-4), never more than one live claim (AC-11), no
+  question box and no AskUserQuestion call (AC-6), the tick's stop refused once while its claim had
+  no wait (a `stop` line of `DEVKIT_HOOK_LOG`), `a`'s review round run as the Workflow (`review.md`'s
+  path line `workflow`), the drive's turns each ended after a background hand-off and woken by its
+  notice, `a`'s plan approval as one line shown in the typed session and
+  answered there (AC-7), then `/devkit roadmap stop`: the run file's `ended`, the next firing blocked
+  in `DEVKIT_HOOK_LOG` with no model call, the `@run` line said once in the typed session, and the
+  task still listed until the owner deletes it with one click (AC-9). Write `proof/run-1.md` with the
+  run file at each step, the hook log and the task lists. Check: the file shows each AC's
+  observation.
+- [ ] 6.2 Conductor: in the same run, end `b`'s tick run mid-stage (the owner's stop of that run in
+  the app, or killing that session's process); after the stale bound (lowered for the run with
+  `DEVKIT_CLAIM_STALE_MS`, an env override `run-file.mjs` reads for tests and proofs only), the next
+  tick takes the claim over and the stage is handed again from the files; a five-minute tick sweeps
+  the run (AC-5, AC-15). The failure path names the hook that sees it (the prompt hook passes on the
+  stale claim; the stage agent that lost its session left no stage file, and the re-handed stage
+  agent's `subagent-stop` is judged as any stage's) and the files left (the claim's old heartbeat,
+  the partial stage file). `proof/run-2.md`. Check: the file shows the takeover and the re-hand.
 - [ ] 6.3 Conductor: with `openspec/standing-answers.md` delegating the plan approval, `c`'s approval
   is recorded by a tick with the quoted line, its summary within 12 lines and its words within 200
   characters, a sibling line when `a` and `c` share a file, and a grill question answered as a request
   file and its answer (AC-8, AC-14, AC-16, AC-17). `proof/run-3.md`. Check: `approval.md`, the request
   and its answer are copied in the file.
-- [ ] 6.4 Conductor: a boarded change dispatched by the next tick (AC-18); a parked branch reused and
-  an already-delivered item skipped (AC-19); a planner escalation answered and re-handed (AC-20); a
-  change opened for a second clone on the Avell, pushed, and picked up there by its own run (AC-21).
+- [ ] 6.4 Conductor: a boarded change dispatched by the next tick (AC-18); an archive pull request
+  of the run (`openspec/` files only) merged on its required checks with no train (AC-22); a parked branch reused and
+  an already-delivered item skipped (AC-19); a planner escalation answered and re-handed (AC-20); the
+  machine split, conservatively (AC-21, D-13): with the machines setting listing `avel` (an SSH host,
+  which holds no task), every item opens on the Mac and its branch is on `origin` after `open`; a
+  branch pushed with a claim naming `avel` is held `elsewhere` and not driven, and once that claim
+  is released on `origin` the Mac's tick claims it and adds its worktree from `origin/<id>`.
   `proof/run-4.md`. Check: the file shows each.
 - [ ] 6.5 Conductor: the test capacity on one machine, in the scratch project of 6.1 with its run's
   defaults (2 gates, 4 files) and `DEVKIT_STATE_DIR` in the scratch folder: two helpers' gates and a
   third `test-run --kind gate` started at once (the third waits), a change's whole suite then a
-  train's started while it runs (the train's waits for it, a second change's suite started after the
-  train asked waits for the train), the `suite:` lines reading `concurrency 4`, a briefed stage agent's
+  train's started while it runs (the train's waits for it and for the gates in flight, a second
+  change's suite and a new gate started after the train asked wait for the train's end), the `suite:` lines reading `concurrency 4`, a briefed stage agent's
   transcript running its gate through `test-run`, and one `test-run` killed with `SIGKILL` whose slot
   the next one takes. The failure path names what sees it (the next `test-run`'s read drops the dead
   pid) and the file left (the ledger with the dead entry). `proof/run-5.md`, with the ledger at each

@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=2 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
+<!-- devkit-stage specs result=passed attempt=3 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
 # Spec Delta
 
 ## MODIFIED Requirements
@@ -80,30 +80,32 @@ stopped by the load.
 
 #### Scenario: Loaded while another machine answers
 - **WHEN** the machines setting lists `avel`, `avel` answers, a line is ready at a tick, and the load reads 92 with the limit 80
-- **THEN** the change is opened for `avel`, and no hold line is shown
+- **THEN** the change is not opened for `avel`, and the hold is said once
 
 ### Requirement: Stopping a run lets each stage end
-`/devkit roadmap stop` SHALL delete the run's scheduled task, claim nothing new, and let each helper in
-flight finish the step it is in and record its wait; the reply SHALL say where each open change stays.
+`/devkit roadmap stop` SHALL claim nothing new and let each helper in flight finish the step it is in
+and record its wait; once none is in flight the run SHALL record its end, as "The run ends and its
+task is blocked" (`roadmap-conductor`) says. The reply SHALL say where each open change stays.
 `/devkit roadmap` SHALL then go on from those places.
 
 #### Scenario: Stop with two stages under way
 - **WHEN** the person types `/devkit roadmap stop` while two helpers drive a stage each and a third change waits for the owner
-- **THEN** the task is deleted, the reply says the run is stopping and where each of the three stays, and no claim is recorded after the two helpers end
+- **THEN** the reply says the run is stopping and where each of the three stays, no claim is recorded after the two helpers end, and the run's end is recorded once both released their claims
 
 #### Scenario: The run after a stop
 - **WHEN** the two helpers ended and the person types `/devkit roadmap`
-- **THEN** one task is installed again, and the next ticks drive each change from its files
+- **THEN** the run's task is recorded again (the one the owner left, or one new task if the owner deleted it), and the next ticks drive each change from its files
 
 ### Requirement: A run ends by itself
-A run SHALL end when every roadmap line of its queue is archived, the tick that finds it deleting the
-task, or when a stop was asked. A run whose every open change waits for the owner or is blocked SHALL
+A run SHALL end when every roadmap line of its queue is archived, the tick that finds it recording the
+end, or when a stop was asked; after the end every firing of the task SHALL be blocked before the
+model until the owner deletes it. A run whose every open change waits for the owner or is blocked SHALL
 keep its task, its ticks refused before the model until an answer or a fix makes an item ready. A wait
 on GitHub SHALL have no time limit.
 
 #### Scenario: Everything archived
 - **WHEN** a tick fires and every line of the queue is archived
-- **THEN** the task is deleted, and the reply says the roadmap is done and the run is over
+- **THEN** the run's end is recorded, and the reply says the roadmap is done, the run is over and the owner deletes the task with one click in the app
 
 #### Scenario: Every place filled by changes waiting for the owner or blocked
 - **WHEN** every open change waits for the owner or is blocked
@@ -111,7 +113,7 @@ on GitHub SHALL have no time limit.
 
 #### Scenario: A run that was stopped
 - **WHEN** a stop was asked and the last helper in flight ends
-- **THEN** no task is left and no claim is recorded
+- **THEN** the run's end is recorded, no claim is recorded, and every later firing is blocked before the model
 
 ### Requirement: The status command shows the whole picture
 `/devkit status` SHALL change nothing and print a count line, a load line only while starts are held,
@@ -203,14 +205,14 @@ SHALL stay as they are.
 - **THEN** every open roadmap change's block on the board is the block of its state in the command's output
 
 ### Requirement: A change opens on the machine with the fewest open changes
-With the machines setting set, each change a tick opens SHALL go to the machine that answers with the
-fewest open changes, every stage counted, ties broken by the order of the setting with this machine
-first. This machine SHALL be skipped while its load is at or above the limit. With no machine able to
-take it, the start SHALL be held, with its line.
+In a conducted run, each change a tick opens SHALL open on this machine, whatever the machines setting
+lists: a machine the app reaches as an SSH host holds no scheduled task and runs no conductor, so no
+change SHALL be opened for it. While this machine's load is at or above the limit, the start SHALL be
+held, with its line. The machines setting SHALL serve the board and the claims read on `origin`.
 
 #### Scenario: The fewest open changes
 - **WHEN** this machine holds two open changes, `avel` holds one, both answer, the load is below the limit, and line `e` is ready at a tick
-- **THEN** `e` is opened for `avel`
+- **THEN** `e` is opened on this machine, not for `avel`
 
 #### Scenario: A tie
 - **WHEN** this machine and `avel` hold one open change each, both answer and the load is below the limit
@@ -218,10 +220,14 @@ take it, the start SHALL be held, with its line.
 
 #### Scenario: Several ready lines
 - **WHEN** this machine and `avel` hold nothing, three lines are ready and the load is below the limit
-- **THEN** the first three ticks open them, the first on this machine, the second on `avel`, the third on this machine, because the grill and the plan take no place
+- **THEN** the first three ticks open them, all on this machine, because the grill and the plan take no place
 
 #### Scenario: Loaded and nobody answers
 - **WHEN** the load reads 92 with the limit 80 and `avel` does not answer
+- **THEN** no change is opened, and the hold line and the board say the start is held
+
+#### Scenario: Loaded while a listed machine answers
+- **WHEN** the load reads 92 with the limit 80 and `avel` answers
 - **THEN** no change is opened, and the hold line and the board say the start is held
 
 ### Requirement: A place is taken from the implementation on
@@ -253,7 +259,7 @@ answer" in place of the stage; they keep their places, and nothing reopens them 
 
 #### Scenario: The machine answers again
 - **WHEN** `avel` answers at a later tick
-- **THEN** its changes show their stages again and it may take new changes
+- **THEN** its changes show their stages again, and it takes no new change of a conducted run
 
 ### Requirement: A place is held only by a change that loads the machine
 In a roadmap run, a change SHALL hold a place only while its current stage is the implementation, a
@@ -352,17 +358,18 @@ pushed once per recorded approval.
 - **THEN** `a`'s branch on `origin` holds the new approval with the plan files
 
 ### Requirement: The end of a run cleans up after itself
-When a run ends with every line archived, or is stopped, the scheduled task SHALL be deleted and the
-watch of the typed session SHALL end. Only a process that is still a wait loop of the run SHALL be
+When a run ends with every line archived, or is stopped, the run file SHALL record the end, no
+session SHALL delete, pause or run the scheduled task, and the watch of the typed session SHALL end
+once it has shown the line about deleting the task. Only a process that is still a wait loop of the run SHALL be
 stopped; the record SHALL forget every wait loop it was asked to stop.
 
 #### Scenario: The last change archived
 - **WHEN** the last change of the roadmap is archived and a tick finds it
-- **THEN** no scheduled task, no claim and no wait loop of the run is left
+- **THEN** the run file records the end, no claim and no wait loop of the run is left, and the scheduled task stays until the owner deletes it in the app
 
 #### Scenario: A stop while two changes go on
 - **WHEN** the owner types `/devkit roadmap stop` while `a`'s and `b`'s helpers drive a stage each
-- **THEN** the task is deleted at once, and both helpers finish their step and record their waits
+- **THEN** no new claim is recorded, both helpers finish their step and record their waits, and the next firing after that records the run's end
 
 #### Scenario: A process that took a wait loop's number
 - **WHEN** the run ends and a wait loop of the run is recorded under a process number that now belongs to a process that is not a wait loop
@@ -391,8 +398,8 @@ roadmap run SHALL treat that line as any blocked change.
 - **THEN** the decision exits 0, one line says once that `x` stopped with that reason and that the others go on, and `a` is claimed as before
 
 #### Scenario: The stop lock of a roadmap run with such a line
-- **WHEN** the session of a tick that claimed `a` ends its turn before starting `a`'s helper, or a tick that found nothing to claim ends its turn
-- **THEN** the stop is refused once for `a`'s helper, or let through because nothing was claimed
+- **WHEN** the session of a tick that claimed `a` ends its turn with `a`'s claim live, no wait recorded and no stage of `a` under way, or a tick that found nothing to claim ends its turn
+- **THEN** the stop is refused once naming `a`'s drive, or let through because nothing was claimed
 
 ### Requirement: The roadmap's decisions are judged from a freshly fetched base
 The roadmap command's `run`, `next`, `tick` and `wait` SHALL fetch the base, as the change command's
@@ -498,28 +505,27 @@ continue every open change from its files, starting no change twice and losing n
 - **WHEN** `/devkit status` is typed in another session of the same repository during a run with the number 3
 - **THEN** its first line shows the open changes of 3
 
-#### Scenario: A change opened for another machine
-- **WHEN** a tick opened `a` for `avel` and the typed session was killed
-- **THEN** `a` is not opened again, and it stays open on `avel`
+#### Scenario: A change claimed by another machine
+- **WHEN** `a` is claimed by `avel` on `origin` and the typed session was killed
+- **THEN** `a` is not opened again, and it stays held elsewhere until that claim is released
 
-### Requirement: A change opened for another machine is driven there by its own conductor
-A change a tick opens for another machine SHALL get its claim naming that machine and its branch
-pushed to `origin`; no session SHALL be started there and no step SHALL be run there from this
-machine. That machine's own run SHALL add the worktree from the branch and drive it when its owner
-typed `/devkit roadmap` there; until then the change SHALL stay open on that machine, filling no place
-of this one.
+### Requirement: A change claimed by another machine is driven here only from its pushed branch
+A change whose claim on `origin` names another machine SHALL not be driven on this machine while that
+claim stands; no session SHALL be started there and no step SHALL be run there from this machine.
+Once the claim is released or stale, this machine's tick SHALL claim the change, add its worktree
+from its pushed branch and drive it; until then the change SHALL fill no place of this machine.
 
-#### Scenario: Opened for avel
-- **WHEN** a tick opens `e` for `avel`
-- **THEN** `e`'s branch is on `origin`, no session is started on `avel`, and the board lists `e` open on `avel`
+#### Scenario: Claimed by avel
+- **WHEN** `e`'s branch is on `origin` with a claim naming `avel`, and this machine's tick fires
+- **THEN** `e` is held elsewhere, no session is started on `avel`, and the board lists `e` open on `avel`
 
-#### Scenario: avel runs its own conductor
-- **WHEN** the owner typed `/devkit roadmap` on `avel` and `avel`'s tick fires with `e` claimed for `avel`
-- **THEN** `avel`'s tick adds `e`'s worktree from `origin/e`, claims `e` and drives it there
+#### Scenario: The claim released
+- **WHEN** `avel`'s claim on `e` is released and this machine's tick fires after the hold's new look
+- **THEN** this machine's tick adds `e`'s worktree from `origin/e`, claims `e` and drives it here
 
 #### Scenario: The worktree cannot be made
-- **WHEN** `avel` cannot add `e`'s worktree from its branch
-- **THEN** `e` is held blocked on `avel` with the reason, and it keeps its claim on `origin`
+- **WHEN** the claim is released and this machine cannot add `e`'s worktree from its branch
+- **THEN** `e` ends blocked with the reason and a line for the owner, and its branch stays on `origin`
 
 ### Requirement: The board shows what each waiting change waits for
 `/devkit status` SHALL show a change waiting for a place, the load or a dependency in the queue with
@@ -579,7 +585,7 @@ and the row's words, alike in the state command, a helper's action and the board
 
 ### Requirement: A change on another machine gets its session there
 **Reason**: The conductor never starts work on another machine over SSH (`ADR [helper-conductor]`, decision 10).
-**Migration**: "A change opened for another machine is driven there by its own conductor".
+**Migration**: "A change claimed by another machine is driven here only from its pushed branch".
 
 ### Requirement: A freed place tells one waiting change to go on
 **Reason**: No session waits to be told; the next tick claims the first change waiting for a place.
@@ -607,15 +613,15 @@ and the row's words, alike in the state command, a helper's action and the board
 
 ### Requirement: A change session starts on its stage's model
 **Reason**: There are no change sessions.
-**Migration**: "A helper starts on the model of the stages it runs" (`roadmap-conductor`).
+**Migration**: "A tick's stage agents run on their stages' models" (`roadmap-conductor`).
 
 ### Requirement: A change session only steps down
 **Reason**: No session's model is switched by the run.
-**Migration**: "A helper starts on the model of the stages it runs" (`roadmap-conductor`).
+**Migration**: "A tick's stage agents run on their stages' models" (`roadmap-conductor`).
 
 ### Requirement: A change session's floor is set by the session-run stages ahead
 **Reason**: There are no change sessions.
-**Migration**: A helper's model is the strongest of the stages it performs up to its next wait (`roadmap-conductor`).
+**Migration**: No session is switched; each stage agent of a tick runs on its stage's model (`roadmap-conductor`).
 
 ### Requirement: A stage above the session's model never switches it
 **Reason**: No session's model is switched by the run.

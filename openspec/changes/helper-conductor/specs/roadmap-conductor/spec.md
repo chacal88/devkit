@@ -1,21 +1,23 @@
-<!-- devkit-stage specs result=passed attempt=3 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
+<!-- devkit-stage specs result=passed attempt=4 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
 # Spec Delta
 
 ## Purpose
 
 Lets one typed `/devkit roadmap` drive every change of the roadmap with no session per change: one
-scheduled task of the project ticks, each tick claims one ready item and drives it through a helper up
+scheduled task of the project ticks, each tick claims one ready item and its own session drives it up
 to its next wait, what needs the owner waits in one place, and the conductor owns the machine's test
-capacity.
+capacity. In this capability "the helper" of an item is that drive of the item by the tick's session
+that claimed it, and "a helper in flight" is a live claim; no agent sits between a tick's session and
+the stage agents.
 
 ## ADDED Requirements
 
 ### Requirement: One typed command installs one scheduled task
-`/devkit roadmap [<n>]`, typed in a project set up for devkit on the Claude driver, SHALL record the
-run's queue and places in the run file and create one scheduled task of the project whose prompt
-names the project's root. Typed again while that task exists, it SHALL create no second task and SHALL
-only change the places. Where the host offers no scheduled-tasks tool, the reply SHALL say so in one
-line, and nothing SHALL be written or started.
+`/devkit roadmap [<n>]`, typed in a project set up for devkit, SHALL record the run's queue and places
+in the run file and, on that typed turn, create one scheduled task of the project whose prompt names
+the project's root. No other turn SHALL create a task. Typed again while that task exists, it SHALL
+create no second task. Where the host offers no scheduled-tasks tool, one line SHALL say so, and
+nothing SHALL be written or started.
 
 #### Scenario: The first typed command
 - **WHEN** the owner types `/devkit roadmap 2` in a project whose roadmap holds three unticked lines and no run file
@@ -25,6 +27,14 @@ line, and nothing SHALL be written or started.
 - **WHEN** the owner types `/devkit roadmap 3` while the run's task exists
 - **THEN** the run file holds 3 places, no second task is created, and the queue is not built twice
 
+#### Scenario: Typed again after the run ended
+- **WHEN** the run ended, the owner has not deleted its task yet, and the owner types `/devkit roadmap 2`
+- **THEN** that task is recorded again as the run's task, `list_scheduled_tasks` still shows exactly one task of the project, and the run's end is cleared
+
+#### Scenario: A tick installs nothing
+- **WHEN** a tick runs while the run file records no task
+- **THEN** no scheduled task is created, and the reply says no roadmap run is under way
+
 #### Scenario: A host without scheduled tasks
 - **WHEN** the owner types `/devkit roadmap` in a host that offers no scheduled-tasks tool
 - **THEN** one line says the roadmap needs scheduled tasks, no run file is written, no change is opened and no stage is handed
@@ -32,8 +42,9 @@ line, and nothing SHALL be written or started.
 ### Requirement: An empty tick is refused before the model
 A prompt hook SHALL recognise only the scheduled task's prompt envelope for this project. For it the
 hook SHALL read only local files, start no process and call no model, and SHALL block when no item is
-ready, unless the roadmap is done or the run is stopping with no helper in flight. Every other
-prompt, and any error, SHALL pass with no output.
+ready, unless the roadmap is done or the run is stopping with no helper in flight. After the run's
+recorded end it SHALL block every firing. Every other prompt, and any error, SHALL pass with no
+output.
 
 #### Scenario: Nothing is ready
 - **WHEN** the task fires while the queue's only open item has a live claim and the other waits for its dependency, which is not due for a new look
@@ -41,7 +52,7 @@ prompt, and any error, SHALL pass with no output.
 
 #### Scenario: An item is ready
 - **WHEN** the task fires while one queued item has no claim and no wait
-- **THEN** the hook prints nothing and the prompt reaches the model
+- **THEN** the hook adds only the tick's note (the session's id, the installed pack's paths and the tick's call) and the prompt reaches the model
 
 #### Scenario: Any other prompt
 - **WHEN** the owner types any message, `/devkit roadmap tick` included, or another scheduled task fires
@@ -49,11 +60,15 @@ prompt, and any error, SHALL pass with no output.
 
 #### Scenario: The roadmap is done or the run is stopping
 - **WHEN** the task fires and every queued item is archived, or the run file says the run is stopping and no claim is live
-- **THEN** the hook prints nothing, so that the tick can delete the task
+- **THEN** the hook prints nothing, so that the tick can record the run's end
 
 #### Scenario: A stopping run with a helper in flight
 - **WHEN** the task fires, the run file says the run is stopping, and `a`'s claim is live
 - **THEN** the hook prints `{"decision":"block"}`, and no model call is made
+
+#### Scenario: After the run's end
+- **WHEN** the task fires after the run file recorded the run's end
+- **THEN** the hook prints `{"decision":"block"}` with a reason saying the run is over and its task is to be deleted in the app, and no model call is made
 
 #### Scenario: No git on the path
 - **WHEN** the task fires with nothing ready, in a linked worktree of the project, and the `git` and `gh` on the hook's path exit with an error
@@ -87,11 +102,11 @@ change.
 - **THEN** one claim is recorded and the other tick claims nothing
 
 ### Requirement: A helper drives its item to its next wait and releases it
-The claimed item SHALL be driven by one helper, with no session and no ticket, through the change loop
-in the change's own worktree, its heartbeat renewed at each step, up to its next wait: GitHub's
-checks, a free place, the load, a dependency, an owner gate, a blocked end or the archive. The wait
-SHALL be recorded in the run file and the claim released before the helper ends. A blocked end SHALL
-also become a line for the owner's decision; an archived end SHALL write no line and send no push.
+The tick's own session SHALL drive the claimed item, with no session started and no ticket, through
+the change loop in its worktree, renewing the claim's heartbeat at each step, up to its next wait:
+GitHub's checks, a free place, the load, a dependency, an owner gate, a blocked end or the archive.
+The wait SHALL be recorded in the run file and the claim released when the drive ends. A blocked end
+SHALL also become a line for the owner; an archived end SHALL write no line and send no push.
 
 #### Scenario: Up to the plan approval
 - **WHEN** a helper drives `a` from its grill and its plan's readiness passes
@@ -117,6 +132,20 @@ also become a line for the owner's decision; an archived end SHALL write no line
 - **WHEN** a helper drives `a` to its archive
 - **THEN** the run file records `a` archived, no line for the owner and no push are written for it, `a` has no claim, and no later tick claims `a`
 
+### Requirement: A tick's session hands each stage one level below it
+A tick's session SHALL hand each stage of its claimed item to that stage's role as an agent one level
+below it, in the background, with no agent in between, ending its turn after each hand-off and going
+on when the agent's completion notice wakes it. It SHALL run the review round as the review bench's
+Workflow, or with the Agent tool where the host refuses the Workflow.
+
+#### Scenario: The stages of a drive
+- **WHEN** a tick's session drives `a` from its approved plan
+- **THEN** each stage of `a` is handed by that session to its role's agent in the background, the session ends its turn and goes on at each completion notice, no agent hands a stage of `a` on for it, and the session itself writes no product code
+
+#### Scenario: The review round of a drive
+- **WHEN** a tick's drive of `a` reaches its review
+- **THEN** the round runs from the tick's session as the review bench's Workflow, or with the Agent tool where the host refuses it, each reviewer's file is written by its own agent, and `review.md` names the path that ran
+
 ### Requirement: The next tick goes on from the files
 No state of a change SHALL live in a session: a tick SHALL decide from the change's folder and the run
 file only. A helper killed mid-stage SHALL leave its claim, which goes stale; the tick that takes the
@@ -132,7 +161,8 @@ stale claim SHALL go on from the change's files, the stage agent's failure keepi
 - **THEN** a later tick drives `a` on once the checks pass, with no message from the owner
 
 ### Requirement: A helper never asks the owner
-No helper and no stage agent of a conducted run SHALL ask the owner a question or start a session. A
+No tick's session, no stage agent it hands and no agent of its review round SHALL ask the owner a
+question or start a session. A
 grill question SHALL be answered by the triage agent from the project's files, then from the owner's
 standing answers; a question neither settles SHALL become part of the item's line for the owner,
 unless the standing answers delegate the grill. Every answer the conductor writes SHALL name its
@@ -195,47 +225,71 @@ SHALL be recorded and make the item ready.
 - **THEN** one push was sent for it
 
 ### Requirement: A delegated gate is recorded with the quoted standing answer
-A gate the standing answers delegate by name SHALL be recorded by a conductor session, the typed one
-or a tick's, never by a helper or a stage agent, with the quoted standing answer and its line as its
-words and who decides. A gate not delegated SHALL never be recorded by the conductor.
+A gate the standing answers delegate by name SHALL be recorded by a tick's session in its sweep,
+never in the drive that reached the gate and never by a stage agent, with the quoted standing answer
+and its line as its words and who decides. A gate not delegated SHALL never be recorded by the
+conductor.
 
 #### Scenario: A delegated plan approval
 - **WHEN** the standing answers delegate the plan approval to the coordinator on line 12 and `a`'s plan is ready
-- **THEN** `a`'s `approval.md` quotes line 12 and names who decides, and no line for the owner is written for it
+- **THEN** `a`'s drive ends with the gate waiting, a later tick's sweep writes `a`'s `approval.md` quoting line 12 and naming who decides, and no line for the owner is written for it
 
 #### Scenario: A retro not delegated
 - **WHEN** the standing answers delegate only the plan approval and `a`'s retro waits for answers
 - **THEN** no retro answer is written, and the run file holds one line for `a`'s retro answers
 
-### Requirement: The task removes itself
-`/devkit roadmap stop` SHALL delete the run's scheduled task and let each helper in flight finish its
-step. The tick that finds every queued item archived SHALL delete the task and end the run, and so SHALL
-the tick that finds the run stopping with no helper in flight. A task already gone SHALL be no error.
+### Requirement: The run ends and its task is blocked
+After `/devkit roadmap stop`, once no helper is in flight, and on the tick that finds every queued item
+archived, the run SHALL record its end, and the tick's prompt hook SHALL block every later firing of
+the task before the model. No session SHALL delete, pause or run the task: the conductor SHALL say
+once, in the owner's one list, that the owner deletes the task with one click in the app. A stop SHALL
+let each helper in flight finish its step and record its wait.
 
-#### Scenario: Stop
+#### Scenario: Stop while a helper runs
 - **WHEN** the owner types `/devkit roadmap stop` while `a`'s helper runs
-- **THEN** `list_scheduled_tasks` no longer shows the task, `a`'s helper finishes its step and records its wait, and no new claim is recorded
+- **THEN** `a`'s helper finishes its step and records its wait, no new claim is recorded, and the firings meanwhile are blocked by the hook
+
+#### Scenario: Stop with nothing in flight
+- **WHEN** the owner types `/devkit roadmap stop` while no claim is live
+- **THEN** the run file records the run's end, the reply says the run stopped and that the owner deletes the task with one click in the app, and no call to delete, pause or run the task is made
 
 #### Scenario: Done
 - **WHEN** a tick fires and every queued item is archived
-- **THEN** the tick deletes the task, the reply says the roadmap is done, and `list_scheduled_tasks` no longer shows it
+- **THEN** the run file records the run's end, the reply says the roadmap is done, the owner's list holds one line saying to delete the task in the app, and no call to delete, pause or run the task is made
 
 #### Scenario: A stop whose typed session closed
-- **WHEN** the owner typed `/devkit roadmap stop` and that session closed before the task was deleted, and `a`'s helper has since released its claim
-- **THEN** the next tick deletes the task, the reply says the run stopped, and the run file records no task
+- **WHEN** the owner typed `/devkit roadmap stop` and that session closed, and `a`'s helper has since released its claim
+- **THEN** the next firing passes the hook, its tick records the run's end and the owner's line, and the run file records no task
 
-#### Scenario: A deletion the host refuses
-- **WHEN** a tick asks the host to delete the task and the host answers with an error other than a task already gone
-- **THEN** the run file records no task, the reply names the task for the owner to remove by hand, and every later firing of it is blocked by the hook with no model call
+#### Scenario: Every firing after the end
+- **WHEN** the task fires three times after the run's recorded end
+- **THEN** each firing is blocked by the hook with no model call, and the task stays in the app's list until the owner deletes it
+
+#### Scenario: Said once
+- **WHEN** the run ends while the typed session is open and the host offers a notification tool
+- **THEN** that session shows the line about deleting the task once, one push is sent for it, and `/devkit status` lists it under the owner's block
 
 ### Requirement: A tick's prompt is the run's command
-The scheduled task's prompt SHALL carry the run's command, so that a tick's session is in the roadmap
-run for the locks; its first line SHALL name the project's root. A tick's session SHALL claim, start
-the helper, carry out the delegated gates and the pushes for lines, and nothing else.
+The scheduled task's prompt SHALL name the project's root on its first line and ask the session to run
+the tick as the hook's note says, with no slash command and no entry skill; the session the task
+starts SHALL be in the roadmap run for the locks. A tick's session SHALL claim, drive its claimed
+item, record the delegated gates of its sweep and send the pushes for lines, and nothing else.
 
 #### Scenario: The tick's session
 - **WHEN** the task fires with an item ready
-- **THEN** the session is in the roadmap run, claims the item, starts one helper and writes no product code
+- **THEN** the session is in the roadmap run, claims the item, drives it to its next wait and writes no product code
+
+#### Scenario: A firing with no note
+- **WHEN** the task's prompt reaches a session with no tick's note
+- **THEN** the session changes nothing and ends its turn
+
+#### Scenario: A pack update
+- **WHEN** the pack is updated to a new version while the run's task exists
+- **THEN** the next firing's note names the new version's paths, and the task is not changed
+
+#### Scenario: The tick's steps outside a tick
+- **WHEN** a session that the task's prompt did not start, and in which the owner did not type `/devkit roadmap tick`, tries to run the tick's steps
+- **THEN** its hand-offs and gate writes are judged as outside a tick, and nothing is claimed for it
 
 #### Scenario: The owner types the tick's words
 - **WHEN** the owner types `/devkit roadmap tick` while the run's task exists
@@ -245,19 +299,19 @@ the helper, carry out the delegated gates and the pushes for lines, and nothing 
 - **WHEN** `/devkit roadmap tick` runs while the run file records no scheduled task
 - **THEN** nothing is claimed, and the reply says no roadmap run is under way
 
-### Requirement: A helper starts on the model of the stages it runs
-A helper SHALL be started on the strongest model among its item's current stage and the stages the
-helper performs itself up to its next wait (the grill, the review round, the delivery and the retro
-steps), as the stage table gives them; each stage agent it hands a stage to SHALL run on that stage's
-own model. No session's model SHALL be switched by the run.
+### Requirement: A tick's stage agents run on their stages' models
+Each stage agent a tick's session hands a stage to SHALL run on that stage's own model, as the stage
+table gives it, with a `[1m]` suffix dropped on the call. The tick's session SHALL run on the model the
+host starts the task's session on, and the stages it performs itself run there. No session's model
+SHALL be switched by the run.
 
-#### Scenario: A helper at the grill
-- **WHEN** a tick claims `a` at its grill with no `models:` table set
-- **THEN** the helper is started on `opus`
+#### Scenario: The unit tests of a drive
+- **WHEN** a tick's session hands `a`'s unit tests with no `models:` table set
+- **THEN** the unit tests' agent runs on `haiku`
 
-#### Scenario: A helper at the unit tests
-- **WHEN** a tick claims `a` at its unit tests with no `models:` table set, and its next wait is the review's end
-- **THEN** the helper is started on `sonnet`, the review's model, and the unit tests are handed on `haiku`
+#### Scenario: A 1M stage in a drive
+- **WHEN** the project's `models:` holds `implementation: sonnet[1m]` and a tick's session hands `a`'s implementation
+- **THEN** the implementation's agent runs on `sonnet`
 
 #### Scenario: No switch
 - **WHEN** any decision of a conducted run is made
@@ -381,17 +435,23 @@ next step, and the stage SHALL be handed again.
 - **THEN** the next tick claims `a`, and its helper hands the proposal to the planner again
 
 ### Requirement: A change splits over machines by its pushed branch
-After a change is opened, its branch SHALL be pushed to `origin`. A conductor on another machine SHALL
-claim a change whose claim names that machine and add its worktree from the pushed branch, with no
-step run from this machine over SSH.
+A tick SHALL open every item on its own machine and push its branch to `origin` after the opening. A
+change claimed by another machine SHALL not be driven here while that claim stands; once it is
+released or stale, a conductor SHALL claim it and add its worktree from the pushed branch. No step
+SHALL run on another machine from this one, and a machine the app reaches as an SSH host, which
+holds no task, SHALL run no conductor.
 
-#### Scenario: Opened for avel
-- **WHEN** a tick on this machine opens `e` for `avel`
-- **THEN** `e`'s branch is on `origin`, with its claim naming `avel`
+#### Scenario: Opened here
+- **WHEN** the machines setting lists `avel` and a tick opens `e`
+- **THEN** `e` is opened on this machine, its branch is on `origin` and its claim names this machine
 
-#### Scenario: avel picks it up
-- **WHEN** `avel`'s tick fires and `e` is claimed for `avel` with no worktree there
-- **THEN** `avel` adds `e`'s worktree from `origin/e` and drives it
+#### Scenario: Loaded with another machine listed
+- **WHEN** the machines setting lists `avel`, this machine's load is above the limit and `e`'s implementation is ready
+- **THEN** `e` is held for the load and not opened for `avel`
+
+#### Scenario: Taken over from the pushed branch
+- **WHEN** `e` was claimed by `avel` on `origin` and that claim is released, with `e`'s branch on `origin`
+- **THEN** this machine's tick claims `e`, adds its worktree from `origin/e` and drives it
 
 #### Scenario: Claimed elsewhere
 - **WHEN** this machine's tick finds `e` in its queue with no local folder and its claim on `origin` naming `avel`
@@ -403,9 +463,10 @@ step run from this machine over SSH.
 
 ### Requirement: One whole suite at a time on a machine, the train's first
 In a conducted run, at most one whole-suite run SHALL be in flight on one machine at a time, across
-every clone of that machine. A change's whole suite SHALL wait while the train's runs or waits to
-run; the train's SHALL wait only for a change's run already started. A test run whose process is gone
-SHALL hold no slot.
+every clone of that machine. While the train's suite runs or waits to run, no other test run SHALL
+start on the machine: a change's whole suite and every new gate SHALL wait for the train's end; the
+train's SHALL wait only for the runs already started. A test run whose process is gone SHALL hold no
+slot.
 
 #### Scenario: Two whole suites
 - **WHEN** `a`'s whole suite runs and `b`'s evidence starts its whole suite on the same machine
@@ -414,6 +475,10 @@ SHALL hold no slot.
 #### Scenario: The train first
 - **WHEN** `a`'s whole suite runs, the train's departure asks for its suite, and then `b` asks for its whole suite
 - **THEN** the train's suite starts when `a`'s ends, and `b`'s starts only after the train's
+
+#### Scenario: Gates wait for the train
+- **WHEN** the train's departure asks for its suite while one gate of `a` runs, and then `b`'s gate asks to start
+- **THEN** the train's suite starts when `a`'s gate ends, `b`'s gate says once that it waits for the train's suite, and starts only after the train's suite ends
 
 #### Scenario: Two clones on one machine
 - **WHEN** a second clone of the project on the same machine has its own run, and both runs ask for a whole suite
@@ -462,3 +527,21 @@ from the same record of the run file.
 #### Scenario: The hook and the tick agree
 - **WHEN** the number is 1, `a` holds the place at its review with its next look on GitHub not yet due, and `b` waits for a place
 - **THEN** the hook blocks the firing, and a `tick` run on the same run file claims nothing; once `a` is archived both let `b` go
+
+### Requirement: A pull request of openspec files only boards no train
+In a conducted run of a project with a delivery train, a ready pull request whose every changed file
+is under `openspec/` (an archive, a roadmap edit) SHALL NOT board a train and SHALL NOT run a whole
+suite; it SHALL merge on its required checks as in a project with no train. Outside a conducted run
+such a pull request SHALL board as before.
+
+#### Scenario: An archive in a conducted run
+- **WHEN** `a`'s archive pull request, whose files are all under `openspec/`, is ready in a conducted run of a `trunk-auto` train project
+- **THEN** `a` is not boarded, auto-merge is enabled on its pull request, GitHub merges it once `check` and `devkit-reviews` pass, and no train carries it
+
+#### Scenario: A change with code
+- **WHEN** `b`'s pull request changes `plugins/openspec/hooks/guard.mjs` and its own change folder, and is ready in the same run
+- **THEN** `b` boards the train as before
+
+#### Scenario: Outside a conducted run
+- **WHEN** an archive pull request of `openspec/` files only is ready in a train project whose run file records no task
+- **THEN** it boards the train as before

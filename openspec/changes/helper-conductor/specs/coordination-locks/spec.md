@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=1 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
+<!-- devkit-stage specs result=passed attempt=2 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
 # Spec Delta
 
 ## MODIFIED Requirements
@@ -62,7 +62,7 @@ names another change SHALL be read as if it were absent. Nothing else SHALL be r
 - **THEN** the prompt is no typed command
 
 #### Scenario: The tick's prompt
-- **WHEN** the scheduled task of a roadmap run fires with its prompt, which carries `/devkit roadmap tick`
+- **WHEN** the scheduled task of a roadmap run fires, its first message holding the scheduler's header and the `<scheduled-task>` tag around the line `devkit-roadmap-tick: <root>`
 - **THEN** the session is in no run of a change, and is in the roadmap run once the tick's `devkit-roadmap:` line follows
 
 #### Scenario: An end naming another change
@@ -188,8 +188,10 @@ nothing SHALL be written.
 ### Requirement: A roadmap run is known from the session's own record
 A session SHALL be in a roadmap run when the newest slash command typed in it, a typed `/devkit
 status` aside, is `/devkit roadmap` (bare or plugin-scoped, with any argument, `tick` included) and a
-line `devkit-roadmap: <number>` or `devkit-roadmap: stop` printed by the roadmap loop follows it. The
-prompt of the run's scheduled task SHALL count as typed in the tick's session. A typed `/devkit
+line `devkit-roadmap: <number>` or `devkit-roadmap: stop` printed by the roadmap loop follows it. A
+first message that the run's scheduled task started (the scheduler's header, then a
+`<scheduled-task>` tag of the run's task holding the line `devkit-roadmap-tick: <root>` for the
+session's own project) SHALL count as a typed `/devkit roadmap tick`. A typed `/devkit
 status` SHALL neither start nor end a roadmap run. The run of `/devkit change` SHALL be read as before.
 
 #### Scenario: No roadmap run
@@ -209,8 +211,16 @@ status` SHALL neither start nor end a roadmap run. The run of `/devkit change` S
 - **THEN** the session is in a roadmap run that is stopping
 
 #### Scenario: A tick's session
-- **WHEN** the session's first message is the scheduled task's prompt carrying `/devkit roadmap tick`, and a `devkit-roadmap: 2` line follows it
+- **WHEN** the session's first message is the scheduler's firing of the run's task, its tag holding `devkit-roadmap-tick: <root>` for this project, and a `devkit-roadmap: 2` line follows it
 - **THEN** the session is in the roadmap run
+
+#### Scenario: Another scheduled task, or another project
+- **WHEN** the session's first message is the scheduler's firing of a task of another name, or its line names another project's root
+- **THEN** the session is in no roadmap run
+
+#### Scenario: The words typed later
+- **WHEN** the owner types the line `devkit-roadmap-tick: <root>` in a later message of a session
+- **THEN** that message does not make the session a tick's
 
 #### Scenario: A change run is unchanged
 - **WHEN** `/devkit status` is typed after `/devkit change x` and its `devkit-run: x` line
@@ -277,7 +287,8 @@ In a run whose file records no task, the session SHALL hand work only with a pro
 the loop's brief naming an open change of the roadmap, and only to a role or helper of that change's
 script under the rules of a change run, an allowed hand-off marking that stage under way. In a run
 whose file records its task, the typed session SHALL hand nothing, and a tick's session SHALL hand only
-the helper, or a role of its claimed change's script, with the brief naming that change.
+a role of its claimed change's script, or the read-only researcher of the check before its opening,
+with the brief naming that change; a tick's session with no live claim SHALL hand nothing.
 
 #### Scenario: A stage of an open change
 - **WHEN** in a run file with no task the session hands `devkit-core:change-planner` the brief of open change `a`
@@ -323,37 +334,54 @@ the helper, or a role of its claimed change's script, with the brief naming that
 - **WHEN** the run file records its task and the typed session hands `devkit-core:change-planner` the brief of open change `a`
 - **THEN** the hand-off is refused, the reason says the ticks drive each change, and nothing is marked under way
 
-#### Scenario: A tick's helper
-- **WHEN** a tick's session that claimed `a` hands the helper the brief of `a`
+#### Scenario: A tick's stage hand-off
+- **WHEN** a tick's session that claimed `a` hands `devkit-core:change-planner` the brief of `a`
+- **THEN** the hand-off is allowed
+
+#### Scenario: A tick's check before an opening
+- **WHEN** a tick's session that claimed `a`, not yet opened, hands `devkit-core:codebase-researcher` the brief of `a`'s check
 - **THEN** the hand-off is allowed
 
 #### Scenario: A tick's hand-off for another change
-- **WHEN** a tick's session that claimed `a` hands the helper, or a role, the brief of `b`
+- **WHEN** a tick's session that claimed `a` hands a role the brief of `b`
 - **THEN** the hand-off is refused, naming `a` as the tick's claimed change
+
+#### Scenario: A tick's session with no claim
+- **WHEN** a tick's session that claimed nothing hands any role the brief of `a`
+- **THEN** the hand-off is refused
 
 ## ADDED Requirements
 
 ### Requirement: A conducted run's sessions stop as its ticks need
-In a run whose file records its scheduled task, the session the owner typed the run in SHALL be allowed
-to stop. A tick's session SHALL be refused once while it holds a claim and started no helper for it,
-or while its helper came back with a delegated gate not yet recorded; it SHALL be allowed otherwise,
-while stopping, and on a repeat with nothing changed.
+In a run whose file records its scheduled task or its end, the session the owner typed the run in
+SHALL be allowed to stop. A tick's session SHALL be refused once while it holds a live claim whose
+drive has recorded no wait and no stage of it runs in the background; it SHALL be allowed otherwise,
+while a stage agent or the review round of its claim runs in the background (its notice wakes the
+session), after a drive that ended at a delegated gate, and on a repeat with nothing changed.
 
 #### Scenario: The typed session after the task is installed
 - **WHEN** the session the owner typed `/devkit roadmap 2` in tries to stop while `a`'s next stage is ready and the run file records the task
 - **THEN** the stop is allowed
 
-#### Scenario: A claim with no helper
-- **WHEN** a tick's session recorded a claim on `a` and tries to stop before starting `a`'s helper
-- **THEN** the stop is refused once, naming `a` and the helper to start
+#### Scenario: A claim with no wait
+- **WHEN** a tick's session holds a live claim on `a`, `a`'s drive recorded no wait, no stage of `a` runs in the background, and the session tries to stop
+- **THEN** the stop is refused once, naming `a` and the loop call that records its wait or releases its claim
 
-#### Scenario: A helper in the background
-- **WHEN** a tick's session started `a`'s helper as a background task and tries to stop
+#### Scenario: A stage in the background
+- **WHEN** a tick's session handed `a`'s implementation to its agent in the background and tries to end its turn
+- **THEN** the stop is allowed, and the agent's completion notice resumes the drive
+
+#### Scenario: A stopping run
+- **WHEN** the run is stopping, a tick's session holds `a`'s claim with no wait, and it tries to stop
+- **THEN** the stop is refused once, naming the loop call that ends `a`'s drive at the stop and releases the claim
+
+#### Scenario: A drive that ended at a delegated gate
+- **WHEN** `a`'s drive ended at a plan approval the standing answers delegate, and the tick's session tries to stop with no `approval.md` written
+- **THEN** the stop is allowed, and a later tick's sweep records the approval
+
+#### Scenario: The typed session after the run's end
+- **WHEN** the run file records the run's end and the session the owner typed the run in tries to stop
 - **THEN** the stop is allowed
-
-#### Scenario: A delegated gate left to record
-- **WHEN** `a`'s helper ended saying the plan approval is delegated, and the tick's session tries to stop with no `approval.md` written
-- **THEN** the stop is refused once, naming `a`'s delegated gate
 
 #### Scenario: A tick that claimed nothing
 - **WHEN** a tick's session found nothing to claim and tries to stop
