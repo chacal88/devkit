@@ -46,7 +46,7 @@ on the machine. On the avel machine run the tests with `TMPDIR` under `/var/tmp`
 
 ## 1. The parallel listing, its tests and its document (phase 1)
 
-- [ ] 1.1 Write `plugins/openspec/hooks/change-state-listing.test.mjs` with the stand-in `openspec`,
+- [x] 1.1 Write `plugins/openspec/hooks/change-state-listing.test.mjs` with the stand-in `openspec`,
   the `listing()` fixture and the eleven tests of `design.md` D-7, and add it to
   `files["plugins/openspec/hooks/change-loop.mjs"]` in `scripts/test-map.json` in sorted place
   (D-7), in the same commit. Run `node scripts/test-suite.mjs plugins/openspec/hooks/change-state-listing.test.mjs`
@@ -57,13 +57,13 @@ on the machine. On the avel machine run the tests with `TMPDIR` under `/var/tmp`
   `AC-4 a child that fails in a checkout of its own fails the listing as one after another` and
   `AC-6 in-process state stays synchronous` pass, since they pin what must not change (AC-1 to AC-4,
   AC-6).
-- [ ] 1.2 In `plugins/openspec/hooks/change-loop.mjs`, move the id computation of `stateEntries` into
+- [x] 1.2 In `plugins/openspec/hooks/change-loop.mjs`, move the id computation of `stateEntries` into
   `listingIds(start, run, { env, gh })` and call it from `stateEntries` (D-3), and add
   `listingBound()` and `boundedMap(items, limit, run, { stopWhen })` with the `availableParallelism`
   import (D-4). Check: the two AC-3 pool tests pass;
   `node scripts/test-suite.mjs plugins/openspec/hooks/change-state-stages.test.mjs` passes unedited
   (AC-2, AC-3).
-- [ ] 1.3 In the same file, add `LOOP_SCRIPT`, `childRead(id, { argv, env, cwd })` with the `spawn`
+- [x] 1.3 In the same file, add `LOOP_SCRIPT`, `childRead(id, { argv, env, cwd })` with the `spawn`
   import and the child's `GIT_OPTIONAL_LOCKS=0` (D-2), and `stateListing(argv, { env, cwd, readOne })`
   with the join, the failure rules and the small-listing rule of D-5 and D-6. Check: the three AC-4
   tests that call `stateListing` with a stand-in `readOne` (`an unreadable change is listed blocked`,
@@ -71,25 +71,25 @@ on the machine. On the avel machine run the tests with `TMPDIR` under `/var/tmp`
   `AC-6 a listing of one change or none starts no read process` pass; the two AC-2 tests and
   `AC-4 a child that fails in a checkout of its own fails the listing as one after another`, which
   run the process or `main`, still pass (AC-2, AC-4, AC-6).
-- [ ] 1.4 In the same file, add `STATE_ARGS`, use it in `runState`, and add the `runCommand` branch
+- [x] 1.4 In the same file, add `STATE_ARGS`, use it in `runState`, and add the `runCommand` branch
   of D-1. Check: `AC-1 the reads of the listing overlap` and every other test of
   `change-state-listing.test.mjs` pass; `node plugins/openspec/hooks/change-loop.mjs state --offline --lang en`
   in this worktree exits 0, and its stdout, saved to a file in the session's scratch folder, is
   byte-identical (`cmp`) to that of
   `node --input-type=module -e "import('./plugins/openspec/hooks/change-loop.mjs').then((m) => process.stdout.write(m.main(['state', '--offline', '--lang', 'en']).stdout))"`
   run from the worktree's root (AC-1, AC-2, AC-6).
-- [ ] 1.5 Check the pinned tests of `design.md` D-7's second table by name, unedited:
+- [x] 1.5 Check the pinned tests of `design.md` D-7's second table by name, unedited:
   `node scripts/test-suite.mjs plugins/openspec/hooks/change-state-stages.test.mjs plugins/openspec/hooks/status-line.test.mjs`
   passes, and `grep -nE "set_session_model|session-model|start_session" plugins/openspec/hooks/change-loop.mjs`
   prints nothing; the rows of `change-loop-remote-state.test.mjs`, `change-loop.test.mjs` and
   `roadmap-loop-upfront.test.mjs` (among them the two `state --change nope` tests of AC-4's
   `--change` case) run in the gate of 1.7, which the map selects for `change-loop.mjs` (AC-4, AC-6).
-- [ ] 1.6 In `docs/openspec-flow.md`, add the sentence of `design.md` D-8 to the "A change's state."
+- [x] 1.6 In `docs/openspec-flow.md`, add the sentence of `design.md` D-8 to the "A change's state."
   paragraph, after "one per unfinished change without it.", with no blank line. Check:
   `python3 scripts/check.py` passes, and the paragraph still holds `ADR 0017`, `wrong-branch`,
   `chore/archive-<id>` and `the checkout it is called from` (the `change-state ADR 0017` and
   `unlocated 3` tests of `change-loop-remote-state.test.mjs`, which the gate's selection runs).
-- [ ] 1.7 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-1,
+- [x] 1.7 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-1,
   AC-2, AC-3, AC-4, AC-6).
 
 ## 2. The real run and the delivery checks (phase 2)

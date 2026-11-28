@@ -295,6 +295,7 @@
       "plugins/openspec/hooks/change-loop-remote-state.test.mjs",
       "plugins/openspec/hooks/change-loop-remote.test.mjs",
       "plugins/openspec/hooks/change-loop.test.mjs",
+      "plugins/openspec/hooks/change-state-listing.test.mjs",
       "plugins/openspec/hooks/change-state-stages.test.mjs",
       "plugins/openspec/hooks/compozy-driver.test.mjs",
       "plugins/openspec/hooks/deliver-check-archive.test.mjs",
