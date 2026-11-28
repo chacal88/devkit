@@ -1,5 +1,5 @@
-<!-- devkit-stage evidence result=passed attempt=1 commit=8976c1420332bff5f6e11e221ca340dbb22e9417 -->
-Commit: 8976c1420332bff5f6e11e221ca340dbb22e9417
+<!-- devkit-stage evidence result=passed attempt=2 commit=3480c8863468c15291a75651553bb31b50dbbd33 -->
+Commit: 3480c8863468c15291a75651553bb31b50dbbd33
 
 # Evidence: review-owner-rounds
 
@@ -13,10 +13,16 @@ not edit that key. The working tree was clean at the commit above.
 
 | Gate | Command | Result |
 | --- | --- | --- |
-| 3.7 | `node scripts/test-suite.mjs --own-files` | pass: 7 files selected, none left or failing; `suite: 7 files, 1209 tests, 1209 pass, 0 fail, 386.7s, concurrency 2`; the `selected` lines and the `suite:` line are in `proof/gate-3.7.log` (run at this commit's tree; files: devkit-kit, review-round, deliver-check-archive, deliver-check, flow-check, guard, status-line, each `pass`). Selective part, not a whole-suite pass. |
-| 3.7 | `python3 scripts/check.py` | train: proven by the train record (the log also ends with `all checks passed`) |
+| 3.7 | `node scripts/test-suite.mjs --own-files` | pass: run as `--own-files --concurrency=2` at the merge commit above (load 3.12 before, 4.19 after); 8 files selected, none left or failing: devkit-kit, review-round, deliver-check-archive, deliver-check, flow-check, guard, status-line, validate-type, each `pass`; `suite: 8 files, 1228 tests, 1228 pass, 0 fail, 366.6s, concurrency 2`; the `selected` lines, the `suite:` line and the uptime before and after are in `proof/gate-after-merge.log`. Selective part, not a whole-suite pass. |
+| 3.7 | `python3 scripts/check.py` | pass: exit 0, `all checks passed` (`proof/check-after-merge.log`); the train also runs it |
+
+The tree was clean at the commit above except the two new files under `proof/`. The earlier gate log
+`proof/gate-3.7.log` was taken before the merge of `origin/main` (merge commit above) and is kept as
+history.
 
 ### Acceptance criteria
+
+The merge of `origin/main` (joining review-writer-text's `withoutSummary`/`summaryLine` with this change's owner command) did not change the owner path; the real runs RR1 to RR5 were taken before the merge and are kept. The joined-condition test added by the merge passes in the gate log above.
 
 The real-run proofs are under `proof/`; `proof/checks.txt` lists rr1 to rr5 each `pass`. Note: RR1's
 agent stages (reviewer, verifiers, writer) ran at attempt 2 of the plan; the attempt-3 re-run reused
