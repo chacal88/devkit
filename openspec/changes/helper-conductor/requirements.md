@@ -1,4 +1,4 @@
-<!-- devkit-stage requirements result=passed attempt=4 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
+<!-- devkit-stage requirements result=passed attempt=5 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
 # Requirements
 
 ## Request
@@ -57,6 +57,8 @@ Relayed by the coordinator's session from the run of 12 changes on two machines;
 
 11. The conductor owns the machine's test capacity: with five changes and a train testing at once on one 14-core machine the load average reached 124 (two whole suites at concurrency 14 plus four gates) and every gate crawled. One whole-suite run at a time per machine (the train has priority), a cap on concurrent gates and on each gate's concurrency, and the places of a run count test load, not sessions. The stage agents inherit the cap in their briefs.
 
+12. Train 22 ran the whole suite twice (about 25 minutes each) for one archive pull request that changes only files under `openspec/`, ended red with no failure text while five gates loaded the machine, and left the change behind. The conductor holds the other test runs while a train departs, and spends no whole-suite train on a pull request whose files are all under `openspec/` (an archive or a roadmap edit): such a pull request merges on its required checks.
+
 ## Acceptance criteria
 
 - AC-1 `first-real-run`: before the design is final, `evidence.md` (or the change's `proof/`) holds one real run showing a scheduled task of the project opening a session in which the devkit plugin's hooks fire, and the measured cost of one empty tick (tokens or model calls) with the refusal hook in place.
@@ -80,7 +82,7 @@ Relayed by the coordinator's session from the run of 12 changes on two machines;
 - AC-19 `open-precheck`: before opening an item, the conductor checks for a parked branch of the same id (local or on `origin`) and for an item the code already delivers, and records `skipped: delivered` or reuses the branch instead of opening a duplicate.
 - AC-20 `escalation-rehand`: a planner escalation ends that change's loop `blocked: not-delivered` with a request file; once requirements.md holds the decision, the next tick runs a plain `next` and the stage is handed again.
 - AC-21 `machine-split`: after `open`, the change's branch is pushed; a conductor on another machine claims it and adds a worktree from that branch.
-- AC-22 `test-capacity`: on one machine at most one whole-suite run is in flight at a time, the train's run first; concurrent gates and each gate's `--concurrency` are capped by values the run file records; a stage agent's brief carries the cap; a run's places count the changes in a test-loading stage, not sessions.
+- AC-22 `test-capacity`: on one machine at most one whole-suite run is in flight at a time, the train's run first; concurrent gates and each gate's `--concurrency` are capped by values the run file records; a stage agent's brief carries the cap; a run's places count the changes in a test-loading stage, not sessions. While a train departs, no other test run of the machine starts (gates wait); a pull request whose files are all under `openspec/` (an archive or a roadmap edit) boards no whole-suite train and merges on its required checks (field fact 12).
 
 ## Out of scope
 
