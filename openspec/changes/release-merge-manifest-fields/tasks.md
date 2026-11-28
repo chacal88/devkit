@@ -82,14 +82,14 @@ other suite on the machine, and record the load (`uptime`) next to it.
 
 ## 2. The real run and the delivery checks (phase 2)
 
-- [ ] 2.1 Conductor: merge `origin/main` into the branch, the last merge before review (fetch first, then
+- [x] 2.1 Conductor: merge `origin/main` into the branch, the last merge before review (fetch first, then
   `git merge origin/main`). Re-read every `file:line` anchor and helper name `design.md` cites
   (`release-merge.mjs` `resolveVersions`, `diffPaths`, `main`'s version step, `assignBlocking`;
   `train-loop.mjs` `pathsDetail`, `build`; the D-9 test lines). If the merge moved or renamed one, the same
   commit edits `proposal.md`, `design.md` and `tasks.md` (CLAUDE.md); if it joined a rule of the base with this
   change's rule, a test for each side lands before review. Check: `git log -1 --format=%P` shows two parents
   (or the branch already held `origin/main`), and `git status --short` is empty.
-- [ ] 2.2 Conductor: the real run (D-10), its three cases. First check the session can delete
+- [x] 2.2 Conductor: the real run (D-10), its three cases. First check the session can delete
   `/var/tmp/devkit-rmmf` (create and remove an empty folder there), then clone, run cases 1 to 3, and write
   `openspec/changes/release-merge-manifest-fields/proof/real-run.txt` with each command, its exit code and its
   output (`--json` output whole). Remove `/var/tmp/devkit-rmmf` afterwards. Check: case 1 exits 0 with
