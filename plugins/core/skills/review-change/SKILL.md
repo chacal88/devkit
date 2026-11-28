@@ -37,7 +37,7 @@ Run the diff for the target and list what it touches: files, modules/packages, c
 
 Before any judgment, do the mechanical checks yourself:
 
-- OpenSpec repo with a change id: `openspec validate <id> --strict` (add `--type change --no-interactive` when the CLI supports them).
+- OpenSpec repo with a change id: `openspec validate <id> --type change --strict --no-interactive`.
 - Internal markdown links in the changed docs resolve; task paths in `tasks.md` point to directories that exist in the repo (discover the layout, don't assume one).
 - OpenSpec spec deltas: every `### Requirement:` has WHEN/THEN scenarios.
 
