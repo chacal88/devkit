@@ -102,7 +102,7 @@ on the machine. On the avel machine run the tests with `TMPDIR` under `/var/tmp`
   `openspec/changes/state-listing-speed/proof/listing-11.txt`, and remove the clone and the copies.
   Check: the file shows 11 entries, the branch's run under 10 s and an empty `cmp`; a run at or above
   10 s stops here and goes back to the owner with the split D-9 names (AC-5, AC-2).
-- [ ] 2.2 The release note stays the only release record. Check:
+- [x] 2.2 The release note stays the only release record. Check:
   `python3 scripts/gen-catalog.py --check`, `node plugins/compozy/kit/scripts/gen-agents.mjs --check`,
   `claude plugin validate .` and `openspec validate state-listing-speed --strict` pass;
   `git diff --name-only origin/main...HEAD -- CHANGELOG.md .claude-plugin/marketplace.json plugins/openspec/.claude-plugin/plugin.json plugins/openspec/hooks/status-line.mjs plugins/openspec/hooks/machine-probe.mjs plugins/openspec/hooks/roadmap-loop.mjs .github/workflows/ci.yml`
