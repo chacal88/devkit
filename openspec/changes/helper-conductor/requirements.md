@@ -1,4 +1,4 @@
-<!-- devkit-stage requirements result=passed attempt=7 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
+<!-- devkit-stage requirements result=passed attempt=8 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
 # Requirements
 
 ## Request
@@ -59,6 +59,8 @@ Relayed by the coordinator's session from the run of 12 changes on two machines;
 
 12. Train 22 ran the whole suite twice (about 25 minutes each) for one archive pull request that changes only files under `openspec/`, ended red with no failure text while five gates loaded the machine, and left the change behind. The conductor holds the other test runs while a train departs, and spends no whole-suite train on a pull request whose files are all under `openspec/` (an archive or a roadmap edit): such a pull request merges on its required checks.
 
+13. A pull request that changed only files under `openspec/` merged on its required checks (its `check` ran `--own-files` and selected no test) and broke `main`'s whole suite, because a suite test reads the live `openspec/roadmap.md` ("jira-entry AC-10 ..." in `change-loop-remote-state.test.mjs`); it cost a train of four whole-suite runs (the run, three probes, the base). Fact 12's openspec-only rule therefore needs a guard: before such a pull request merges off the train, the suite tests that read live repository documents (the roadmap, `openspec/config.yaml`, the ADR index) run, or `scripts/test-map.json` maps `openspec/roadmap.md` and `openspec/config.yaml` to those tests so `--own-files` selects them. And the conductor merges nothing while a train is under way.
+
 ## Acceptance criteria
 
 - AC-1 `first-real-run`: before the design is final, the change's `proof/` holds the real runs showing a scheduled task of the project opening a session in which the devkit plugin's hooks fire (`p1-hooks.md`, `p2-result.md`); before phase 4 starts, `proof/` holds the measured cost of three empty ticks (model calls and tokens) with the real refusal hook installed in a scratch project.
@@ -82,7 +84,7 @@ Relayed by the coordinator's session from the run of 12 changes on two machines;
 - AC-19 `open-precheck`: before opening an item, the conductor checks for a parked branch of the same id (local or on `origin`) and for an item the code already delivers, and records `skipped: delivered` or reuses the branch instead of opening a duplicate.
 - AC-20 `escalation-rehand`: a planner escalation ends that change's loop `blocked: not-delivered` with a request file; once requirements.md holds the decision, the next tick runs a plain `next` and the stage is handed again.
 - AC-21 `machine-split`: after `open`, the change's branch is pushed; a change claimed by another machine waits as `elsewhere`, and once that claim is released or stale the conductor takes it over by adding a worktree from the pushed branch. A machine the app reaches as an SSH host holds no task and runs no conductor.
-- AC-22 `test-capacity`: on one machine at most one whole-suite run is in flight at a time, the train's run first; concurrent gates and each gate's `--concurrency` are capped by values the run file records; a stage agent's brief carries the cap; a run's places count the changes in a test-loading stage, not sessions. While a train departs, no other test run of the machine starts (gates wait); a pull request whose files are all under `openspec/` (an archive or a roadmap edit) boards no whole-suite train and merges on its required checks (field fact 12).
+- AC-22 `test-capacity`: on one machine at most one whole-suite run is in flight at a time, the train's run first; concurrent gates and each gate's `--concurrency` are capped by values the run file records; a stage agent's brief carries the cap; a run's places count the changes in a test-loading stage, not sessions. While a train departs, no other test run of the machine starts (gates wait); a pull request whose files are all under `openspec/` (an archive or a roadmap edit) boards no whole-suite train and merges on its required checks (field fact 12), and only after the suite tests that read live repository documents (`openspec/roadmap.md`, `openspec/config.yaml`, the ADR index) passed on it, either run by the conductor or selected by `--own-files` through `scripts/test-map.json`; the conductor merges nothing while a train is under way (field fact 13).
 
 ## Out of scope
 
