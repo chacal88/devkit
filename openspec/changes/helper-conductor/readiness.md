@@ -1,66 +1,72 @@
-<!-- devkit-stage readiness result=failed attempt=10 commit=e523e62479ba8edb93e6ca6783451bf7dfbbaa61 -->
+<!-- devkit-stage readiness result=passed attempt=11 commit=e7607fcee58a93835a1ff88199ffca10686ef383 -->
 # Readiness review: helper-conductor
 
 ## 1. Decision
-- Status: NEEDS-REVISION
+- Status: APPROVED
 - Confidence: high
-- Ready to implement: no; the move of the scheduled firing from task 3.6 to task 6.1 reached `tasks.md` and `proof/` but not `design.md`, the AC map, the phase gate or the proposal, and it leaves the "second decision point" without a statement of what now guards phases 4 and 5
+- Ready to implement: yes. Attempt 10's F1 to F5 are closed; two Low notes remain, both for implementation.
 
-Round 10, on e523e62, after round 9 (d720a5f, APPROVED). Changed since: `tasks.md` (3.6, 6.1), `proof/p5-empty-tick.md` (new), `proof/decision.md`, `proof/probe-3-instructions.md`, `docs/adr/helper-conductor.md`, `approval.md`, `decisions.md`. `design.md`, `proposal.md`, `requirements.md` and `specs/` did not change. `openspec validate helper-conductor --strict` passes. No fetch was run.
+Round 11, on e7607fc, after round 10 (e523e62, NEEDS-REVISION). Changed since: `design.md`, `proposal.md`, `tasks.md`. `openspec validate helper-conductor --strict` passes. No fetch was run. `release.md` is unchanged.
 
 ## 2. Scope validation
-Classification: incomplete. The scope is unchanged, but the plan now says two things about where the scheduled firing is measured.
+Classification: correct. The scope is unchanged. The plan now says one thing about where the scheduled firing is measured: 3.6 headless (done), 6.1 scheduled.
 
 ## 3. Proposal review
-- F4 below (stale 3.6 claims, `proposal.md:33`, `:127`, `:133`).
+F4 is closed. `proposal.md:33-34`, `:133` and `:140` say task 3.6 is headless (done) and name 6.1 for the scheduled firing. No stale claim found.
 
 ## 4. Design review
-- F1, F2 and F3 below.
+- F1 closed. D-1 (`design.md:130-160`) splits the second decision point into 3.6 (headless, done, no stop case) and 6.1 (three stop-and-revise cases: the firing does not pass through `UserPromptSubmit`, the app counts a blocked firing as a model call, the note does not reach the task's session). A paragraph, "The residual risk, accepted and priced" (`:151-160`), says what a failure at 6.1 revises and what stays, and ties it to the pessimistic estimate. The risk lines (`:1268-1275`), the Risks bullet (`:1401-1406`) and the Open Questions (`:1480-1481`) agree.
+- F2 closed. The payload form (`:302-305`, `:1477`), the cron (`:374`, `:1479`), the push tool (`:558-562`, `:105`), the model (`:741`) and the two runs at once now name 6.1. For each, the text says what phases 2 to 5 build meanwhile: the regex keeps both forms, `*/5` is built, the push step looks the tool up and sends nothing if none is found, and D-14 reads the model from 6.1.
+- F3 closed. The assumptions, the cost table (`:1383`, `:1397`) and `:1438-1448` carry the headless and scheduled split.
 
 ## 5. Specs review
-No findings. `specs/**` never cites task 3.6, and no scenario depends on a scheduled firing being measured before phase 4.
+No findings. `specs/**` never cites 3.6 or 6.1.
 
 ## 6. Tasks review
-- F5 below (`tasks.md:31`, `:88`, `:400`, the AC map rows).
-- Task 3.6 itself (`tasks.md:384-397`) is coherent with `proof/p5-empty-tick.md`: three blocked headless runs, a control run, 0 turns / 0 tokens / cost 0, the scratch folder removed, `git status` check. Task 6.1 (`tasks.md:521-528`) holds the moved observations and names the stop-and-revise case.
-- AC-1 judgment. AC-1 (`requirements.md:64`) asks for "the measured cost of three empty ticks ... with the real refusal hook installed in a scratch project". `p5-empty-tick.md` meets that as written: the real `tick-gate.mjs` in a scratch project, three blocked runs, the cost measured. AC-1 does not say "scheduled firing". It is met. The footing it gives is weaker than the one design.md claims (see F1), and that is a design problem, not an AC-1 one. No change to AC-1 is needed. Optional: add "headless" to the AC so a reader does not take it for a scheduled firing.
+- F5 closed. `tasks.md:31-36` states the split. Line 92 reads "task 3.6 (P-5, headless) and task 6.1 (...)". Gate 3.7 (`:404-405`) lists AC-1, AC-3, AC-6, AC-8, AC-14 and drops AC-11 and AC-15. The AC map rows hold AC-11 on `2.1, 2.5, 3.1, 6.1` and AC-15 on `2.4, 2.5, 6.1, 6.2`. Each criterion has a task that proves it.
+- 6.1 (`tasks.md:511-545`) holds the scheduled observations, the stop-and-revise cases (the plan goes back to the planner, the readiness review and the owner's approval before 6.2), the refused-cron and missing-tool cases as revisions brought to the owner, and the dropping of the unseen payload form with its test in one commit. Its check line is `node scripts/test-suite.mjs --test-name-pattern="^tick-gate "`. I confirmed the flag exists (`scripts/test-suite.mjs:293`), `tick-gate.test.mjs` exists, and task 2.17 names its cases `tick-gate AC-3 `.
+- AC-1 stays met by the headless run as written; no change needed.
 
 ## 7. Omission detection
-- F1: no statement of what happens when 6.1 (after phases 4 and 5) shows a scheduled firing that does cost a model call or drops the note.
+No findings. The failure path of the scheduled half is defined in D-1 and 6.1, with a fallback (the prompt's second line ends a session that got no note).
 
 ## 8. Claims against code
-`probe-3-setup.mjs` and `tick-gate.mjs` agree with the 3.6 text, as in round 9. No new code claim in the diff. The ADR and `decision.md` (lines 60-75) state the same footing as 3.6 and 6.1: measured headless, scheduled unmeasured until 6.1. The design does not.
+`proof/probe-3-setup.mjs` writes the raw logger and the real `tick-gate.mjs` as the scratch project's `UserPromptSubmit` hooks, and writes only under `/var/tmp/devkit-hc-tick`; that matches 3.6 and `proof/p5-empty-tick.md`. `plugins/openspec/hooks/tick-gate.mjs` and its test exist. The tests the plan names exist. No new code claim in the diff.
 
 ## 9. Findings
 
-**F1. Critical, Mandatory before implementation. `design.md:125-130` (D-1 "The second decision point, task 3.6"), `:1222-1230` (risks), `:1319`, `:1349-1351`, `:1421-1424`; `tasks.md:31`.**
-These still say that task 3.6, before phase 4, shows the blocked firing's cost and the note's arrival in the firing's session, and that a failure stops the plan before any later phase starts. After the move that holds only for a headless session. Whether a scheduled firing passes the hook's block and reaches the session with the note is measured in 6.1, after phases 4 and 5 are built. Two developers will read D-1 differently: one thinks the gate was cleared before phase 4, the other that it was not. `decision.md` says it was not.
-Smallest correction: rewrite the D-1 paragraph, the two risk lines (`:1225`, `:1228`), the estimate line (`:1319`, pessimistic case), the risks bullet (`:1350`), the Open Questions (`:1423`) and `tasks.md:31` to say: 3.6 is the headless decision point before phase 4 (decision 2 fails there if a headless block costs a model call); the scheduled-firing half (a block costs a model call there, or the note does not reach a task's session) is found in 6.1, its stop-and-revise case sends the plan back from phase 6 with phases 4 and 5 built, and that residual risk is accepted and priced. Mark the "note's arrival" risk as headless-measured (the control run) and scheduled-unmeasured.
+No Critical, High or Medium findings open.
 
-**F2. High, Mandatory before implementation. `design.md:273`, `:341-343`, `:523`, `:703`, `:1078-1080`.**
-Each assigns a measurement to 3.6 that 3.6 no longer makes: "Task 3.6 logs the payload of real firings; the form it does not see is dropped in that task, with its test" (D-4); "unless task 3.6 shows the host refuses [`*/5`] ... before phase 4 starts" (D-4 cron, AC-15); "when task 3.6 named a notification tool" (D-4 push); "task 3.6 records which model that is" (D-14); "the cron, the notification tool and the model of the task's session come from task 3.6" and "two runs at once" (D-24). `p5-empty-tick.md` and `decision.md:75` say these are 6.1's. Implementers cannot tell whether phase 2 and 4 code must wait for them, and no task in phases 2 to 5 drops the unseen payload form (D-4's regex, with its test) since 3.6 no longer sees the real firing's payload.
-Smallest correction: change each to name 6.1; for the cron, say AC-15 is revised after 6.1 if refused, and that phases 2 to 5 build `*/5`; for the payload form, say the regex keeps both forms (envelope tag and bare first line) until 6.1 shows which one the hook sees, and add to 6.1 the dropping of the unseen form with its test (or state that both stay); for the push, say what the skill's push step does before 6.1 names the tool (for example, the `pushed` verb exists and the note's tool name is filled by 6.1's result), and for the model, say D-14 reads it from 6.1.
+**F6. Low, Fix during implementation. `tasks.md:511-513`, `:532-534`.**
+Question put to this round: does 6.1's raw payload logger in "the scratch project's own `.claude/settings.json`" fit the rule that this repository's settings are never edited? Yes. The rule (`tasks.md:389-392`, `design.md:130-134`) rules out installing the hook in this repository's settings. 6.1 writes into the scratch project's settings, and the packs it uses are the installed packs built from this branch, not this repository's settings. The plan does not edit this repository's settings. Two gaps in the wording remain:
+1. 6.1 never says the coordinator's session is opened in the scratch project's folder. The reason 3.6 moved is that a scheduled task runs in the project of the session that created it (`create_scheduled_task` takes no working folder). If the coordinator types `/devkit roadmap 1` from a session in this repository, the task lands here, and the logger placed in the scratch project sees nothing.
+2. 3.6's script writes `.claude/settings.local.json`; 6.1 says `.claude/settings.json`. A tracked file in a scratch project is harmless, but the two should agree. "Placed before the plugin's hook" also has no effect: hooks of one event run side by side, so the logger only needs to be present.
+Smallest correction (an implementer can do it at 6.1): add "the coordinator's session is opened in the scratch project's folder, never in this repository" to 6.1, and name the file (`settings.local.json`, as `probe-3-setup.mjs` writes it, or `settings.json`). The task's evidence line (`p5-empty-tick.md`, "Scheduled firing") can record the folder the task listed as its project.
 
-**F3. Medium, Mandatory before implementation. `design.md:1244`, `:1384-1392`, `:1332`, `:1382`.**
-Assumptions and the cost table still send observations to 3.6 that a headless run cannot make: tool-approval pauses (`:1244`, `:1385`), a firing started while an earlier run's session waits (`:1387`), `additionalContext` reaching "a task's session" (`:1389`), and the table row "Phase 3 real run: three blocked firings, the note, the payload's form, two runs at once, cron, notification tool, model (task 3.6)" (`:1332`). `:1382` ("genesi's measured 0 tokens; task 3.6 again here") is fine as headless. Smallest correction: repoint those assumptions and the risk at 6.1 (the `:1389-1392` sentence already points the pack settings to 6.1) and reduce the `:1332` row to what 3.6 is now (headless blocked runs and the note's arrival headless), moving the rest to the Phase 6 row.
-
-**F4. Medium, Mandatory before implementation. `proposal.md:33`, `:127`, `:133`.**
-`:33` "A real run with the hook installed measures three blocked firings and the note (task 3.6)"; `:127` "the blocked firing and the note with the real hook (task 3.6)"; `:133` "the cost of a blocked firing, the note's arrival, the hook's payload form and the cron, settled by task 3.6, which can still stop the plan". The proposal is the owner's approval text; it must say what the owner approved: a headless measurement before phase 4 and the scheduled firing in 6.1. Smallest correction: edit the three lines to say so; `:133` names 6.1 for the payload form, the cron and the scheduled firing's cost.
-
-**F5. Medium, Mandatory before implementation. `tasks.md:88`, `:400`, `:36`, `:38`, `:46`, `:50`.**
-`:88` says task 3.6 holds "P-5, P-6's two runs, the cron, P-7"; 3.6 now holds P-5 only (headless). The gate task 3.7 (`:399-400`) still lists "AC-11 (the runs at once)" and "AC-15 (the cron)" as proved by that gate: 3.6 proves neither, and the whole-suite and own-files gate cannot prove a cron. The map rows AC-11 and AC-15 list 3.6 (`:46`, `:50`) and AC-3 and AC-1 list 3.6 (right for the headless block). A criterion with no task that proves it blocks the delivery contract. Smallest correction: `:88` read "task 3.6 (P-5, headless) and task 6.1 (P-6's two runs, the cron, P-7)"; in 3.7 drop the cron and "runs at once" from the 3.6 gate list, leaving the ACs the gate proves (the conductor tests for AC-11's cap; 6.2 and 6.1 for AC-15's cron); in the map, replace 3.6 with 6.1 for AC-11 and AC-15 (6.2 already holds AC-15; 6.1 holds AC-11 already).
+**F7. Low, Nice to have. `proof/probe-3-setup.mjs:2`.**
+The header comment still says "task 3.6 ... on the owner's Mac"; 3.6 ran on `avel` headless. A proof file's comment, not a claim the plan relies on.
 
 ## 10. Execution-readiness test
-Four of the five findings are wording that routes to 6.1. F1 is the one that changes risk: a developer finishing phase 3 sees "3.6 done, D-1 cleared" and builds phases 4 and 5 on a gate whose scheduled-firing half is unmeasured. More than three major doubts for phase 4 exist while F1 to F3 stand, so the plan is not ready until the design says what 3.6 and 6.1 each settle.
+The next phase (phase 4) can start. The open choices a developer would have met are written down: which half of the second decision point guards phases 4 and 5, what phases 2 to 5 build while 6.1 is unmeasured, and what 6.1's stop cases revise. Major doubts: 0.
 
 ## 11. Mandatory questions
 1. Problem objectively defined: yes.
-2. Result measurable: yes; AC-1 is met by the headless run as written.
-3. Error behaviors defined: the scheduled-firing failure path (a block that costs a call, a note that does not arrive) is defined in 6.1 and the ADR, not in design.md (F1).
-4. Edge cases: covered.
-5. Dependencies clear: no; phases 2, 4 depend on values (cron, push tool, payload form, model) that 6.1 now measures later (F2).
+2. Result measurable: yes; each AC maps to a task that proves it (`tasks.md` AC map).
+3. Error behaviors defined: yes, including the scheduled-firing failure path (D-1, 6.1).
+4. Edge cases: covered; a refused cron and a missing notification tool are revisions, not stop cases, by name.
+5. Dependencies clear: yes; phases 2 to 5 build on stated defaults while 6.1 measures.
 6. Contracts defined: yes.
-7. Two developers interpret differently: yes, on whether D-1 is cleared before phase 4 (F1).
-8. Implicit decisions: the acceptance of the residual risk in phases 4 and 5 (F1).
-9. Tasks deliver the outcome: yes, once F5 is fixed.
-10. Discovered too late: a scheduled firing that costs a model call or drops the note, found at 6.1. That is the accepted risk F1 asks to be written down.
+7. Two developers interpret differently: only on where the 6.1 session is opened (F6).
+8. Implicit decisions: the residual risk is now written (`design.md:151`).
+9. Tasks deliver the outcome: yes.
+10. Discovered too late: a scheduled firing that costs a model call or drops the note, found at 6.1 after phases 4 and 5. It is accepted, priced in the pessimistic estimate, and has a named revision path.
+
+## 12. Top 5 likely production failures
+1. A scheduled firing does not pass through `UserPromptSubmit`. Impact: every empty tick costs a model call. Prevention: the prompt's second line ends the session at once; 6.1 stop case.
+2. The note does not reach a task's session. Impact: S-B cannot name the session and the paths. Prevention: 6.1 stop case; the carrier is revised.
+3. The 6.1 task is created from a session in this repository (F6). Impact: the logger sees nothing and the run measures the wrong project. Prevention: the one sentence in F6.
+4. The host refuses `*/5 * * * *`. Impact: AC-15 changes. Prevention: 6.1 records the shortest interval; the owner decides.
+5. Both payload forms stay in the regex because the logger saw neither. Impact: a dead branch in the hook. Prevention: 6.1 says `decision.md` states both stay, or one is dropped with its test.
+
+## 13. False-completeness check
+No section names a decision without defining it. The residual-risk paragraph names its trigger, its revision and its fallback. The 6.1 check line runs a real command.

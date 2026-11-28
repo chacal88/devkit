@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Probe 3 of helper-conductor (task 3.6): sets up the scratch project of the blocked-tick measurement on the owner's Mac.
+// Probe 3 of helper-conductor (task 3.6, run headless on avel on 2026-11-28): sets up the scratch project of the blocked-tick measurement.
 // Usage: node probe-3-setup.mjs <devkit clone> [block|ready]
 //   block (default): the run file records a task and one item under a live claim: nothing is ready, so the hook blocks.
 //   ready: the same run file with no claim: the item is ready, so the hook lets the firing through with its note.
