@@ -1,4 +1,4 @@
-<!-- devkit-stage proposal result=passed attempt=5 commit=56502a1785405dde2e11721c8c9de1076474903f -->
+<!-- devkit-stage proposal result=passed attempt=6 commit=e523e62479ba8edb93e6ca6783451bf7dfbbaa61 -->
 # Proposal
 
 Change: `helper-conductor` · Date: 2026-11-28 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -29,8 +29,14 @@ answer.
   `plugins/openspec/hooks/tick-gate.mjs`, blocks the task's envelope when nothing is ready and after
   the run's end, reading only files and starting no process; on a firing it lets through it adds the
   tick's note (the session id, the pack's live paths, the `tick` call), since a slash command in a
-  task's prompt does not run (probe 2); every other prompt passes. A real run with the hook
-  installed measures three blocked firings and the note (task 3.6).
+  task's prompt does not run (probe 2); every other prompt passes. Before phase 4, three headless
+  runs with the real hook in a scratch project measured the block at 0 turns, 0 tokens and cost 0,
+  and a control run's note reached the model (task 3.6, `proof/p5-empty-tick.md`). A real scheduled
+  firing is measured only in the phase 6 run on the owner's Mac (task 6.1, after phases 4 and 5): a
+  firing that does not pass through `UserPromptSubmit`, a blocked firing the app counts as a model
+  call, or a note that does not reach a task's session sends the plan back to planning, readiness
+  and approval from there; until then the prompt's second line bounds a firing the hook does not
+  stop to one model call.
 - **A tick claims one item and drives it from its own session** (decisions 3, 4): a run-file claim
   with a heartbeat, taken under the lock (a run's status is no lock, probe 2); the tick's session is
   the helper: it runs `change-loop.mjs` in the change's worktree to its next wait, hands each stage
@@ -124,10 +130,15 @@ passes; `claude plugin validate .`, `python3 scripts/gen-catalog.py --check` and
   (flow, coordination design, roles, generated catalog), the ADRs of D-16. None: `plugins/compozy`,
   `.compozy/`, `plugins/panel`.
 - Dependencies: `multi-roadmaps` (not merged); the host's scheduled tasks (phase 1: P-0, P-1, probe
-  2, all run) and the blocked firing and the note with the real hook (task 3.6).
+  2, all run); the blocked tick and the note with the real hook, headless (task 3.6, done); the
+  scheduled firing's cost, the note in a task's session, the hook's payload form, the cron, the
+  notification tool and two runs at once (task 6.1).
 - Decisions cited: `ADR [helper-conductor]` (13 decisions; Amends 0004, 0006, 0008 decision 1 for a
   roadmap run's review round, 0010, 0011, 0013, 0014, 0017, 0020, 0022, 0023, 0026; supersedes 0021),
   revised by the adr-author with this revision; ADR 0032, 0034, 0036. Settled by probe 2 (D-1): the
   prompt form S-B with no entry skill, the envelope, background hand-offs, the review round's
-  Workflow. Open decisions inherited: the cost of a blocked firing, the note's arrival, the hook's
-  payload form and the cron, settled by task 3.6, which can still stop the plan.
+  Workflow. Settled headless by task 3.6: a blocked tick costs no model call and the note reaches
+  the session. Open decisions inherited: on a real scheduled firing, the cost of a blocked firing,
+  the note's arrival, the hook's payload form, the cron and the notification tool, settled by task
+  6.1 after phases 4 and 5; its stop-and-revise case can still send the plan back (the residual risk
+  `design.md` D-1 accepts).

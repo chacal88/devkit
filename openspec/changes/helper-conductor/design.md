@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=7 commit=db6342b8aa8a1ef653e7729f1f1eb883c68419ed -->
+<!-- devkit-stage design result=passed attempt=8 commit=e523e62479ba8edb93e6ca6783451bf7dfbbaa61 -->
 # Design
 
 Change: `helper-conductor` · Date: 2026-11-28 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -44,8 +44,12 @@ Constraints that shape the approach:
   (`proof/p2-result.md`) showed the prompt's envelope, that a slash command in the prompt does not
   run, that agents and Workflows run only in the background and return by a completion notice, that
   an agent can hand an agent one level below, and that a run reads `succeeded` while a background
-  command it started lives. Not shown yet: what a blocked firing costs, the hook's note in the
-  session, the cron and the notification tool (task 3.6).
+  command it started lives. Task 3.6 showed, in headless sessions with the real hook
+  (`proof/p5-empty-tick.md`), that a blocked tick's prompt costs no model call and that a passing
+  one's note reaches the model. Not shown yet on a real scheduled firing: that its prompt passes
+  through `UserPromptSubmit`, what the app counts for a blocked firing, the note in a task's session,
+  the hook's payload form, two runs at once, the cron, the notification tool and the session's model
+  (task 6.1, after phases 4 and 5).
 - The model of the empty-tick refusal is the genesi unstick gate
   (`~/.claude/plugins/cache/genesi/genesi/0.451.0/bin/genesi-unstick-gate.sh`, mode `prompt`): a
   `UserPromptSubmit` hook, first of its list, matches only the envelope `<scheduled-task
@@ -90,15 +94,15 @@ case by case:
 |---|---|---|---|
 | P-0: the session removes a task it created | false unattended: delete, pause and run need the owner's click in the app and are refused in auto and bypass mode; an SSH-host session creates nothing | `proof/p0-delete.md`, "What the host's tool descriptions state" | The task never removes itself: the run records its end, the hook blocks every later firing, and the owner list says once that the owner deletes the task with one click (D-5, D-6). A machine the app reaches as an SSH host holds no task and runs no conductor (D-13) |
 | P-1: a scheduled session loads the plugin and its hooks fire | true for `SessionStart`, the skills, the agents and the loop script | `proof/p1-hooks.md`, `session_start_hook`, `loop_script`; `proof/p2-result.md`, `session_start_seen` | The tick runs the loop scripts in the task's session |
-| P-2: the envelope of a task's prompt | the first user message holds the host's notes, then `[SCHEDULED TASK - AUTOMATED FIRING OF A CONFIGURED PROMPT]` and a short preamble, then `<scheduled-task name="<taskId>" file="<path>/SKILL.md">` wrapping a host sentence and the stored prompt | `proof/p2-result.md`, `envelope`, `envelope_tag` | D-4's regex and D-11's run detection read the tag and the line `devkit-roadmap-tick: <root>` inside it; the hook's own payload form is logged in task 3.6 |
+| P-2: the envelope of a task's prompt | the first user message holds the host's notes, then `[SCHEDULED TASK - AUTOMATED FIRING OF A CONFIGURED PROMPT]` and a short preamble, then `<scheduled-task name="<taskId>" file="<path>/SKILL.md">` wrapping a host sentence and the stored prompt | `proof/p2-result.md`, `envelope`, `envelope_tag` | D-4's regex and D-11's run detection read the tag and the line `devkit-roadmap-tick: <root>` inside it; the hook's own payload form on a scheduled firing is logged in task 6.1 (task 3.6's headless runs gave the hook both forms and it matched both) |
 | P-3: a slash command in a task's prompt runs as typed | false: it reaches the session as plain text inside the tag, and `devkit-openspec:devkit` is not model-invocable | `proof/p2-result.md`, `slash_command`, `slash_board: none` | Prompt form S-B, with no entry skill (below) |
 | P-4a: an agent dispatches an agent one level below | true (the nested validator answered `VERDICT: PASS`) | `proof/p2-result.md`, `nested_agent` | Not used: the tick's own session hands each stage one level below it (D-7); no agent helper |
 | P-4b: the Workflow tool in a task's session | true: it ran in the background and returned its result | `proof/p2-result.md`, `workflow_ran` | The review round takes the `workflow` path in a tick's session (D-7, task 4.1) |
 | Foreground agents | none: the Agent tool has no foreground option in a task's session; a result comes by a completion notice (about 22 s for the probe's) | `proof/p2-result.md`, `nested_agent` | Every hand-off of a tick is in the background; the session ends its turn and each notice wakes it, so one drive spans several turns (D-7) |
 | A stop hook while an agent runs | no devkit stop hook refused a turn that ended while the agent ran | `proof/p2-result.md`, `stop_hook_seen` | The tick's stop rule refuses only a turn's end with a live claim, no wait recorded and nothing of the claim in flight (D-11); its refusal is proved in task 6.1 |
-| P-6: a run's status while a background command lives | the run read `succeeded` while the `sleep 600` it started still lived | `proof/p2-result.md`, `list_task_runs` | A run's status is no lock: overlap is guarded only by the run file's claims under its lock (D-2, D-6); task 3.6 records two runs at once |
-| P-5: a blocked firing makes no model call | not measured | `proof/p1-hooks.md`, conclusions | Task 3.6, with the real `tick-gate.mjs` in a scratch project |
-| P-7: the notification tool | not measured | none | Task 3.6 |
+| P-6: a run's status while a background command lives | the run read `succeeded` while the `sleep 600` it started still lived | `proof/p2-result.md`, `list_task_runs` | A run's status is no lock: overlap is guarded only by the run file's claims under its lock (D-2, D-6); task 6.1 records two runs at once |
+| P-5: a blocked firing makes no model call | not measured | `proof/p1-hooks.md`, conclusions | Headless: task 3.6, with the real `tick-gate.mjs` in a scratch project (0 turns, 0 tokens, cost 0, `proof/p5-empty-tick.md`); on a scheduled firing: task 6.1 (the second decision point below) |
+| P-7: the notification tool | not measured | none | Task 6.1; until then the push step looks the tool up and sends nothing when none is found (D-6) |
 | The task keeps the creating session's permission mode | false: a task created on a turn the owner did not type runs in the default mode; the task is created on the owner's typed turn and its approvals live on the task; no permission prompt held either probe | `proof/p1-hooks.md`, "Host facts known before the probe"; `proof/p2-result.md`, consequences | `install-task` is given only on a typed `run` (D-5) |
 | A task's session can start sessions | false (`mcp__ccd_session__start_session` absent) | `proof/p1-hooks.md`, `tools` | Nothing starts a session (decision 8) |
 
@@ -123,12 +127,37 @@ and, inside it, the line `devkit-roadmap-tick: <root>` for this project's root, 
 `/devkit roadmap tick`; the run then starts with the `devkit-roadmap:` line `tick` prints, as for a
 typed command (D-11). An owner who types `/devkit roadmap tick` gets the same tick through the skill.
 
-**The second decision point, task 3.6.** Stop and revise (no later phase starts; the plan goes back
-to the planner, the readiness review and the owner's approval) when task 3.6 shows a model call or
-tokens on a blocked firing (decision 2 fails), or shows that the hook's note does not reach the
-firing's session (S-B then has no way to name the session and the paths). A refused `*/5 * * * *` is
-no stop: the shortest interval the host accepts is recorded in `proof/decision.md` and brought to the
-owner as a revision of AC-15 before phase 4.
+**The second decision point: task 3.6 headless, task 6.1 on a scheduled firing.** A scheduled task
+cannot be pointed at a scratch project (`create_scheduled_task` takes no working folder, and a task
+runs in the project of the session that created it), and installing the hook in this repository's
+settings is ruled out, so the decision point is split (`proof/decision.md`, "Phase 3 measurement and
+the tick gate's footing"; `ADR [helper-conductor]`):
+
+- Task 3.6, before phase 4, is the headless half. It stops and revises (no later phase starts; the
+  plan goes back to the planner, the readiness review and the owner's approval) when a headless block
+  of the tick's prompt, bare or in the scheduler's envelope, shows a model call or tokens (decision 2
+  fails), or a passing run's note does not reach the model (S-B then has no way to name the session
+  and the paths). It ran on `avel` (`proof/p5-empty-tick.md`): three blocked runs at 0 turns, 0
+  tokens and cost 0, the control run's note quoted by the model; no stop case held.
+- Task 6.1, after phases 4 and 5 are built, is the scheduled half: whether a scheduled firing's prompt
+  passes through `UserPromptSubmit`, whether the app counts a blocked firing as a model call, and
+  whether the note reaches a task's session. Each is a stop-and-revise case found in phase 6: the
+  plan goes back to the planner, the readiness review and the owner's approval with phases 4 and 5
+  built. The cron, the notification tool, the session's model, two runs at once, a pause for a tool
+  approval and the hook's payload form on a real firing are measured there too; none of them is a
+  stop case. A refused `*/5 * * * *` is recorded with the shortest interval the host accepts in
+  `proof/decision.md` and brought to the owner as a revision of AC-15 before the delivery.
+
+**The residual risk, accepted and priced.** Until task 6.1, the block's cost and the note are
+measured only headless, and phases 4 and 5 are built on that footing. If 6.1 hits its stop-and-revise
+case, what the revision changes is decision 2's footing and D-4: the empty tick's refusal moves off
+`UserPromptSubmit` (or decision 2 is reopened in the record, whose review trigger names this case),
+and S-B's note gets another carrier. Until that revision lands, D-1's fallback holds: the prompt's
+second line ends a session that got no note at once, so a firing the hook does not stop costs one
+model call and takes no wrong step. The run file, the claims, the verbs of phase 2, the locks and the
+removal of phase 5 do not depend on the hook's event and stay; the part "A tick" of the `devkit`
+skill (task 4.2) is edited only where it names the note. The pessimistic estimate prices this case
+(Implementation plan, Estimate).
 
 ### D-2 The run file of a conducted run
 
@@ -270,8 +299,12 @@ that parses. A queue id that is not a change id is skipped.
   after the dynamic `import()` below, `findRoot(payload.cwd)` must be that root). Probe 2 read the
   envelope as the model sees the first message; whether the hook's payload holds the tag or only the
   stored prompt is not known, so the regex also accepts a `prompt` whose first line is exactly
-  `devkit-roadmap-tick: <root>`. Task 3.6 logs the payload of real firings; the form it does not
-  see is dropped in that task, with its test. The test fixtures copy probe 2's text.
+  `devkit-roadmap-tick: <root>`. Task 3.6's headless runs gave the hook both forms and it matched
+  both (`proof/p5-empty-tick.md`); a real scheduled firing's payload is first logged in task 6.1. So
+  phases 2 to 5 build and test the regex with both forms, the envelope tag and the bare first line,
+  and task 6.1 drops the form a scheduled firing does not show, with its test case of
+  `tick-gate.test.mjs`, in the same commit (both stay when both are seen). The test fixtures copy
+  probe 2's text.
 - Anything else, a payload that does not parse, a project that has not opted in, or a root that does
   not match: exit 0, print nothing.
 - For the envelope, the hook reads the run file itself, with `node:fs`, at `localRunFilePath(root)`
@@ -338,8 +371,9 @@ that parses. A queue id that is not a change id is skipped.
 
 - Task id: `devkit-roadmap-tick-<basename of root, lowercased, outside [a-z0-9-] made `-`, cut to 24>-<first
   8 hex of sha256(root)>`. Cron: `*/5 * * * *` (`ADR [helper-conductor]` decision 1, AC-15), unless
-  task 3.6 shows the host refuses it: then the shortest interval it accepts, recorded in
-  `decision.md` and brought to the owner as a revision of AC-15 before phase 4 starts.
+  task 6.1 shows the host refuses it: then the shortest interval it accepts, recorded in
+  `decision.md` and brought to the owner as a revision of AC-15 before the delivery. Phases 2 to 5
+  build and test `*/5 * * * *`; a revision changes only this constant and the texts that state it.
   `notifyOnCompletion: false`.
 - Prompt, exactly two lines (S-B, D-1): `devkit-roadmap-tick: <root>`, then `Run the devkit roadmap
   tick as the devkit tick note of this prompt says, and follow its output. With no note, change
@@ -520,9 +554,13 @@ the "A tick" part of the skill (D-9):
   once (`roadmap-task-left`) and the watch ends, since `run.task` is null. The watch is recorded in
   `waits` with kind `watch`.
 - **The push**: at the drive's end (D-6) and after a tick that recorded the run's end, the tick's
-  session runs `owner-waits` and, for each line whose `pushedAt` is null, when task 3.6 named a
-  notification tool, sends one notification (`<id>: <gate phrase>`) and runs
-  `pushed --change <id> --gate <g>`, which sets `pushedAt`. A line is pushed once.
+  session runs `owner-waits` and, for each line whose `pushedAt` is null, looks up the host's
+  notification tool (`select:PushNotification`, else the query `notification`, the lookup task 6.1
+  runs); when it finds one, it sends one notification (`<id>: <gate phrase>`) and runs
+  `pushed --change <id> --gate <g>`, which sets `pushedAt`. A line is pushed once. When it finds none,
+  it sends nothing and `pushedAt` stays null, so the line is still on the owner list. Phases 2 to 5
+  build the `pushed` verb, `pushedAt` and this lookup; task 6.1 records which tool the host has, and a
+  tool the lookup does not find is a revision of this step recorded in `decision.md`.
 - **A delegated gate** is recorded by a tick's session in its sweep (`record-delegated`, D-6 rule 2),
   never in the drive that reached it and never by a stage agent: for `approval`, the `ship-change` row `stop-plan-approval` with the owner's words replaced
   by `delegated to <who> in openspec/standing-answers.md:<line>: "<quote>"`; for `retro`, the
@@ -700,7 +738,8 @@ There is no helper agent to start on a model, so the session floor function and 
 not written, and the step-down actions go (D-12). The tick's session runs on the model the host
 starts the task's session on (the task's own setting in the app); the stages it performs itself
 (`SESSION_RUN_STAGES` of `change-loop.mjs`: requirements, approval, review, delivery, retro) run on
-it, and task 3.6 records which model that is. Each stage agent it hands gets its stage's model from
+it, and task 6.1 records which model that is (the passing firing's model); D-14 reads it from that
+record, and nothing phases 2 to 5 build depends on it. Each stage agent it hands gets its stage's model from
 the action, as a lone change's Loop passes it, with any `[1m]` dropped on the Agent call (ADR 0023
 decision 5's retry a model up unchanged). No action of a conducted run switches a session's model.
 `SESSION_RUN_STAGES`' comment stays as it is.
@@ -1075,9 +1114,13 @@ files (the loop's plain `next`, as the field fact 9 observed).
 ### D-24 What the host still has to show
 
 Probe 2 (task 1.3, `proof/p2-result.md`) settled the envelope, the prompt form, the background
-hand-offs, the Workflow and the run's status; the phase 3 real run (task 3.6) measures what D-1's
-table still leaves open (the blocked firing's cost, the hook's note in the session, the hook's
-payload form, two runs at once); the cron, the notification tool and the model of the task's session come from task 3.6.
+hand-offs, the Workflow and the run's status; the phase 3 run (task 3.6) measured headless the
+blocked tick's cost and the note's arrival (`proof/p5-empty-tick.md`); the phase 6 real run (task
+6.1) measures on a scheduled firing what D-1's table still leaves open: the blocked firing's cost as
+the app counts it, the hook's note in a task's session, the hook's payload form, two runs at once,
+the cron, the notification tool, the model of the task's session and any pause for a tool approval.
+Meanwhile phases 2 to 5 build the regex with both payload forms (D-4), `*/5 * * * *` (D-5), the push
+step's lookup (D-6) and no model choice for the tick's session (D-14).
 Nothing else of D-17 to D-23 and D-25 depends on the host.
 
 ### D-25 The machine's test capacity (AC-22)
@@ -1222,12 +1265,16 @@ conducted run only.
 
 - [A scheduled session does not load the plugin or its hooks] → P-1 and probe 2 showed it does
   (`session_start_hook`, `session_start_seen`).
-- [The block does not prevent the model call] → task 3.6 measures three blocked firings with the real
-  hook; a model call is a stop-and-revise case before phase 4; the record's review trigger.
+- [The block does not prevent the model call] → measured headless: task 3.6's three blocked runs
+  read 0 turns, 0 tokens, cost 0 (`proof/p5-empty-tick.md`); unmeasured on a scheduled firing until
+  task 6.1, after phases 4 and 5: a scheduled firing that does not pass through `UserPromptSubmit`, or
+  a blocked firing the app counts as a model call, is a stop-and-revise case found in phase 6 (D-1,
+  the residual risk) and the record's review trigger.
 - [The hook's note does not reach the firing's session (the host drops a `UserPromptSubmit`
-  `additionalContext` in a task's session)] → task 3.6 checks it before phase 4; a note that does not
-  arrive is a stop-and-revise case (D-1), and the prompt's second line makes such a session end at
-  once (one model call per firing, no wrong step).
+  `additionalContext` in a task's session)] → measured headless: task 3.6's control run quoted the
+  note; unmeasured in a task's session until task 6.1, where a note that does not arrive is a
+  stop-and-revise case (D-1, the residual risk); until then the prompt's second line makes such a
+  session end at once (one model call per firing, no wrong step).
 - [A firing while an earlier tick's session still drives] → a run's status is no lock
   (`proof/p2-result.md`); the claims under `updateRun` keep the two apart, and a conductor test runs
   two `tick` processes at once.
@@ -1241,7 +1288,7 @@ conducted run only.
 - [The Workflow does not run in a task's session, or its notice never comes] → the review round's
   `agents` path, `review-change`'s own fallback rows.
 - [A task's session pauses for a tool approval] → the task is created on the owner's typed turn, so
-  its approvals live on the task (`proof/p1-hooks.md`, host fact 2); task 3.6 records any pause.
+  its approvals live on the task (`proof/p1-hooks.md`, host fact 2); task 6.1 records any pause.
 - [A stage longer than two hours makes a live claim stale] → the heartbeat renews at every
   `helper-next` call, between stages; an implementation phase is one hand-off, so the bound is set
   above the longest phase the repository's evidence records (about 70 minutes); a takeover hands the
@@ -1255,7 +1302,8 @@ conducted run only.
 - [A delegation recorded where none was meant] → only the owner writes the file (D-8's owner-only
   path); the gate file quotes the line; D-11 refuses a gate file a tick writes without its action.
 - [Other plugins' prompt hooks call a model on the tick's prompt] → a block from any hook stops the
-  prompt; task 3.6 measures with the machine's real plugin set, genesi included.
+  prompt; task 3.6 measured headless with the machine's real plugin set, genesi included, and task
+  6.1 measures a scheduled firing with the owner's Mac's set.
 - [An agent runs its tests without `test-run`] → the brief says it at every hand-off; in this
   repository the runner's ceiling still caps its files when the variable is set by an outer
   `test-run`, and the evidence's `suite:` line shows the concurrency; the record's review trigger
@@ -1280,8 +1328,8 @@ conducted run only.
 ## Implementation plan
 
 Order: the proof (phase 1, probe 2 still owed); the data and the verbs (phase 2); the hook, the locks
-and the blocked firing's real run (phase 3); the tick's drive and the texts (phase 4); the removal
-(phase 5); the real run and the checks (phase 6).
+and the blocked tick's headless run (phase 3); the tick's drive and the texts (phase 4); the removal
+(phase 5); the real run, with the scheduled firing's measurement, and the checks (phase 6).
 
 **Per surface.**
 - `plugins/openspec/hooks`: D-2 to D-8, D-10 to D-14, D-25 (`test-slots.mjs`, `test-run`, the
@@ -1315,8 +1363,11 @@ and the blocked firing's real run (phase 3); the tick's drive and the texts (pha
   `docs/catalog.md`, the ADRs of D-16.
 - Delete: `plugins/openspec/skills/devkit-session/SKILL.md`.
 
-**Estimate.** Optimistic 60 h · likely 91.5 h (the sum of the table below) · pessimistic 130 h (a
-stop-and-revise at task 3.6, or a host behaviour found only in phase 6).
+**Estimate.** Optimistic 60 h · likely 91.5 h (the sum of the table below) · pessimistic 140 h (task
+6.1's stop-and-revise case of D-1 found in phase 6 with phases 4 and 5 built: a revision round of the
+plan, D-4's hook moved off `UserPromptSubmit` and the note's carrier, the `devkit` skill's "A tick"
+part where it names the note, and phase 6 run again; or another host behaviour found only in phase
+6).
 
 | Component | Hours | Type | Risk |
 |---|---|---|---|
@@ -1329,7 +1380,7 @@ stop-and-revise at task 3.6, or a host behaviour found only in phase 6).
 | Locks: the tick's run detection by its envelope, stop, hand-off, `ask` mode, owner-only path (D-10, D-11) | 6 | Core | MEDIUM |
 | Conductor tests (`roadmap-loop-conductor.test.mjs`) | 6 | Testing | MEDIUM |
 | The devkit skill's Roadmap rewrite with the tick's drive (D-7, D-9), the `review-change` sentence | 4.5 | Core | MEDIUM |
-| Phase 3 real run: three blocked firings, the note, the payload's form, two runs at once, cron, notification tool, model (task 3.6) | 3 | Integration | HIGH |
+| Phase 3 headless run: three blocked runs and the control run's note (task 3.6, done) | 1.5 | Integration | HIGH |
 | The `openspec/`-only pull request: `conductedOf`, `collectState`, its tests (D-25) | 2 | Core | MEDIUM |
 | Grill skill, rule in five files, messages, status board, change-state facts (D-9) | 3 | Core | LOW |
 | Removal and the pinned tests of D-15 (171 rows) | 8 | Migration | HIGH |
@@ -1343,12 +1394,17 @@ stop-and-revise at task 3.6, or a host behaviour found only in phase 6).
 | Escalation re-hand (D-23) | 1.5 | Core | LOW |
 | Machine split by the pushed branch (D-13) | 2 | Integration | MEDIUM |
 | Test capacity: settings, `capacity`, `test-slots.mjs`, `test-run` with the train's hold of the gates, the runner's ceiling, the brief's sentence (D-25) | 6 | Core | MEDIUM |
-| Phase 6 real run and the whole suite | 7 | Integration | HIGH |
+| Phase 6 real run, with the scheduled firing moved from task 3.6 (the blocked firings' cost, the note in a task's session, the payload's form and its regex case dropped, two runs at once, cron, notification tool, model, approval pauses), and the whole suite | 8.5 | Integration | HIGH |
 
 **Risks** (probability × impact, mitigation):
 - Host behaviour differs from the plan (MEDIUM × HIGH): probe 2 settled the prompt form and the
-  background hand-offs before phase 2; task 3.6 before phase 4 has its stop-and-revise cases named
-  (D-1).
+  background hand-offs before phase 2; task 3.6 settled the headless half of the second decision
+  point before phase 4. The scheduled half (a firing that does not pass through `UserPromptSubmit`, a
+  blocked firing the app counts as a model call, a note that does not reach a task's session) is
+  found only in task 6.1, after phases 4 and 5 (MEDIUM × HIGH, accepted): its stop-and-revise case is
+  named (D-1), the prompt's second line bounds the cost meanwhile to one model call per firing, the
+  parts that do not depend on the hook's event stay, and the pessimistic estimate prices the
+  revision.
 - The removal breaks a test outside the table (MEDIUM × MEDIUM): the class rule of D-15 and the
   implementer's own grep in the same commit; the phase 5 gate runs every mapped test.
 - `roadmap-loop.mjs` grows further (HIGH × LOW): the conductor verbs go in the same file beside the
@@ -1379,17 +1435,17 @@ stop-and-revise at task 3.6, or a host behaviour found only in phase 6).
   `delete_`, `update_` and `run_` need the owner's click (`proof/p0-delete.md`); the conductor calls
   only the first two.
 - A `UserPromptSubmit` block stops the prompt before the model (genesi's measured 0 tokens,
-  `commands/unstick.md`; task 3.6 again here).
+  `commands/unstick.md`; task 3.6 again here, headless; task 6.1 on a scheduled firing).
 - A scheduled session's `cwd` is the project root the task was created from (`proof/p1-hooks.md`,
   `start_cwd`).
 - A task created on the owner's typed turn runs its firings without pausing for the tools a tick
-  uses (`proof/p1-hooks.md`, host fact 2 and `permission_mode`); task 3.6 records it.
+  uses (`proof/p1-hooks.md`, host fact 2 and `permission_mode`); task 6.1 records it.
 - The host starts a firing of the task while an earlier run's session still waits on a notice (a
-  run reads `succeeded` then, `proof/p2-result.md`; task 3.6 records it).
+  run reads `succeeded` then, `proof/p2-result.md`; task 6.1 records it).
 - A `UserPromptSubmit` hook's `additionalContext` reaches a task's session, and a hook's process
-  gets every pack setting as `CLAUDE_PLUGIN_OPTION_<KEY>`, as it gets `load_limit` (task 3.6 checks
-  the note; its scratch hook is no plugin hook, so the pack settings are first seen in task 6.1's run
-  on the installed packs).
+  gets every pack setting as `CLAUDE_PLUGIN_OPTION_<KEY>`, as it gets `load_limit` (task 3.6 saw the
+  note reach a headless session; the note in a task's session and the pack settings, since 3.6's
+  scratch hook is no plugin hook, are first seen in task 6.1's run on the installed packs).
 - `updateRun`'s lock serializes writers across processes of one clone (`roadmap-loop.mjs`, the lock
   of `roadmap-run.lock`; requirements triage item 3).
 - The phases of this repository's own changes stay under two hours each (the evidence files of the
@@ -1417,8 +1473,11 @@ stop-and-revise at task 3.6, or a host behaviour found only in phase 6).
 
 ## Open Questions
 
-- Whether the hook's payload holds the scheduler's tag or only the stored prompt: task 3.6 logs it,
-  and the regex keeps the form seen (D-4).
-- The cron interval is `*/5` unless task 3.6 shows the host needs another; that would revise AC-15.
-- A blocked firing's cost and the note's arrival are measured in task 3.6; either failing stops the
-  plan before phase 4 (D-1).
+- Whether a scheduled firing's hook payload holds the scheduler's tag or only the stored prompt:
+  task 6.1 logs it and drops the unseen form from the regex with its test; until then the regex keeps
+  both (D-4).
+- The cron interval is `*/5` unless task 6.1 shows the host needs another; that would revise AC-15.
+- A blocked firing's cost and the note's arrival: measured headless in task 3.6 (no stop case held);
+  on a scheduled firing they are measured in task 6.1, after phases 4 and 5, and either failing there
+  sends the plan back to the planner, the readiness review and the owner's approval (D-1, the residual
+  risk).

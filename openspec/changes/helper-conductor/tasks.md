@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=8 commit=0585eddbbf62dedc5ea01413a5b0a7c4ebdc5f23 -->
+<!-- devkit-stage tasks result=passed attempt=9 commit=e523e62479ba8edb93e6ca6783451bf7dfbbaa61 -->
 # Tasks
 
 Change: `helper-conductor` · Date: 2026-11-28 · Owner: Kaue (chacal88) · Base: `origin/main` at
@@ -28,8 +28,12 @@ Phase 1 is a decision point. Probe 2 has run (`proof/p2-result.md`) and its answ
 facts of D-1: prompt form S-B with no entry skill, the envelope, every hand-off in the background,
 the review round's `workflow` path, a run's status that is no lock. Phases 2 to 6 start once task
 1.4 has recorded them in `proof/decision.md` and the plan's approval of this revision is recorded.
-Task 3.6 is a second decision point, before phase 4. A stop-and-revise case of D-1 sends the plan back
-to the planner, the readiness review and the owner's approval before anything else runs.
+Task 3.6 is the headless half of a second decision point, before phase 4 (done, no stop case held,
+`proof/p5-empty-tick.md`). Its scheduled half is task 6.1, after phases 4 and 5 are built: a scheduled
+firing that does not pass through `UserPromptSubmit`, a blocked firing the app counts as a model call,
+or a note that does not reach a task's session sends the plan back to the planner, the readiness
+review and the owner's approval from phase 6, with phases 4 and 5 built (D-1, the residual risk the
+design accepts and prices).
 
 | Id | Slug | Tasks |
 |---|---|---|
@@ -43,11 +47,11 @@ to the planner, the readiness review and the owner's approval before anything el
 | AC-8 | `delegation-quoted` | 2.2, 2.7, 3.4, 4.4, 6.3 |
 | AC-9 | `task-ends-blocked` | 1.2, 2.4, 2.5, 2.7, 3.1, 4.2, 4.5, 6.1 |
 | AC-10 | `sessions-removed` | 5.1 to 5.5, 6.6 |
-| AC-11 | `places-cap` | 2.1, 2.5, 3.1, 3.6, 6.1 |
+| AC-11 | `places-cap` | 2.1, 2.5, 3.1, 6.1 |
 | AC-12 | `adr-recorded` | 1.10, 4.1, 4.3, 5.6 |
 | AC-13 | `compozy-untouched` | 5.7, 6.7 |
 | AC-14 | `request-file-channel` | 2.3, 2.7, 3.4, 6.3 |
-| AC-15 | `periodic-check` | 2.4, 2.5, 3.6, 6.2 |
+| AC-15 | `periodic-check` | 2.4, 2.5, 6.1, 6.2 |
 | AC-16 | `approval-summary` | 2.3, 2.7, 4.4, 6.3 |
 | AC-17 | `sibling-order` | 2.8, 4.4, 6.3 |
 | AC-18 | `train-dispatch` | 2.9, 4.2, 6.4 |
@@ -85,7 +89,8 @@ to the planner, the readiness review and the owner's approval before anything el
   the background (`nested_agent`), no stop hook refusal seen (`stop_hook_seen: none`), and a run's
   status that is no lock (`list_task_runs`). Check: each of the six is named with its source line.
 - 1.5 to 1.7: removed in the revision of 2026-11-28; their probes are task 1.3 (P-2, P-3, P-4a,
-  P-4b, P-6's background) and task 3.6 (P-5, P-6's two runs, the cron, P-7).
+  P-4b, P-6's background), task 3.6 (P-5, headless) and task 6.1 (P-5 on a scheduled firing, P-6's
+  two runs, the cron, P-7).
 - [x] 1.8 Conductor: remove every probe task (P-0's tool), list, and delete
   `/var/tmp/devkit-hc-probe` only after checking the session created it. Append the final list to
   `proof/p0-delete.md`. Check: no `devkit-hc-probe-` task in the list.
@@ -325,7 +330,7 @@ merge and the coordinator's word.
   green, its `selected` lines recorded. AC-3 (the hook's part), AC-6 and AC-14 (the modules' part),
   AC-22 (the ledger's part).
 
-## 3. The tick's hook, the locks and the blocked firing (phase 3)
+## 3. The tick's hook, the locks and the blocked tick, headless (phase 3)
 
 - [ ] 3.1 The tick's prompt hook (D-4), what 2.17 and 2.1 left: the first `UserPromptSubmit` entry
   of `plugins/openspec/hooks/hooks.json` naming `plugins/openspec/hooks/tick-gate.mjs` (built-ins at
@@ -397,7 +402,7 @@ merge and the coordinator's word.
   it; `git status --short` in this worktree lists nothing of it. The measurement on a real scheduled
   firing (the observations this task held before the move) is task 6.1's.
 - [ ] 3.7 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green; AC-1,
-  AC-3, AC-6, AC-8, AC-11 (the runs at once), AC-14, AC-15 (the cron).
+  AC-3, AC-6, AC-8, AC-14.
 
 ## 4. The tick's drive and the texts (phase 4)
 
@@ -524,8 +529,20 @@ yet") and any task the merge supersedes (CLAUDE.md).
   `*/5 * * * *` schedule accepted or refused (and the shortest interval accepted); whether a second
   run starts while one is in flight (recorded, no stop case); the host's notification tool
   (`select:PushNotification`, else the query `notification`); any pause for a tool approval; the
-  payload form the hook saw. Written to `proof/p5-empty-tick.md` under "Scheduled firing", and
-  `decision.md` names the stop-and-revise case of D-1 if a blocked firing costs a model call.
+  payload form the hook saw (the raw payload logger of `proof/probe-3-setup.mjs` placed before the
+  plugin's hook in the scratch project's own `.claude/settings.json`). Written to
+  `proof/p5-empty-tick.md` under "Scheduled firing", and `decision.md` names the stop-and-revise case
+  of D-1 when a scheduled firing does not pass through `UserPromptSubmit`, a blocked firing costs a
+  model call as the app counts it, or the note does not reach the task's session; that case sends
+  the plan back to the planner, the readiness review and the owner's approval before 6.2 runs. A
+  refused `*/5 * * * *` and a notification tool the push step's lookup (D-6) does not find are
+  recorded in `decision.md` as revisions brought to the owner, no stop case.
+  Then, in this branch, D-4's regex keeps only the payload form the scheduled firing showed: the
+  unseen form (the envelope tag or the bare first line) and its process case of
+  `tick-gate.test.mjs` are dropped in one commit, or `decision.md` says both stay because both were
+  seen. Check: `proof/p5-empty-tick.md` has the "Scheduled firing" section with each observation
+  above, and `node scripts/test-suite.mjs --test-name-pattern="^tick-gate "` passes after the
+  regex commit.
 - [ ] 6.2 Conductor: in the same run, end `b`'s tick run mid-stage (the owner's stop of that run in
   the app, or killing that session's process); after the stale bound (lowered for the run with
   `DEVKIT_CLAIM_STALE_MS`, an env override `run-file.mjs` reads for tests and proofs only), the next
