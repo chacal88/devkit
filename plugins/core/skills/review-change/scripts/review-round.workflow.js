@@ -66,6 +66,33 @@ function roundLimit(args) {
   return args.limit === undefined ? 2 : args.limit;
 }
 
+// The scope of a round's owner record: the resolution call is the only caller that sets `verdictDir`.
+function ownerScope(args) {
+  return args.verdictDir === undefined ? 'review' : 'resolution';
+}
+
+// A round above 2 holds the owner's recorded words for its round and scope in `args.owner`; rounds 1 and 2 hold none.
+function validateOwner(args) {
+  const owner = args.owner;
+  const absent = owner === undefined || owner === null;
+  const scope = ownerScope(args);
+  if (args.round <= 2) {
+    if (!absent) invalid('args.owner is only for a round above 2');
+    return;
+  }
+  if (absent) invalid('round ' + args.round + " needs the owner's authorization: args.owner holds no words recorded for round " + args.round + ' of scope ' + scope + ' (change-loop.mjs declare ' + args.change + ' review-round)');
+  if (typeof owner !== 'object' || Array.isArray(owner)) invalid('args.owner must be an object');
+  if (owner.round !== args.round) invalid('args.owner.round must be ' + args.round + ', the round');
+  if (owner.scope !== scope) invalid('args.owner.scope must be ' + scope);
+  if (typeof owner.words !== 'string' || !owner.words.trim() || owner.words.length > 200) invalid("args.owner.words must be the owner's words, 1 to 200 characters");
+}
+
+// The line that quotes the owner's words in the section of a round above 2; null when the round holds none.
+function ownerLine(args) {
+  if (args.round <= 2 || args.owner === undefined || args.owner === null) return null;
+  return "Owner's words for round " + args.round + ': "`' + String(args.owner.words).replace(/\s+/g, ' ').trim().replace(/`/g, "'") + '`"';
+}
+
 function validateArgs(args) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) invalid('args must be an object');
   for (const k of ['change', 'changeDir', 'range']) {
@@ -76,6 +103,7 @@ function validateArgs(args) {
   if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit < 2)) invalid('args.limit must be a whole number of 2 or more');
   const limit = roundLimit(args);
   if (!Number.isInteger(args.round) || args.round < 1 || args.round > limit) invalid('args.round must be from 1 to ' + limit);
+  validateOwner(args);
   if (args.path !== 'workflow' && args.path !== 'agents') invalid("args.path must be 'workflow' or 'agents'");
   if (args.structural !== 'PASS') invalid("args.structural must be 'PASS'");
   if (typeof args.preamble !== 'string') invalid('args.preamble must be a string');
@@ -395,6 +423,7 @@ function consolidate(input) {
     '',
     'Consensus: ' + consensus + ' (round ' + args.round + '/' + roundLimit(args) + ')',
     '',
+    ...(ownerLine(args) === null ? [] : [ownerLine(args), '']),
     '## Open findings',
     ...(open.length ? open : ['None.']),
     '',

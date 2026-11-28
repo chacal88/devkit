@@ -1,0 +1,24 @@
+{
+  "change": "demo",
+  "changeDir": "<scratch>/openspec/changes/demo",
+  "round": 3,
+  "limit": 3,
+  "path": "agents",
+  "range": "HEAD~1..HEAD",
+  "head": "210115fff04a276839bf1b21150d1917036100b9",
+  "dirty": [],
+  "structural": "PASS",
+  "preamble": "Work only in <scratch>; start every Bash command with cd <scratch> && ; do not fetch.",
+  "bench": [
+    {
+      "reviewer": "code-quality-reviewer",
+      "previous": null,
+      "range": "HEAD~1..HEAD"
+    }
+  ],
+  "owner": {
+    "round": 3,
+    "scope": "review",
+    "words": "Pode rodar mais uma rodada da revisão, eu autorizo."
+  }
+}

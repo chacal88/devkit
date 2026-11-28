@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "steps": [
+    {
+      "key": "review-round",
+      "scope": "review",
+      "round": 3,
+      "words": "Pode rodar mais uma rodada da revisão, eu autorizo.",
+      "at": "2026-11-28T16:06:47.244Z"
+    }
+  ]
+}

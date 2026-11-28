@@ -1,0 +1,3 @@
+exit: 3
+stdout: 
+stderr: review input invalid: round 5 needs the owner's authorization: <scratch>/openspec/changes/demo/declared.json records no words for round 5 of scope review (change-loop.mjs declare demo review-round)

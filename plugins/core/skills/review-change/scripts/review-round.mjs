@@ -2,7 +2,7 @@
 // The rules live once, in review-round.workflow.js (between the rules markers);
 // this module reads that section and exports what it defines.
 import { readFileSync, existsSync, realpathSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
@@ -11,7 +11,7 @@ export const SCRIPT_FILE = join(here, 'review-round.workflow.js');
 
 const NAMES = [
   'VERIFIERS', 'verifyJobs', 'groupVotes', 'writeMismatch', 'STAGE1_SCHEMA', 'VOTE_SCHEMA', 'WRITE_SCHEMA', 'validateArgs', 'validateStage1', 'needsVerification', 'isRefutation',
-  'decide', 'oneLine', 'findingLine', 'outcomeOf', 'consensusOf', 'reviewerPrompt', 'verifierPrompt', 'writerPrompt', 'consolidate', 'isHeaderLine', 'withoutHeaderLines', 'withoutSummary', 'summaryLine', 'writeJobs',
+  'decide', 'oneLine', 'findingLine', 'outcomeOf', 'consensusOf', 'reviewerPrompt', 'verifierPrompt', 'writerPrompt', 'consolidate', 'isHeaderLine', 'withoutHeaderLines', 'withoutSummary', 'summaryLine', 'writeJobs', 'ownerLine',
 ];
 const BEGIN = /^\/\/ ---- rules: begin.*$/m;
 const END = /^\/\/ ---- rules: end.*$/m;
@@ -35,7 +35,7 @@ export function loadRules(file = SCRIPT_FILE) {
 
 export const {
   VERIFIERS, verifyJobs, groupVotes, writeMismatch, STAGE1_SCHEMA, VOTE_SCHEMA, WRITE_SCHEMA, validateArgs, validateStage1, needsVerification, isRefutation,
-  decide, oneLine, findingLine, outcomeOf, consensusOf, reviewerPrompt, verifierPrompt, writerPrompt, consolidate, isHeaderLine, withoutHeaderLines, withoutSummary, summaryLine, writeJobs,
+  decide, oneLine, findingLine, outcomeOf, consensusOf, reviewerPrompt, verifierPrompt, writerPrompt, consolidate, isHeaderLine, withoutHeaderLines, withoutSummary, summaryLine, writeJobs, ownerLine,
 } = loadRules();
 
 // ---- the CLI --------------------------------------------------------------
@@ -43,10 +43,13 @@ export const {
 // JSON on stdout; exit 0 ok, 2 check-file mismatch, 3 usage or input error.
 // tree: { root } -> { head, dirty }, the worktree's head sha and the uncommitted paths that mark a verdict's
 // Commit: line (args.head and args.dirty of a round).
+// owner: { changeDir, scope, round } -> { owner }, the owner's words recorded in <changeDir>/declared.json for a round above 2
+// of the scope (`review`, or `resolution` in a resolution call): { owner: { round, scope, words } }, or { owner: null } for a
+// round 1 or 2; refused (exit 3) when the record holds no words for that round and scope. Its `owner` is `args.owner` unchanged.
 // Every subcommand passes `args` through the rules' validateArgs unchanged: an optional `args.limit` (the loop's round limit,
 // 2 when absent) reaches the prompts and the consolidated text as it does on the workflow path.
 
-const SUBCOMMANDS = ['stage1', 'verify', 'outcomes', 'consolidate', 'check-file', 'tree'];
+const SUBCOMMANDS = ['stage1', 'verify', 'outcomes', 'consolidate', 'check-file', 'tree', 'owner'];
 const VERIFIER = 'devkit-core:finding-verifier';
 
 const usage = (what) => new Error(`review usage: ${what}`);
@@ -180,9 +183,39 @@ export function treeState(root) {
 
 const treeCommand = ({ root }) => treeState(root);
 
+// The owner's words of a round above 2, read from <changeDir>/declared.json by the rules of
+// plugins/openspec/hooks/deliver-check.mjs#readDeclared (devkit-core installs alone, so this is a copy;
+// deliver-check.test.mjs holds the two readings together): a missing file holds no entry, an unreadable one refuses.
+function declaredSteps(file) {
+  if (!existsSync(file)) return [];
+  const refused = (reason) => invalid(`${file}: ${reason}`);
+  let text;
+  try { text = readFileSync(file, 'utf8'); } catch (e) { throw refused(`cannot read declared.json: ${e.code ?? e.message}`); }
+  if (text.trim() === '') throw refused('declared.json is empty');
+  let value;
+  try { value = JSON.parse(text); } catch { throw refused('declared.json is not JSON'); }
+  if (!plain(value)) throw refused('declared.json holds no object');
+  if (value.version !== 1) throw refused(`declared.json has version ${JSON.stringify(value.version)}, not 1`);
+  if (!Array.isArray(value.steps)) throw refused('declared.json has no list of steps');
+  return value.steps;
+}
+
+export function recordedOwner({ changeDir, scope, round }) {
+  if (typeof changeDir !== 'string' || !changeDir) throw invalid('changeDir must be a path');
+  if (scope !== 'review' && scope !== 'resolution') throw invalid('scope must be review or resolution');
+  if (!Number.isInteger(round) || round < 1) throw invalid('round must be a whole number of 1 or more');
+  if (round <= 2) return { owner: null };
+  const dir = resolve(changeDir);
+  const file = join(dir, 'declared.json');
+  const match = declaredSteps(file).filter((s) => plain(s) && s.key === 'review-round' && (s.scope ?? 'review') === scope
+    && s.round === round && typeof s.words === 'string' && s.words.trim() !== '').at(-1);
+  if (!match) throw invalid(`round ${round} needs the owner's authorization: ${file} records no words for round ${round} of scope ${scope} (change-loop.mjs declare ${basename(dir)} review-round)`);
+  return { owner: { round, scope, words: match.words } };
+}
+
 const COMMANDS = {
   stage1: stage1Command, verify: verifyCommand, outcomes: outcomesCommand,
-  consolidate: consolidateCommand, 'check-file': checkFileCommand, tree: treeCommand,
+  consolidate: consolidateCommand, 'check-file': checkFileCommand, tree: treeCommand, owner: recordedOwner,
 };
 
 function readInput(file) {
