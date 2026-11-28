@@ -108,7 +108,7 @@ on the machine. On the avel machine run the tests with `TMPDIR` under `/var/tmp`
   `git diff --name-only origin/main...HEAD -- CHANGELOG.md .claude-plugin/marketplace.json plugins/openspec/.claude-plugin/plugin.json plugins/openspec/hooks/status-line.mjs plugins/openspec/hooks/machine-probe.mjs plugins/openspec/hooks/roadmap-loop.mjs .github/workflows/ci.yml`
   prints nothing; `node plugins/openspec/hooks/deliver-check.mjs state-listing-speed` prints no
   `no release:` line and no `release.md:` line.
-- [ ] 2.3 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-1 to
+- [x] 2.3 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (AC-1 to
   AC-4, AC-6), after the last merge of the base. The pr-verifier copies the run's `selected` lines
   into its row, and writes the AC-5 row from `proof/listing-11.txt`.
 
