@@ -141,10 +141,10 @@ merge and the coordinator's word.
   unchanged. Map: the new test linked to `run-file.mjs` and `roadmap-loop.mjs`, and marked `slow`;
   `run-file.mjs`'s list gains `tick-gate.test.mjs` (the hook calls its functions).
   Check: `node scripts/test-suite.mjs --test-name-pattern="^(conductor |roadmap-loop setting:|tick-gate )"` passes.
-- [ ] 2.2 The standing answers (D-8): `plugins/openspec/hooks/standing-answers.mjs` and
+- [x] 2.2 The standing answers (D-8): `plugins/openspec/hooks/standing-answers.mjs` and
   `plugins/openspec/hooks/standing-answers.test.mjs` with the seven cases of D-15. Map: a `files` key
   for the module. Check: `node scripts/test-suite.mjs --test-name-pattern="^standing "` passes.
-- [ ] 2.3 The request files (D-17, D-19): `plugins/openspec/hooks/request-file.mjs` (write, parse, the
+- [x] 2.3 The request files (D-17, D-19): `plugins/openspec/hooks/request-file.mjs` (write, parse, the
   12-line summary refusal, the answer file, the 200-character cut of an approval's words) and
   `plugins/openspec/hooks/request-file.test.mjs`. Map: its `files` key. Check:
   `node scripts/test-suite.mjs --test-name-pattern="^request "` passes.
@@ -220,7 +220,7 @@ merge and the coordinator's word.
 - [ ] 2.13 ADR 0013's Note (D-2) and the class M test "followups AC-3 run file" reading it. Grep the
   tests for `0013-the-roadmap-coordinator-is-the-owners-session.md` first (D-15's pin rule). Check:
   `node scripts/test-suite.mjs --test-name-pattern="^followups (AC-3|ADR 0014) "` passes.
-- [ ] 2.14a The test-slot ledger, add-only part of D-25: the new
+- [x] 2.14a The test-slot ledger, add-only part of D-25: the new
   `plugins/openspec/hooks/test-slots.mjs` with the exports D-25 names ("The ledger module's
   contract": `SLOTS_LOCK`, `SLOT_STEP_MS`, `slotsPaths`, `readSlots`, `tryTakeSlot`, `releaseSlots`,
   `waitForSlot`), the ledger under `withLockFile` imported from `change-loop.mjs`, where it lives
@@ -289,7 +289,7 @@ merge and the coordinator's word.
 - [ ] 2.16 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green; AC-2,
   AC-4, AC-5, AC-7, AC-8, AC-9, AC-11, AC-14 to AC-22 (their code).
 
-- [ ] 2.17 The tick's hook module, add-only part of 3.1 (D-4): `plugins/openspec/hooks/tick-gate.mjs`
+- [x] 2.17 The tick's hook module, add-only part of 3.1 (D-4): `plugins/openspec/hooks/tick-gate.mjs`
   with the interim home of D-3's functions (D-4, "The interim copy"): `commonDirOf`,
   `localRunFilePath`, `localFacts` and `tickReady`, exported from `tick-gate.mjs` itself with D-3's
   rules and signatures. It reads the run file itself with `node:fs` and builds the run from the

@@ -310,6 +310,7 @@
       "plugins/openspec/hooks/roadmap-loop.test.mjs",
       "plugins/openspec/hooks/stage-models.test.mjs",
       "plugins/openspec/hooks/status-line.test.mjs",
+      "plugins/openspec/hooks/test-slots.test.mjs",
       "plugins/openspec/hooks/version-pin.test.mjs",
       "plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs",
       "plugins/openspec/skills/devkit/scripts/setup-block.test.mjs"
@@ -523,6 +524,7 @@
       "plugins/openspec/hooks/roadmap-loop.test.mjs",
       "plugins/openspec/hooks/stage-models.test.mjs",
       "plugins/openspec/hooks/status-line.test.mjs",
+      "plugins/openspec/hooks/tick-gate.test.mjs",
       "plugins/openspec/hooks/version-pin.test.mjs",
       "plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs",
       "plugins/openspec/skills/devkit/scripts/gh-version.test.mjs",
@@ -700,6 +702,9 @@
       "plugins/openspec/skills/devkit/scripts/github-setup.test.mjs",
       "plugins/openspec/skills/devkit/scripts/setup-block.test.mjs"
     ],
+    "plugins/openspec/hooks/request-file.mjs": [
+      "plugins/openspec/hooks/request-file.test.mjs"
+    ],
     "plugins/openspec/hooks/roadmap-loop-fixtures.mjs": [
       "plugins/openspec/hooks/change-loop-declared.test.mjs",
       "plugins/openspec/hooks/roadmap-loop-followups.test.mjs",
@@ -772,8 +777,17 @@
       "plugins/openspec/skills/devkit/scripts/github-setup.test.mjs",
       "plugins/openspec/skills/devkit/scripts/setup-block.test.mjs"
     ],
+    "plugins/openspec/hooks/standing-answers.mjs": [
+      "plugins/openspec/hooks/standing-answers.test.mjs"
+    ],
     "plugins/openspec/hooks/status-line.mjs": [
       "plugins/openspec/hooks/status-line.test.mjs"
+    ],
+    "plugins/openspec/hooks/test-slots.mjs": [
+      "plugins/openspec/hooks/test-slots.test.mjs"
+    ],
+    "plugins/openspec/hooks/tick-gate.mjs": [
+      "plugins/openspec/hooks/tick-gate.test.mjs"
     ],
     "plugins/openspec/hooks/train-loop.mjs": [
       "plugins/openspec/hooks/change-loop-compozy.test.mjs",
