@@ -133,7 +133,7 @@ function validateStage1(reviewer, value, head) {
     ids.push(id);
     let disposition = null;
     if (f.disposition !== null && f.disposition !== undefined) {
-      disposition = oneLine(f.disposition, 400);
+      disposition = oneLine(f.disposition, Infinity);
       if (!/^(fixed in [0-9a-f]{7,40}|refuted:\s*\S.*)$/i.test(disposition)) invalid(reviewer + ': finding ' + id + ' has a disposition that is neither "fixed in <sha>" nor "refuted: <evidence>"');
     }
     return { id, severity: f.severity, location: oneLine(f.location, 200), text: oneLine(f.text, 2000), disposition };
@@ -161,7 +161,7 @@ function decide(votes) {
   return {
     refuted: refuting.length >= MAJORITY,
     refutations: refuting.length,
-    evidence: refuting.map((v) => oneLine(v.evidence, 400)).join(' / '),
+    evidence: refuting.map((v) => oneLine(v.evidence, Infinity)).join(' / '),
   };
 }
 
@@ -294,6 +294,53 @@ function verifierPrompt(args, entry, finding) {
     + 'Write no file. End your reply with one fenced json block: { refuted: boolean, evidence: "<one line>" }.\n';
 }
 
+// The reviewer's own `## Summary` / `### Summary` section left out of `sections` (the round writes its own).
+function withoutSummary(sections) {
+  const kept = [];
+  let fence = null;
+  let dropLevel = 0;
+  for (const line of String(sections).split('\n')) {
+    const open = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+    if (fence) {
+      const close = new RegExp('^ {0,3}' + fence[0] + '{' + fence.length + ',}[ \\t]*\\r?$');
+      if (close.test(line)) fence = null;
+      if (!dropLevel) kept.push(line);
+      continue;
+    }
+    if (open) {
+      fence = [open[1][0], open[1].length];
+      if (!dropLevel) kept.push(line);
+      continue;
+    }
+    const heading = /^(#{1,6})(?:[ \t]|\r?$)/.exec(line);
+    if (heading) {
+      const level = heading[1].length;
+      if (dropLevel && level <= dropLevel) dropLevel = 0;
+      if (!dropLevel && /^#{2,3}[ \t]+summary[ \t]*\r?$/i.test(line)) dropLevel = level;
+    }
+    if (!dropLevel) kept.push(line);
+  }
+  return kept.join('\n');
+}
+
+// The one summary line the round builds from the outcome; praise is counted apart and never listed.
+function summaryLine(outcome) {
+  const all = outcome.findings;
+  const count = (sev) => all.filter((f) => f.severity === sev).length;
+  const real = all.filter((f) => f.severity !== 'praise');
+  const ids = (pick) => {
+    const list = real.filter(pick).map((f) => f.id);
+    return list.length ? list.join(', ') : 'none';
+  };
+  const b = count('blocking');
+  const i = count('important');
+  const t = count('nit');
+  return '- ' + (b + i + t) + ' findings (' + b + ' blocking, ' + i + ' important, ' + t + ' nit) + ' + count('praise') + ' praise'
+    + '; open: ' + ids((f) => f.status === 'open')
+    + '; fixed: ' + ids((f) => /^fixed in /i.test(f.disposition || ''))
+    + '; refuted: ' + ids((f) => f.status === 'refuted' || /^refuted:/i.test(f.disposition || ''));
+}
+
 function writerPrompt(args, outcome) {
   return lead(args)
     + 'This is stage 3 of a staged review round for change ' + args.change + ' (round ' + args.round + ' of ' + roundLimit(args) + '). Do not review again.\n'
@@ -307,7 +354,10 @@ function writerPrompt(args, outcome) {
     + 'then these lines, verbatim:\n'
     + outcome.lines.join('\n') + '\n'
     + 'then a blank line, then this text, verbatim:\n'
-    + outcome.sections + '\n'
+    + withoutSummary(outcome.sections) + '\n'
+    + 'then a blank line, then the line: ### Summary\n'
+    + 'then this line, verbatim, as the last line of the file:\n'
+    + summaryLine(outcome) + '\n'
     + 'End your reply with one fenced json block: { written: boolean, verdict: "<the verdict you wrote>", commit: "<the sha on line 2>" }.\n';
 }
 

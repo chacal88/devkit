@@ -1,0 +1,38 @@
+# Gate of phase 1: node scripts/test-suite.mjs --own-files --concurrency=2 && python3 scripts/check.py
+# head b7acf8f plus the uncommitted phase-1 diff; started 11:33 (load 11.99), ended 12:27 (load 12.76), other changes' suites running on the machine; exit 0
+selected plugins/compozy/kit/scripts/gen-agents.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/core/skills/review-change/scripts/review-round.test.mjs by docs/openspec-flow.md
+selected plugins/openspec/hooks/change-loop-compozy.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/change-loop-declared.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/change-loop-remote-state.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/change-loop-remote.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/change-loop.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/change-state-stages.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/compozy-driver.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/conduct-check.test.mjs by plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/deliver-check-archive.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/deliver-check-cli.test.mjs by plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/deliver-check.test.mjs by plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/delivery-models.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/delivery-train-after.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/delivery-train-after.test.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/delivery-train.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/delivery-train.test.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/flow-check.test.mjs by plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/guard.test.mjs by docs/openspec-flow.md, plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/jira-task.test.mjs by plugins/openspec/hooks/change-loop.mjs
+selected plugins/openspec/hooks/merge-setup.test.mjs by plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/project-loop.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/release-merge.test.mjs by plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/release-note.test.mjs by plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/release-tags.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/roadmap-loop-followups.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/roadmap-loop-upfront.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/roadmap-loop.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/stage-models.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/status-line.test.mjs by docs/openspec-flow.md, plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/hooks/version-pin.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/skills/devkit/scripts/changes-under-way.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/skills/devkit/scripts/gh-version.test.mjs by plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/skills/devkit/scripts/github-setup.test.mjs by plugins/openspec/hooks/train-loop.mjs
+selected plugins/openspec/skills/devkit/scripts/setup-block.test.mjs by plugins/openspec/hooks/change-loop.mjs, plugins/openspec/hooks/train-loop.mjs
+suite: 34 files, 3673 tests, 3673 pass, 0 fail, 3225.3s, concurrency 2
+all checks passed

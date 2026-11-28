@@ -8,7 +8,7 @@
 // `next` derives everything from files, git and GitHub on each call and prints ONE JSON action `{ version: 1, kind:
 // 'session' | 'end', step, detail, reply, end?, progressKey }` (exit 0 an action, 1 a wait, 2 blocked, 3 unreadable, as the
 // change loop). `depart` cuts `train/<n>` from the base branch, joins the boarded heads in order, runs the project's
-// whole-suite command once, bisects a red train, writes the record and commits it; it pushes nothing: the push, the pull
+// whole-suite command once, bisects a red train, writes the record and commits it (an empty train writes its record uncommitted under the git common dir instead); it pushes nothing: the push, the pull
 // request and auto-merge are steps `next` hands to the session. `depart --update` brings the base into an open train. `wait`
 // polls `next` and prints the action once it differs from the first one. No dependencies of its own: it imports the
 // delivery checker, the merge setup reader and the loop's message table.
@@ -154,6 +154,9 @@ export function lockFile(root, env = process.env) {
   const common = gitOut(root, env, 'rev-parse', '--path-format=absolute', '--git-common-dir');
   return join(common, 'devkit', 'train.lock');
 }
+
+// An empty train writes no branch, so its record lives outside every checkout, uncommitted, one file per train number.
+const emptyRecordFile = (root, env, n) => join(gitOut(root, env, 'rev-parse', '--path-format=absolute', '--git-common-dir'), 'devkit-trains', `${n}.md`);
 
 function lockAge(file, now) {
   try { return now - statSync(file).mtimeMs; } catch { return null; }
@@ -336,6 +339,7 @@ const entryOf = (e, order) => ({ order, kind: e.kind, id: e.id, number: e.number
 const leftOf = (l) => ({ kind: l.kind, id: l.id, number: l.number, head: l.head, why: l.why, detail: l.detail, failure: l.failure ?? null });
 const outBoarded = (e) => ({ kind: e.kind, id: e.id, number: e.number, head: e.head, at: e.at });
 const outLeft = (l) => ({ kind: l.kind, id: l.id, number: l.number, why: l.why, detail: l.detail });
+const outLeftFailed = (l) => ({ ...outLeft(l), failure: l.failure ?? null });
 
 function departTrain(ctx) {
   const { root, env, base } = ctx;
@@ -365,7 +369,10 @@ function departTrain(ctx) {
     for (;;) {
       if (list.length === 0) {
         drop(b);
-        return result(1, { n, result: 'empty', boarded: [], left: left.map(outLeft), runs: runs.length, reply: ctx.say('train-nothing') });
+        const file = emptyRecordFile(root, env, n);
+        mkdirSync(dirname(file), { recursive: true });
+        writeFileSync(file, writeTrainRecord({ n, base, result: 'empty', baseSha, suite: ctx.suite, ranAt: baseSha, boarded: [], left: left.map(leftOf), runs }));
+        return result(1, { n, result: 'empty', record: file, boarded: [], left: left.map(outLeftFailed), runs: runs.length, reply: ctx.say('train-empty', { where: file }) });
       }
       const r = test(b, list);
       if (r.ok) break;
