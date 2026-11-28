@@ -37,14 +37,14 @@ other suite on the machine, and record the load (`uptime`) next to it.
 
 ## 1. The field merge, its tests and its docs (phase 1)
 
-- [ ] 1.1 The pure helper (D-1 to D-5). In `plugins/openspec/hooks/release-merge.mjs`: `diffPaths` pushes
+- [x] 1.1 The pure helper (D-1 to D-5). In `plugins/openspec/hooks/release-merge.mjs`: `diffPaths` pushes
   segment arrays, a private `formatPath` builds today's strings, `manifestEditsBeyondVersion` maps through it,
   and the new export `mergeManifestFields({ mergeBase, change, base })` returns `{ edits, whole, both, text }`.
   Tests T1 to T6 in `plugins/openspec/hooks/release-merge.test.mjs` (import the new export beside
   `manifestEditsBeyondVersion` on `:10`). Check: T1 to T6 red before the helper exists, green after;
   `release-merge: manifestEditsBeyondVersion is empty for a version edit and names a description edit` (`:77`)
   green unchanged.
-- [ ] 1.2 The `--base` tests (T7, T8, T9) in `plugins/openspec/hooks/release-merge.test.mjs`. T8 replaces the
+- [x] 1.2 The `--base` tests (T7, T8, T9) in `plugins/openspec/hooks/release-merge.test.mjs`. T8 replaces the
   test at `:246` (`release-merge: a manifest edited beyond its version aborts to oldHead`); its commit message
   names the D-9 row (invariant "a manifest the rule cannot resolve aborts to the old head", layer the `--base`
   CLI of `release-merge.mjs`, suite `release-merge.test.mjs`). T7 asserts exit 0, `resolved: true`, plugin `a`
@@ -55,7 +55,7 @@ other suite on the machine, and record the load (`uptime`) next to it.
   Check: T7 and T8 red on the code of 1.1 (T7 exits 2 there; T8's error text is absent), T9 green there
   too; all three green after 1.4; `release-merge: an invalid JSON manifest on the branch restores to
   oldHead with exit 2` (`:262`) green unchanged.
-- [ ] 1.3 The `--merge` tests (T11 to T15) in `plugins/openspec/hooks/delivery-train.test.mjs`, with
+- [x] 1.3 The `--merge` tests (T11 to T15) in `plugins/openspec/hooks/delivery-train.test.mjs`, with
   `joinRepo` (`:191-214`) and the file's `MINOR` and `PATCH` constants, each as D-8 states. T11's `initial`
   adds a `scripts/gen-catalog.py` stub that writes one line per `plugins/*/.claude-plugin/plugin.json`
   (`<name>: <description>`) to `docs/catalog.md`, and asserts that line holds the head's description in the
@@ -63,13 +63,13 @@ other suite on the machine, and record the load (`uptime`) next to it.
   pack `c` while the head edits `a`'s description (exit 0, `c` kept, the head's description kept). Check: T11,
   T13, T14 and T15's second case red on the code of 1.1, T12 and T15's first case green there (named so in
   the commit message); all green after 1.4.
-- [ ] 1.4 The caller (D-6), which turns 1.2 and 1.3 green. In `plugins/openspec/hooks/release-merge.mjs`:
+- [x] 1.4 The caller (D-6), which turns 1.2 and 1.3 green. In `plugins/openspec/hooks/release-merge.mjs`:
   `resolveVersions` returns `{ changed, versions }` (no `beyond`, no `manifestEditsBeyondVersion` call); the version step of `main`
   (`:712-720`) runs D-6 steps 1 to 4 in order, with the two error texts of D-7. `assignBlocking` (`:359`) is not
   touched. Check: `git diff origin/main -- plugins/openspec/hooks/release-merge.mjs` changes nothing between
   `export function assignBlocking` and the end of `numberRelease`; the filtered run is green, T7, T8, T11, T13,
   T14 and T15 included.
-- [ ] 1.5 The docs (D-7) and T10. Edit `docs/openspec-flow.md` ("Classification", "The version rule", "A join
+- [x] 1.5 The docs (D-7) and T10. Edit `docs/openspec-flow.md` ("Classification", "The version rule", "A join
   that conflicts") and `CONTRIBUTING.md` step 5 with the D-7 texts, every other sentence byte for byte; add T10
   to `plugins/openspec/hooks/release-merge.test.mjs`. Grep before the edit for each replaced phrase in
   `plugins/**/*.test.mjs` and `scripts/` (D-9 lists the hits at plan time) and keep the pinned parts:
@@ -77,7 +77,7 @@ other suite on the machine, and record the load (`uptime`) next to it.
   `deliver-check-archive.test.mjs:1250`. Do not touch a pin line of `docs/openspec-flow.md`. Check: T10 red
   before the edit, green after; `python3 scripts/check.py` passes; the three pinning files run green in 1.6
   (`scripts/test-map.json` maps `plugins/openspec/hooks/release-merge.mjs` to each of them).
-- [ ] 1.6 Gate: `node scripts/test-suite.mjs --own-files --concurrency=4 && python3 scripts/check.py` green
+- [x] 1.6 Gate: `node scripts/test-suite.mjs --own-files --concurrency=4 && python3 scripts/check.py` green
   (AC-1 to AC-5 in fixtures, AC-6 in fixture, AC-7).
 
 ## 2. The real run and the delivery checks (phase 2)
