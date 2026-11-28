@@ -102,7 +102,7 @@ other suite on the machine, and record the load (`uptime`) next to it.
   `openspec validate release-merge-manifest-fields --strict` exit 0;
   `git diff --name-only origin/main...HEAD -- CHANGELOG.md .claude-plugin/marketplace.json 'plugins/*/.claude-plugin/plugin.json' docs/catalog.md`
   prints nothing; `release.md` is unchanged since the plan's approval.
-- [ ] 2.4 Gate: `node scripts/test-suite.mjs --own-files --concurrency=4 && python3 scripts/check.py` green
+- [x] 2.4 Gate: `node scripts/test-suite.mjs --own-files --concurrency=4 && python3 scripts/check.py` green
   after 2.1's merge (AC-1 to AC-7). The pr-verifier writes the selective part as its own `pass` row with the
   run's `selected` lines and its `suite:` line (CLAUDE.md).
 
