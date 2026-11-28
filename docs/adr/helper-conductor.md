@@ -1,12 +1,13 @@
 # ADR [helper-conductor]: A roadmap run is conducted by one scheduled task of the project, whose ticks each drive one change from their own session, with no session per change and no question box per change
 
-- Status: accepted
-- Accepted by: the owner, on 2026-11-28, in the approval of the plan of change helper-conductor (openspec/changes/helper-conductor/approval.md)
+- Status: proposed
 - Date: 2026-11-28
 - Revised: 2026-11-28, after the first task's real run (`openspec/changes/helper-conductor/proof/`,
   `decision.md`), with the pick of decision 3 and the task's end of decision 1; then after probe 2
   (`p2-result.md`), with the tick's prompt and its detection (decisions 1 and 2), ADR 0008 decision 5
-  and the conservative machine rule (decision 10), before the plan's approval is recorded again
+  and the conservative machine rule (decision 10), before the plan's approval is recorded again;
+  then after task 3.6's headless measurement (`p5-empty-tick.md`, `decision.md`), with the tick
+  gate's footing in the context, the consequences and the review trigger, the decisions unchanged
 - Change: helper-conductor
 - Number: none; this record follows the release-note rule (ADR 0034 (0034-release-at-merge.md),
   decision 3), so the delivery of its change gives it the next free number on the base and rewrites
@@ -125,9 +126,22 @@ The plan's second probe ran the same day (`openspec/changes/helper-conductor/pro
 - A run's status is no lock: the run read `succeeded` while a background command it started was
   still alive.
 
-The cost of a firing blocked before the model, the hook's note reaching the session, the cron and
-the notification tool are not measured; the plan's later probe settles them before they are relied
-on.
+Task 3.6 measured the blocked tick on 2026-11-28 without a scheduled task
+(`openspec/changes/helper-conductor/proof/p5-empty-tick.md`): a scheduled task cannot be pointed at
+another folder, because `create_scheduled_task` takes no working folder and a task runs in the
+project of the session that created it, so the measurement on a real scheduled firing moves to task
+6.1. As the coordinator decided on 2026-11-28 (`proof/decision.md`, "Phase 3 measurement and the
+tick gate's footing"), until task 6.1's run on the owner's Mac the tick gate (decision 2) rests on:
+
+- two facts measured on scheduled firings: the firing's prompt arrives inside
+  `<scheduled-task name="...">` (`p2-result.md`), and the plugin's hooks run in a task's session
+  (`p1-hooks.md`);
+- one fact measured headless: a `UserPromptSubmit` block of the tick's prompt, bare or in the
+  scheduler's envelope, costs 0 turns and 0 tokens in `claude -p` with the machine's plugins
+  (`p5-empty-tick.md`);
+- one fact not measured: that a `UserPromptSubmit` hook sees a scheduled firing and that its block
+  costs no model call there. Task 6.1 measures it, with the cron, the notification tool and two runs
+  at once.
 
 ADR 0013 rejected a change-coordinator subagent per change (its option (a)) for three reasons: a
 subagent cannot ask the owner, cannot write `approval.md`, and is gone when a wait ends; and it
@@ -314,9 +328,10 @@ loaded the machine, and left the change behind (field fact 12).
   the conductor never writes that file). The conductor answers grill questions (Mitigated: each
   answer names its source, and a question nothing settles reaches the owner unless the grill is
   delegated). A scheduled session loading the plugin and its hooks is host behaviour one probe showed, not a
-  documented one, and a firing blocked before the model is not yet measured (Mitigated: the plan's
-  later probes prove the block and its cost before the hook is relied on; the hooks fail as they do
-  in any session). The tick's session carries one change's drive in its own context up to the next
+  documented one, and a block costing no model call is measured only headless, not on a scheduled
+  firing (Mitigated: task 6.1's run on the owner's Mac measures that a `UserPromptSubmit` hook sees a
+  scheduled firing and that its block costs no model call there before the hook is relied on; the
+  hooks fail as they do in any session). The tick's session carries one change's drive in its own context up to the next
   wait (Mitigated: one claim per tick, the drive ending at the wait, and a lost end costs one tick,
   the claim going stale). The task lives only where the desktop app runs: a machine the app reaches
   as an SSH host cannot hold it, and a conducted run no longer spreads its items over the `machines`
@@ -337,7 +352,8 @@ gate at once). The delivered-item check can skip an item that is not delivered
 ### Review trigger
 
 A scheduled task's session is found without the devkit hooks, or an empty tick is found calling the
-model; a helper is found asking the owner, starting a session, writing a gate file, or an agent it handed a
+model; task 6.1's run finds a scheduled firing that does not pass through `UserPromptSubmit`, or a
+blocked firing that the app counts as a model call; a helper is found asking the owner, starting a session, writing a gate file, or an agent it handed a
 stage to is found dispatching another; a gate is
 recorded with neither the owner's typed words nor a quoted delegation; two helpers are found on one
 change; a firing after `stop` or the run's end is found reaching the model, or the owner list is found
