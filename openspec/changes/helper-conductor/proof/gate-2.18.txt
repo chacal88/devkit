@@ -1,0 +1,230 @@
+load at start: 10.85 12.48 11.23 5/2217 2505530
+selected plugins/openspec/hooks/request-file.test.mjs by plugins/openspec/hooks/request-file.mjs, plugins/openspec/hooks/request-file.test.mjs
+selected plugins/openspec/hooks/standing-answers.test.mjs by plugins/openspec/hooks/standing-answers.mjs, plugins/openspec/hooks/standing-answers.test.mjs
+selected plugins/openspec/hooks/test-slots.test.mjs by plugins/openspec/hooks/test-slots.mjs, plugins/openspec/hooks/test-slots.test.mjs
+selected plugins/openspec/hooks/test-suite.test.mjs by scripts/test-map.json
+selected plugins/openspec/hooks/tick-gate.test.mjs by plugins/openspec/hooks/tick-gate.mjs, plugins/openspec/hooks/tick-gate.test.mjs
+start plugins/openspec/hooks/test-suite.test.mjs
+start plugins/openspec/hooks/tick-gate.test.mjs
+=== plugins/openspec/hooks/tick-gate.test.mjs
+✔ tick-gate AC-3 rule 1: no task is no-task, before the task is installed and after the run ended (7.562799ms)
+✔ tick-gate AC-3 rule 2: stopping with a live claim or a live train claim is stopping-busy, with neither it is stopping (1.392309ms)
+✔ tick-gate AC-3 rule 3: every queued id archived, or held archived or skipped, is done (2.138633ms)
+✔ tick-gate AC-3 rule 4: live claims at the number of places is helpers-full, a stale claim is not a live one (1.723648ms)
+✔ tick-gate AC-3 rule 5: the first queued item with no hold is ready, a claimed or archived one is skipped, in order (1.112747ms)
+✔ tick-gate AC-3 rule 5: a queue entry that is no change id is skipped (0.726174ms)
+✔ tick-gate AC-3 rule 5 delegated: a delegated hold is ready (0.854362ms)
+✔ tick-gate AC-3 rule 5 github, after, elsewhere: ready at recheckAt and not before (1.048482ms)
+✔ tick-gate AC-3 rule 5 place: ready while the held places are fewer than the run's places (1.525439ms)
+✔ tick-gate AC-3 rule 5 load: ready under the limit, or when the id is in anyway (0.998377ms)
+✔ tick-gate AC-3 rule 5 owner: ready once the owner line of the item is gone (0.709166ms)
+✔ tick-gate AC-3 rule 5 escalated: ready once the answer file and the Reopened item exist (0.768541ms)
+✔ tick-gate AC-3 rule 5 blocked, boarded, archived, skipped: never ready for the change itself (1.016218ms)
+✔ tick-gate AC-3 rule 4a: a boarded hold with no live train claim and no train hold makes @train ready, before any change (0.815031ms)
+✔ tick-gate AC-3 rule 4a train.hold: github at recheckAt, owner once @train's line is gone, else the train waits (0.94013ms)
+✔ tick-gate AC-3 rule 4a: the train does not dispatch when the places are full, nor when nothing is boarded (0.47703ms)
+✔ tick-gate AC-3 rule 6: nothing ready is nothing-ready (0.610126ms)
+✔ tick-gate AC-3 claims: DEVKIT_CLAIM_STALE_MS from 1000 up replaces the two hours, anything else is ignored (0.857905ms)
+✔ tick-gate AC-3 commonDirOf: from the main checkout and from a worktree it equals git rev-parse --git-common-dir (114.170431ms)
+✔ tick-gate AC-3 commonDirOf: no git folder, or a .git file that names nothing, is null (1.732454ms)
+✔ tick-gate AC-3 localRunFilePath: <common dir>/devkit/roadmap-run.json, the same file from the main checkout and a worktree (68.356886ms)
+✔ tick-gate AC-3 localFacts: archived names the archive folders, open lists the main checkout and the living worktrees (77.809029ms)
+✔ tick-gate AC-3 localFacts: heldPlaces counts the occupied entries of open changes and leaves out one no longer open (90.43419ms)
+✔ tick-gate AC-3 localFacts: the limit is the setting's whole number from 1 to 1000, else 80, and the load is a number (173.835096ms)
+✔ tick-gate AC-3 localFacts: an escalated hold is answered when its answer file and its Reopened item exist (206.226987ms)
+✔ tick-gate AC-3 hook (envelope): nothing ready blocks, from the main checkout and from a worktree (389.78723ms)
+✔ tick-gate AC-3 hook (envelope): stopping-busy, helpers-full and no-task block with their why (518.455185ms)
+✔ tick-gate AC-3 hook (envelope): a missing run file reads as no run and blocks (180.890498ms)
+✔ tick-gate AC-3 hook (envelope): a run that ended blocks and names the deletion in the app (224.510594ms)
+✔ tick-gate AC-3 hook (envelope): an item ready, a run done and a run stopping with no live claim let the firing through with the tick's note (629.943843ms)
+✔ tick-gate AC-3 hook (envelope): an unset setting is left out of the tick call (219.836944ms)
+✔ tick-gate AC-3 hook (envelope): a run file that exists but does not parse to an object prints nothing (830.133851ms)
+✔ tick-gate AC-3 hook (envelope): a first line naming another root, or a project that is not opted in, prints nothing (501.069227ms)
+✔ tick-gate AC-3 hook (stored prompt): nothing ready blocks, from the main checkout and from a worktree (394.511586ms)
+✔ tick-gate AC-3 hook (stored prompt): stopping-busy, helpers-full and no-task block with their why (505.396364ms)
+✔ tick-gate AC-3 hook (stored prompt): a missing run file reads as no run and blocks (179.670089ms)
+✔ tick-gate AC-3 hook (stored prompt): a run that ended blocks and names the deletion in the app (204.081042ms)
+✔ tick-gate AC-3 hook (stored prompt): an item ready, a run done and a run stopping with no live claim let the firing through with the tick's note (437.891223ms)
+✔ tick-gate AC-3 hook (stored prompt): an unset setting is left out of the tick call (308.209236ms)
+✔ tick-gate AC-3 hook (stored prompt): a run file that exists but does not parse to an object prints nothing (715.173846ms)
+✔ tick-gate AC-3 hook (stored prompt): a first line naming another root, or a project that is not opted in, prints nothing (574.345011ms)
+✔ tick-gate AC-3 hook: a tag of another task's name prints nothing (268.467929ms)
+✔ tick-gate AC-3 hook: any other prompt, a payload that does not parse and an empty stdin print nothing (899.666572ms)
+✔ tick-gate AC-3 hook: no common git folder prints nothing (234.198839ms)
+✔ tick-gate AC-3 hook: DEVKIT_HOOK_LOG gets one JSON line per decision, none for a prompt it ignores (469.37112ms)
+✔ tick-gate AC-3 hook: importing the module runs nothing and reads no stdin (94.211831ms)
+ℹ tests 46
+ℹ suites 0
+ℹ pass 46
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9875.755592
+=== plugins/openspec/hooks/tick-gate.test.mjs: pass 10.0s
+start plugins/openspec/hooks/request-file.test.mjs
+=== plugins/openspec/hooks/request-file.test.mjs
+✔ request AC-14 write: a draft becomes requests/1-<gate>.md with the header, the numbered title and its three sections (15.416363ms)
+✔ request AC-14 write: a draft that already holds a header and a numbered title is stamped once, not twice (9.81734ms)
+✔ request AC-14 write: n counts from 1 in the folder and the slug is the gate id (6.809672ms)
+✔ request AC-14 write: a missing heading is refused with exit 3 and the heading it lacks, and nothing is written (5.376835ms)
+✔ request AC-14 write: a heading inside a fenced block does not count (2.170244ms)
+✔ request AC-14 write: an unclosed fence is refused (2.222398ms)
+✔ request AC-14 write: an unknown gate, a missing draft and a draft with no title are refused, with exit 3 (2.650543ms)
+✔ request AC-16 summary: an approval request holds a Summary in place of Facts, at most 12 non-blank lines (2.540235ms)
+✔ request AC-16 summary: 13 non-blank lines are refused with summary-too-long and the count, exit 3 (2.718611ms)
+✔ request AC-16 summary: an approval request with Facts and no Summary lacks the Summary heading (3.157091ms)
+✔ request AC-14 parse: a text with no header or a gate that is not one reads as not ok (0.579929ms)
+✔ request AC-14 answer: writes requests/<n>-<slug>.answer.md with its header and words, and readAnswer reads it back (4.504124ms)
+✔ request AC-14 answer: an owner answer with no line records line=none and reads back with a null line (4.167732ms)
+✔ request AC-14 answer: no request, a second answer, another author and a line that is no number are refused with exit 3 (3.904637ms)
+✔ request AC-14 answer: a file that does not parse reads as no answer (3.755939ms)
+✔ request AC-16 words: an approval answer is cut at 200 characters and another gate keeps its words (4.130342ms)
+✔ request AC-14 list: the requests in order, each with its gate and whether its answer exists (3.535399ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 299.337523
+=== plugins/openspec/hooks/request-file.test.mjs: pass 0.4s
+start plugins/openspec/hooks/test-slots.test.mjs
+=== plugins/openspec/hooks/test-slots.test.mjs
+✔ capacity AC-22 constants: the lock and the 15-second step (12.41862ms)
+✔ capacity AC-22 paths: DEVKIT_STATE_DIR, else XDG_STATE_HOME/devkit, else ~/.local/state/devkit (4.687442ms)
+✔ capacity AC-22 ledger: a missing one and one that does not parse read as empty, and reading writes nothing (11.351787ms)
+✔ capacity AC-22 suite: a second whole suite waits while the first holds the slot and takes it after the first is released (14.046713ms)
+✔ capacity AC-22 train: a train suite waiting keeps a change suite from the slot, and the train takes it first once it is free (21.279448ms)
+✔ capacity AC-22 train: while the train suite runs or waits a new gate waits, and takes a slot after the train is released (5.799617ms)
+✔ capacity AC-22 train: the train waits for the gates in flight and takes the slot once they are released, clearing its trainWaiting (6.736456ms)
+✔ capacity AC-22 gates: a third gate waits at gates 2 with the count of runs in flight (6.485315ms)
+✔ capacity AC-22 gates: a gate and a whole suite do not hold each other back when no train is involved (3.175925ms)
+✔ capacity AC-22 dead pid: its slot is taken, the injected alive deciding (5.167016ms)
+✔ capacity AC-22 dead pid: with the default alive, a child that has exited holds no slot and this process does (100.770477ms)
+✔ capacity AC-22 clones: two clone roots on one state folder share the whole-suite slot (2.064093ms)
+✔ capacity AC-22 release: it removes that pid's suite, gate and trainWaiting entries and no other, and a missing ledger is no error (4.862162ms)
+✔ capacity AC-22 wait: waitForSlot logs its first wait line once, nothing on later rounds, and sleeps the step between rounds (7.737639ms)
+✔ capacity AC-22 wait: a free slot resolves at once with no log and no sleep, and stepMs overrides the step (7.919066ms)
+✔ capacity AC-22 ledger: a ledger written by a take is the version-1 shape on disk (4.397478ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 599.571763
+=== plugins/openspec/hooks/test-slots.test.mjs: pass 0.7s
+start plugins/openspec/hooks/standing-answers.test.mjs
+=== plugins/openspec/hooks/standing-answers.test.mjs
+✔ standing AC-6 no file: no answers and no delegations (12.047677ms)
+✔ standing AC-6 empty file: no answers and no delegations (10.287417ms)
+✔ standing AC-6 an unreadable file (a folder in its place): no answers and no delegations (3.249429ms)
+✔ standing AC-6 two sections: answers under Answers, delegations under Delegations, each with its line number (6.121376ms)
+✔ standing AC-6 a heading other than the two ends a section: its lines are no answers (3.099599ms)
+✔ standing AC-8 an unknown gate is ignored (10.085338ms)
+✔ standing AC-8 a delegation with no quote is ignored (2.27269ms)
+✔ standing AC-6 a line inside a closed fence is ignored, and the lines after it count (2.207132ms)
+✔ standing AC-6 an unclosed fence ignores every line after it (5.956612ms)
+✔ standing AC-8 a delegation under Answers is no delegation, and an answer under Delegations is no answer (5.515742ms)
+✔ standing AC-8 two delegations of one gate: the first one stands (8.391042ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 323.056911
+=== plugins/openspec/hooks/standing-answers.test.mjs: pass 0.5s
+=== plugins/openspec/hooks/test-suite.test.mjs
+✔ suite-speed AC-1 started through a symlinked folder or file, the script still runs (a bad argument exits 2 with the usage) (313.146503ms)
+✔ suite-speed AC-1 the script runs the test files of the four folders and no other (655.260737ms)
+✔ suite-speed AC-1 the repository suite holds every file the old command ran (5.197973ms)
+✔ setup AC-3 suite: the repository suite lists setup-block.test.mjs and kit-installer.test.mjs under the devkit skill's scripts, and no test file under the two removed setup folders (4.401508ms)
+✔ suite-speed AC-1 files run at the same time up to --concurrency (2861.589824ms)
+✔ suite-speed AC-1 a bad argument exits 2 and runs nothing (1461.69354ms)
+✔ suite-speed AC-1 a tree with no test file fails instead of passing empty (174.002822ms)
+✔ suite-speed AC-1 file arguments, the reporter and name patterns reach the children; a pattern that matches nothing is not an error (1909.159938ms)
+✔ suite-speed AC-3 a test file that imports another is refused by file and line before any file runs (208.576047ms)
+✔ suite-speed AC-3 a fixtures module that imports a test file is refused by file and line (160.417873ms)
+✔ suite-speed AC-3 no test file under plugins imports another test file (83.750427ms)
+✔ suite-speed AC-4 each file runs in its own empty TMPDIR under one run root, removed after (468.019778ms)
+✔ suite-speed AC-4 a symlinked TMPDIR gives each file a real path (401.122831ms)
+✔ suite-speed AC-4 a file that leaves something in its TMPDIR fails the run and is named with what it left (1344.469323ms)
+✔ suite-speed AC-6 a failing test exits 1 and prints its name and file; the other files still run (647.733004ms)
+✔ suite-speed AC-4 SIGTERM stops every running file, removes the run root and exits 143 (667.673816ms)
+✔ suite-speed AC-5c check.py refuses skip, only and todo in the suite test files, not in compozy (621.483847ms)
+✔ suite-speed AC-7 the docs and the agents context name the one command, and no file outside the records names the old one (104.869095ms)
+✔ suite-speed AC-8 CLAUDE.md and CONTRIBUTING.md state the measured time (1.34809ms)
+✔ suite-socket-path AC-4 under a TMPDIR of 60 bytes or more a child binds <TMPDIR>/devkit-ch-xxxxxx/daemon.sock and its TMPDIR is at most 71 bytes (433.494516ms)
+✔ suite-socket-path AC-3 under the short run root a file that leaves something still fails the run with its name, and the root is removed (403.535461ms)
+✔ suite-socket-path AC-2 a TMPDIR whose run root fits exactly holds it and gives no line (1.759442ms)
+✔ suite-socket-path AC-3 a TMPDIR one byte over the limit puts the run root under the short folder with one line naming where and why (1.148265ms)
+✔ suite-socket-path AC-3 a TMPDIR that cannot be used puts the run root under the short folder and the line says why (1.342151ms)
+✔ suite-socket-path AC-3 when the short folder is too long as well, a usage error names both folders and nothing is made (1.802125ms)
+✔ suite-socket-path AC-3 when the short folder cannot be used either, a usage error names both folders (1.043531ms)
+✔ suite-socket-path AC-4 a TMPDIR over the limit by bytes but under it by characters puts the run root under the short folder (1.289344ms)
+✔ suite-socket-path AC-3 when no folder can hold the run root, the script exits 2 with the usage before any file runs (53.427719ms)
+✔ suite-socket-path AC-4 the run root fits by bytes: 51 fits, 52 does not, a non-ASCII byte counts (0.293393ms)
+✔ suite-socket-path AC-4 the run-root limit leaves room for a wider place: 71 up to 100 files, one less from 101 (0.192792ms)
+✔ suite-socket-path AC-4 a TMPDIR of exactly the longest base keeps the run root inside it and a socket bound at 103 bytes (312.318518ms)
+✔ selective-tests-by-map-2 AC-1 T-1 S4 an exact key selects its fast and its slow tests, each with the own path that selected it; a test no key links is not selected (1.601725ms)
+✔ selective-tests-by-map-2 AC-1 T-2 two own files linking one test: both are in its by, and the test is selected once (0.495361ms)
+✔ selective-tests-by-map-2 AC-1 T-3 S1 a touched suite test, slow or fast, selects itself; S2 a deleted one selects nothing (0.694304ms)
+✔ selective-tests-by-map-2 AC-1 T-4 S4 a folder key covers a path under it; the exact key beats the folder; the longer folder beats the shorter; a sibling is not covered (0.644649ms)
+✔ selective-tests-by-map-2 AC-2 AC-3 T-5 S3 a shared helper selects the fast tests that use it and no slow one, no other (0.57311ms)
+✔ selective-tests-by-map-2 AC-2 T-6 S3 a slow test the helper entry links is selected; the same slow test unlinked is not (0.424426ms)
+✔ selective-tests-by-map-2 AC-4 T-7 S7 an unmapped code path gives the whole suite naming it; mapped it gives its tests; under a key with an empty list it gives the whole suite again (0.544948ms)
+✔ selective-tests-by-map-2 AC-4 T-8 S5 and S6 select nothing; an unmapped markdown file under plugins/ gives the whole suite; a mapped openspec/ path or root markdown gives its tests (0.478289ms)
+✔ selective-tests-by-map-2 AC-4 T-9 a path that selects nothing beside a mapped one adds nothing; an unmapped code path beside a mapped one gives the whole suite (0.454541ms)
+✔ selective-tests-by-map-2 AC-2 AC-3 T-5 sharedUses finds the tests that import a shared helper directly, through another shared helper or through a -fixtures module, and no other (4.356219ms)
+✔ selective-tests-by-map-2 AC-9 T-10 M1 a key, value, shared key, shared link or slow item that names a missing path is a problem naming it; a folder key on a file is one; existing paths are none (54.950641ms)
+✔ selective-tests-by-map-2 AC-9 T-11 M2 a value, a shared link or a slow item that is no test file of the suite is a problem; a suite file is none (23.857151ms)
+✔ selective-tests-by-map-2 AC-9 T-12 M3 a suite test as a key and M4 one path as a file entry and a shared helper are problems; apart they are none (18.385106ms)
+✔ selective-tests-by-map-2 AC-9 T-13 M5 a module under a suite folder that no key covers is a problem; an exact key, a folder key, a shared key or a key with an empty list covers it (37.235079ms)
+✔ selective-tests-by-map-2 AC-9 T-14 M6 a test linked to nothing is a problem, a test that only imports a shared helper too; a files value or a shared link makes it none (30.75868ms)
+✔ selective-tests-by-map-2 AC-9 T-15 M7 and the input cases: a missing file, an empty file, not JSON, an array, an unknown key and a value that is no array of strings (5.46443ms)
+✔ selective-tests-by-map-2 AC-9 AC-2 T-16 the repository's own map has no problem, marks slow tests, shares test-fixtures.mjs and links a script by its code lines, not by a comment (26.70273ms)
+✔ test-map-hub-links AC-1 a document key is a non-code path outside plugins/ (0.873349ms)
+✔ test-map-hub-links AC-1 slowDocumentLinks names each document key that lists a slow test (0.947931ms)
+✔ test-map-hub-links AC-1 AC-2 AC-3 AC-4 the repository's map links no slow test to a document, keeps the named documents' readers and the hubs' dropped links out, and has no empty list (4.313904ms)
+✔ test-map-hub-links AC-3 AC-4 hubLinkProblems names a kept reader the hub list lacks and a link it holds beyond the kept ones (1.216078ms)
+✔ test-map-hub-links AC-3 the map links plugins/openspec/hooks/change-loop.mjs to exactly its kept readers (3.966931ms)
+✔ test-map-hub-links AC-4 the map links plugins/openspec/hooks/deliver-check.mjs to exactly its kept readers (3.573803ms)
+✔ selective-tests-by-map-2 AC-9 T-31 M5 on git's list: an untracked or an ignored file is no problem; a tracked module no key covers is one, committed or only staged; a deleted tracked file is none (215.059787ms)
+✔ selective-tests-by-map-2 AC-9 T-32 M5 falls back to the walk where git cannot tell: no work tree, a folder inside another repository, a work tree whose suite folders track no file (66.751335ms)
+✔ selective-tests-by-map-2 AC-1 T-17 a branch that touches a mapped module prints the selected lines with their by and starts only those files (443.475709ms)
+✔ selective-tests-by-map-2 AC-4 AC-6 T-18 a branch of docs and openspec/ files only exits 0, says it selected no test file, starts none and leaves no run root (254.718968ms)
+✔ selective-tests-by-map-2 AC-4 T-19 an unmapped code file starts every suite file after a line that names it (640.841226ms)
+✔ selective-tests-by-map-2 AC-7 T-20 a train branch, from the pull request variable or the local branch, runs the whole suite; another branch name stays selective (2635.074345ms)
+✔ selective-tests-by-map-2 AC-1 T-21 an uncommitted, a staged and an untracked own file count; an uncommitted openspec/ file selects nothing until it is committed (2162.916371ms)
+✔ selective-tests-by-map-2 AC-4 T-22 when the own files cannot be told, the whole suite runs: no origin/main, no git repository, no commit; release files only select nothing (2031.378935ms)
+✔ selective-tests-by-map-2 AC-9 T-23 a map that names a missing file exits 1 naming the entry and starts no file (185.123758ms)
+✔ selective-tests-by-map-2 AC-9 T-23 a missing or unreadable map file exits 1 before any file runs (330.936901ms)
+✔ selective-tests-by-map-2 AC-1 T-24 --own-files with a file argument or a value exits 2 and starts no file (261.791961ms)
+✔ selective-tests-by-map-2 AC-8 T-25 a whole run of a tree with a broken map and no deliver-check.mjs runs every file as before (530.362212ms)
+✔ selective-tests-by-map-2 AC-1 T-26 under --own-files, the reporter and a name pattern reach the selected children (946.771246ms)
+✔ selective-tests-by-map-2 AC-9 T-33 an ignored .DS_Store and __pycache__ change no selected line; an untracked stray file no key covers selects the whole suite; a committed one is refused (2010.355032ms)
+✔ selective-tests-by-map-2 AC-7 T-34 DEVKIT_BRANCH names the branch: train/4 runs the whole suite on a local feature branch, and feature beside GITHUB_HEAD_REF=train/7 stays selective (1080.112583ms)
+✔ selective-tests-by-map-2 AC-1 T-35 GITHUB_BASE_REF names the base: release selects only what the branch added past it, and a blank one diffs against origin/main (1002.132789ms)
+✔ selective-tests-by-map-2 AC-5 T-30 the config names the selective command as the test command and the gate, and the train keeps the whole command (0.904871ms)
+✔ selective-tests-by-map-2 AC-5 T-30 CLAUDE.md has the selective row after the whole one, CONTRIBUTING.md names the mode and the map, and the flow page names the project test command (3.234297ms)
+ℹ tests 72
+ℹ suites 0
+ℹ pass 72
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 28553.893783
+=== plugins/openspec/hooks/test-suite.test.mjs: pass 28.6s
+pass 0.4s plugins/openspec/hooks/request-file.test.mjs
+pass 0.5s plugins/openspec/hooks/standing-answers.test.mjs
+pass 0.7s plugins/openspec/hooks/test-slots.test.mjs
+pass 28.6s plugins/openspec/hooks/test-suite.test.mjs
+pass 10.0s plugins/openspec/hooks/tick-gate.test.mjs
+suite: 5 files, 162 tests, 162 pass, 0 fail, 28.6s, concurrency 2
+suite exit 0

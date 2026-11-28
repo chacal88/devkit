@@ -321,7 +321,7 @@ merge and the coordinator's word.
   `tick-gate.mjs` linking `tick-gate.test.mjs`, and `guard.mjs`'s list gains `tick-gate.test.mjs`
   (the module imports from it; it imports nothing from `roadmap-loop.mjs`). Check:
   `node scripts/test-suite.mjs --test-name-pattern="^tick-gate "` passes.
-- [ ] 2.18 Gate of the add-only tasks: `node scripts/test-suite.mjs --own-files --concurrency=2 && python3 scripts/check.py`
+- [x] 2.18 Gate of the add-only tasks: `node scripts/test-suite.mjs --own-files --concurrency=2 && python3 scripts/check.py`
   green, its `selected` lines recorded. AC-3 (the hook's part), AC-6 and AC-14 (the modules' part),
   AC-22 (the ledger's part).
 
