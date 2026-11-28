@@ -1,6 +1,7 @@
 # ADR [helper-conductor]: A roadmap run is conducted by one scheduled task of the project, whose ticks each drive one change from their own session, with no session per change and no question box per change
 
-- Status: proposed
+- Status: accepted
+- Accepted by: the owner, on 2026-11-28, in the approval of the plan of change helper-conductor (openspec/changes/helper-conductor/approval.md)
 - Date: 2026-11-28
 - Revised: 2026-11-28, after the first task's real run (`openspec/changes/helper-conductor/proof/`,
   `decision.md`), with the pick of decision 3 and the task's end of decision 1; then after probe 2
