@@ -13,7 +13,7 @@
 >    `test-private-tmpdir`, `test-map-hub-links`, `blocked-why-held`, `state-listing-speed`,
 >    `loop-place-and-evidence-followups`, `openspec-type-flag`, `review-writer-text`,
 >    `review-owner-rounds`, `train-empty-failure-text`, `release-merge-manifest-fields`,
->    `forced-merge-release-edit`, `delivery-merge-hold`.
+>    `forced-merge-release-edit`.
 > 3. After the new front: `coordination-panels` (mock of the screens first), `compozy-driver-gaps`,
 >    `coordination-cleanup`, `split-roadmaps`.
 >
@@ -86,7 +86,6 @@ Not changes of this repository, and so not lines of this roadmap: in each projec
 
 ## Round 17h: delivery against a moving base
 - [x] fresh-base-check — the delivery loop fetches origin/<base> before it judges a pull request's conflict or decides update-branch, so a step never says the base merges cleanly from a stale copy (review-writer-prompt retro, item 3)
-- [ ] delivery-merge-hold (after: roadmap-coordinator) — while a change's pull request is in delivery, the roadmap coordinator holds the merge of any other change that touches the same packs until it lands, and /devkit status shows the hold; in review-writer-prompt main moved three times under PR 56 and each move cost a rebase, an evidence run and a review of five reviewers (review-writer-prompt retro, item 3)
 - [x] archive-release-pin — the archive check counts the CI pin in `docs/openspec-flow.md` and its assertion in `plugins/openspec/hooks/change-loop.test.mjs` as release files, as it already counts the manifests and `CHANGELOG.md`, so a retro proposal that bumps devkit-openspec does not have to name them; found at the archive of review-writer-prompt, whose proposal 1 had to name both after the owner's approval
 - [x] post-merge-validate — after a merge from the base, the delivery loop runs `openspec validate <id> --type change --strict` before the evidence and sends a failure to the planner as a merge defect (stage-roles retro, item 3); counting an evidence attempt that a base merge made stale or red moved to `evidence-attempts-by-failure`
 
