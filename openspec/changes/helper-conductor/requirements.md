@@ -1,4 +1,4 @@
-<!-- devkit-stage requirements result=passed attempt=5 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
+<!-- devkit-stage requirements result=passed attempt=6 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
 # Requirements
 
 ## Request
@@ -38,7 +38,7 @@ Classification: domain=process type=feature flags=[architecture, contract] (stri
 - The tick's empty-refusal hook is a `UserPromptSubmit` entry in `plugins/openspec/hooks/hooks.json`, reads only local files (no network, no model), and passes every prompt that is not the tick's envelope.
 - A helper drives one change through `plugins/openspec/hooks/change-loop.mjs` (`next`, `--after`, the rows of `ship-change`) in that change's own worktree up to its next wait: GitHub checks, a free place, a dependency, or an owner gate.
 - Where the host has no scheduled-tasks tool, `/devkit roadmap` says so in one line and runs nothing; no fallback to change sessions.
-- `/devkit roadmap stop` deletes the task, and the tick that finds the roadmap done deletes it too.
+- The task is created on the owner's typed `/devkit roadmap` turn; it is never deleted unattended (the host requires the owner's click); after the end the hook blocks every firing.
 
 ## Field facts of 2026-11-28
 
@@ -69,7 +69,7 @@ Relayed by the coordinator's session from the run of 12 changes on two machines;
 - AC-6 `no-owner-box`: no helper calls AskUserQuestion or opens a session; a grill is answered from the triage agent and `openspec/standing-answers.md`, each answer naming its source.
 - AC-7 `waits-for-owner-one-place`: a gate that needs the owner (plan approval, retro answers, anything not delegated) becomes one `waits-for-owner` line in the run file, shown by `/devkit status` and in the session the owner typed in; the owner's typed answer there is recorded and the next tick goes on.
 - AC-8 `delegation-quoted`: a gate the standing answers delegate is recorded with the quoted standing answer as its words; a gate not delegated is never recorded by the conductor.
-- AC-9 `task-removes-itself`: `/devkit roadmap stop` and the tick that finds the roadmap done both delete the scheduled task; `list_scheduled_tasks` no longer shows it.
+- AC-9 `task-ends-blocked`: after `/devkit roadmap stop` or the tick that finds the roadmap done, the run records the end and the tick hook blocks every later firing of the task before the model; the conductor says once, in the one owner list, that the owner deletes the task with one click in the app (the host refuses an unattended delete, pause or run: `proof/p0-delete.md`).
 - AC-10 `sessions-removed`: the tickets, the `devkit-session` skill (`plugins/openspec/skills/devkit-session/`), its entry guard in `plugins/openspec/hooks/guard.mjs`, the `session-start` action, the `--change-sessions` flag, the verbs `session-next`/`session-wait` and the session cron are gone; a grep of `plugins/` for `devkit-start:`, `ticket-unknown` and `devkit-roadmap-check:` finds nothing.
 - AC-11 `places-cap`: no more than the run's places helpers are in flight at once on one machine.
 - AC-12 `adr-recorded`: a new ADR (proposed, `docs/adr/helper-conductor.md`) supersedes ADR 0021 and amends ADRs 0004, 0006, 0008, 0010, 0011, 0013, 0014, 0017, 0020, 0022, 0023 and 0026 as its Amends list names; `openspec/config.yaml` and both `schema.yaml` carry the amended grill rule.
