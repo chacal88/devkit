@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=1 commit=1e2fc4d68248416c4d80c16d486cc246ea586604 -->
+<!-- devkit-stage review result=passed attempt=2 commit=bf3ac7187ecbf45d038e79c94dd4f04b1cbb8a15 -->
 # Review: state-listing-speed, round 1
 
 Path: agents · range `origin/main...HEAD` · structural: PASS
@@ -21,3 +21,26 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: state-listing-speed, round 2
+
+Path: agents · range `origin/main...HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | bf3ac71 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | bf3ac71 |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+None.
+
+## Next
+Ready to ship.

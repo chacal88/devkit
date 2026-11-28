@@ -1,23 +1,18 @@
-Verdict: rejected
-Commit: 1e2fc4d68248416c4d80c16d486cc246ea586604
+Verdict: approved
+Commit: bf3ac7187ecbf45d038e79c94dd4f04b1cbb8a15
 
-## Coverage analysis — state-listing-speed (origin/main...HEAD)
+## Coverage analysis — state-listing-speed, round 2 (1e2fc4d..HEAD)
 
 ### Findings
-- [important] plugins/openspec/hooks/change-loop.mjs:3443 (entryOfRead) and stateListing join — [5] Spec scenario 'A read process that gives no entry' is only exercised for the signal case (stub reader, AC-4 'a child that dies'). Spawn error, exit code other than 0 or 3, and 'no single entry' (wrong id, two entries, bad JSON, version != 1) have no test. Loosening the entry check, such as dropping `out.changes[0]?.change === r.id` or `length === 1`, leaves the suite green. write in: plugins/openspec/hooks/change-state-listing.test.mjs, using the stub-reader pattern (`readOne: reader({b: {...}})`) with cases for error set, code 2, empty stdout, a different id, and two entries.
-- [nit] plugins/openspec/hooks/change-state-listing.test.mjs:176-198 — No test makes the failure order observable with two failing ids at once (an exit-3 read at a later id against a no-entry read at an earlier id, or the reverse). The in-order walk in stateListing is only checked with one failing child.
-- [nit] plugins/openspec/hooks/change-state-listing.test.mjs:125-150 — The 'one core' scenario is covered by the pool test with limit 1 and by the formula `listingBound() === max(1, availableParallelism())`, not by a mock of `availableParallelism` returning 0. This is acceptable, and the formula test is slightly implementation-coupled.
-- [praise] change-state-listing.test.mjs AC-1/AC-2 — The real-process seam is protected: the overlap is read from a stand-in `openspec` log and bounded by the core count, `GIT_OPTIONAL_LOCKS=0` is asserted on every child start, and the listing's stdout and stderr are byte-compared with the in-process sequential read, both offline and with the fake gh.
+- [important] plugins/openspec/hooks/change-loop.mjs:3445 (entryOfRead) and the stateListing join — No test for the no-entry cases: spawn error, exit code other than 0 or 3, empty or non-JSON output, wrong id, two entries, version other than 1. · fixed in 0e3bb9f
+- [nit] plugins/openspec/hooks/change-state-listing.test.mjs — Failure order with two failing ids was not observable. · fixed in 0e3bb9f
+- [nit] plugins/openspec/hooks/change-state-listing.test.mjs:125-150 — The one-core scenario is covered by the pool test with limit 1 and a formula test on listingBound, slightly implementation-coupled. Acceptable.
+- [praise] plugins/openspec/hooks/change-state-listing.test.mjs AC-4 — The nine-case table pins the exact error text per cause, so loosening any clause of the entry check goes red.
 
-In-scope surfaces: plugins/openspec/hooks (change-loop.mjs, state listing), scripts/test-map.json, the KEPT_HUB_READERS list in test-suite.test.mjs.
+In-scope surfaces: plugins/openspec/hooks (state listing in change-loop.mjs). The base merge's other edits were not reviewed.
 Blocking gaps (8-10 without a plan): 0
-Seams checked (mutation runs: 0):
-- Child spawn argv and env (`--change <id>`, `GIT_OPTIONAL_LOCKS=0`): caught by AC-1, which asserts the lock variable on each recorded start.
-- Output equals the sequential read: caught by AC-2 (byte-identical, two modes) and AC-2 (each entry equals `state --change`).
-- Concurrency bound and early stop: caught by the AC-3 pool tests (`boundedMap`, `stopWhen`).
-- Failure join, exit 3 passthrough: caught by AC-4 (real child in a checkout with a bad `merge_method`, compared with the sequential run).
-- Signal death to `could not be read: signal SIGKILL`: caught by the AC-4 'child that dies' test.
-- Other no-entry cases: gap (F1).
-- Listing of one change or none starts no child: caught by the AC-6 test.
-- In-process `state` stays synchronous: caught by the AC-6 test.
-- Map and hub entries: `test-map.json` and `KEPT_HUB_READERS` both list the new file.
+Seams checked (mutation runs: 0): the no-entry join is caught by the nine-case AC-4 test; the failure order is caught by the two-failing-reads test. The suite was not run; the assertions were read against change-loop.mjs:3445-3470.
+
+### Well covered
+- A read that gives no entry (spawn error, exit 2, empty output, non-JSON, wrong id, two entries, no entry, version 2) — the nine-case test in change-state-listing.test.mjs asserts code 3, the exact error text and no `changes` key.
+- The first failure in id order is the one named — the two-failing-reads test.
