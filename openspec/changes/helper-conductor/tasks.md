@@ -576,3 +576,14 @@ yet") and any task the merge supersedes (CLAUDE.md).
   the planner again with "nothing changed". This change dispatched the readiness review directly. A
   follow-up change on `flow-check.mjs` makes a plan file newer than the failed readiness count as the
   fix while the work has started.
+- Two test files fail on the machine `avel` when run without the `openspec` CLI on `PATH` (there it
+  exists only under node v26 of fnm; the default node v22 has none), seen 2026-11-28 with
+  `node scripts/test-suite.mjs --concurrency=2 plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/project-loop.test.mjs`:
+  - `plugins/openspec/hooks/project-loop.test.mjs`: the file fails at load (`test at
+    project-loop.test.mjs:1:1`), first error line
+    `AssertionError [ERR_ASSERTION]: openspec init --tools none --no-animation .: undefined`
+    (`null !== 0`, from `scratchSlice` at `project-loop.test.mjs:52`).
+  - `plugins/openspec/hooks/flow-check.test.mjs`: four tests pass, then the file fails (`test at
+    flow-check.test.mjs:1:1`), first error line `Error: A resource generated asynchronous activity
+    after the test ended. This activity created the error "AssertionError [ERR_ASSERTION]: openspec
+    init --tools none --no-animation .: undefined`.
