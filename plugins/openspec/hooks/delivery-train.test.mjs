@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, statSync, existsSync, utimesSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, isAbsolute } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { tmpFolder, tmpRoot } from './test-tmp.mjs';
@@ -1705,19 +1705,77 @@ test('delivery-train P8: a culprit first with a red base blocks, nobody leaves a
   noScratch(p);
 });
 
-test('delivery-train P8: a train that empties leaves every change with its failure and creates nothing', () => {
+// the text of one `## <name>` section of a record, up to the next `## ` heading
+const sectionOf = (text, head) => { const from = text.indexOf(head); const next = text.indexOf('\n## ', from + head.length); return text.slice(from, next === -1 ? undefined : next); };
+
+test('delivery-train P8: a train that empties leaves every change with its failure, writes its record outside the checkout and creates no train branch', () => {
   const p = project({ train: 'if test -e src/alpha.txt || test -e src/beta.txt; then echo not-green; exit 1; fi' });
   addChange(p, 'alpha', { at: '2026-11-23T10:00:00Z' });
   addChange(p, 'beta', { at: '2026-11-23T10:10:00Z' });
+  const statusBefore = gitOf(p, 'status', '--porcelain');
+  const refsBefore = gitOf(p, 'for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads');
   const r = departIn(p);
   assert.deepEqual([r.code, r.out.result], [1, 'empty']);
   assert.deepEqual(r.out.left.map((l) => [l.id, l.why]), [['alpha', 'red'], ['beta', 'red']]);
-  assert.equal(r.out.reply, render('en', 'train-nothing'));
+  for (const l of r.out.left) assert.match(l.failure, /not-green/, `${l.id} keeps its failing output`);
+  const common = gitOf(p, 'rev-parse', '--path-format=absolute', '--git-common-dir');
+  assert.ok(isAbsolute(r.out.record));
+  assert.equal(r.out.record, join(common, 'devkit-trains', '1.md'));
+  assert.equal(existsSync(r.out.record), true);
+  const text = readFileSync(r.out.record, 'utf8');
+  assert.equal(text.split('\n')[0], '<!-- devkit-train n=1 base=main result=empty -->');
+  const boarded = sectionOf(text, '## Boarded').split('\n').slice(1).filter((l) => l.trim() !== '');
+  assert.equal(boarded.filter((l) => /^\|/.test(l)).length, 2, 'the Boarded table has its header and separator rows and no data row');
+  const leftSection = sectionOf(text, '## Left');
+  for (const id of ['alpha', 'beta']) {
+    assert.match(leftSection, new RegExp(`\\|[^\\n]*${id}[^\\n]*red`), `${id} has a Left row`);
+    assert.match(text, new RegExp(`## Failure of \`${id}\`[\\s\\S]*?not-green`), `${id} has its failure block`);
+  }
+  assert.match(text, /\n## Runs/);
+  assert.equal(r.out.reply, render('en', 'train-empty', { where: r.out.record }));
+  assert.equal(existsSync(trainWorktree(p, 1)), false);
   assert.equal(gitOf(p, 'for-each-ref', 'refs/heads/train'), '');
+  assert.equal(gitOf(p, 'status', '--porcelain'), statusBefore);
+  assert.equal(gitOf(p, 'for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads'), refsBefore);
+  noScratch(p);
+  writeFileSync(r.out.record, 'stale\n');
+  const again = departIn(p, { lang: 'pt-BR' });
+  assert.equal(again.out.n, 1);
+  assert.equal(again.out.record, r.out.record);
+  const replaced = readFileSync(r.out.record, 'utf8');
+  assert.equal(replaced.includes('stale'), false);
+  assert.equal(replaced.split('\n')[0], '<!-- devkit-train n=1 base=main result=empty -->');
+  assert.equal(again.out.reply, render('pt-BR', 'train-empty', { where: r.out.record }));
   noScratch(p);
 });
 
 const CONFLICT_BASE = { 'plugins/x/hooks/a.mjs': 'line 1\nline 2\nline 3\n', ...RELEASE_BASE };
+
+test('train-empty-failure-text AC-4: a train emptied only by a conflict writes its record, and its left entry carries no failure', () => {
+  const p = project({ train: 'true', files: CONFLICT_BASE });
+  addChange(p, 'alpha', { files: { 'plugins/x/hooks/a.mjs': 'line 1\nalpha line 2\nline 3\n' } });
+  const wt = join(tmpFolder('devkit-train-main-'), 'w');
+  git(p.t.main, 'worktree', 'add', '-q', '--detach', wt, 'origin/main');
+  put(wt, { 'plugins/x/hooks/a.mjs': 'line 1\nmain line 2\nline 3\n' });
+  commitAll(wt, 'main edits the same line');
+  git(wt, 'push', '-q', 'origin', 'HEAD:main');
+  git(p.t.main, 'worktree', 'remove', '--force', wt);
+  const r = departIn(p);
+  assert.deepEqual([r.code, r.out.result], [1, 'empty']);
+  assert.equal(r.out.left.length, 1);
+  const [l] = r.out.left;
+  assert.deepEqual([l.kind, l.id, l.why, l.detail, l.failure], ['change', 'alpha', 'conflict', '`plugins/x/hooks/a.mjs`', null]);
+  assert.equal(l.number, p.changes.alpha.number);
+  assert.equal(existsSync(r.out.record), true);
+  const text = readFileSync(r.out.record, 'utf8');
+  assert.match(text.split('\n')[0], /result=empty/);
+  assert.match(sectionOf(text, '## Left'), /alpha[^\n]*conflict/);
+  assert.equal(text.includes('## Failure of'), false);
+  assert.equal(text.includes('## Runs'), false);
+  assert.equal(r.out.reply, render('en', 'train-empty', { where: r.out.record }));
+  assert.equal(gitOf(p, 'for-each-ref', 'refs/heads/train'), '');
+  noScratch(p);
+});
 
 test('delivery-train AC-8: a release-only conflict is resolved by rule; a product conflict takes the change off with its path', () => {
   const p = project({ train: 'true', files: CONFLICT_BASE });
