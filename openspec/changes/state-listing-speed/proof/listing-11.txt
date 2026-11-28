@@ -1,0 +1,33 @@
+# state-listing-speed D-9: the real run over 11 changes (avel machine, 8 cores)
+
+Date: 2026-11-28. Branch head: 209951b. Base: origin/main 47365b9. TMPDIR=/var/tmp.
+Load: other sessions' test suites were running on the machine during the run (load average about 11 on 8 cores, below the coordinator's limit of 12); this session ran no suite.
+
+Setup commands:
+- delete check: mkdir + rmdir of a probe folder under the scratch folder in /var/tmp: ok
+- git clone --branch state-listing-speed <worktree> <scratch>/clone (2 open changes: state-listing-speed, test-map-hub-links)
+- in the clone: openspec new change listing-probe-01 .. listing-probe-09, committed in the clone only (11 changes in play)
+- base-pack: git archive origin/main plugins/openspec; branch-pack: git archive HEAD plugins/openspec (both outside the clone)
+
+Run (in the clone):
+```
+## uptime before
+ 12:21:13 up 7 days, 22:42,  7 users,  load average: 10.58, 10.58, 10.94
+## base: time node base-pack/.../change-loop.mjs state --offline --lang en > base.json
+base real 28.90 s
+base exit 0
+## branch: time node branch-pack/.../change-loop.mjs state --offline --lang en > branch.json
+branch real 9.58 s
+branch exit 0
+## uptime after
+ 12:21:51 up 7 days, 22:43,  7 users,  load average: 11.30, 10.76, 10.98
+## entries
+base 11 entries: listing-probe-01=waiting-for-owner listing-probe-02=waiting-for-owner listing-probe-03=waiting-for-owner listing-probe-04=waiting-for-owner listing-probe-05=waiting-for-owner listing-probe-06=waiting-for-owner listing-probe-07=waiting-for-owner listing-probe-08=waiting-for-owner listing-probe-09=waiting-for-owner state-listing-speed=blocked test-map-hub-links=blocked
+branch 11 entries: listing-probe-01=waiting-for-owner listing-probe-02=waiting-for-owner listing-probe-03=waiting-for-owner listing-probe-04=waiting-for-owner listing-probe-05=waiting-for-owner listing-probe-06=waiting-for-owner listing-probe-07=waiting-for-owner listing-probe-08=waiting-for-owner listing-probe-09=waiting-for-owner state-listing-speed=blocked test-map-hub-links=blocked
+## cmp base.json branch.json
+cmp: identical (no output)
+```
+
+Result: 11 entries in both listings; the branch's run took 9.58 s (under 10 s, AC-5) against 28.90 s for the base; cmp printed nothing: the two outputs are byte-identical (AC-2).
+
+Cleanup: the clone, both pack copies and both JSON files removed.

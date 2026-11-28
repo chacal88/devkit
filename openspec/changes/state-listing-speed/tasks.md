@@ -94,7 +94,7 @@ on the machine. On the avel machine run the tests with `TMPDIR` under `/var/tmp`
 
 ## 2. The real run and the delivery checks (phase 2)
 
-- [ ] 2.1 Conductor: the real run of `design.md` D-9 on the avel machine, with no test suite
+- [x] 2.1 Conductor: the real run of `design.md` D-9 on the avel machine, with no test suite
   running: the deletion check, the scratch clone under `/var/tmp` with 11 changes in play, the two
   pack copies from `origin/main` and `HEAD`, `uptime`, the two timed
   `state --offline --lang en` runs in the clone, `uptime` again and `cmp` of the two outputs; commit
