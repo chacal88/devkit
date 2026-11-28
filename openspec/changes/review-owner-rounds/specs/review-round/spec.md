@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=1 commit=a0e9efb9e046bf0cfe6f88199fbe8d334ea0b11b -->
+<!-- devkit-stage specs result=passed attempt=2 commit=a0e9efb9e046bf0cfe6f88199fbe8d334ea0b11b -->
 # Spec Delta
 
 ## MODIFIED Requirements
@@ -46,6 +46,10 @@ or 2 SHALL take no `args.owner`.
 #### Scenario: A third round without the owner's words, on the agents path
 - **WHEN** `review-round.mjs stage1`, `verify`, `outcomes` or `consolidate` runs with `args` of `round: 3`, `limit: 3` and no `owner`
 - **THEN** it exits 3, prints nothing on stdout, and stderr starts with `review input invalid: round 3 needs the owner's authorization:`
+
+#### Scenario: An owner that is not an object
+- **WHEN** a round of `round: 3` and `limit: 3` gets `args.owner` as an array or a string
+- **THEN** the arguments are refused with `review input invalid: args.owner must be an object`, on the Workflow path and by every `review-round.mjs` command that takes `args`
 
 #### Scenario: Words of another round or scope
 - **WHEN** a round of `round: 4` gets an `args.owner` whose `round` is 3, or a code review gets one whose `scope` is `resolution`

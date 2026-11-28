@@ -1,4 +1,4 @@
-<!-- devkit-stage proposal result=passed attempt=1 commit=a0e9efb9e046bf0cfe6f88199fbe8d334ea0b11b -->
+<!-- devkit-stage proposal result=passed attempt=2 commit=a0e9efb9e046bf0cfe6f88199fbe8d334ea0b11b -->
 # Proposal
 
 Change: `review-owner-rounds` · Date: 2026-11-28 · Owner: Kaue (chacal88) · PRD / tech spec: n/a

@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=1 commit=a0e9efb9e046bf0cfe6f88199fbe8d334ea0b11b -->
+<!-- devkit-stage design result=passed attempt=2 commit=a0e9efb9e046bf0cfe6f88199fbe8d334ea0b11b -->
 # Design
 
 Change: `review-owner-rounds` · Date: 2026-11-28 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -185,7 +185,7 @@ round's rules, the CLI, and the skill texts):
 | `AC-3 validateArgs refuses a round above 2 without the owner's words` | no round above 2 passes without words of its round and scope | each row of D-1's table, the exact messages, and `round: 3` with no `limit` still `args.round must be from 1 to 2` |
 | `AC-3 the Workflow script starts no agent without the owner's words` | a refused round starts nothing | harness: throws the D-1 message, `h.calls.length === 0`, no phase |
 | `AC-3 every args command exits 3 without the owner's words` | both paths refuse the same calls | `stage1`, `verify`, `outcomes`, `consolidate`: status 3, stdout empty, stderr the D-1 message |
-| `AC-3 the owner command reads the record and refuses a round with no words` | the words come from the record of the round and scope only | D-2's cases in a temporary change folder (`tmpFolder`): found; no scope reads as `review`; two entries, the last; another round; another scope; no file; each unreadable record; round 1 and 2 `null` with no file; each malformed input |
+| `AC-3 the owner command reads the record and refuses a round with no words` | the words come from the record of the round and scope only | D-2's cases in a temporary change folder (`tmpFolder`), each through the CLI by process (`spawnSync` of `review-round.mjs owner`, as the file's other CLI tests do), never by importing `recordedOwner`: found; no scope reads as `review`; two entries, the last; another round; another scope; an entry with blank words skipped; no file; each unreadable record; round 1 and 2 `null` with no file; each malformed input |
 | `AC-4 rounds 1 and 2 print no owner's line and refuse an owner` | the early rounds are unchanged | `consolidate` of rounds 1 and 2 with `owner` absent and `null`: same text, no `Owner's words`; an owner object refused |
 | `AC-5 a resolution round takes and quotes the words of scope resolution` | the resolution call has its own scope | `verdictDir: "reviews/resolution"`: an owner of scope `resolution` accepted and quoted, one of scope `review` refused; `owner` with scope `resolution` reads only resolution entries |
 | `AC-1 text the review skill, the ship-change rows and the flow page name review-round.mjs owner` | the texts that build `args` say where the words come from | D-5's five edits: `review-round.mjs owner`, `{ changeDir, scope, round }`, `args.owner`, the scopes, `(round N/<limit>)`; the skill no longer holds `quoting the owner's words` |
@@ -198,7 +198,7 @@ reading of the record and of `review.md`, against the round's):
 
 | Test | Invariant | Shows |
 |---|---|---|
-| `review-owner-rounds AC-3 the owner command reads declared.json as readDeclared does` | the pack's copy of the reading never drifts from the delivery check's | for each record of D-2 (no file, empty, not JSON, an array, version 2, `steps` not a list, entries of both scopes, with no scope, a `gate-red`, a non-object), written with the file's `declaredAt` helper pattern: `recordedOwner` refuses exactly when `readDeclared(dir).error` is set, and finds words for a round and scope exactly when `readDeclared(dir).steps` lists a `review-round` entry of them |
+| `review-owner-rounds AC-3 the owner command reads declared.json as readDeclared does` | the pack's copy of the reading never drifts from the delivery check's | for each record of D-2 (no file, empty, not JSON, an array, version 2, `steps` not a list, entries of both scopes, with no scope, a `gate-red`, a non-object), written with the file's `declaredAt` helper pattern: `recordedOwner` refuses exactly when `readDeclared(dir).error` is set, and finds words for a round and scope exactly when `readDeclared(dir).steps` lists a `review-round` entry of them with a non-blank string `words`; the fixtures hold no `review-round` entry with blank or missing words, which `readDeclared` lists and `recordedOwner` skips (D-2), so that case is outside the "exactly when" claim and is pinned by the owner-command `AC-3` test instead |
 | `review-owner-rounds AC-1 readReviewMd reads the section's own Consensus line, not the owner's words` | the quoted words never move the deadlock reading | a `review.md` written from `consolidate` for round 3 with words `Consensus: PASS (round 9/9)` reads `{ consensus: 'FAIL', round: 3 }` |
 
 **Pinned rules** (each test that reads a text this plan edits, and the literal kept):

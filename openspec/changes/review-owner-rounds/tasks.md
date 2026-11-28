@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=1 commit=a0e9efb9e046bf0cfe6f88199fbe8d334ea0b11b -->
+<!-- devkit-stage tasks result=passed attempt=2 commit=a0e9efb9e046bf0cfe6f88199fbe8d334ea0b11b -->
 # Tasks
 
 Change: `review-owner-rounds` · Date: 2026-11-28 · Owner: Kaue (chacal88) · Base: `origin/main` at
@@ -38,7 +38,10 @@ the tool, never with a shell `&`, with no other suite on the machine, and record
   `plugins/core/skills/review-change/scripts/review-round.test.mjs`, except the text test (task 1.7),
   and run them on the code before task 1.2. Check:
   `node scripts/test-suite.mjs --test-name-pattern="^review-owner-rounds " plugins/core/skills/review-change/scripts/review-round.test.mjs`
-  fails, each new test failing for the missing rule or command, not for a syntax or import error.
+  fails, each new test failing for the missing rule or command, not for a syntax or import error:
+  the owner-command tests drive the CLI by process (`spawnSync` of `review-round.mjs owner`, as the
+  file's existing CLI tests do) and import nothing new, so the file still loads before task 1.3 adds
+  `recordedOwner`.
 - [ ] 1.2 In the rules section of `plugins/core/skills/review-change/scripts/review-round.workflow.js`,
   add D-1's checks to `validateArgs` (after the round range check, D-1's order and messages), the
   helper `ownerLine(args)` and its line in `consolidate` (D-3); add `ownerLine` to `NAMES` and to the
