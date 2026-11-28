@@ -966,6 +966,9 @@ export function forcedChecks(gh, number, base) {
 // required reviewers in order, then any other reviewer file. A recorded `Commit:` is current when it is `head` (or `head` starts with
 // it) or when a compare of it to `head` is ahead or identical and lists no file its reader's rule rejects; the compare is read once per
 // sha. A read that fails with anything but a 404, an answer of an unexpected shape and unreadable JSON end the read as an error.
+// For a change with a release note in a project that names `devkit.release_tag`, a path the reader's rule refuses still leaves a passed
+// evidence and an approved review with no undisposed finding current when its two texts, at the recorded commit and at the head, read
+// through GitHub, are equal once the release lines are masked (forced-merge-release-edit D-1, the rule of ADR 0034 decision 5).
 export function gatesAtHead(gh, id, head) {
   const short = head.slice(0, 7);
   const dir = `openspec/changes/${id}`;
@@ -974,8 +977,48 @@ export function gatesAtHead(gh, id, head) {
   const textOf = (got, path) => (typeof got.json?.content === 'string'
     ? { text: Buffer.from(got.json.content, 'base64').toString('utf8') }
     : { error: `${path} at ${short} has no content` });
-  // Why `recorded` is not current at `head`: { why } (null when it is) | { error }.
-  const behind = (recorded, allowed) => {
+  // The reader `releaseOnlyEdit` takes, over GitHub contents and memoized per revision and path (D-2). The first failed read is kept in
+  // `readError`: `behind` ends the whole read with it, so a failure is never read as "current" and never as "not forced".
+  const reads = new Map();
+  let readError = null;
+  const contents = (rev, path) => {
+    const key = `${rev}\0${path}`;
+    if (!reads.has(key)) reads.set(key, readContents(gh, path, rev));
+    const got = reads.get(key);
+    if (got.error) readError ??= got.error;
+    return got;
+  };
+  const github = {
+    file(rev, path) {
+      const got = contents(rev, path);
+      if (got.error || got.notFound) return null;
+      if (typeof got.json?.content === 'string') return Buffer.from(got.json.content, 'base64').toString('utf8');
+      readError ??= `${path} at ${rev.slice(0, 7)} has no content`;
+      return null;
+    },
+    dir(rev, path) {
+      const got = contents(rev, path);
+      return !got.error && !got.notFound && Array.isArray(got.json) ? got.json.map((e) => e?.name).filter((n) => typeof n === 'string') : [];
+    },
+  };
+  // The context of the release-edit rule, read once per call when a refused file first meets an exempt verdict (D-3): null when the change
+  // has no release note, the project names no `devkit.release_tag` or a read failed (then `readError` is set).
+  let releaseCtx;
+  const releaseAllowance = () => {
+    if (releaseCtx !== undefined) return releaseCtx;
+    releaseCtx = null;
+    const note = contents(head, `${dir}/release.md`);
+    if (!note.notFound && !note.error) {
+      const config = github.file(head, CONFIG);
+      const { file } = config === null ? { file: null } : releaseTagSetting(parseDevkitBlock(config));
+      if (file && !readError) releaseCtx = releaseContext(null, file, github);
+    }
+    return releaseCtx;
+  };
+  // Why `recorded` is not current at `head`: { why } (null when it is) | { error }. `exempt` is true for a verdict that gets the
+  // release-edit rule on the delivery path (a passed evidence, an approved review with no undisposed finding); a refused file of such a
+  // verdict is current when `releaseOnlyEdit` accepts it between the compare's base and the head (forced-merge-release-edit D-1).
+  const behind = (recorded, allowed, exempt) => {
     if (!recorded) return { why: 'no Commit: line' };
     const sha = recorded.sha.slice(0, 7);
     if (recorded.uncommitted) return { why: `${sha} was recorded with uncommitted changes` };
@@ -988,8 +1031,14 @@ export function gatesAtHead(gh, id, head) {
     if (status !== 'ahead' && status !== 'identical') return { why: `${sha} is not an ancestor of the merged head` };
     if (!Array.isArray(files)) return { error: `compare ${sha}...${short} has no file list` };
     if (files.length >= 300) return { why: `${sha} is too far behind the merged head to read` };
-    const product = files.map((f) => f?.filename).find((f) => typeof f === 'string' && !allowed(f));
-    return { why: product ? `${sha} is behind the merged head, which changes ${product}` : null };
+    const recordedRev = isSha(compare.json?.base_commit?.sha) ? compare.json.base_commit.sha : recorded.sha;
+    for (const file of files.map((f) => f?.filename).filter((f) => typeof f === 'string' && !allowed(f))) {
+      const ctx = exempt ? releaseAllowance() : null;
+      const release = ctx ? releaseOnlyEdit(null, recordedRev, head, file, ctx) : false;
+      if (readError) return { error: readError };
+      if (!release) return { why: `${sha} is behind the merged head, which changes ${file}` };
+    }
+    return { why: null };
   };
   const add = (file, why) => { if (why) gates.push({ file, why }); };
 
@@ -1003,7 +1052,7 @@ export function gatesAtHead(gh, id, head) {
     if (!header || header.malformed) add('evidence.md', 'no stage header');
     else if (header.result !== 'passed') add('evidence.md', `result ${header.result}`);
     else {
-      const current = behind(parseCommitLine(read.text), isOpenspec);
+      const current = behind(parseCommitLine(read.text), isOpenspec, true);
       if (current.error) return { error: current.error };
       add('evidence.md', current.why);
     }
@@ -1039,7 +1088,7 @@ export function gatesAtHead(gh, id, head) {
       };
       const open = findingsOfText(name, read.text, inHead).undisposed.length > 0;
       if (historyError) return { error: historyError };
-      const current = behind(parseCommitLine(read.text), verdictAllowed(id, name, verdict, open));
+      const current = behind(parseCommitLine(read.text), verdictAllowed(id, name, verdict, open), !open);
       if (current.error) return { error: current.error };
       add(file, current.why);
     }
@@ -2250,11 +2299,12 @@ export function maskRelease(text, path, map = { adrs: [], file: null }) {
 // path, or its former number when the step ran again after the base numbered another record); that form deleted when the numbered one is
 // added. Each side is masked with the records it holds (`ctx.adrsAt` of that revision), so a renumbered record reads as itself on both sides
 // and a citation moved to another record's number does not; a number two records hold at `before` cites either (sharedNumberMatch). `ctx`
-// is { file, adrsAt(rev) }, which `releaseEdit` memoizes per revision.
+// is { file, reader, adrsAt(rev) }, which `releaseEdit` memoizes per revision; the reader is `repoReader(root)` unless the caller hands another
+// (the forced-merge read hands one over GitHub, forced-merge-release-edit D-5).
 export function releaseOnlyEdit(root, before, after, path, ctx = releaseContext(root)) {
   if (!before || !after) return false;
   if (path === CHANGELOG || path === 'docs/catalog.md') return true;
-  const reader = repoReader(root);
+  const { reader } = ctx;
   const was = { rev: before, map: { adrs: ctx.adrsAt(before), file: ctx.file } };
   const now = { rev: after, map: { adrs: ctx.adrsAt(after), file: ctx.file } };
   const masked = (side, p) => { const text = reader.file(side.rev, p); return text === null ? null : maskRelease(text, p, side.map); };
@@ -2295,10 +2345,9 @@ function sharedNumberMatch(raw, path, map, nowText) {
   return new RegExp(`^${pattern}$`).test(nowText);
 }
 
-function releaseContext(root, file = null) {
-  const reader = repoReader(root);
+function releaseContext(root, file = null, reader = repoReader(root)) {
   const cache = new Map();
-  return { file, adrsAt: (rev) => { if (!cache.has(rev)) cache.set(rev, numberedAdrs(reader, rev)); return cache.get(rev); } };
+  return { file, reader, adrsAt: (rev) => { if (!cache.has(rev)) cache.set(rev, numberedAdrs(reader, rev)); return cache.get(rev); } };
 }
 const releaseEdit = (root, file) => { const ctx = releaseContext(root, file); return (before, after, path) => releaseOnlyEdit(root, before, after, path, ctx); };
 

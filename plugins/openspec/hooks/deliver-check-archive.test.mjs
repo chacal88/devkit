@@ -2260,6 +2260,7 @@ const REVIEWS_PATH = 'openspec/changes/feat/reviews';
 // The gate files of change `feat` at `head`: evidence undefined is a passed one recorded at `head`, null is not found, a string is
 // its text; `reviews` maps a reviewer to the file text (none: the folder is not found).
 function gatesAt(gh, head, { evidence, reviews = {} } = {}) {
+  gh.set(contentsKey('openspec/changes/feat/release.md', head), NOT_FOUND);
   gh.set(contentsKey(EVIDENCE_PATH, head), evidence === null ? NOT_FOUND : fileFx(evidence ?? STAGE('passed', head)));
   const names = Object.keys(reviews);
   gh.set(contentsKey(REVIEWS_PATH, head), names.length ? folderFx(names.map((n) => `${n}.md`)) : NOT_FOUND);
@@ -2589,30 +2590,147 @@ test(`${FMP}: G14 a fixed-in sha whose compare fails with anything but a 404 blo
   assert.deepEqual([nextStep(s).step, nextStep(s).reason], ['blocked', unreadReason(12, 'gh: boom')]);
 });
 
-// The owner's decision 2b of release-at-merge (review round 2, test-coverage F16): on an owner's forced merge the release-edit rule of
-// release-at-merge does not apply, so a noted change whose compare from the evidence commit lists only the files of the assign-release
-// step's commit names evidence.md and each approved review as open items (an over-report, never a pass), as the canonical requirement
-// "The open items of a forced merge are named" says. The roadmap follow-up `forced-merge-release-edit` gives gatesAtHead the release-edit
-// allowance and flips this expectation to no open gate.
+// forced-merge-release-edit (D-7): on an owner's forced merge the release-edit rule of ADR 0034 decision 5 applies, so a noted change whose
+// compare from the evidence commit lists only the files of the assign-release step's commit opens no gate. The fixture sets the compare
+// `<recorded>...<head>` and every contents answer the step's commit needs at the recorded commit and at the head.
 const STEP_FILES = ['.claude-plugin/marketplace.json', 'plugins/openspec/.claude-plugin/plugin.json', 'CHANGELOG.md', 'docs/adr/0035-feat.md', 'docs/openspec-flow.md'];
-test(`${FMP}: G15 forced-merge-release-edit: a noted change behind only the assign-release step's files names evidence.md and each approved review as open`, () => {
-  const t = gatesRepo({ evidence: STAGE('passed', GHEAD, OLD), reviews: approvedAt(OLD) });
-  t.gh.set(contentsKey('openspec/changes/feat/release.md', GHEAD), fileFx('packs: [openspec]\nrelease: minor\n\n## t\n\nbody\n'));
-  t.gh.set(compareKey(OLD, GHEAD), {
+const FMRE = 'forced-merge-release-edit';
+const RELEASE_PATH = 'openspec/changes/feat/release.md';
+const CONFIG_PATH = 'openspec/config.yaml';
+const MARKET_PATH = '.claude-plugin/marketplace.json';
+const PACK_PATH = 'plugins/openspec/.claude-plugin/plugin.json';
+const marketAt = (version) => fileFx(JSON.stringify({ name: 'm', metadata: { version }, plugins: [{ name: 'devkit-openspec', version }] }));
+const packAt = (version) => fileFx(JSON.stringify({ name: 'devkit-openspec', version }));
+const CONFIGS = {
+  tag: fileFx('devkit:\n  release_tag: plugins/openspec/.claude-plugin/plugin.json\n'),
+  none: fileFx('devkit:\n  language: en\n'),
+  bad: fileFx('devkit:\n  release_tag: notes.txt\n'),
+  absent: NOT_FOUND,
+};
+function releaseStepAt(gh, head, { flow = 'release', extra = [], note = true, config = 'tag', base = true, recorded = OLD } = {}) {
+  const set = (path, rev, answer) => gh.set(contentsKey(path, rev), answer);
+  set(RELEASE_PATH, head, note ? fileFx('# Release note\n\npacks:\n- devkit-openspec: patch\n\n## t\n\nbody\n') : NOT_FOUND);
+  set(CONFIG_PATH, head, CONFIGS[config]);
+  set(MARKET_PATH, OLD, marketAt('1.0.0'));
+  set(MARKET_PATH, head, marketAt('1.1.0'));
+  set(PACK_PATH, OLD, packAt('1.0.0'));
+  set(PACK_PATH, head, packAt('1.1.0'));
+  const record = fileFx('# Feat\n\nThe record.\n');
+  set('docs/adr/0035-feat.md', OLD, NOT_FOUND);
+  set('docs/adr/0035-feat.md', head, record);
+  set('docs/adr/feat.md', OLD, record);
+  set('docs/adr/feat.md', head, NOT_FOUND);
+  set('docs/adr', OLD, folderFx(['feat.md']));
+  set('docs/adr', head, folderFx(['0035-feat.md']));
+  set('docs/decisions', OLD, NOT_FOUND);
+  set('docs/decisions', head, NOT_FOUND);
+  set(FLOW_PATH, OLD, fileFx('See ADR [feat].\nuses: x # pinned to the commit of v1.0.0\nThe gate reads it.\n'));
+  set(FLOW_PATH, head, fileFx(`See ADR 0035.\nuses: x # pinned to the commit of v1.1.0\nThe gate reads it${flow === 'sentence' ? ' twice' : ''}.\n`));
+  for (const path of extra) { set(path, OLD, NOT_FOUND); set(path, head, fileFx('export {};\n')); }
+  gh.set(compareKey(recorded, head), {
     stdout: {
       status: 'ahead',
-      files: STEP_FILES.map((filename) => (filename === 'docs/adr/0035-feat.md' ? { filename, status: 'renamed', previous_filename: 'docs/adr/feat.md' } : { filename, status: 'modified' })),
-      commits: [{ sha: GHEAD, commit: { message: 'chore(release): assign the release of feat\n\nRelease-change: feat\n' } }],
+      ...(base ? { base_commit: { sha: OLD } } : {}),
+      files: [...STEP_FILES.map((filename) => (filename === 'docs/adr/0035-feat.md' ? { filename, status: 'renamed', previous_filename: 'docs/adr/feat.md' } : { filename, status: 'modified' })), ...extra.map((filename) => ({ filename, status: 'added' }))],
     },
   });
-  const why = `${OLD.slice(0, 7)} is behind the merged head, which changes ${STEP_FILES[0]}`;
-  const open = ['evidence.md', 'reviews/code-quality-reviewer.md', 'reviews/test-coverage-reviewer.md'];
-  assert.deepEqual(gatesOf(t), { gates: open.map((file) => ({ file, why })) });
+}
+const stepRepo = (opts = {}, gates = { evidence: STAGE('passed', GHEAD, OLD), reviews: approvedAt(OLD) }) => {
+  const t = gatesRepo(gates);
+  releaseStepAt(t.gh, GHEAD, opts);
+  return t;
+};
+const GATE_FILES = ['evidence.md', 'reviews/code-quality-reviewer.md', 'reviews/test-coverage-reviewer.md'];
+const behindWhy = (path, sha = OLD) => `${sha.slice(0, 7)} is behind the merged head, which changes ${path}`;
+const contentsCalls = (t) => t.gh.calls().filter((c) => c[0] === 'api' && /\/contents\//.test(c[1])).map((c) => c[1]);
+
+test(`${FMRE} AC-1 a noted change behind only the assign-release step's files opens no gate, and forcedMerge counts only the red check`, () => {
+  const t = stepRepo();
+  assert.deepEqual(gatesOf(t), { gates: [] });
+  const reads = contentsCalls(t);
+  assert.equal(new Set(reads).size, reads.length, 'each contents key is read at most once');
   presetSetup(t.gh);
   t.gh.set('pr-view-12', rollupFx([OKRUN('check'), RUNOF('devkit-reviews', 'FAILURE')]));
   const got = DC.forcedMerge(t.run, 'feat', { number: 12, url: 'https://github.com/o/r/pull/12', headRefOid: GHEAD }, { base: 'main', unticked: [] });
-  assert.deepEqual(got.forced.items.filter((i) => i.kind === 'gate').map((i) => i.file), open);
-  assert.equal(got.forced.count, 1 + open.length, 'the red devkit-reviews check and the three gate files');
+  assert.deepEqual(got.forced.items.filter((i) => i.kind === 'gate'), []);
+  assert.equal(got.forced.count, 1, 'only the red devkit-reviews check');
+});
+
+test(`${FMRE} AC-2 a step's commit that also edits a sentence of docs/openspec-flow.md opens the evidence and each approved review, naming that file`, () => {
+  const t = stepRepo({ flow: 'sentence' });
+  assert.deepEqual(gatesOf(t), { gates: GATE_FILES.map((file) => ({ file, why: behindWhy(FLOW_PATH) })) });
+});
+
+test(`${FMRE} AC-3 a product commit after the step's opens the evidence naming plugins/x.mjs`, () => {
+  const t = stepRepo({ extra: ['plugins/x.mjs'] });
+  assert.deepEqual(gatesOf(t), { gates: GATE_FILES.map((file) => ({ file, why: behindWhy('plugins/x.mjs') })) });
+});
+
+test(`${FMRE} AC-4 no note, no config, no release_tag or a refused one: the same items as before, naming the first step file`, () => {
+  const variants = { 'no note': { note: false }, 'no config': { config: 'absent' }, 'no release_tag': { config: 'none' }, 'a refused release_tag': { config: 'bad' } };
+  for (const [name, opts] of Object.entries(variants)) {
+    const t = stepRepo(opts);
+    assert.deepEqual(gatesOf(t), { gates: GATE_FILES.map((file) => ({ file, why: behindWhy(MARKET_PATH) })) }, name);
+    if (opts.note === false) {
+      const stepReads = contentsCalls(t).filter((r) => STEP_FILES.some((f) => r.includes(`/contents/${f}?`)));
+      assert.deepEqual(stepReads, [], 'with no note, no step file is read');
+    }
+  }
+});
+
+test(`${FMRE} AC-4 a compare of only openspec/ files reads no release note`, () => {
+  const t = gatesRepo({ evidence: STAGE('passed', GHEAD, OLD), reviews: approvedAt(OLD) });
+  t.gh.set(compareKey(OLD, GHEAD), compareFx('ahead', ['openspec/changes/feat/evidence.md', 'openspec/specs/x/spec.md']));
+  assert.deepEqual(gatesOf(t), { gates: [] });
+  assert.deepEqual(contentsCalls(t).filter((r) => r.includes('release.md')), []);
+});
+
+test(`${FMRE} AC-5 a REJECTED review and an approved one with an undisposed finding stay open across the step's commit`, () => {
+  const t = stepRepo({}, { evidence: STAGE('passed', GHEAD, OLD), reviews: { 'code-quality-reviewer': verdictText('rejected', OLD), 'test-coverage-reviewer': withFinding('') } });
+  assert.deepEqual(gatesOf(t), {
+    gates: [
+      { file: 'reviews/code-quality-reviewer.md', why: 'verdict REJECTED' },
+      { file: 'reviews/test-coverage-reviewer.md', why: behindWhy(MARKET_PATH) },
+    ],
+  });
+});
+
+test(`${FMRE} AC-1 the compare's base_commit sha is the recorded side's ref, and the recorded sha is without it`, () => {
+  const short = OLD.slice(0, 7);
+  const t = stepRepo({ recorded: short }, { evidence: STAGE('passed', GHEAD, short), reviews: approvedAt(short) });
+  assert.deepEqual(gatesOf(t), { gates: [] });
+  assert.deepEqual(contentsCalls(t).filter((r) => r.endsWith(`ref=${short}`)), [], 'no contents key at the short sha');
+  const bare = stepRepo({ base: false });
+  assert.deepEqual(gatesOf(bare), { gates: [] });
+});
+
+test(`${FMRE} blocked a failed or empty read of the release comparison ends gatesAtHead with the error`, () => {
+  const short = GHEAD.slice(0, 7);
+  const cases = [
+    ['release.md fails', (t) => t.gh.set(contentsKey(RELEASE_PATH, GHEAD), BOOM), 'gh: boom'],
+    ['the config fails', (t) => t.gh.set(contentsKey(CONFIG_PATH, GHEAD), BOOM), 'gh: boom'],
+    ['the config has no content string', (t) => t.gh.set(contentsKey(CONFIG_PATH, GHEAD), { stdout: { name: 'config.yaml' } }), `${CONFIG_PATH} at ${short} has no content`],
+    ['the marketplace at the recorded commit fails', (t) => t.gh.set(contentsKey(MARKET_PATH, OLD), BOOM), 'gh: boom'],
+    ['the marketplace at the head has no content string', (t) => t.gh.set(contentsKey(MARKET_PATH, GHEAD), { stdout: [] }), `${MARKET_PATH} at ${short} has no content`],
+    ['docs/adr at the recorded commit fails', (t) => t.gh.set(contentsKey('docs/adr', OLD), BOOM), 'gh: boom'],
+  ];
+  for (const [name, break_, error] of cases) {
+    const t = stepRepo();
+    break_(t);
+    assert.deepEqual(gatesOf(t), { error }, name);
+  }
+});
+
+test(`${FMRE} blocked from the default branch a failed release read blocks naming pull request 12 and never forces`, () => {
+  const head = 'b'.repeat(40);
+  const t = forcedFixtures(pm(), { gates: { evidence: STAGE('passed', head, OLD), reviews: approvedAt(head) } });
+  releaseStepAt(t.gh, head);
+  t.gh.set(contentsKey(MARKET_PATH, OLD), BOOM);
+  const s = stateOf(t);
+  assert.deepEqual(s.unreadMerge, { number: 12, error: 'gh: boom' });
+  assert.equal(s.forced, null);
+  const n = nextStep(s);
+  assert.deepEqual([n.step, n.reason], ['blocked', unreadReason(12, 'gh: boom')]);
 });
 
 test(`${FMP}: G9 gatesAtHead answers an error for a contents read that fails, a folder where a file is expected and a file where the folder is expected`, () => {

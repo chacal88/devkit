@@ -61,7 +61,7 @@ suite, `design.md` "Pinned rules"):
   themselves, stop and ask the coordinator before task 1.3. Check: when `fast-suite` has merged,
   `git merge-base --is-ancestor origin/main HEAD` exits 0; when it has not, the commit of task 1.2
   says so; `git status --short` is empty.
-- [ ] 1.2 Tests first (D-7), in `plugins/openspec/hooks/deliver-check-archive.test.mjs`. Give
+- [x] 1.2 Tests first (D-7), in `plugins/openspec/hooks/deliver-check-archive.test.mjs`. Give
   `gatesAt` the default `release.md` `NOT_FOUND` answer. Add the helper `releaseStepAt` and T-1 to T-9
   at G15's place, and remove G15 and its comment block, keeping `STEP_FILES`. The commit message
   names G15's invariant (a noted change's step commit at a forced merge reads as the over-report),
@@ -71,7 +71,7 @@ suite, `design.md` "Pinned rules"):
   T-2, T-3, T-6, T-7, T-8 and T-9 failing and T-4 and T-5 passing (they pin today's answer).
   `node scripts/test-suite.mjs --test-name-pattern="^forced-merge-path 1: "` passes, so the
   `gatesAt` default changes no G, F or N row.
-- [ ] 1.3 The shared helper's reader (D-5), in `plugins/openspec/hooks/deliver-check.mjs`:
+- [x] 1.3 The shared helper's reader (D-5), in `plugins/openspec/hooks/deliver-check.mjs`:
   `releaseContext(root, file = null, reader = repoReader(root))` returns `{ file, reader, adrsAt }`,
   `adrsAt` reading through `reader`, and `releaseOnlyEdit` reads through `ctx.reader`. No other
   caller changes. Check:
@@ -79,24 +79,24 @@ suite, `design.md` "Pinned rules"):
   `deliver-check.test.mjs` staleness rows and the `delivery-train-after.test.mjs` trainCheck row
   (AC-4: the normal path and the train read as before), and `git diff --stat` lists only
   `deliver-check.mjs` for this task.
-- [ ] 1.4 The forced-merge read (D-1 to D-4), in `gatesAtHead` of
+- [x] 1.4 The forced-merge read (D-1 to D-4), in `gatesAtHead` of
   `plugins/openspec/hooks/deliver-check.mjs`: the GitHub reader closure with its memo and
   `readError`, the lazy note and config read, `behind`'s `exempt` argument (the evidence `true`, an
   approved review `!open`), the recorded side's ref from `base_commit.sha`, and the comments of D-6.
   Check: `node scripts/test-suite.mjs --test-name-pattern="^forced-merge-release-edit "` passes
   (T-1 to T-9: AC-1, AC-2, AC-3, AC-4, AC-5 and the blocked path), and
   `node scripts/test-suite.mjs --test-name-pattern="^forced-merge-path 1: "` passes.
-- [ ] 1.5 The flow page (D-6): insert D-6's sentence into the "An owner's forced merge." paragraph
+- [x] 1.5 The flow page (D-6): insert D-6's sentence into the "An owner's forced merge." paragraph
   of `docs/openspec-flow.md`, after the sentence ending
   `read through GitHub so the count is the same from every checkout.` Check:
   `grep -c "read through GitHub, are equal once the" docs/openspec-flow.md` prints 1, and
   `python3 scripts/check.py` passes (English prose, links).
-- [ ] 1.6 The spec delta (AC-6): `openspec/changes/forced-merge-release-edit/specs/change-delivery/spec.md`
+- [x] 1.6 The spec delta (AC-6): `openspec/changes/forced-merge-release-edit/specs/change-delivery/spec.md`
   holds the two MODIFIED blocks of the plan unchanged. Check:
   `grep -c "SHALL be read by the requirement" openspec/changes/forced-merge-release-edit/specs/change-delivery/spec.md`
   prints 0. `grep -c "and an owner's forced merge of that head read them as current" openspec/changes/forced-merge-release-edit/specs/change-delivery/spec.md`
   prints 1. `openspec validate forced-merge-release-edit --strict` passes.
-- [ ] 1.7 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green; covers
+- [x] 1.7 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green; covers
   AC-1, AC-2, AC-3, AC-4, AC-5 (T-1 to T-9 and the pinned rows of task 1.3) and AC-6 (task 1.6).
 
 ## Workflow follow-up
