@@ -93,7 +93,7 @@ to the planner, the readiness review and the owner's approval before anything el
   stop-and-revise, the envelope regex D-4 will use, the cron, the remove tool and the notification
   tool, each with the proof file and line it rests on. Check: every case of D-1's list is named true
   or false with its source.
-- [ ] 1.10 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (it
+- [x] 1.10 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green (it
   selects no test: only `openspec/` files changed); `proof/decision.md` names the prompt form and the
   review round's path from `proof/p2-result.md` (task 1.4); the record holds this revision's decisions
   (the adr-author's revision of decisions 1, 3, 9, 10 and 13 and the ADR 0008 and ADR 0022
@@ -101,6 +101,13 @@ to the planner, the readiness review and the owner's approval before anything el
   part).
 
 ## 2. The bookkeeping and the verbs (phase 2)
+
+Order (coordinator's word of 2026-11-28): the tasks that only add files run first, before the change
+`multi-roadmaps` merges: 2.2, 2.3, 2.14a and 2.17, then the gate 2.18. They edit none of the files
+`multi-roadmaps` edits (`guard.mjs`, `run-file.mjs`, `roadmap-loop.mjs`, `change-loop.mjs`,
+`deliver-check.mjs`, `conduct-check.mjs`, `status-line.mjs`, the devkit and ship-change `SKILL.md`,
+`docs/openspec-flow.md`); they only import from them. Every other task of phases 2 to 6 waits for that
+merge and the coordinator's word.
 
 - [ ] 2.1 The run file (D-2, D-3): in `plugins/openspec/hooks/run-file.mjs`, `emptyRun` and `readRun`
   with `task`, `ended`, `queue`, `claims` (`{ session, at, heartbeat }`), `holds` (`elsewhere` with
@@ -201,7 +208,19 @@ to the planner, the readiness review and the owner's approval before anything el
 - [ ] 2.13 ADR 0013's Note (D-2) and the class M test "followups AC-3 run file" reading it. Grep the
   tests for `0013-the-roadmap-coordinator-is-the-owners-session.md` first (D-15's pin rule). Check:
   `node scripts/test-suite.mjs --test-name-pattern="^followups (AC-3|ADR 0014) "` passes.
-- [ ] 2.14 The test capacity (D-25): `capacity` in `emptyRun`/`readRun` with `gatesOf` and
+- [ ] 2.14a The test-slot ledger, add-only part of 2.14 (D-25): the new
+  `plugins/openspec/hooks/test-slots.mjs` (the ledger under `withLockFile` imported from where it
+  lives today, the dead-pid drop, the train's `trainWaiting`, which holds the gates as well as a
+  change's whole suite) and `plugins/openspec/hooks/test-slots.test.mjs` with the ledger cases of
+  2.14 (`capacity AC-22 `: a second whole suite waits until the first exits; a train's suite waiting
+  keeps a change's suite from starting and starts before it; while the train's suite runs or waits a
+  new gate waits; the train's suite waits for the gates in flight; a third gate waits at `gates` 2; a
+  dead pid's slot is taken; a ledger that does not parse is empty; two clones on one
+  `DEVKIT_STATE_DIR` share the whole-suite slot), driving the module's own functions (the `test-run`
+  verb, `capacity` in the run file, the settings and `DEVKIT_TEST_CONCURRENCY` stay in 2.14). Map: a
+  `files` key for `test-slots.mjs` linking `test-slots.test.mjs`. Check:
+  `node scripts/test-suite.mjs --test-name-pattern="^capacity "` passes.
+- [ ] 2.14 The test capacity (D-25), the rest once 2.14a is done: `capacity` in `emptyRun`/`readRun` with `gatesOf` and
   `concurrencyOf` in `plugins/openspec/hooks/run-file.mjs`; `run --test-gates --test-concurrency`;
   the two `userConfig` settings in `plugins/openspec/.claude-plugin/plugin.json`; the new
   `plugins/openspec/hooks/test-slots.mjs` (the ledger under `withLockFile`, the dead-pid drop, the
@@ -247,9 +266,21 @@ to the planner, the readiness review and the owner's approval before anything el
 - [ ] 2.16 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green; AC-2,
   AC-4, AC-5, AC-7, AC-8, AC-9, AC-11, AC-14 to AC-22 (their code).
 
+- [ ] 2.17 The tick's hook module, add-only part of 3.1 (D-4): `plugins/openspec/hooks/tick-gate.mjs`
+  with `localRunFilePath`, `localFacts` and `tickReady`, and the common git folder read from `.git`
+  and `commondir` by `node:fs` in the module itself (`commonDirOf`, exported; 2.15 moves it into
+  `guard.mjs` when `deliver-check.mjs` needs it, and 3.1 keeps one copy), plus
+  `plugins/openspec/hooks/tick-gate.test.mjs` with every case 3.1 names, run as a process with a
+  payload on stdin. No `hooks.json` entry yet (3.1 adds it), so nothing of the repository fires the
+  hook. Map: a `files` key for `tick-gate.mjs` linking `tick-gate.test.mjs`. Check:
+  `node scripts/test-suite.mjs --test-name-pattern="^tick-gate "` passes.
+- [ ] 2.18 Gate of the add-only tasks: `node scripts/test-suite.mjs --own-files --concurrency=2 && python3 scripts/check.py`
+  green, its `selected` lines recorded. AC-3 (the hook's part), AC-6 and AC-14 (the modules' part),
+  AC-22 (the ledger's part).
+
 ## 3. The tick's hook, the locks and the blocked firing (phase 3)
 
-- [ ] 3.1 The tick's prompt hook (D-4): `plugins/openspec/hooks/tick-gate.mjs` (built-ins at the
+- [ ] 3.1 The tick's prompt hook (D-4), what 2.17 left: `plugins/openspec/hooks/tick-gate.mjs` (built-ins at the
   top, `guard.mjs` and `run-file.mjs` by dynamic `import()` after the raw match; `localRunFilePath`,
   `localFacts`, `tickReady`), the first `UserPromptSubmit` entry of
   `plugins/openspec/hooks/hooks.json`, and `plugins/openspec/hooks/tick-gate.test.mjs`, run as a
@@ -486,3 +517,9 @@ yet") and any task the merge supersedes (CLAUDE.md).
 
 - The verifier writes `evidence.md`; the review bench runs; the delivery numbers the record and writes
   the release from `release.md`; the retro and the archive follow.
+- A defect of `flow-check.mjs` (lines 563-581, devkit-openspec 0.50.2) seen in this change: once a task
+  of `tasks.md` is ticked, the mtime staleness of a failed readiness is skipped, and the plan-revised
+  path needs a matching approval, so a failed readiness never sees the planner's fix; `next` hands
+  the planner again with "nothing changed". This change dispatched the readiness review directly. A
+  follow-up change on `flow-check.mjs` makes a plan file newer than the failed readiness count as the
+  fix while the work has started.
