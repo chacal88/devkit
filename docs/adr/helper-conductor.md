@@ -1,6 +1,7 @@
 # ADR [helper-conductor]: A roadmap run is conducted by one scheduled task of the project, whose ticks drive each change through a helper, with no session per change and no question box per change
 
-- Status: proposed
+- Status: accepted
+- Accepted by: the owner, on 2026-11-28, in the approval of the plan of change helper-conductor (openspec/changes/helper-conductor/approval.md)
 - Date: 2026-11-28
 - Change: helper-conductor
 - Number: none; this record follows the release-note rule (ADR 0034 (0034-release-at-merge.md),
