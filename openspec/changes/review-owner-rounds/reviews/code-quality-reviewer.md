@@ -1,15 +1,15 @@
 Verdict: approved
-Commit: 109279031bd2295a0ed1e8c83e0dd2fb28d88a3f
+Commit: ff998c02e3b9ae0766820d66e0d4e18a63b2d578
 
-## Quality review — review-owner-rounds (round 1)
+## Quality review — review-owner-rounds (round 2)
 
 ### Findings
-- [nit] plugins/core/skills/review-change/scripts/review-round.workflow.js:72-87 — validateOwner checks only the shape of args.owner (round, scope, 1 to 200 characters of words). It never reads declared.json, so a hand-written args.owner passes. The skill says never to write it by hand, but nothing enforces that. Check against the record in validateArgs, or accept the gap as a documented trust boundary.
-- [nit] plugins/core/skills/review-change/scripts/review-round.mjs:186-213 — declaredSteps copies the readDeclared rules from deliver-check.mjs. The comment says deliver-check.test.mjs keeps the two readings in step. That is acceptable because devkit-core installs alone, but the copy can drift if the test stops covering it.
-- [praise] plugins/core/skills/review-change/scripts/review-round.workflow.js:69-95 — The rule sits once in the rules section, and the .mjs and workflow paths share it. The owner command refuses with exit 3 and names the missing authorization. The 200-character cap and backtick handling match change-loop's wordsOf.
-- [praise] plugins/core/skills/review-change/scripts/review-round.test.mjs — Each AC-1 to AC-5 has a test, including the refusal path (no agent starts, exit 3) and the resolution scope. Rounds 1 and 2 are pinned as unchanged and as refusing an owner.
+- [nit] plugins/core/skills/review-change/scripts/review-round.workflow.js:72-95 — Round 1 nit, still open: validateOwner checks only the shape of args.owner and never reads declared.json, so a hand-written args.owner passes. Check against the record in validateArgs, or document the trust boundary.
+- [nit] plugins/core/skills/review-change/scripts/review-round.mjs:186-213 — Round 1 nit, still open: declaredSteps copies the readDeclared rules from deliver-check.mjs, and only a test keeps the two readings in step.
+- [praise] plugins/core/skills/review-change/scripts/review-round.test.mjs:1639 — The joined-condition test covers both sides in one run. A round 3 quotes the owner's words in the consensus section, and the writer prompt still leaves out the reviewer's own summary and ends on summaryLine. Per the CLAUDE.md rule, each side also keeps its own AC tests.
+- [praise] plugins/core/skills/review-change/scripts/review-round.mjs:14 — The conflict resolution in the NAMES list and the destructured exports keeps both sides' names (withoutSummary, summaryLine and ownerLine) in the same order, with no loss. consolidate keeps the ownerLine insertion after the Consensus line.
+- [praise] openspec/changes/review-owner-rounds/evidence.md — The refreshed gate row is its own `pass` row. It says it ran as `--own-files` at the merge commit, copies the 8 selected files and the `suite:` line, and records the load before and after. The log under proof/ matches those lines, `check.py` ends on `all checks passed`, and the earlier log is kept as history.
+
 
 ### Summary
-- 4 findings (0 blocking, 0 important, 2 nit) + 2 praise
-- Justification: I read the diff of the rules (`validateOwner`, `ownerLine`, `consolidate`), the new `owner` command, the SKILL.md and ship-change rows, and the tests. Scope matches the proposal. No `scripts/test-map.json` edit is needed because no file was added or moved. Every AC has a test and a real-run proof under `proof/` (rr1 to rr5). The only change after the evidence commit 8976c14 is `evidence.md` itself, so the proof was taken on the same code. The scoped run of `review-round.test.mjs` passes with 113 of 113.
-- The workflow path trusts `args.owner` (F1). That leaves a gap only if a session ignores the skill. The `owner` command is the real gate, and it refuses when no words are recorded.
+- 2 findings (0 blocking, 0 important, 2 nit) + 3 praise; open: F1, F2; fixed: none; refuted: none
