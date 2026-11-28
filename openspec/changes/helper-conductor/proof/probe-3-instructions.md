@@ -36,7 +36,7 @@ repository's settings.
 - (f) The note: whether the passing session quotes `devkit tick note:` (the hook's
   `additionalContext` reached the model). This probe runs before task 2.5, so the `tick` call the
   note names is not run here; phase 6's real run (task 6.1) runs it.
-- (g) The `prompt` field of each line of `/var/tmp/devkit-hc-tick/log/prompt.jsonl`: the
+- (g) The `prompt` key inside the `raw` payload string of each line of `/var/tmp/devkit-hc-tick/log/prompt.jsonl`: the
   `<scheduled-task name=...>` tag form or the bare stored prompt (first 300 characters).
 
 Write the results as `key: value` lines to `/var/tmp/devkit-suite/helper-conductor-probe-3.txt` and
