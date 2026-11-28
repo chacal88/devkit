@@ -1,0 +1,135 @@
+start plugins/openspec/hooks/change-state-listing.test.mjs
+=== plugins/openspec/hooks/change-state-listing.test.mjs
+✖ state-listing-speed AC-1 the reads of the listing overlap (12480.127463ms)
+▶ state-listing-speed AC-2 the listing is byte-identical to the sequential read
+  ✔ with --offline (19899.77328ms)
+  ✔ without --offline (22554.686219ms)
+✔ state-listing-speed AC-2 the listing is byte-identical to the sequential read (42853.392671ms)
+✔ state-listing-speed AC-2 each entry is the one state --change prints (21879.170326ms)
+▶ state-listing-speed AC-3 the pool never runs more than its limit
+  ✖ limit 2 (6.388576ms)
+  ✖ limit 0 and limit 1 run one at a time (4.272904ms)
+  ✖ the bound is the machine cores, at least one (0.612728ms)
+✖ state-listing-speed AC-3 the pool never runs more than its limit (18.718883ms)
+✖ state-listing-speed AC-3 the pool stops starting after a stop (1.622574ms)
+✖ state-listing-speed AC-4 an unreadable change is listed blocked (147.563237ms)
+✖ state-listing-speed AC-4 a read that fails the command fails the listing (123.155588ms)
+✔ state-listing-speed AC-4 a child that fails in a checkout of its own fails the listing as one after another (8560.875689ms)
+✖ state-listing-speed AC-4 a child that dies is a usage failure (97.48566ms)
+▶ state-listing-speed AC-6 a listing of one change or none starts no read process
+  ✖ one change (1.628365ms)
+  ✖ no change (0.468266ms)
+✖ state-listing-speed AC-6 a listing of one change or none starts no read process (208.764696ms)
+✔ state-listing-speed AC-6 in-process state stays synchronous (9786.086937ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 6
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 96464.420527
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-state-listing.test.mjs:79:1
+✖ state-listing-speed AC-1 the reads of the listing overlap (12480.127463ms)
+  AssertionError [ERR_ASSERTION]: overlap 1
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:88:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-state-listing.test.mjs:138:11
+✖ limit 2 (6.388576ms)
+  TypeError [Error]: changeLoopModule.boundedMap is not a function
+      at pool (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:129:44)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:139:37)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:138:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-state-listing.test.mjs:143:11
+✖ limit 0 and limit 1 run one at a time (4.272904ms)
+  TypeError [Error]: changeLoopModule.boundedMap is not a function
+      at pool (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:129:44)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:144:25)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:143:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-state-listing.test.mjs:147:11
+✖ the bound is the machine cores, at least one (0.612728ms)
+  TypeError [Error]: changeLoopModule.listingBound is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:148:35)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:147:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-state-listing.test.mjs:152:1
+✖ state-listing-speed AC-3 the pool stops starting after a stop (1.622574ms)
+  TypeError [Error]: changeLoopModule.boundedMap is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:154:42)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-state-listing.test.mjs:165:1
+✖ state-listing-speed AC-4 an unreadable change is listed blocked (147.563237ms)
+  TypeError [Error]: changeLoopModule.stateListing is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:168:36)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-state-listing.test.mjs:176:1
+✖ state-listing-speed AC-4 a read that fails the command fails the listing (123.155588ms)
+  TypeError [Error]: changeLoopModule.stateListing is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:179:36)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-state-listing.test.mjs:199:1
+✖ state-listing-speed AC-4 a child that dies is a usage failure (97.48566ms)
+  TypeError [Error]: changeLoopModule.stateListing is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:202:36)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-state-listing.test.mjs:213:13
+✖ one change (1.628365ms)
+  TypeError [Error]: changeLoopModule.stateListing is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:216:40)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:213:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-state-listing.test.mjs:213:13
+✖ no change (0.468266ms)
+  TypeError [Error]: changeLoopModule.stateListing is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:216:40)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/zen-hawking-5eaaa9/plugins/openspec/hooks/change-state-listing.test.mjs:213:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+=== plugins/openspec/hooks/change-state-listing.test.mjs: FAIL 96.6s
+FAIL 96.6s plugins/openspec/hooks/change-state-listing.test.mjs
+suite: 1 files, 18 tests, 6 pass, 12 fail, 96.7s, concurrency 8

@@ -1124,8 +1124,8 @@ test('test-map-hub-links AC-1 AC-2 AC-3 AC-4 the repository\'s map links no slow
 const KEPT_HUB_READERS = {
   'plugins/openspec/hooks/change-loop.mjs': [
     'gen-agents', 'change-loop-compozy', 'change-loop-declared', 'change-loop-remote-state', 'change-loop-remote', 'change-loop',
-    'change-state-stages', 'compozy-driver', 'deliver-check-archive', 'delivery-models', 'delivery-train-after', 'delivery-train',
-    'guard', 'jira-task', 'project-loop', 'release-tags', 'roadmap-loop-followups', 'roadmap-loop-upfront', 'roadmap-loop',
+    'change-state-listing', 'change-state-stages', 'compozy-driver', 'deliver-check-archive', 'delivery-models', 'delivery-train-after',
+    'delivery-train', 'guard', 'jira-task', 'project-loop', 'release-tags', 'roadmap-loop-followups', 'roadmap-loop-upfront', 'roadmap-loop',
     'stage-models', 'status-line', 'version-pin', 'changes-under-way', 'setup-block',
   ],
   'plugins/openspec/hooks/deliver-check.mjs': [

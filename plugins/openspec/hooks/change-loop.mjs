@@ -37,9 +37,9 @@
 
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { hostname, tmpdir } from 'node:os';
+import { availableParallelism, hostname, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, handOffKey, handOffsOf, typedSince, isChangeId, readRoadmap, readValue, isDecisionRecord, parseStageHeader, parseDevkitBlock, changeDevkitBlock, deliverySettings, budgetValue, releaseTagSetting, trainSetting, SPEND_MESSAGES } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, readTestSettings, appliedStages } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, planDigest, planRevision, makeGh, readDeclared, authorizedRounds, REVIEW_ROUNDS, ADR_LINES, releaseTagOf, parseReleaseNote, RELEASE_NOTE, namesReleaseTag, noteMoved } from './deliver-check.mjs';
@@ -2090,6 +2090,11 @@ const namedByRun = (run) => new Set([
   ...Object.entries(run.announced).filter(([, what]) => what === 'waits-turn' || what === 'waits-refused').map(([name]) => name),
 ]);
 
+// The ids the state listing reads: every unfinished change and every id the run file names, each once, in id order.
+export function listingIds(start, run, { env, gh } = {}) {
+  return [...new Set([...unfinished(start, { env, gh }).map((u) => u.id), ...namedByRun(run)])].sort((a, b) => a.localeCompare(b));
+}
+
 // The state of each change in play (every unfinished change and every change the run file names, or just `id`), in id order.
 // Reads only; calls `nextAction` per change and never `updateRun`.
 export function stateEntries(cwd, { id = null, lang, env = process.env, openspec, gh } = {}) {
@@ -2100,7 +2105,7 @@ export function stateEntries(cwd, { id = null, lang, env = process.env, openspec
   const roadmapIds = new Set((readRoadmap(start) ?? []).flatMap((round) => round.items.map((item) => item.id)));
   const changeSessions = run.changeSessions === true;
   const named = namedByRun(run);
-  const ids = id !== null ? [id] : [...new Set([...unfinished(start, { env, gh }).map((u) => u.id), ...named])].sort((a, b) => a.localeCompare(b));
+  const ids = id !== null ? [id] : listingIds(start, run, { env, gh });
   let archived = null;
   let days = null; // archivedDates(start, ...), read at most once per command, only when an id is unplaced
   const archivedStandIn = (cid) => ({ kind: 'end', change: cid, script: null, root: null, branch: null, stage: null, stageTitle: null, end: { state: 'archived', why: 'archived' }, params: { id: cid } });
@@ -3390,8 +3395,87 @@ function runNext(args, { env, cwd, openspec, gh }) {
   return { code: exitCodeOf(action), stdout: loopOutput(opts.change, action), stderr: '' };
 }
 
+const STATE_ARGS = { values: ['--change', '--lang'], flags: ['--offline'] };
+
+// The processes the listing reads its changes in, at most the machine's cores at once (state-listing-speed D-4).
+export const listingBound = () => Math.max(1, availableParallelism());
+
+// Runs `run(item, index)` over `items` in order, at most `limit` at once; once a result makes `stopWhen` true, no further item
+// starts. Resolves when every started item has settled, to the results in item order (`null` for an item never started).
+export async function boundedMap(items, limit, run, { stopWhen = () => false } = {}) {
+  const results = items.map(() => null);
+  let next = 0;
+  let stopped = false;
+  const worker = async () => {
+    while (!stopped && next < items.length) {
+      const at = next++;
+      results[at] = await run(items[at], at);
+      if (stopWhen(results[at])) stopped = true;
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, limit) || 1, items.length) }, worker));
+  return results;
+}
+
+// This script's own path: a listing child runs the code the parent loaded.
+export const LOOP_SCRIPT = fileURLToPath(import.meta.url);
+
+// Reads one change of the listing in a process of its own: `state <the parent's arguments> --change <id>`, in the parent's folder.
+// The child only reads; `GIT_OPTIONAL_LOCKS=0` keeps its `git status` from taking `index.lock` (state-listing-speed D-2).
+// Resolves, once the child has closed, to { id, code, signal, stdout, stderr, error }.
+export function childRead(id, { argv, env, cwd }) {
+  return new Promise((done) => {
+    let stdout = '';
+    let stderr = '';
+    let child;
+    try {
+      child = spawn(process.execPath, [LOOP_SCRIPT, ...argv, '--change', id], { cwd, env: { ...env, GIT_OPTIONAL_LOCKS: '0' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (error) {
+      done({ id, code: null, signal: null, stdout, stderr, error });
+      return;
+    }
+    child.stdout.setEncoding('utf8').on('data', (chunk) => { stdout += chunk; });
+    child.stderr.setEncoding('utf8').on('data', (chunk) => { stderr += chunk; });
+    child.on('error', (error) => done({ id, code: null, signal: null, stdout, stderr, error }));
+    child.on('close', (code, signal) => done({ id, code, signal, stdout, stderr, error: null }));
+  });
+}
+
+// The one entry a read gives for `id`, or null when the read is not a clean answer for it.
+function entryOfRead(r) {
+  if (r.error || r.code !== 0) return null;
+  try {
+    const out = JSON.parse(r.stdout);
+    return out?.version === 1 && Array.isArray(out.changes) && out.changes.length === 1 && out.changes[0]?.change === r.id ? out.changes[0] : null;
+  } catch { return null; }
+}
+
+// The state listing with the changes read at once (state-listing-speed D-5): prints what `main` prints, one entry per id in id
+// order. A read that exits 3 is the failure the sequential read gives at that id; any other read without an entry fails the command.
+export async function stateListing(argv, { env, cwd, readOne = childRead }) {
+  try {
+    const opts = parseArgs(argv.slice(1), STATE_ARGS);
+    const start = findRoot(cwd);
+    if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
+    const ids = listingIds(start, readRun(runFilePath(start)), { env, gh: opts.offline ? OFFLINE_GH : undefined });
+    if (ids.length < 2) return main(argv, { env, cwd });
+    const reads = await boundedMap(ids, listingBound(), (id) => readOne(id, { argv, env, cwd }), { stopWhen: (r) => entryOfRead(r) === null });
+    const entries = [];
+    for (const r of reads) {
+      const entry = r === null ? null : entryOfRead(r);
+      if (entry) { entries.push(entry); continue; }
+      if (r !== null && !r.error && !r.signal && r.code === 3) return { code: 3, stdout: r.stdout, stderr: r.stderr };
+      const why = r.error ? r.error.message : r.signal ? `signal ${r.signal}` : r.code !== 0 ? `exit ${r.code}` : 'no single entry';
+      throw new LoopUsageError(`state of ${r.id} could not be read: ${why}`);
+    }
+    return { code: 0, stdout: json({ version: 1, changes: entries }), stderr: '' };
+  } catch (e) {
+    return failure(argv, e);
+  }
+}
+
 function runState(args, { env, cwd, openspec, gh }) {
-  const opts = parseArgs(args, { values: ['--change', '--lang'], flags: ['--offline'] });
+  const opts = parseArgs(args, STATE_ARGS);
   if (opts.positional.length) throw new LoopUsageError(USAGE);
   // `--offline`: GitHub reads as not answering for the whole read, so no call is made (run-status-bar D-4).
   const changes = stateEntries(cwd, { id: opts.change ?? null, lang: opts.lang, env, openspec, gh: opts.offline ? OFFLINE_GH : gh });
@@ -3603,8 +3687,19 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
   }
 }
 
+// Whether `state`'s arguments ask for the listing: they parse, with no positional word and no `--change`.
+function isListing(argv) {
+  try {
+    const opts = parseArgs(argv.slice(1), STATE_ARGS);
+    return opts.positional.length === 0 && opts.change === undefined;
+  } catch { return false; }
+}
+
 // `main`, and `wait` too: the one entry point of the command line.
 export async function runCommand(argv, opts = {}) {
+  if (argv[0] === 'state' && opts.openspec === undefined && opts.gh === undefined && isListing(argv)) {
+    return stateListing(argv, { env: opts.env ?? process.env, cwd: opts.cwd ?? process.cwd() });
+  }
   if (argv[0] !== 'wait') return main(argv, opts);
   try {
     return await runWait(argv.slice(1), { env: opts.env ?? process.env, cwd: opts.cwd ?? process.cwd(), openspec: opts.openspec, gh: opts.gh, sleep: opts.sleep });
