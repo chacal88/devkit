@@ -2695,6 +2695,17 @@ test(`${FMRE} AC-5 a REJECTED review and an approved one with an undisposed find
   });
 });
 
+test(`${FMRE} AC-5 a declined review with no undisposed finding stays current across the step's commit`, () => {
+  const t = stepRepo({}, { evidence: STAGE('passed', GHEAD, OLD), reviews: { 'code-quality-reviewer': verdictText('declined', OLD), 'test-coverage-reviewer': verdictText('approved', OLD) } });
+  assert.deepEqual(gatesOf(t), { gates: [] });
+});
+
+test(`${FMRE} AC-5 a declined review with an undisposed finding stays open across the step's commit`, () => {
+  const declinedWithFinding = withFinding('').replace('Verdict: approved', 'Verdict: declined');
+  const t = stepRepo({}, { evidence: STAGE('passed', GHEAD, OLD), reviews: { 'code-quality-reviewer': declinedWithFinding, 'test-coverage-reviewer': verdictText('approved', OLD) } });
+  assert.deepEqual(gatesOf(t), { gates: [{ file: 'reviews/code-quality-reviewer.md', why: behindWhy(MARKET_PATH) }] });
+});
+
 test(`${FMRE} AC-1 the compare's base_commit sha is the recorded side's ref, and the recorded sha is without it`, () => {
   const short = OLD.slice(0, 7);
   const t = stepRepo({ recorded: short }, { evidence: STAGE('passed', GHEAD, short), reviews: approvedAt(short) });
