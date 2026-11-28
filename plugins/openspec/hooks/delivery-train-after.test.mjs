@@ -175,7 +175,7 @@ test('delivery-train P13: the reply to an unknown verb names /devkit train, in o
 });
 
 test('delivery-train loop: the new train replies exist in both languages, each with its own text', () => {
-  for (const key of ['train-off', 'train-running', 'train-nothing', 'train-blocked', 'train-base-red', 'train-checks', 'train-auto-merge-on', 'train-ready', 'train-delivered', 'train-args']) {
+  for (const key of ['train-off', 'train-running', 'train-nothing', 'train-empty', 'train-blocked', 'train-base-red', 'train-checks', 'train-auto-merge-on', 'train-ready', 'train-delivered', 'train-args']) {
     assert.ok(MESSAGES.en[key] && MESSAGES['pt-BR'][key], key);
     assert.notEqual(MESSAGES.en[key], MESSAGES['pt-BR'][key], key);
   }
@@ -198,7 +198,7 @@ test('delivery-train docs: the documents follow', () => {
   const section = sliceOf(flow, '### The delivery train', '\n## CI');
   for (const [what, re] of [
     ['the verb', /`\/devkit train`/], ['the script', /`train-loop\.mjs`/], ['the departure', /`train\/<n>`/], ['the record', /`openspec\/trains\/<n>\.md`/],
-    ['the red train', /bisect/i], ['the join rules', /`release-merge\.mjs --merge <rev>`/], ['the train\'s pull request', /merge commit/], ['the leavers', /left/],
+    ['the red train', /bisect/i], ['the join rules', /`release-merge\.mjs --merge <rev>`/], ['the train\'s pull request', /merge commit/], ['the leavers', /left/], ["the empty train's record", /`<git common dir>\/devkit-trains\/<n>\.md`/],
   ]) assert.match(section, re, `the subsection names ${what}`);
 
   const skill = repoFile('plugins', 'openspec', 'skills', 'devkit', 'SKILL.md');
