@@ -1,5 +1,10 @@
 # Probe 3: the blocked tick, measured on the owner's Mac (task 3.6)
 
+Superseded on 2026-11-28: a scheduled task cannot be pointed at this scratch project
+(`create_scheduled_task` takes no working folder), so task 3.6 measured the blocked tick headless on
+`avel` (`p5-empty-tick.md`) and the scheduled firing moved to task 6.1. Kept for the setup script it
+documents.
+
 Run by the coordinator's session on the owner's Mac, on a turn the owner typed (a task created on
 another turn runs in the default permission mode). It needs none of the files the change
 `multi-roadmaps` edits: the hook is this branch's `plugins/openspec/hooks/tick-gate.mjs` (task 2.17,

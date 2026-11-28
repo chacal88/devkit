@@ -57,3 +57,19 @@ Values settled from `p2-result.md` (owner's Mac, 2026-11-28), each with its line
 With these the D-1 pick is final: the tick's own session conducts its claimed change (Helper A's
 place, ADR [helper-conductor] decision 3), the prompt form is S-B, and the cost of a blocked firing
 is measured by task 3.6 before phase 4.
+
+## Phase 3 measurement and the tick gate's footing (2026-11-28)
+
+Task 3.6 measured on `avel` without a scheduled task (`p5-empty-tick.md`): three headless runs of the
+tick's prompt, bare and in the scheduler's envelope, each blocked by `tick-gate.mjs`, read 0 turns,
+0 tokens and cost 0; the control run with the item ready read 1 turn and the note reached the model.
+No stop-and-revise case of D-1 holds.
+
+Until task 6.1's run on the owner's Mac, the tick gate rests on:
+
+- measured: the firing's prompt arrives inside `<scheduled-task name="...">` (`p2-result.md`,
+  `envelope_tag:`); the plugin's hooks run in a task's session (`p1-hooks.md`,
+  `session_start_hook:`); a `UserPromptSubmit` block of the tick's prompt costs no model call in a
+  headless session (`p5-empty-tick.md`);
+- not measured: that a `UserPromptSubmit` hook sees a scheduled firing and that its block costs no
+  model call there. Task 6.1 measures it, with the cron, the notification tool and two runs at once.
