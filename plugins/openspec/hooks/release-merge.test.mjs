@@ -7,7 +7,7 @@ import { join, dirname } from 'node:path';
 import { tmpFolder } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { bumpKind, applyBump, resolveVersion, resolveManifest, manifestEditsBeyondVersion, resolveChangelog, PIN_FILE, PIN_PACK, PIN_PACK_NAME, setPins, mergePins, classifyConflict, pinsIn } from './release-merge.mjs';
+import { bumpKind, applyBump, resolveVersion, resolveManifest, manifestEditsBeyondVersion, mergeManifestFields, resolveChangelog, PIN_FILE, PIN_PACK, PIN_PACK_NAME, setPins, mergePins, classifyConflict, pinsIn } from './release-merge.mjs';
 import * as D from './deliver-check.mjs';
 import * as R from './release-merge.mjs';
 import { pinDoc, underOwnTmp } from './test-fixtures.mjs';
@@ -79,6 +79,84 @@ test('release-merge: manifestEditsBeyondVersion is empty for a version edit and 
   assert.deepEqual(manifestEditsBeyondVersion(MARKET, bumped), []);
   const edited = bumped.replace('"pack a"', '"pack a, better"');
   assert.deepEqual(manifestEditsBeyondVersion(MARKET, edited), ['plugins[a].description']);
+});
+
+// ---- release-merge-manifest-fields: the field-level merge of a manifest (design D-1 to D-5)
+
+const edit = (text, fn) => { const o = JSON.parse(text); fn(o); return `${JSON.stringify(o, null, 2)}\n`; };
+const marketA = (fn) => edit(MARKET, (o) => fn(o.plugins.find((p) => p.name === 'a'), o));
+
+test('release-merge-manifest-fields AC-1 mergeManifestFields keeps a field only the change side edited, in the base\'s key order', () => {
+  const change = marketA((a) => { a.description = 'pack a, better'; a.version = '0.6.1'; });
+  const base = marketA((a) => { a.version = '0.7.0'; });
+  const r = mergeManifestFields({ mergeBase: MARKET, change, base });
+  assert.deepEqual(r.edits, ['plugins[a].description']);
+  assert.equal(r.whole, false);
+  assert.deepEqual(r.both, []);
+  assert.equal(r.text, marketA((a) => { a.description = 'pack a, better'; a.version = '0.7.0'; }));
+  const keys = Object.keys(JSON.parse(r.text).plugins[0]);
+  assert.deepEqual(keys, ['name', 'description', 'version']);
+});
+
+test('release-merge-manifest-fields AC-2 mergeManifestFields keeps a field only the base side edited and returns the base text when the change edited none', () => {
+  const change = marketA((a) => { a.version = '0.6.1'; });
+  const base = marketA((a) => { a.description = 'theirs'; a.version = '0.7.0'; });
+  const r = mergeManifestFields({ mergeBase: MARKET, change, base });
+  assert.deepEqual(r.edits, []);
+  assert.equal(r.whole, false);
+  assert.deepEqual(r.both, []);
+  assert.equal(r.text, base);
+});
+
+test('release-merge-manifest-fields AC-3 mergeManifestFields refuses a field both sides edited, to the same value and to different values, and a field inside an entry the base removed', () => {
+  const change = marketA((a) => { a.description = 'same'; });
+  const sameBase = marketA((a) => { a.description = 'same'; });
+  const same = mergeManifestFields({ mergeBase: MARKET, change, base: sameBase });
+  assert.deepEqual(same.both, ['plugins[a].description']);
+  assert.equal(same.text, null);
+  const otherBase = marketA((a) => { a.description = 'other'; });
+  assert.deepEqual(mergeManifestFields({ mergeBase: MARKET, change, base: otherBase }).both, ['plugins[a].description']);
+  const removed = edit(MARKET, (o) => { o.plugins = o.plugins.filter((p) => p.name !== 'a'); });
+  const inside = mergeManifestFields({ mergeBase: MARKET, change, base: removed });
+  assert.deepEqual(inside.both, ['plugins[a].description']);
+  assert.equal(inside.text, null);
+  assert.equal(inside.whole, false);
+});
+
+test('release-merge-manifest-fields AC-4 mergeManifestFields merges two different fields of one manifest, an added key appended and a removed key deleted', () => {
+  const change = marketA((a, o) => { a.description = 'mine'; o.homepage = 'https://x'; delete o.metadata.description; });
+  const base = marketA((a, o) => { a.keywords = ['k']; o.name = 'devkit2'; });
+  const r = mergeManifestFields({ mergeBase: MARKET, change, base });
+  assert.deepEqual(r.both, []);
+  assert.equal(r.whole, false);
+  const o = JSON.parse(r.text);
+  assert.equal(o.name, 'devkit2');
+  assert.equal(o.plugins[0].description, 'mine');
+  assert.deepEqual(o.plugins[0].keywords, ['k']);
+  assert.equal(o.homepage, 'https://x');
+  assert.equal('description' in o.metadata, false);
+  assert.deepEqual(Object.keys(o), ['name', 'metadata', 'plugins', 'homepage'], 'an added key is appended');
+  assert.ok(r.text.endsWith('\n'));
+});
+
+test('release-merge-manifest-fields whole entry: an entry the change side added or removed and a manifest new at the merge base are whole; an entry the base side added is not', () => {
+  const added = edit(MARKET, (o) => { o.plugins.push({ name: 'c', description: 'pack c', version: '0.1.0' }); });
+  const addedByChange = mergeManifestFields({ mergeBase: MARKET, change: added, base: MARKET });
+  assert.equal(addedByChange.whole, true);
+  assert.equal(addedByChange.text, null);
+  assert.deepEqual(addedByChange.edits, ['plugins[c]']);
+  const removed = edit(MARKET, (o) => { o.plugins = o.plugins.filter((p) => p.name !== 'b'); });
+  assert.equal(mergeManifestFields({ mergeBase: MARKET, change: removed, base: MARKET }).whole, true);
+  assert.equal(mergeManifestFields({ mergeBase: null, change: MARKET, base: null }).whole, true);
+  const byBase = mergeManifestFields({ mergeBase: MARKET, change: MARKET, base: added });
+  assert.equal(byBase.whole, false);
+  assert.equal(byBase.text, added);
+});
+
+test('release-merge-manifest-fields parsers: mergeManifestFields throws a SyntaxError on an empty or truncated side', () => {
+  assert.throws(() => mergeManifestFields({ mergeBase: MARKET, change: '', base: MARKET }), SyntaxError);
+  assert.throws(() => mergeManifestFields({ mergeBase: MARKET, change: MARKET, base: '{ "name": ' }), SyntaxError);
+  assert.throws(() => mergeManifestFields({ mergeBase: '', change: MARKET, base: MARKET }), SyntaxError);
 });
 
 const entry = (v, title, body = '- x') => `## ${v} — ${title}\n\n${body}\n\n`;
@@ -243,20 +321,72 @@ test('release-merge: a conflict outside the release files aborts to oldHead with
   assert.ok(noMerge(root));
 });
 
-test('release-merge: a manifest edited beyond its version aborts to oldHead', () => {
-  const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH, extraB: {} });
-  // B also rewrites pack a's description inside the conflicting plugin.json.
-  git(root, 'checkout', '-q', '-b', 'tmp');
-  write(root, { 'plugins/a/.claude-plugin/plugin.json': json({ name: 'a', version: '0.6.1', description: 'a better pack a' }) });
-  commit(root, 'describe');
+// The branch's own description of pack a, in plugin.json and in its marketplace entry, over the bump `bump` writes.
+const describedA = (description, version = '0.6.1') => ({
+  'plugins/a/.claude-plugin/plugin.json': json({ name: 'a', version, description }),
+  '.claude-plugin/marketplace.json': json({ name: 'devkit', metadata: { description: 'd', version }, plugins: [{ name: 'a', description, version }, { name: 'b', description: 'pack b', version: '0.5.0' }] }),
+});
+
+test('release-merge-manifest-fields AC-5 --base keeps the branch\'s description with the version renumbered above the base\'s', () => {
+  const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH, extraB: describedA('a better pack a') });
+  const oldHead = git(root, 'rev-parse', 'HEAD');
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.equal(r.out.resolved, true);
+  const plugin = JSON.parse(git(root, 'show', 'HEAD:plugins/a/.claude-plugin/plugin.json'));
+  assert.equal(plugin.version, '0.7.1');
+  assert.equal(plugin.description, 'a better pack a');
+  const entryA = JSON.parse(git(root, 'show', 'HEAD:.claude-plugin/marketplace.json')).plugins.find((p) => p.name === 'a');
+  assert.equal(entryA.version, '0.7.1');
+  assert.equal(entryA.description, 'a better pack a');
+  assert.equal(git(root, 'rev-parse', 'HEAD^1'), oldHead);
+  assert.equal(git(root, 'rev-parse', 'HEAD^2'), git(root, 'rev-parse', 'origin/main'));
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  assert.ok(noMerge(root));
+});
+
+test('release-merge-manifest-fields AC-5 --base refuses a description both sides edited and aborts to oldHead', () => {
+  // Invariant: a manifest the rule cannot resolve aborts to the old head (layer: the --base CLI; suite: release-merge.test.mjs).
+  const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH, extraA: { 'plugins/a/.claude-plugin/plugin.json': json({ name: 'a', version: '0.7.0', description: 'theirs a' }) }, extraB: describedA('a better pack a') });
   const oldHead = git(root, 'rev-parse', 'HEAD');
   const r = run(root, '--base', 'main', '--json');
   assert.equal(r.code, 2);
   assert.equal(r.out.resolved, false);
-  assert.match(JSON.stringify(r.out), /plugin\.json/);
+  assert.deepEqual(r.out.conflicts, ['plugins/a/.claude-plugin/plugin.json']);
+  assert.ok(r.out.error.startsWith('a manifest field was edited on both sides:'), r.out.error);
+  assert.ok(r.out.error.includes('plugins/a/.claude-plugin/plugin.json (description)'), r.out.error);
   assert.equal(git(root, 'rev-parse', 'HEAD'), oldHead);
   assert.equal(git(root, 'status', '--porcelain'), '');
   assert.ok(noMerge(root));
+});
+
+test('release-merge-manifest-fields whole entry: --base refuses a pack entry the branch added with the old error text', () => {
+  const entries = [{ name: 'a', description: 'pack a', version: '0.6.1' }, { name: 'b', description: 'pack b', version: '0.5.0' }, { name: 'c', description: 'pack c', version: '0.1.0' }];
+  const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH, extraB: { '.claude-plugin/marketplace.json': json({ name: 'devkit', metadata: { description: 'd', version: '0.6.1' }, plugins: entries }) } });
+  const oldHead = git(root, 'rev-parse', 'HEAD');
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 2);
+  assert.equal(r.out.resolved, false);
+  assert.ok(r.out.error.startsWith('a manifest was edited beyond its version: .claude-plugin/marketplace.json (plugins[c])'), r.out.error);
+  assert.equal(git(root, 'rev-parse', 'HEAD'), oldHead);
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  assert.ok(noMerge(root));
+});
+
+test('release-merge-manifest-fields AC-7 the flow page and CONTRIBUTING state the field rule', () => {
+  const repo = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+  const flow = readFileSync(join(repo, 'docs/openspec-flow.md'), 'utf8');
+  const bullet = (name) => flow.split('\n').find((l) => l.startsWith(`- **${name}.**`)) ?? '';
+  const classification = bullet('Classification');
+  assert.ok(classification.includes('a manifest field both sides edited'), 'Classification names the field rule');
+  assert.ok(!classification.includes('(a `description`, a new pack)'), 'Classification no longer refuses every description edit');
+  const rule = bullet('The version rule');
+  assert.ok(rule.includes('a manifest field was edited on both sides:'));
+  assert.ok(rule.includes("keeps the base's value"));
+  const contributing = readFileSync(join(repo, 'CONTRIBUTING.md'), 'utf8');
+  const step5 = contributing.split('\n').find((l) => l.startsWith('5. ')) ?? '';
+  assert.ok(step5.includes('rides the train'));
+  assert.ok(!step5.includes('The join refuses a head that edits a manifest field beyond'));
 });
 
 test('release-merge: an invalid JSON manifest on the branch restores to oldHead with exit 2', () => {

@@ -1,0 +1,95 @@
+# Real run of release-merge-manifest-fields (design D-10)
+# clone of cf1eba169dced5cf197ba1522d9ab332f75daea1 on 2026-11-28T15:37:06Z; load:  12:37:06 up 7 days, 22:58,  7 users,  load average: 6.49, 8.90, 10.25
+
+## Case 1: --merge, the head alone edits devkit-core's description (AC-1, AC-6)
+$ node plugins/openspec/hooks/release-merge.mjs --merge af309dda7fd959328494665e004fe5c28b62444d --json
+{
+  "resolved": true,
+  "oldHead": "db5b4abb0149d37e506ad297aee8aed992996e2f",
+  "newHead": "ae0115d9cd0d0150891f7077b825f80f0684c812",
+  "versions": {
+    "packs": {
+      "devkit-core": "0.19.1"
+    },
+    "metadata": "0.55.3"
+  },
+  "files": [
+    ".claude-plugin/marketplace.json",
+    "plugins/core/.claude-plugin/plugin.json",
+    "docs/openspec-flow.md",
+    "docs/catalog.md"
+  ],
+  "conflicts": [
+    ".claude-plugin/marketplace.json",
+    "plugins/core/.claude-plugin/plugin.json"
+  ],
+  "mode": "merge"
+}
+[exit 0]
+$ python3 scripts/gen-catalog.py --check
+[exit 0]
+$ git show --stat --format=%H %s HEAD
+ae0115d9cd0d0150891f7077b825f80f0684c812 chore(train): join af309dd and renumber its release above the train
+
+ .claude-plugin/marketplace.json         | 4 ++--
+ docs/catalog.md                         | 2 +-
+ plugins/core/.claude-plugin/plugin.json | 4 ++--
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+[exit 0]
+$ python3 -c import json;print(json.load(open('plugins/core/.claude-plugin/plugin.json'))['version'], json.load(open('plugins/core/.claude-plugin/plugin.json'))['description']); print([(e['version'],e['description']) for e in json.load(open('.claude-plugin/marketplace.json'))['plugins'] if e['name']=='devkit-core'])
+0.19.1 Case 1 head description.
+[('0.19.1', 'Case 1 head description.')]
+[exit 0]
+$ grep -c Case 1 head description. docs/catalog.md
+1
+[exit 0]
+
+## Case 2: --merge, both sides edit devkit-core's description (AC-3)
+train head before: 554c8155f6cd7aae1e0a18ca1bfabb53f3f5ee38
+$ node plugins/openspec/hooks/release-merge.mjs --merge 4ec00bb5bfbd53ccb206a26e9e9e1d68104e2297 --json
+{
+  "resolved": false,
+  "oldHead": "554c8155f6cd7aae1e0a18ca1bfabb53f3f5ee38",
+  "conflicts": [
+    ".claude-plugin/marketplace.json",
+    "plugins/core/.claude-plugin/plugin.json"
+  ],
+  "error": "a manifest field was edited on both sides: .claude-plugin/marketplace.json (plugins[devkit-core].description); plugins/core/.claude-plugin/plugin.json (description)",
+  "mode": "merge"
+}
+[exit 2]
+$ git rev-parse HEAD
+554c8155f6cd7aae1e0a18ca1bfabb53f3f5ee38
+[exit 0]
+$ git status --porcelain
+[exit 0]
+$ test -e .git/MERGE_HEAD
+[exit 1]
+
+## Case 3: --base, the branch alone edits devkit-core's description (AC-5)
+$ node plugins/openspec/hooks/release-merge.mjs --base main --json
+{
+  "resolved": true,
+  "oldHead": "68ccaaddf7b2cd5ba98bdc30e1e1f82b4c524471",
+  "newHead": "6f0b8b7c60038543561f4c51d949c8ce9b61d0eb",
+  "versions": {
+    "packs": {
+      "devkit-core": "0.19.1"
+    },
+    "metadata": "0.55.3"
+  },
+  "files": [
+    ".claude-plugin/marketplace.json",
+    "plugins/core/.claude-plugin/plugin.json",
+    "docs/openspec-flow.md",
+    "docs/catalog.md"
+  ]
+}
+[exit 0]
+$ python3 -c import json;p=json.load(open('plugins/core/.claude-plugin/plugin.json'));print(p['version'],p['description'])
+0.19.1 Case 3 branch description.
+[exit 0]
+$ python3 scripts/gen-catalog.py --check
+[exit 0]
+
+# end;  12:37:10 up 7 days, 22:58,  7 users,  load average: 6.45, 8.85, 10.23

@@ -33,23 +33,61 @@ export function resolveVersion({ mergeBase, change, base }) {
 
 // ---------------------------------------------------------------- manifests
 
+// A path is an array of segments: `{ key }` (an object key) or `{ name }` (a `plugins[]`-style entry matched by name).
 function diffPaths(a, b, path, out) {
   const named = (x) => Array.isArray(x) && x.every((e) => e && typeof e === 'object' && typeof e.name === 'string');
   if (named(a) && named(b)) {
     const names = new Set([...a, ...b].map((e) => e.name));
-    for (const n of names) diffPaths(a.find((e) => e.name === n), b.find((e) => e.name === n), `${path}[${n}]`, out);
+    for (const n of names) diffPaths(a.find((e) => e.name === n), b.find((e) => e.name === n), [...path, { name: n }], out);
   } else if (a && b && typeof a === 'object' && typeof b === 'object' && !Array.isArray(a) && !Array.isArray(b)) {
-    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) diffPaths(a[k], b[k], path ? `${path}.${k}` : k, out);
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) diffPaths(a[k], b[k], [...path, { key: k }], out);
   } else if (JSON.stringify(a) !== JSON.stringify(b)) {
-    out.push(path || '(root)');
+    out.push(path);
   }
+}
+
+function formatPath(segments) {
+  if (!segments.length) return '(root)';
+  return segments.map((s, i) => ('name' in s ? `[${s.name}]` : `${i ? '.' : ''}${s.key}`)).join('');
 }
 
 // The JSON paths the change edited other than the version fields.
 export function manifestEditsBeyondVersion(mergeBaseText, changeText) {
   const out = [];
-  diffPaths(withoutVersions(JSON.parse(mergeBaseText ?? '{}')), withoutVersions(JSON.parse(changeText)), '', out);
-  return out;
+  diffPaths(withoutVersions(JSON.parse(mergeBaseText ?? '{}')), withoutVersions(JSON.parse(changeText)), [], out);
+  return out.map(formatPath);
+}
+
+const sameSegment = (x, y) => x.key === y.key && x.name === y.name;
+const isPrefix = (p, q) => p.length <= q.length && p.every((s, i) => sameSegment(s, q[i]));
+const overlaps = (p, q) => isPrefix(p, q) || isPrefix(q, p);
+
+// The step of one manifest (release-merge-manifest-fields D-1 to D-5): `mergeBase`, `change` and `base` are its three texts
+// (`mergeBase` and `base` null when that side lacks the file). `edits` are the change side's paths beyond the version fields,
+// `whole` is true when it added or removed a whole entry or the manifest, `both` are the paths the base side also edited,
+// `text` is the base side's text with every change-side field applied, or null when `whole`, `both` or a missing base.
+export function mergeManifestFields({ mergeBase, change, base }) {
+  const mb = withoutVersions(JSON.parse(mergeBase ?? '{}'));
+  const changeObj = JSON.parse(change);
+  const baseObj = base === null ? null : JSON.parse(base);
+  const edited = [];
+  diffPaths(mb, withoutVersions(changeObj), [], edited);
+  const theirs = [];
+  if (baseObj === null) theirs.push([]); else diffPaths(mb, withoutVersions(baseObj), [], theirs);
+  const edits = edited.map(formatPath);
+  const whole = mergeBase === null || edited.some((p) => !p.length || 'name' in p[p.length - 1]);
+  const both = [...new Set(edited.filter((c) => theirs.some((b) => overlaps(b, c))).map(formatPath))];
+  if (whole || both.length || baseObj === null) return { edits, whole, both, text: null };
+  if (!edited.length) return { edits, whole, both, text: base };
+  for (const path of edited) {
+    const walk = (root, segs) => segs.reduce((cur, s) => (cur === null || typeof cur !== 'object' ? undefined : 'name' in s ? cur.find?.((e) => e.name === s.name) : cur[s.key]), root);
+    const parent = walk(baseObj, path.slice(0, -1));
+    if (parent === null || typeof parent !== 'object') throw new ReleaseError(`cannot keep ${formatPath(path)}: the base side has no ${formatPath(path.slice(0, -1))}`);
+    const value = walk(changeObj, path);
+    const last = path[path.length - 1].key;
+    if (value === undefined) delete parent[last]; else parent[last] = structuredClone(value);
+  }
+  return { edits, whole, both, text: JSON.stringify(baseObj, null, 2) + (base.endsWith('\n') ? '\n' : '') };
 }
 
 // ---------------------------------------------------------------- CHANGELOG
@@ -233,16 +271,12 @@ function parseArgs(argv) {
 function resolveVersions(root, { mergeBase, oldHead, ref }) {
   const changed = listPaths(root, ['diff', '--name-only', mergeBase, oldHead]).filter((p) => RELEASE_FILE.test(p) && MANIFEST.test(p));
   const versions = { packs: {} };
-  const beyond = [];
   const pick = (path, pluck) => {
     const [m, c, b] = [mergeBase, oldHead, ref].map((rev) => { const t = show(root, rev, path); return t === null ? null : pluck(JSON.parse(t)); });
     if (c == null) return null;
     return m == null || b == null ? c : resolveVersion({ mergeBase: m, change: c, base: b });
   };
   for (const path of changed) {
-    const mbText = show(root, mergeBase, path);
-    const edits = manifestEditsBeyondVersion(mbText, show(root, oldHead, path));
-    if (edits.length) beyond.push(`${path} (${edits.join(', ')})`);
     if (path.endsWith('/plugin.json')) {
       const name = JSON.parse(show(root, oldHead, path)).name;
       const v = pick(path, (o) => o.version);
@@ -259,7 +293,7 @@ function resolveVersions(root, { mergeBase, oldHead, ref }) {
       if (md) versions.metadata = md;
     }
   }
-  return { changed, versions, beyond };
+  return { changed, versions };
 }
 
 // Undo the run: abort the merge (which resets what it staged), then put back every touched path that still
@@ -709,13 +743,17 @@ export function main(argv, { cwd = process.cwd(), stdout = (s) => process.stdout
       if (baseVersion === null) return unresolved({ conflicts, error: `cannot set the pin: ${ref} has no ${PIN_PACK_NAME} version in ${PIN_PACK}` });
       writeStaged(root, touched, PIN_FILE, setPins(pinMerged, baseVersion));
     }
-    const { changed, versions, beyond } = resolveVersions(root, { mergeBase, oldHead: side.change, ref: side.base });
-    if (beyond.length) return unresolved({ conflicts: changed, error: `a manifest was edited beyond its version: ${beyond.join('; ')}` });
+    const { changed, versions } = resolveVersions(root, { mergeBase, oldHead: side.change, ref: side.base });
+    const merged = changed.map((path) => ({ path, ...mergeManifestFields({ mergeBase: show(root, mergeBase, path), change: show(root, side.change, path), base: show(root, side.base, path) }) }));
+    const listed = (entries, field) => entries.map((m) => `${m.path} (${m[field].join(', ')})`).join('; ');
+    const whole = merged.filter((m) => m.whole);
+    if (whole.length) return unresolved({ conflicts: changed, error: `a manifest was edited beyond its version: ${listed(whole, 'edits')}` });
+    const overlapping = merged.filter((m) => m.both.length);
+    if (overlapping.length) return unresolved({ conflicts: overlapping.map((m) => m.path), error: `a manifest field was edited on both sides: ${listed(overlapping, 'both')}` });
     const files = [];
-    for (const path of changed) {
-      const baseText = show(root, side.base, path);
-      if (baseText === null) continue;
-      writeStaged(root, touched, path, resolveManifest(baseText, versions));
+    for (const { path, text } of merged) {
+      if (text === null) continue;
+      writeStaged(root, touched, path, resolveManifest(text, versions));
       files.push(path);
     }
     const clChange = show(root, side.change, 'CHANGELOG.md');

@@ -291,6 +291,109 @@ test('delivery-train join: a patch of the change above a minor of the train is r
   assert.ok(cl.indexOf('## 0.7.1 — mine') < cl.indexOf('## 0.7.0 — theirs'), cl);
 });
 
+// ---- release-merge-manifest-fields: a manifest field only one side edited rides the join (design D-8)
+
+const A_JSON = 'plugins/a/.claude-plugin/plugin.json';
+const MARKET_JSON = '.claude-plugin/marketplace.json';
+const aPlugin = (version, description, extra = {}) => json({ name: 'a', version, description, ...extra });
+const aMarket = (version, description, extra = []) => json({ name: 'devkit', metadata: { description: 'd', version }, plugins: [{ name: 'a', description, version }, { name: 'b', description: 'pack b', version: '0.5.0' }, ...extra] });
+const json = (obj) => `${JSON.stringify(obj, null, 2)}\n`;
+// A stub of scripts/gen-catalog.py: one `<name>: <description>` line per pack manifest, as the real one reads the descriptions.
+const GEN_STUB = "import glob, json\nfrom pathlib import Path\nlines = []\nfor f in sorted(glob.glob('plugins/*/.claude-plugin/plugin.json')):\n    d = json.load(open(f))\n    lines.append(d['name'] + ': ' + d['description'])\nPath('docs').mkdir(exist_ok=True)\nPath('docs/catalog.md').write_text('\\n'.join(lines) + '\\n')\n";
+
+test('release-merge-manifest-fields AC-1 AC-6 the join keeps the head\'s description in both manifests and regenerates the catalog from it', () => {
+  const { root, rev } = joinRepo({
+    initial: { 'scripts/gen-catalog.py': GEN_STUB },
+    train: { ...MINOR, title: 'theirs', body: '- theirs' },
+    change: { ...PATCH, title: 'mine', body: '- mine' },
+    extraChange: { [A_JSON]: aPlugin('0.6.1', 'a better pack a'), [MARKET_JSON]: aMarket('0.6.1', 'a better pack a') },
+  });
+  const r = run(root, '--merge', rev, '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.equal(r.out.resolved, true);
+  const plugin = JSON.parse(git(root, 'show', `HEAD:${A_JSON}`));
+  assert.equal(plugin.version, '0.7.1');
+  assert.equal(plugin.description, 'a better pack a');
+  const entryA = JSON.parse(git(root, 'show', `HEAD:${MARKET_JSON}`)).plugins.find((p) => p.name === 'a');
+  assert.equal(entryA.version, '0.7.1');
+  assert.equal(entryA.description, 'a better pack a');
+  assert.match(git(root, 'show', 'HEAD:docs/catalog.md'), /^a: a better pack a$/m);
+  assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+test('release-merge-manifest-fields AC-2 the join keeps the train\'s description with the renumbered version', () => {
+  const { root, rev } = joinRepo({
+    train: { ...MINOR, title: 'theirs', body: '- theirs' },
+    change: { ...PATCH, title: 'mine', body: '- mine' },
+    extraTrain: { [A_JSON]: aPlugin('0.7.0', 'the train\'s pack a'), [MARKET_JSON]: aMarket('0.7.0', 'the train\'s pack a') },
+  });
+  const r = run(root, '--merge', rev, '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  const plugin = JSON.parse(read(root, A_JSON));
+  assert.equal(plugin.version, '0.7.1');
+  assert.equal(plugin.description, 'the train\'s pack a');
+  assert.equal(JSON.parse(read(root, MARKET_JSON)).plugins.find((p) => p.name === 'a').description, 'the train\'s pack a');
+});
+
+test('release-merge-manifest-fields AC-3 the join refuses a description both sides edited to the same value and leaves the train as it was', () => {
+  const { root, rev, tip } = joinRepo({
+    train: { ...MINOR, title: 'theirs', body: '- theirs' },
+    change: { ...PATCH, title: 'mine', body: '- mine' },
+    extraTrain: { [A_JSON]: aPlugin('0.7.0', 'same') },
+    extraChange: { [A_JSON]: aPlugin('0.6.1', 'same') },
+  });
+  const r = run(root, '--merge', rev, '--json');
+  assert.equal(r.code, 2, r.stderr + r.stdout);
+  assert.equal(r.out.resolved, false);
+  assert.deepEqual(r.out.conflicts, [A_JSON]);
+  assert.ok(r.out.error.startsWith('a manifest field was edited on both sides:'), r.out.error);
+  assert.ok(r.out.error.includes(`${A_JSON} (description)`), r.out.error);
+  assert.equal(git(root, 'rev-parse', 'HEAD'), tip);
+  assert.ok(noMerge(root));
+  assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+test('release-merge-manifest-fields AC-4 the join keeps the head\'s description and the train\'s homepage in one plugin.json', () => {
+  const { root, rev } = joinRepo({
+    train: { ...MINOR, title: 'theirs', body: '- theirs' },
+    change: { ...PATCH, title: 'mine', body: '- mine' },
+    extraTrain: { [A_JSON]: aPlugin('0.7.0', 'pack a', { homepage: 'https://train.example' }) },
+    extraChange: { [A_JSON]: aPlugin('0.6.1', 'the head\'s pack a') },
+  });
+  const r = run(root, '--merge', rev, '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  const plugin = JSON.parse(read(root, A_JSON));
+  assert.deepEqual(plugin, { name: 'a', version: '0.7.1', description: 'the head\'s pack a', homepage: 'https://train.example' });
+});
+
+test('release-merge-manifest-fields whole entry: the join refuses a pack the head added and keeps a pack the train added', () => {
+  const C = { name: 'c', description: 'pack c', version: '0.1.0' };
+  const refused = joinRepo({
+    train: { ...MINOR, title: 'theirs', body: '- theirs' },
+    change: { ...PATCH, title: 'mine', body: '- mine' },
+    extraChange: { [MARKET_JSON]: aMarket('0.6.1', 'pack a', [C]) },
+  });
+  const r1 = run(refused.root, '--merge', refused.rev, '--json');
+  assert.equal(r1.code, 2, r1.stderr + r1.stdout);
+  assert.ok(r1.out.error.startsWith(`a manifest was edited beyond its version: ${MARKET_JSON} (plugins[c])`), r1.out.error);
+  assert.equal(git(refused.root, 'rev-parse', 'HEAD'), refused.tip);
+  assert.ok(noMerge(refused.root));
+
+  const kept = joinRepo({
+    train: { ...MINOR, title: 'theirs', body: '- theirs' },
+    change: { ...PATCH, title: 'mine', body: '- mine' },
+    extraTrain: { [MARKET_JSON]: aMarket('0.7.0', 'pack a', [C]) },
+    extraChange: { [A_JSON]: aPlugin('0.6.1', 'the head\'s pack a'), [MARKET_JSON]: aMarket('0.6.1', 'the head\'s pack a') },
+  });
+  const r2 = run(kept.root, '--merge', kept.rev, '--json');
+  assert.equal(r2.code, 0, r2.stderr + r2.stdout);
+  const market = JSON.parse(read(kept.root, MARKET_JSON));
+  assert.deepEqual(market.plugins.map((p) => p.name), ['a', 'b', 'c']);
+  assert.equal(market.plugins.find((p) => p.name === 'a').description, 'the head\'s pack a');
+  assert.equal(market.plugins.find((p) => p.name === 'a').version, '0.7.1');
+  assert.equal(JSON.parse(read(kept.root, A_JSON)).description, 'the head\'s pack a');
+});
+
 test('delivery-train join: a product conflict exits 2 with the path and leaves the train as it was', () => {
   const { root, rev, tip } = joinRepo({
     train: { ...MINOR, title: 'theirs' }, change: { ...PATCH, title: 'mine' },
