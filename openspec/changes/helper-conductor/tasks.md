@@ -243,8 +243,8 @@ merge and the coordinator's word.
   `DEVKIT_STATE_DIR` share the whole-suite slot; `releaseSlots(pid)` removes that pid's `suite`,
   gate and `trainWaiting` entries and no other. The `test-run` verb, `capacity` in the run file, the
   settings, `DEVKIT_TEST_CONCURRENCY` and the brief's sentence are 2.14's. Map: a `files` key for
-  `test-slots.mjs` linking `test-slots.test.mjs`, and `change-loop.mjs`'s list gains
-  `test-slots.test.mjs` (the module imports `withLockFile`). Check:
+  `test-slots.mjs` linking `test-slots.test.mjs`; `change-loop.mjs`'s list is left as it is, because
+  the test-map-hub-links AC-3 test (`plugins/openspec/hooks/test-suite.test.mjs:1171`) pins it to its kept readers. Check:
   `node scripts/test-suite.mjs --test-name-pattern="^capacity AC-22 "` passes.
 - [ ] 2.14 The test capacity (D-25), the rest once 2.14a is done: `capacity` in `emptyRun`/`readRun`
   with `gatesOf` and `concurrencyOf` in `plugins/openspec/hooks/run-file.mjs`; `run --test-gates
