@@ -11,7 +11,7 @@ import {
   loadRules, validateArgs, validateStage1, needsVerification, isRefutation, decide, oneLine, findingLine,
   outcomeOf, consensusOf, reviewerPrompt, verifierPrompt, writerPrompt, consolidate,
   VERIFIERS, verifyJobs, groupVotes, writeMismatch,
-  STAGE1_SCHEMA, VOTE_SCHEMA, WRITE_SCHEMA, writeJobs, isHeaderLine, withoutHeaderLines,
+  STAGE1_SCHEMA, VOTE_SCHEMA, WRITE_SCHEMA, writeJobs, isHeaderLine, withoutHeaderLines, withoutSummary, summaryLine,
 } from './review-round.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -36,7 +36,7 @@ const keep = () => ({ refuted: false, evidence: '' });
 
 test('review round: the rules section loads and exports every name', () => {
   const rules = loadRules();
-  for (const name of ['STAGE1_SCHEMA', 'VOTE_SCHEMA', 'WRITE_SCHEMA', 'validateArgs', 'validateStage1', 'needsVerification', 'isRefutation', 'decide', 'oneLine', 'findingLine', 'outcomeOf', 'consensusOf', 'reviewerPrompt', 'verifierPrompt', 'writerPrompt', 'consolidate', 'writeJobs', 'isHeaderLine', 'withoutHeaderLines']) {
+  for (const name of ['STAGE1_SCHEMA', 'VOTE_SCHEMA', 'WRITE_SCHEMA', 'validateArgs', 'validateStage1', 'needsVerification', 'isRefutation', 'decide', 'oneLine', 'findingLine', 'outcomeOf', 'consensusOf', 'reviewerPrompt', 'verifierPrompt', 'writerPrompt', 'consolidate', 'writeJobs', 'isHeaderLine', 'withoutHeaderLines', 'withoutSummary', 'summaryLine']) {
     assert.ok(rules[name] !== undefined, name);
   }
   assert.ok(STAGE1_SCHEMA.required.includes('findings'));
@@ -1351,4 +1351,111 @@ test('coordinator-loop-fixes AC-7 T43 the texts count to the limit: the consensu
   const two = consolidate({ args: baseArgs({ round: 2, limit: 3 }), outcomes: [outcomeOf(baseArgs({ round: 2, limit: 3 }), s, { F1: [keep(), keep(), keep()] })], failed: [], notes: [] });
   assert.match(two.text, /^Consensus: FAIL \(round 2\/3\)$/m);
   assert.match(two.text, /run review-change again \(round 3\)\.$/m, 'round 2 of 3 is no deadlock');
+});
+
+// ---- review-writer-text -------------------------------------------------
+
+test('review-writer-text AC-1 a reviewer\'s own refutation of 600 characters stays whole', () => {
+  const evidence = 'x'.repeat(250) + '\nline two · dot ' + 'y'.repeat(350);
+  const whole = 'refuted: ' + evidence.replace(/\s+/g, ' ').replace(/·/g, '-');
+  assert.ok(whole.length > 600);
+  const s = validateStage1(cq, stage1Of(cq, [finding({ disposition: 'refuted: ' + evidence })]), SHA);
+  assert.equal(s.findings[0].disposition, whole);
+  assert.ok(findingLine(s.findings[0]).endsWith(' · ' + whole));
+  assert.ok(!findingLine(s.findings[0]).includes('…'));
+  const o = outcomeOf(baseArgs(), s, {});
+  assert.ok(o.lines[0].endsWith(' · ' + whole));
+  assert.ok(writerPrompt(baseArgs(), o).split('\n').includes(o.lines[0]));
+  assert.ok(!writerPrompt(baseArgs(), o).includes('…'));
+});
+
+test('review-writer-text AC-2 two refuting verifiers keep their whole evidence', () => {
+  const e1 = 'first ' + 'a'.repeat(500);
+  const e2 = 'second ' + 'b'.repeat(500);
+  const d = decide([refute(e1), refute(e2), keep()]);
+  assert.equal(d.evidence, e1 + ' / ' + e2);
+  const s = validateStage1(cq, stage1Of(cq, [finding()]), SHA);
+  const o = outcomeOf(baseArgs(), s, { F1: [refute(e1), refute(e2), keep()] });
+  assert.ok(o.lines[0].endsWith(' · refuted: ' + e1 + ' / ' + e2));
+  const prompt = writerPrompt(baseArgs(), o);
+  assert.ok(prompt.split('\n').includes(o.lines[0]));
+  assert.ok(!prompt.includes('…'));
+});
+
+test('review-writer-text AC-3 withoutSummary leaves out a summary section and nothing else', () => {
+  const cases = [
+    ['a ### summary between sections', '### Notes\nKept.\n\n### Summary\n- x\n\n### Next\nKept too.', '### Notes\nKept.\n\n### Next\nKept too.'],
+    ['a ## SUMMARY with a deeper heading', '## SUMMARY\ntext\n### Detail\nd\n\n## Notes\nn', '## Notes\nn'],
+    ['a higher heading ends it', '## Summary\nx\n# Top\ny', '# Top\ny'],
+    ['two summaries', '### Notes\na\n### Summary\nb\n### Summary\nc\n### Z\nz', '### Notes\na\n### Z\nz'],
+    ['a summary at the end', '### Notes\na\n\n### Summary\nb\n', '### Notes\na\n'],
+    ['no summary', '### Notes\na\n\n### Other\nb\n', '### Notes\na\n\n### Other\nb\n'],
+    ['# and #### are not summary headings', '# Summary\nx\n#### Summary\ny\n', '# Summary\nx\n#### Summary\ny\n'],
+    ['a fenced heading', '```\n### Summary\nx\n```\nafter', '```\n### Summary\nx\n```\nafter'],
+    ['a fence inside a summary', '### Summary\n```\n### Notes\n```\n### Next\nz', '### Next\nz'],
+    ['an unclosed fence under a summary', '### Notes\na\n### Summary\n```\nx\n### Notes\ny', '### Notes\na'],
+    ['an unclosed fence before a summary', '```\n### Summary\nx', '```\n### Summary\nx'],
+    ['crlf', '### Notes\r\na\r\n### Summary\r\nb\r\n### Next\r\nc', '### Notes\r\na\r\n### Next\r\nc'],
+    ['empty', '', ''],
+  ];
+  for (const [name, input, expected] of cases) assert.equal(withoutSummary(input), expected, name);
+});
+
+test('review-writer-text AC-3 the writer prompt holds the rest of sections verbatim and not the reviewer\'s summary', () => {
+  const sections = '### Notes\nKept.\n\n### Summary\n- 2 findings; F1 is open\n\n### Next\nKept too.';
+  const s = validateStage1(cq, stage1Of(cq, [], { sections }), SHA);
+  const prompt = writerPrompt(baseArgs(), outcomeOf(baseArgs(), s, {}));
+  assert.ok(prompt.includes('### Notes\nKept.\n\n### Next\nKept too.'));
+  assert.ok(!prompt.includes('F1 is open'));
+});
+
+const summaryOutcome = () => {
+  const s = validateStage1(cq, stage1Of(cq, [
+    finding({ severity: 'blocking' }),
+    finding({ id: 'F2' }),
+    finding({ id: 'F3', severity: 'nit' }),
+    finding({ id: 'F4', severity: 'praise' }),
+    finding({ id: 'F5', disposition: 'fixed in abc1234' }),
+    finding({ id: 'F6', severity: 'nit', disposition: 'refuted: because' }),
+  ]), SHA);
+  return outcomeOf(baseArgs(), s, { F1: [refute('e1'), refute('e2'), keep()] });
+};
+
+test('review-writer-text AC-4 summaryLine fills every list in the outcome\'s order', () => {
+  assert.equal(summaryLine(summaryOutcome()), '- 5 findings (1 blocking, 2 important, 2 nit) + 1 praise; open: F2, F3; fixed: F5; refuted: F1, F6');
+  const none = outcomeOf(baseArgs(), validateStage1(cq, stage1Of(cq, []), SHA), {});
+  assert.equal(summaryLine(none), '- 0 findings (0 blocking, 0 important, 0 nit) + 0 praise; open: none; fixed: none; refuted: none');
+  const praise = outcomeOf(baseArgs(), validateStage1(cq, stage1Of(cq, [finding({ severity: 'praise', disposition: 'fixed in abc1234' })]), SHA), {});
+  assert.equal(summaryLine(praise), '- 0 findings (0 blocking, 0 important, 0 nit) + 1 praise; open: none; fixed: none; refuted: none');
+});
+
+test('review-writer-text AC-4 the writer prompt asks for the round\'s summary as the last section', () => {
+  const o = summaryOutcome();
+  const prompt = writerPrompt(baseArgs(), o);
+  const at = (t) => prompt.indexOf(t);
+  assert.ok(at(o.sections) >= 0 && at(o.sections) < at('then a blank line, then the line: ### Summary\n'));
+  assert.ok(at('then a blank line, then the line: ### Summary\n') < at('then this line, verbatim, as the last line of the file:\n' + summaryLine(o) + '\n'));
+  assert.ok(at(summaryLine(o)) < at('End your reply'));
+  const named = prompt.split('\n').filter((l) => /Verdict:|Commit:/.test(l));
+  assert.deepEqual(named.map((l) => l.split(':')[0]), ['line 1', 'line 2']);
+});
+
+test('review-writer-text AC-5 a blocking finding refuted with long evidence is approved, under refuted, on both paths', async () => {
+  const e1 = 'first ' + 'a'.repeat(500);
+  const e2 = 'second ' + 'b'.repeat(500);
+  const stage1 = stage1Of(cq, [finding({ severity: 'blocking' })], { sections: '### Notes\nKept.\n\n### Summary\n- 1 findings; F1 is open\n' });
+  const h = harness({ respond: responder({ stage1: { [cq]: stage1 }, votes: { [`${cq} F1`]: [refute(e1), refute(e2), keep()] } }) });
+  await h.run(baseArgs());
+  const call = h.calls.find((c) => c.phase === 'write');
+  const r = cli('outcomes', { args: { ...baseArgs(), path: 'agents' }, stage1: { [cq]: stage1 }, votes: { [`${cq}#F1`]: [refute(e1), refute(e2), keep()] } });
+  assert.equal(r.status, 0, r.stderr);
+  const o = r.json.outcomes[0];
+  assert.equal(o.verdict, 'approved');
+  assert.ok(o.lines[0].endsWith(' · refuted: ' + e1 + ' / ' + e2));
+  for (const prompt of [call.prompt, r.json.jobs[0].prompt]) {
+    assert.ok(prompt.includes(o.lines[0]));
+    assert.ok(prompt.includes('open: none; fixed: none; refuted: F1'));
+    assert.ok(!prompt.includes('F1 is open'));
+  }
+  assert.equal(r.json.jobs[0].prompt, call.prompt);
 });
