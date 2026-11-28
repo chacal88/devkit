@@ -97,7 +97,7 @@ other suite on the machine, and record the load (`uptime`) next to it.
   (AC-1, AC-6); case 2 exits 2 with an `error` starting `a manifest field was edited on both sides:` naming
   `plugins/core/.claude-plugin/plugin.json` and a clean tree (AC-3); case 3 exits 0 with the description kept
   (AC-5).
-- [ ] 2.3 The repository checks after 2.1. Check: `python3 scripts/gen-catalog.py --check`,
+- [x] 2.3 The repository checks after 2.1. Check: `python3 scripts/gen-catalog.py --check`,
   `node plugins/compozy/kit/scripts/gen-agents.mjs --check`, `claude plugin validate .` and
   `openspec validate release-merge-manifest-fields --strict` exit 0;
   `git diff --name-only origin/main...HEAD -- CHANGELOG.md .claude-plugin/marketplace.json 'plugins/*/.claude-plugin/plugin.json' docs/catalog.md`
