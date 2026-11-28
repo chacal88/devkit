@@ -206,6 +206,39 @@ test('state-listing-speed AC-4 a child that dies is a usage failure', async () =
   assert.equal('changes' in out, false);
 });
 
+// Invariant (spec "A read process that gives no entry"): a read that does not give exactly one entry for its own id fails the listing, naming the id and why.
+test('state-listing-speed AC-4 a read that gives no entry fails the listing and names why', async (t) => {
+  const entry = (id, extra = {}) => ({ change: id, state: 'ok', ...extra });
+  const said = (id, body) => ({ ...entryAnswer(id), stdout: typeof body === 'string' ? body : `${JSON.stringify(body)}\n` });
+  const cases = [
+    ['a spawn error', { ...entryAnswer('b'), code: null, error: new Error('spawn ENOENT') }, 'spawn ENOENT'],
+    ['an error beside an answer that reads well', { ...entryAnswer('b'), error: new Error('read cut short') }, 'read cut short'],
+    ['an exit code of 2', { ...entryAnswer('b'), code: 2 }, 'exit 2'],
+    ['an empty output', said('b', ''), 'no single entry'],
+    ['an output that is not JSON', said('b', 'not json'), 'no single entry'],
+    ['an entry of another id', said('b', { version: 1, changes: [entry('a')] }), 'no single entry'],
+    ['two entries', said('b', { version: 1, changes: [entry('b'), entry('b')] }), 'no single entry'],
+    ['no entry', said('b', { version: 1, changes: [] }), 'no single entry'],
+    ['a version other than 1', said('b', { version: 2, changes: [entry('b')] }), 'no single entry'],
+  ];
+  for (const [label, answer, why] of cases) {
+    await t.test(label, async () => {
+      const r = await changeLoopModule.stateListing(ARGV, { env: cleanEnv, cwd: threeChanges(), readOne: reader({ b: answer }) });
+      assert.equal(r.code, 3, r.stdout + r.stderr);
+      const out = JSON.parse(r.stdout);
+      assert.equal(out.error, `state of b could not be read: ${why}`);
+      assert.equal('changes' in out, false);
+    });
+  }
+});
+
+test('state-listing-speed AC-4 with two reads that fail the first in id order is the one named', async () => {
+  const dead = (id) => ({ id, code: null, signal: 'SIGKILL', stdout: '', stderr: '', error: null });
+  const r = await changeLoopModule.stateListing(ARGV, { env: cleanEnv, cwd: threeChanges(), readOne: reader({ b: { ...entryAnswer('b'), code: 2 }, c: dead('c') }) });
+  assert.equal(r.code, 3);
+  assert.equal(JSON.parse(r.stdout).error, 'state of b could not be read: exit 2');
+});
+
 // Invariant (AC-6, D-6): a listing of one change or none starts no read process and prints the sequential read's bytes.
 test('state-listing-speed AC-6 a listing of one change or none starts no read process', async (t) => {
   const cases = [['one change', gitRepo({ config: 'schema: devkit\n', changes: { a: grill } })], ['no change', gitRepo({ config: 'schema: devkit\n' })]];
