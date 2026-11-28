@@ -54,12 +54,12 @@ readiness review and the owner's approval before anything else runs.
 
 ## 1. The real run and the decision point (phase 1)
 
-- [ ] 1.1 Conductor: set up the probe project of D-1: `/var/tmp/devkit-hc-probe/project` (a clone of
+- [x] 1.1 Conductor: set up the probe project of D-1: `/var/tmp/devkit-hc-probe/project` (a clone of
   this branch's head), `/var/tmp/devkit-hc-probe/bin/probe-gate.mjs` and the project's
   `.claude/settings.local.json` with the probe `UserPromptSubmit` hook and `DEVKIT_HOOK_LOG`. Nothing
   of it is committed. Check: `git -C /var/tmp/devkit-hc-probe/project status --short` lists only the
   settings file; this worktree's `git status --short` is clean.
-- [ ] 1.2 Conductor: P-0, the delete before any create: create `devkit-hc-probe-0`, remove it, list.
+- [x] 1.2 Conductor: P-0, the delete before any create: create `devkit-hc-probe-0`, remove it, list.
   Write `openspec/changes/helper-conductor/proof/p0-delete.md` (the tool names, the calls, the list
   before and after). Check: the last list shows no `devkit-hc-probe-` task; on no way to remove a task,
   stop at 1.9 with the stop-and-revise case.
@@ -83,10 +83,10 @@ readiness review and the owner's approval before anything else runs.
 - [ ] 1.7 Conductor: P-6 and P-7: overlap with a background `sleep 900`, the `*/5 * * * *` schedule
   accepted or refused, and the notification tool's name. Write `proof/p6-overlap.md`. Check: the file
   names each answer.
-- [ ] 1.8 Conductor: remove every probe task (P-0's tool), list, and delete
+- [x] 1.8 Conductor: remove every probe task (P-0's tool), list, and delete
   `/var/tmp/devkit-hc-probe` only after checking the session created it. Append the final list to
   `proof/p0-delete.md`. Check: no `devkit-hc-probe-` task in the list.
-- [ ] 1.9 Conductor: write `proof/decision.md` (D-1): Helper A, Helper B or stop-and-revise, S-A or
+- [x] 1.9 Conductor: write `proof/decision.md` (D-1): Helper A, Helper B or stop-and-revise, S-A or
   stop-and-revise, the envelope regex D-4 will use, the cron, the remove tool and the notification
   tool, each with the proof file and line it rests on. Check: every case of D-1's list is named true
   or false with its source.
