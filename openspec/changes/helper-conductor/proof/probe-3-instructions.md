@@ -16,14 +16,13 @@ repository's settings.
 
 ## Observations
 
-- (a) Blocked firings: create the task with the printed `taskId`, working folder and prompt, as a
-  one-time task (`fireAt` a minute ahead), `notifyOnCompletion: false`; fire it three times (re-arm
-  `fireAt` with `update_scheduled_task`, or three one-time tasks of the same prompt with ids
-  `<taskId>` only for the first: the hook checks the tag's name against the root, so the other two
-  must also be named `<taskId>`; re-arming the same task is the simple path). Per firing record: the
-  line of `/var/tmp/devkit-hc-tick/log/hook.jsonl` (`decision: block`, `why: helpers-full`: the live claim fills the one place), the run
-  from `list_task_runs` (status, times), whether the run's session has any assistant message
-  (`list_events`), and the tokens the app shows for it.
+- (a) Blocked firings: create ONE task with the printed `taskId`, working folder and prompt, as a
+  one-time task (`fireAt` a minute ahead), `notifyOnCompletion: false`, and fire it three times by
+  re-arming it with `update_scheduled_task` and a new `fireAt` after each run (three tasks cannot
+  share the id the hook checks against the root). Per firing record: the line of
+  `/var/tmp/devkit-hc-tick/log/hook.jsonl` (`decision: block`, `why: helpers-full`: the live claim
+  fills the one place), the run from `list_task_runs` (status, times), whether the run's session has
+  any assistant message (`list_events`), and the tokens the app shows for it.
 - (b) Passing firing: `node .../probe-3-setup.mjs <clone> ready`, fire once more; record the hook
   line (`allow`), the run's tokens and the model it ran on. The note names
   `node "/hooks/roadmap-loop.mjs" tick ...` with an empty pack path (the scratch hook is no plugin
@@ -35,7 +34,8 @@ repository's settings.
   `select:PushNotification`, else the query `notification`; the tool's name or none.
 - (e) Any pause for a tool approval in any firing.
 - (f) The note: whether the passing session quotes `devkit tick note:` (the hook's
-  `additionalContext` reached the model).
+  `additionalContext` reached the model). This probe runs before task 2.5, so the `tick` call the
+  note names is not run here; phase 6's real run (task 6.1) runs it.
 - (g) The `prompt` field of each line of `/var/tmp/devkit-hc-tick/log/prompt.jsonl`: the
   `<scheduled-task name=...>` tag form or the bare stored prompt (first 300 characters).
 

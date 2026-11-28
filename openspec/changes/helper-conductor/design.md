@@ -1388,7 +1388,8 @@ stop-and-revise at task 3.6, or a host behaviour found only in phase 6).
   run reads `succeeded` then, `proof/p2-result.md`; task 3.6 records it).
 - A `UserPromptSubmit` hook's `additionalContext` reaches a task's session, and a hook's process
   gets every pack setting as `CLAUDE_PLUGIN_OPTION_<KEY>`, as it gets `load_limit` (task 3.6 checks
-  both).
+  the note; its scratch hook is no plugin hook, so the pack settings are first seen in task 6.1's run
+  on the installed packs).
 - `updateRun`'s lock serializes writers across processes of one clone (`roadmap-loop.mjs`, the lock
   of `roadmap-run.lock`; requirements triage item 3).
 - The phases of this repository's own changes stay under two hours each (the evidence files of the

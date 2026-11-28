@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=7 commit=db6342b8aa8a1ef653e7729f1f1eb883c68419ed -->
+<!-- devkit-stage tasks result=passed attempt=8 commit=0585eddbbf62dedc5ea01413a5b0a7c4ebdc5f23 -->
 # Tasks
 
 Change: `helper-conductor` · Date: 2026-11-28 · Owner: Kaue (chacal88) · Base: `origin/main` at
@@ -382,33 +382,48 @@ merge and the coordinator's word.
   the class E tests of `change-loop-remote-state.test.mjs` in D-15 edited. Check:
   `node scripts/test-suite.mjs --test-name-pattern="^change-state "` passes.
 - [ ] 3.6 Coordinator's session, on the owner's Mac: the blocked firing and the runs at once, with the
-  real hook. A scratch project `/var/tmp/devkit-hc-tick/project` (a clone of this branch's head,
-  `openspec/` intact), never this repository's settings: its `.claude/settings.local.json` holds one
-  `UserPromptSubmit` hook running this branch's `plugins/openspec/hooks/tick-gate.mjs` by its
-  absolute path and sets `DEVKIT_HOOK_LOG=/var/tmp/devkit-hc-tick/log/hook.jsonl`; its run file
-  (`<common dir>/devkit/roadmap-run.json`) records a `task` and a queue whose only item has a live
-  claim (nothing ready). Then, each a task of that project created on the owner's typed turn:
-  (a) three one-time firings with the D-5 prompt: per firing, the hook log line (`block`), the run's
-  transcript assistant-message count, and the host's usage (tokens) from `list_task_runs` or the
-  app; (b) one firing with the run file made ready, for comparison, with its tokens and the model the
-  session ran on; (c) a recurring task with `*/5 * * * *`: accepted or refused (and the shortest
-  interval accepted), and, with the run file ready and the first firing's session running a
-  Bash `sleep 420` run with a 600000 ms timeout (not in the background), whether the next firing starts a second run while the first is in flight;
+  real hook, run now, before task 2.5 (the `tick` verb does not exist yet), as
+  `proof/probe-3-instructions.md` states. `proof/probe-3-setup.mjs <clone> block` writes a scratch
+  project `/var/tmp/devkit-hc-tick/project` (a clone of this branch, `openspec/` intact), never this
+  repository's settings: its `.claude/settings.local.json` holds one `UserPromptSubmit` entry whose
+  hooks run, in this order, the raw payload logger `/var/tmp/devkit-hc-tick/raw-log.mjs` (each
+  payload appended to `/var/tmp/devkit-hc-tick/log/prompt.jsonl`) and then this branch's
+  `plugins/openspec/hooks/tick-gate.mjs` by its absolute path, and its `env` sets
+  `DEVKIT_HOOK_LOG=/var/tmp/devkit-hc-tick/log/hook.jsonl` and `DEVKIT_CLAIM_STALE_MS=86400000`; its
+  run file (`<common dir>/devkit/roadmap-run.json`) records a `task` with the root's id
+  `devkit-roadmap-tick-<slug>-<hash>` (D-5) and a queue whose only item has a live claim, which fills
+  the one place (nothing ready); `<clone> ready` rewrites the run file with no claim. One task of that
+  project, created on the owner's typed turn with the printed `taskId`, working folder and two-line
+  prompt (the hook checks the task id against the root, so no second task can share it):
+  (a) three blocked firings of that task, one-time (`fireAt` a minute ahead,
+  `notifyOnCompletion: false`), re-armed between firings by `update_scheduled_task` with a new
+  `fireAt`: per firing, its `hook.jsonl` line (`decision: block`, `why: helpers-full`), the run from
+  `list_task_runs` (status, times), the run's transcript assistant-message count (`list_events`), and
+  the host's usage (tokens) from `list_task_runs` or the app; (b) one firing of the same task after
+  `<clone> ready`, for comparison: its `hook.jsonl` line (`allow`), its tokens and the model the
+  session ran on, and what the session did (the note names an empty pack path, the scratch hook being
+  no plugin hook, and a verb task 2.5 adds: the session is expected to report the note and stop);
+  (c) the same task made recurring with `*/5 * * * *` (`update_scheduled_task`, `cronExpression`):
+  accepted or refused (and the shortest interval accepted), and, with the run file ready and the
+  first firing's session running a Bash `sleep 420` run with a 600000 ms timeout (not in the
+  background), whether the next firing starts a second run while the first is in flight;
   (d) in one firing's session, `ToolSearch` for the host's notification tool (`select:PushNotification`,
   else the query `notification`); (e) any pause for a tool approval in any firing; (f) in the
-  passing firing, the hook's note in the session (its `additionalContext` seen by the model, quoted
-  by it into the scratch project's log) and the tick call it names run; (g) the hook's payload
-  `prompt` as `DEVKIT_HOOK_LOG` records it: the tag form or the bare stored prompt (the form not seen
-  is dropped from the hook's regex and from `tick-gate.test.mjs` in this task, D-4). Write
+  passing firing, the hook's note reached the session: the session quotes `devkit tick note:` (its
+  `additionalContext` seen by the model). The tick call the note names is not run here: phase 6's
+  real run (task 6.1) runs it, on the installed packs; (g) the hook's payload as the raw logger
+  records it: the `prompt` field of each line of `log/prompt.jsonl` (first 300 characters), the
+  `<scheduled-task name=...>` tag form or the bare stored prompt (the form not seen is dropped from
+  the hook's regex and from `tick-gate.test.mjs` in this task, D-4). Write
   `openspec/changes/helper-conductor/proof/p5-empty-tick.md` with each observation, then append
   "Phase 3 real run" to `proof/decision.md` with the cron, the notification tool and whether a
   stop-and-revise case of D-1 holds. Before any create, check the session can list the project's
-  tasks; nothing created is deleted by a session (the owner deletes the tasks with one click; the
+  tasks; nothing created is deleted by a session (the owner deletes the task with one click; the
   folder `/var/tmp/devkit-hc-tick` is removed after checking the session created it). Check: the three
-  blocked firings read 0 model calls and 0 tokens and the note reached the passing firing's
-  session, or `decision.md` names the stop-and-revise case (whether a second run started is
-  recorded, no stop case: the claims guard overlap); `git status --short` in this worktree lists nothing of the scratch
-  project.
+  blocked firings each read a `block` line with `helpers-full`, 0 model calls and 0 tokens, and the
+  passing firing's session quotes `devkit tick note:`, or `decision.md` names the stop-and-revise
+  case (whether a second run started is recorded, no stop case: the claims guard overlap);
+  `git status --short` in this worktree lists nothing of the scratch project.
 - [ ] 3.7 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green; AC-1,
   AC-3, AC-6, AC-8, AC-11 (the runs at once), AC-14, AC-15 (the cron).
 
@@ -524,7 +539,10 @@ yet") and any task the merge supersedes (CLAUDE.md).
   notice, `a`'s plan approval as one line shown in the typed session and
   answered there (AC-7), then `/devkit roadmap stop`: the run file's `ended`, the next firing blocked
   in `DEVKIT_HOOK_LOG` with no model call, the `@run` line said once in the typed session, and the
-  task still listed until the owner deletes it with one click (AC-9). Write `proof/run-1.md` with the
+  task still listed until the owner deletes it with one click (AC-9), and whether the pack settings
+  (`CLAUDE_PLUGIN_OPTION_*`: language, load limit, machines) reach the tick hook, read from the note's
+  flags in the passing firing's session (a missing setting is recorded, no stop case unless the note
+  itself is missing). Write `proof/run-1.md` with the
   run file at each step, the hook log and the task lists. Check: the file shows each AC's
   observation.
 - [ ] 6.2 Conductor: in the same run, end `b`'s tick run mid-stage (the owner's stop of that run in
