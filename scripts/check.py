@@ -6,6 +6,8 @@
 - the panel's copies of the checkers' grammar (plugins/panel/hooks/grammar.ts) match the checkers' literals;
 - every `plugin install` line names its scope: `--scope project` everywhere, and `--scope user`
   only in docs/migrate-to-project-scope.md (ADR 0004);
+- every `openspec validate` command that names an id in an agent, skill, schema or CompozyOS agent file
+  passes `--type change` (a change and a spec of one id are ambiguous);
 - no test of the suite is skipped (`skip`, `only` or `todo`; plugins/compozy is exempt: its skips guard a missing `compozy` program, ADR 0026);
 - every released flow version of the openspec schemas stays: `flow.json` equals `flows/<its version>.json`, and each
   `flows/<n>.json` matches its digest in scripts/released-flows.json, so a flow change raises its version;
@@ -112,6 +114,47 @@ def check_install_scope():
                 problems.append(
                     f"{'/'.join(parts)}:{i}: plugin install must use {scope}"
                 )
+
+
+VALIDATE_GLOBS = (
+    "plugins/*/agents/*.md",
+    "plugins/*/skills/**/*.md",
+    "plugins/*/schemas/**/*.yaml",
+    "plugins/*/schemas/**/*.md",
+    "openspec/schemas/**/*.yaml",
+    "openspec/schemas/**/*.md",
+    "plugins/compozy/kit/templates/agents/*/AGENT.md",
+    ".compozy/agents/*/AGENT.md",
+)
+VALIDATE_WITH_ID = re.compile(r"openspec validate\s+(?!-)\S")
+
+
+def check_validate_type():
+    # A command is code when it sits in a backtick span or a fenced block. Two gaps are accepted: a fence of
+    # four backticks reads as a three-backtick fence, and a command split over two lines is read per line.
+    files = set()
+    for pattern in VALIDATE_GLOBS:
+        files.update(ROOT.glob(pattern))
+    for f in sorted(files):
+        parts = f.relative_to(ROOT).parts
+        if "fixtures" in parts or SKIP_DIRS.intersection(parts):
+            continue
+        fenced = False
+        for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip(" ").startswith("```"):
+                fenced = not fenced
+                continue
+            pieces = [line] if fenced else re.findall(r"`([^`\n]*)`", line)
+            for piece in pieces:
+                starts = [m.start() for m in VALIDATE_WITH_ID.finditer(piece)]
+                for start in starts:
+                    nxt = piece.find("openspec validate", start + 1)
+                    command = piece[start : nxt if nxt != -1 else len(piece)]
+                    if "--type change" not in command:
+                        problems.append(
+                            f"{f.relative_to(ROOT).as_posix()}:{n}: openspec validate names an id without --type change; "
+                            "a change and a spec of one id are ambiguous"
+                        )
 
 
 def check_changelog():
@@ -389,6 +432,7 @@ def main():
     check_links()
     check_language()
     check_install_scope()
+    check_validate_type()
     check_changelog()
     check_panel_parity()
     check_awaited_subtests()

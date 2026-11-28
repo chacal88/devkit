@@ -1,0 +1,71 @@
+# Real run of train-loop.mjs depart on an emptying train (fixture of delivery-train P8 in a copy of the hooks folder under /var/tmp, product files identical to f81f5ab; fixture removed afterwards)
+PROOF-OUT {
+ "code": 1,
+ "out": {
+  "version": 1,
+  "base": "main",
+  "skipped": [],
+  "n": 1,
+  "result": "empty",
+  "record": "/var/tmp/devkit-deliver-fCI6n5/.git/devkit-trains/1.md",
+  "boarded": [],
+  "left": [
+   {
+    "kind": "change",
+    "id": "alpha",
+    "number": 11,
+    "why": "red",
+    "detail": "Failure of `alpha`, below",
+    "failure": "not-green"
+   },
+   {
+    "kind": "change",
+    "id": "beta",
+    "number": 12,
+    "why": "red",
+    "detail": "Failure of `beta`, below",
+    "failure": "not-green"
+   }
+  ],
+  "runs": 5,
+  "reply": "The train emptied: every boarded change left it, so nothing was boarded and no train branch was created. Why each change left, with the failing output, is in /var/tmp/devkit-deliver-fCI6n5/.git/devkit-trains/1.md."
+ }
+}
+PROOF-RECORD-BEGIN
+<!-- devkit-train n=1 base=main result=empty -->
+\# Train 1
+- Base: `main` at `e71f900c4ebb197c5541d3ec628b529006f0d470`
+- Suite: `if test -e src/alpha.txt || test -e src/beta.txt; then echo not-green; exit 1; fi`
+- Ran at: `e71f900c4ebb197c5541d3ec628b529006f0d470`
+- Result: empty
+\#\# Boarded
+| Order | Kind | Change | Pull request | Head | Boarded at |
+| --- | --- | --- | --- | --- | --- |
+\#\# Left
+| Kind | Change | Pull request | Head | Why | Detail |
+| --- | --- | --- | --- | --- | --- |
+| change | `alpha` | \#11 | `fe8478e928a0fed130279873801ca7d8c13d70fa` | red | Failure of `alpha`, below |
+| change | `beta` | \#12 | `527f5df74d159167a5784643e23bdcff63ea77bb` | red | Failure of `beta`, below |
+\#\# Runs
+| Run | Changes | Head | Result |
+| --- | --- | --- | --- |
+| 1 | alpha, beta | `033feb728de4a15b9c452e6737c45e2dd98090f9` | failed |
+| 2 | alpha | `a27777b71828eff9af2593e89bd3335db215ea65` | failed |
+| 3 | main | `e71f900c4ebb197c5541d3ec628b529006f0d470` | passed |
+| 4 | beta | `34362de6d6af5ccbe10d098e10b8b61185a39042` | failed |
+| 5 | main | `e71f900c4ebb197c5541d3ec628b529006f0d470` | passed |
+\#\# Failure of `alpha`
+```text
+not-green
+```
+\#\# Failure of `beta`
+```text
+not-green
+```
+PROOF-RECORD-END
+PROOF-STATUS-BEFORE="?? .claude/" AFTER="?? .claude/"
+PROOF-BRANCHES-SAME=true
+PROOF-WORKTREES
+/var/tmp/devkit-deliver-fCI6n5                         e71f900 [main]
+/var/tmp/devkit-deliver-fCI6n5/.claude/worktrees/alpha fe8478e [alpha]
+/var/tmp/devkit-deliver-fCI6n5/.claude/worktrees/beta  527f5df [beta]

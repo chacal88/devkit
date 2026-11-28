@@ -181,7 +181,8 @@
     ],
     "plugins/core/agents/change-planner.md": [
       "plugins/openspec/hooks/change-loop-compozy.test.mjs",
-      "plugins/openspec/hooks/release-note.test.mjs"
+      "plugins/openspec/hooks/release-note.test.mjs",
+      "plugins/openspec/hooks/validate-type.test.mjs"
     ],
     "plugins/core/agents/code-quality-reviewer.md": [
       "plugins/openspec/hooks/change-loop-compozy.test.mjs",
@@ -196,6 +197,9 @@
     ],
     "plugins/core/agents/finding-verifier.md": [
       "plugins/core/skills/review-change/scripts/review-round.test.mjs"
+    ],
+    "plugins/core/agents/plan-readiness-reviewer.md": [
+      "plugins/openspec/hooks/validate-type.test.mjs"
     ],
     "plugins/core/agents/pr-verifier.md": [
       "plugins/openspec/hooks/change-loop-compozy.test.mjs",
@@ -212,11 +216,15 @@
     "plugins/core/skills/adr-authoring/SKILL.md": [
       "plugins/openspec/hooks/change-loop-compozy.test.mjs"
     ],
+    "plugins/core/skills/plan-readiness-review/SKILL.md": [
+      "plugins/openspec/hooks/validate-type.test.mjs"
+    ],
     "plugins/core/skills/plan-readiness-review/templates/report.md": [
       "plugins/openspec/hooks/flow-check.test.mjs"
     ],
     "plugins/core/skills/review-change/SKILL.md": [
-      "plugins/core/skills/review-change/scripts/review-round.test.mjs"
+      "plugins/core/skills/review-change/scripts/review-round.test.mjs",
+      "plugins/openspec/hooks/validate-type.test.mjs"
     ],
     "plugins/core/skills/review-change/scripts/review-round.mjs": [
       "plugins/compozy/kit/scripts/devkit-kit.test.mjs",
@@ -272,6 +280,9 @@
     "plugins/openspec/README.md": [
       "plugins/openspec/hooks/change-loop-compozy.test.mjs",
       "plugins/openspec/hooks/test-suite.test.mjs"
+    ],
+    "plugins/openspec/agents/openspec-validator.md": [
+      "plugins/openspec/hooks/validate-type.test.mjs"
     ],
     "plugins/openspec/hooks/change-loop-fixtures.mjs": [
       "plugins/openspec/hooks/change-loop-compozy.test.mjs",
@@ -833,10 +844,12 @@
       "plugins/openspec/skills/devkit/scripts/setup-block.test.mjs"
     ],
     "plugins/openspec/schemas/devkit-lite/schema.yaml": [
-      "plugins/openspec/hooks/change-loop-declared.test.mjs"
+      "plugins/openspec/hooks/change-loop-declared.test.mjs",
+      "plugins/openspec/hooks/validate-type.test.mjs"
     ],
     "plugins/openspec/schemas/devkit/schema.yaml": [
-      "plugins/openspec/hooks/change-loop-declared.test.mjs"
+      "plugins/openspec/hooks/change-loop-declared.test.mjs",
+      "plugins/openspec/hooks/validate-type.test.mjs"
     ],
     "plugins/openspec/skills/devkit/SKILL.md": [
       "plugins/core/skills/review-change/scripts/review-round.test.mjs",
@@ -904,6 +917,7 @@
       "plugins/openspec/hooks/guard.test.mjs",
       "plugins/openspec/hooks/release-note.test.mjs",
       "plugins/openspec/hooks/test-suite.test.mjs",
+      "plugins/openspec/hooks/validate-type.test.mjs",
       "plugins/openspec/hooks/version-pin.test.mjs"
     ],
     "scripts/gen-catalog.py": [

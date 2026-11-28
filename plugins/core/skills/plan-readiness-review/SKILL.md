@@ -47,7 +47,7 @@ Load when present (they can constrain the package):
 - relevant architecture/system docs and runbooks when the change touches that system or its operation;
 - a PRD or Tech Spec **only** if the package references it as input.
 
-OpenSpec: validate first with `openspec validate <id> --type change --strict --no-interactive` (or `openspec validate <id> --strict` if the CLI lacks those flags). Otherwise, do the structural checks by hand.
+OpenSpec: validate first with `openspec validate <id> --type change --strict --no-interactive`. Otherwise, do the structural checks by hand.
 
 ## Core rules
 
