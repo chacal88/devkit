@@ -1,20 +1,94 @@
-<!-- devkit-stage requirements result=pending attempt=1 commit=none -->
+<!-- devkit-stage requirements result=passed attempt=4 commit=5a3d5cd1134419c8a804eeb76ef23c7e51c465c2 -->
 # Requirements
 
 ## Request
 
 > Replace the session-per-change design of `/devkit roadmap` (ADR 0021; ADR 0013 and ADR 0014 amended) with a conductor that needs no session per change. The owner's first real `/devkit roadmap 4` run (2026-11-27) showed: the host refuses a session start on any turn the owner did not type; a start ticket re-minted at every `next` (`plugins/openspec/hooks/roadmap-loop.mjs`, the block that sets `run.tickets[a.change]`) makes the entry guard refuse the opened sessions as `ticket-unknown`; with the places full the stop guard keeps demanding one more opening; a declared owner-decision end stays stuck until the command is re-typed. And on 2026-11-28 eleven child sessions each asked the owner questions in boxes the coordinator could neither answer nor close: the owner wants the conductor to answer and drive the changes itself. Design to plan: the owner types `/devkit roadmap <name> [round <k>] [<n>]` once; the run records its queue in its run file and installs one scheduled task of the project (the host's scheduled-tasks tool), whose tick is refused before the model when nothing is ready (an empty tick costs nothing); each tick claims the next ready item and runs that change's loop in a worktree of its own through a helper (an agent or a Workflow; no session, no ticket) up to its next wait (GitHub checks, a free place, a dependency), records the state and ends; the next tick goes on from the files. A helper never asks the owner: the grill is answered by the conductor from the files (the triage agent) and the owner's standing answers; what truly needs the owner (plan approval, retro answers, or whatever the owner delegates) becomes a `waits-for-owner` line shown in ONE place, the session the owner typed in or the phone, never a box per change. The task removes itself when the roadmap is done or on `stop`. First task of the plan, before the design is final: one real run proving a scheduled task can open a session with the devkit plugin and its hooks, and what an empty tick costs. The change removes the tickets, the `devkit-session` entry skill and the session cron. Model to read first, if installed on this machine: `~/.claude/plugins/cache/genesi/genesi/*/commands/unstick.md` and `caretaker.md`.
 
+Classification: domain=process type=feature flags=[architecture, contract] (strict-assumed, confirmed on the owner's delegation)
+
+## Answered by triage
+
+1. [end effect] Must plan approval and retro answers come only from the owner's typed message? → Yes; no file allows a delegation of either (source: `docs/adr/0021-a-roadmap-run-opens-every-change-at-its-start.md:61-64`, `:151`; `plugins/openspec/skills/devkit/SKILL.md:294`; `docs/adr/0011-the-change-coordinator-is-the-owners-session.md:49`).
+2. [end effect] Where is an owner wait shown today? → `/devkit status` has an owner block built from `waiting-for-owner` (`plugins/openspec/hooks/roadmap-loop.mjs:586-627`, `:643`); a change session's title keeps 🙋 (`docs/adr/0021-a-roadmap-run-opens-every-change-at-its-start.md:78-79`); `plugins/openspec/hooks/status-line.mjs:121` counts `waiting`; no phone or push path exists in the packs.
+3. [edges] Is there a lock a claim can reuse? → `updateRun` writes the run file under `roadmap-run.lock` with `LOCK = { stepMs: 100, waitMs: 3_000, staleMs: 60_000 }`; it spans one write, not a tick, so a claim held across a tick needs its own record (source: `plugins/openspec/hooks/roadmap-loop.mjs:670-699`, `:1311`).
+4. [edges] What happens when a stage agent dies mid-stage? → the `subagent-stop` hook refuses a stop without the stage file (`plugins/openspec/hooks/guard.mjs:10`, `plugins/openspec/hooks/change-loop.mjs:2780`); an agent stopping with no stage file is handed once more a model up, a second failure ends the run blocked `role-failed`; a `result=failed` file takes the fix path with no retry (`docs/adr/0023-the-model-is-chosen-by-stage.md:59-75`).
+5. [edges] What do `<n>`, `<name>` and `round <k>` mean today? → `<n>` is the run's places, 1 to 99 (`plugins/openspec/hooks/roadmap-loop.mjs:81-95`, `plugins/openspec/hooks/run-file.mjs:15`); places count only implementation, test, evidence and review stages (ADR 0021 decision 2); `<name>` and `round <k>` do not exist today; rounds are headings of `openspec/roadmap.md` (`roadmap-loop.mjs:154-166`).
+
+## Questions asked
+
+1. [scope] Does the conductor replace the CompozyOS roadmap driver too? → No. Only the Claude Code path of `/devkit roadmap` changes (the session-per-change path of ADR 0014/0021 and the path where the host cannot start sessions); `compozy-start`, `compozy-tick`, `compozy-state` and `.compozy/` stay as they are (answered by the coordinator's session on the owner's delegation of 2026-11-28)
+2. [scope] What does "removes the tickets" cover? → The ticket mint and claim (`mintTicket`, `withTicket`, `ticketLabel`, `entryDecision`, `ENTRY_REFUSALS`), the run-file fields that only serve change sessions (`tickets`, `changeSessions`, `startedSessions`), the verbs `session-next` and `session-wait`, the `devkit-session` skill and its entry guard in `guard.mjs`. `placed` and `checkout` stay, because they serve ADR 0020's changes on another machine (answered by the coordinator's session on the owner's delegation of 2026-11-28)
+3. [scope] Does the coordinator still start sessions? → No. The `session-start` action, `sessionStartOf`, `remoteSessionStartOf`, the `--change-sessions` flag of `run` and the `--after session-start|session-found|session-refused` keys go; a change runs through a helper started by a tick (answered by the coordinator's session on the owner's delegation of 2026-11-28)
+4. [scope] Changes on another machine? → Each machine runs its own conductor: the owner types `/devkit roadmap` on each machine, each installs its own scheduled task and claims only items it can claim on GitHub (ADR 0020's claim stays the record of which change runs where); the conductor never starts work on another machine over SSH (answered by the coordinator's session on the owner's delegation of 2026-11-28)
+5. [end effect] Who answers the grill, and from what? → The conductor answers each grill question from the files through the `requirements-triage` agent, then from the owner's standing answers, a file the owner writes (`openspec/standing-answers.md`, new; the conductor reads it and never writes it). A question neither settles is answered by the most conservative reading of the request only when the standing answers delegate the grill; otherwise it becomes a `waits-for-owner` line. Each answer the conductor writes names its source (a file:line, or the standing answer's line). The rule "Never answer a question yourself" (`openspec/config.yaml:49`, both `schema.yaml:22`) is amended to allow exactly this, recorded in a new ADR (answered by the coordinator's session on the owner's delegation of 2026-11-28)
+6. [end effect] Which gates stay the owner's? → Plan approval and retro answers stay the owner's own typed words (triage item 1), unless the standing answers file delegates them by name; a delegation names who decides and is quoted in the gate file. Everything else (a review round past the ceiling, a PR decision) also becomes a `waits-for-owner` line unless delegated (answered by the coordinator's session on the owner's delegation of 2026-11-28)
+7. [end effect] Where is the ONE place? → The `waits-for-owner` lines live in the run file and are shown by `/devkit status` and by the scheduled task's own turn in the session the owner typed in; a phone push (the host's notification tool) is sent at most once per new line when the host offers it. No change gets a box, a question or a session of its own (answered by the coordinator's session on the owner's delegation of 2026-11-28)
+8. [edges] Two ticks at once, or a tick while a helper still runs? → A claim is recorded in the run file per item (who claimed, when, a heartbeat); a tick claims only an unclaimed item or one whose claim is stale; a tick never runs two helpers on one change (answered by the coordinator's session on the owner's delegation of 2026-11-28)
+9. [edges] How many helpers at once? → At most the run's places (`<n>`, default 1) helpers are in flight on one machine; a tick starts at most one new helper (answered by the coordinator's session on the owner's delegation of 2026-11-28)
+10. [edges] What do `<name>` and `round <k>` select? → They select the roadmap and round the queue is built from, as the change `multi-roadmaps` defines them; this change only records the chosen queue in the run file and depends on `multi-roadmaps` for the parsing (answered by the coordinator's session on the owner's delegation of 2026-11-28)
+11. [project rules] Which ADRs move? → One new ADR supersedes ADR 0021 and amends ADR 0013 (decision 4), ADR 0014 (decisions 1-4), ADR 0006 decision 3 and ADR 0020 decision 5 where they say nothing is scheduled, and amends ADR 0011 for the grill answers of item 5; `openspec/config.yaml:49` and the two `schema.yaml:22` change with it (answered by the coordinator's session on the owner's delegation of 2026-11-28)
+12. [project rules] Can a helper dispatch the stage agents and the review bench? → The plan decides between an agent helper and a Workflow helper from the first task's real run, which proves that the chosen helper can dispatch a stage agent and the review bench with the devkit hooks active (ADR 0010 says nesting is proved live before it is trusted, `docs/adr/0010-openspec-as-the-harness.md:207-209`); the implementer still never approves its own work and every delivery still passes `review-change` (answered by the coordinator's session on the owner's delegation of 2026-11-28)
+13. [edges] What does an empty tick cost? → Nothing is recorded; the first task measures it. The target is the genesi model (`~/.claude/plugins/cache/genesi/genesi/0.451.0/bin/genesi-unstick-gate.sh`): a `UserPromptSubmit` hook recognises only the task's prompt envelope and returns `{"decision":"block"}` when no item is ready, so the model is never called; any other prompt passes untouched (answered by the coordinator's session on the owner's delegation of 2026-11-28)
+
 ## Assumptions
 
-<!-- Each confirmed by the owner. Literal paths, fields, names. -->
-- 
+- The run file stays `<git common dir>/devkit/roadmap-run.json` (`plugins/openspec/hooks/run-file.mjs:23`); the queue, the claims and the `waits-for-owner` lines are new fields of it.
+- The scheduled task is created with the host's `mcp__scheduled-tasks__create_scheduled_task`, one per project, its prompt's first line naming the run (e.g. `devkit-roadmap-tick: <root>`); the session cron (`CHECK_CRON` at `plugins/openspec/hooks/roadmap-loop.mjs:310`, the `schedule-check`/`delete-check` actions and the `devkit-roadmap-check:` prompt) goes.
+- The tick's empty-refusal hook is a `UserPromptSubmit` entry in `plugins/openspec/hooks/hooks.json`, reads only local files (no network, no model), and passes every prompt that is not the tick's envelope.
+- A helper drives one change through `plugins/openspec/hooks/change-loop.mjs` (`next`, `--after`, the rows of `ship-change`) in that change's own worktree up to its next wait: GitHub checks, a free place, a dependency, or an owner gate.
+- Where the host has no scheduled-tasks tool, `/devkit roadmap` says so in one line and runs nothing; no fallback to change sessions.
+- `/devkit roadmap stop` deletes the task, and the tick that finds the roadmap done deletes it too.
+
+## Field facts of 2026-11-28
+
+Relayed by the coordinator's session from the run of 12 changes on two machines; the owner asked that what the coordinator did by hand becomes what the conductor does (answered by the coordinator's session on the owner's delegation of 2026-11-28).
+
+1. A child never asks the owner: 11 children with question boxes made the round unusable; the app refuses to stop a session that waits for the user, and a message queued to it waits behind the box. The conductor answers the grill (triage agent + the conservative reading) and the gates the owner delegated; what stays the owner's is shown in ONE list.
+2. The host starts a session only on a turn the owner typed (a cron or message turn is refused even with the owner's Allow), so everything a run needs is started on the typed turn, or runs without sessions (helpers).
+3. Messages from a session on another machine queue behind the coordinator's turns and may never be read: the channel between a change and the conductor is a FILE in the change's folder (a request with a recommendation; an answer), never a message.
+4. The conductor needs a periodic check (5 minutes worked): read each change's state, answer pending requests, restart a change whose runner died, nudge one that stopped with work left.
+5. A plan approval request is a summary of at most 12 lines (what is built, ACs, ADRs, files, risks), and the answer is recorded with the delegating words; approval.md's line cuts at 200 characters.
+6. Siblings on the same file: when it approves each plan, the conductor states an order or "the second to reach its pull request merges the base first".
+7. The train needs a dispatcher: a boarded change waits forever unless something runs the train; the conductor dispatches it when a change boards.
+8. Before opening a change, the conductor checks for a parked branch of the same id and for an item the code already delivers (two items of the run were already done or obsolete).
+9. A planner that escalates ends the loop `blocked: not-delivered`; a plain `next` hands the stage again once requirements.md holds the decision.
+10. Work is split over machines by pushing the change's branch after `open`; the other machine adds a worktree from it.
+
+11. The conductor owns the machine's test capacity: with five changes and a train testing at once on one 14-core machine the load average reached 124 (two whole suites at concurrency 14 plus four gates) and every gate crawled. One whole-suite run at a time per machine (the train has priority), a cap on concurrent gates and on each gate's concurrency, and the places of a run count test load, not sessions. The stage agents inherit the cap in their briefs.
 
 ## Acceptance criteria
 
-<!-- Stable ids, observable and testable. -->
-- AC-1: 
+- AC-1 `first-real-run`: before the design is final, `evidence.md` (or the change's `proof/`) holds one real run showing a scheduled task of the project opening a session in which the devkit plugin's hooks fire, and the measured cost of one empty tick (tokens or model calls) with the refusal hook in place.
+- AC-2 `one-typed-command`: `/devkit roadmap <name> [round <k>] [<n>]` typed once records the queue in the run file and creates exactly one scheduled task of the project; typing it again while the task exists creates no second task.
+- AC-3 `empty-tick-refused`: a tick firing when no item is ready is blocked by the `UserPromptSubmit` hook before any model call; a test feeds the hook the tick's envelope with an empty-ready run file and gets `{"decision":"block"}`, and feeds it any other prompt and gets no output.
+- AC-4 `tick-claims-one`: a tick with a ready item records a claim for exactly one item in the run file, runs that change's loop through a helper in the change's own worktree up to its next wait, records the state and ends; a second tick during a live claim leaves that item alone.
+- AC-5 `resume-from-files`: the next tick goes on from the files (the change folder and the run file) with no state carried in a session; killing a helper mid-stage leaves a stale claim the next tick takes over.
+- AC-6 `no-owner-box`: no helper calls AskUserQuestion or opens a session; a grill is answered from the triage agent and `openspec/standing-answers.md`, each answer naming its source.
+- AC-7 `waits-for-owner-one-place`: a gate that needs the owner (plan approval, retro answers, anything not delegated) becomes one `waits-for-owner` line in the run file, shown by `/devkit status` and in the session the owner typed in; the owner's typed answer there is recorded and the next tick goes on.
+- AC-8 `delegation-quoted`: a gate the standing answers delegate is recorded with the quoted standing answer as its words; a gate not delegated is never recorded by the conductor.
+- AC-9 `task-removes-itself`: `/devkit roadmap stop` and the tick that finds the roadmap done both delete the scheduled task; `list_scheduled_tasks` no longer shows it.
+- AC-10 `sessions-removed`: the tickets, the `devkit-session` skill (`plugins/openspec/skills/devkit-session/`), its entry guard in `plugins/openspec/hooks/guard.mjs`, the `session-start` action, the `--change-sessions` flag, the verbs `session-next`/`session-wait` and the session cron are gone; a grep of `plugins/` for `devkit-start:`, `ticket-unknown` and `devkit-roadmap-check:` finds nothing.
+- AC-11 `places-cap`: no more than the run's places helpers are in flight at once on one machine.
+- AC-12 `adr-recorded`: a new ADR (proposed, `docs/adr/helper-conductor.md`) supersedes ADR 0021 and amends ADRs 0004, 0006, 0008, 0010, 0011, 0013, 0014, 0017, 0020, 0022, 0023 and 0026 as its Amends list names; `openspec/config.yaml` and both `schema.yaml` carry the amended grill rule.
+- AC-13 `compozy-untouched`: the CompozyOS roadmap verbs and `.compozy/` behave as before; their tests pass unchanged.
+- AC-14 `request-file-channel`: a helper that needs a decision writes a request file in the change's folder (the question, the facts, its recommendation); the conductor's answer is a file beside it; no decision travels by a session message.
+- AC-15 `periodic-check`: the scheduled task fires every 5 minutes; a non-empty tick reads each change's state, answers pending request files it may answer, restarts a change whose helper died (stale claim) and resumes one that stopped with work left.
+- AC-16 `approval-summary`: a plan-approval `waits-for-owner` line carries a summary of at most 12 lines (what is built, ACs, ADRs, files, risks); the recorded approval quotes the delegating or typed words and its approval.md line stays within 200 characters.
+- AC-17 `sibling-order`: when two queued changes touch the same file, the conductor records an order (or the rule "the second to reach its pull request merges the base first") with each plan's approval.
+- AC-18 `train-dispatch`: when a change boards the train, the next tick dispatches the train; no boarded change waits without a dispatch.
+- AC-19 `open-precheck`: before opening an item, the conductor checks for a parked branch of the same id (local or on `origin`) and for an item the code already delivers, and records `skipped: delivered` or reuses the branch instead of opening a duplicate.
+- AC-20 `escalation-rehand`: a planner escalation ends that change's loop `blocked: not-delivered` with a request file; once requirements.md holds the decision, the next tick runs a plain `next` and the stage is handed again.
+- AC-21 `machine-split`: after `open`, the change's branch is pushed; a conductor on another machine claims it and adds a worktree from that branch.
+- AC-22 `test-capacity`: on one machine at most one whole-suite run is in flight at a time, the train's run first; concurrent gates and each gate's `--concurrency` are capped by values the run file records; a stage agent's brief carries the cap; a run's places count the changes in a test-loading stage, not sessions.
 
 ## Out of scope
 
-- 
+- The CompozyOS driver and its kit.
+- Parsing `<name>` and `round <k>` (the change `multi-roadmaps`).
+- Starting work on another machine over SSH; each machine runs its own conductor.
+- A phone channel beyond the host's own notification tool.
+
+## Escalations
+
+- None open: the owner delegated every answer to the coordinator on 2026-11-28; plan approval stays with the coordinator's relay.
