@@ -50,7 +50,7 @@ run on the machine and `TMPDIR=/var/tmp`.
 - [x] 2.2 Conductor: hand the scratch paths of 2.1 (the input, the `outcomes` answer, the three files, the `check-file` outputs) to the pr-verifier. It copies them into `openspec/changes/review-writer-text/proof/` and records one row per case in `evidence.md` before the first review round. Check: `evidence.md` has three real-run rows naming the files under `proof/` (AC-1 to AC-5)
 - [x] 2.3 Run the repository's other checks: `python3 scripts/gen-catalog.py --check`, `node plugins/compozy/kit/scripts/gen-agents.mjs --check` and `claude plugin validate .`. Check: each exits 0 (a `CLAUDE.md` command each)
 - [x] 2.4 Run `openspec validate review-writer-text --strict`. Check: it passes, and the delta `specs/review-round/spec.md` states AC-1 to AC-4 (AC-6)
-- [ ] 2.9 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green on the head that holds the proof; covers AC-6
+- [x] 2.9 Gate: `node scripts/test-suite.mjs --own-files && python3 scripts/check.py` green on the head that holds the proof; covers AC-6
 
 ## Workflow follow-up
 
